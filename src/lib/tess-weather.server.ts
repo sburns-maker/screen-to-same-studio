@@ -184,20 +184,20 @@ export async function getWeatherContext(zip: string = WEATHER_ZIP, fetcher?: Fet
         loc = geo.results?.[0];
       }
     }
-    loc ??= REGION_COORDS["16602"];
+    loc ??= REGION_COORDS["16602"]!;
     const wxRes = await f(
       `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
         `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation` +
         `&daily=sunrise,sunset&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1`,
     );
     if (!wxRes.ok) throw new Error("open-meteo forecast failed");
-    return save(normalizeWeather(loc, await wxRes.json(), zip));
+    return save(normalizeWeather(loc ?? {}, await wxRes.json(), zip));
   } catch (e) {
     console.warn("open-meteo failed, trying NWS", e);
   }
 
   try {
-    const l = loc ?? REGION_COORDS["16602"];
+    const l = loc ?? REGION_COORDS["16602"]!;
     const pts = await f(`https://api.weather.gov/points/${l.latitude.toFixed(4)},${l.longitude.toFixed(4)}`);
     if (!pts.ok) throw new Error("nws points failed");
     const hourlyUrl = ((await pts.json()) as { properties?: { forecastHourly?: string } }).properties?.forecastHourly;

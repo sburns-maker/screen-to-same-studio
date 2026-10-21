@@ -582,7 +582,7 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
     const convs = await loadConversations(supabase, userId);
     const now = new Date();
     const { getWeatherContext } = await import("./tess-weather.server");
-    const weather = await getWeatherContext(def.zip);
+    const weather = await getWeatherContext();
     const flavor = weather ? weatherFlavor(weather) : null;
     const results: { conversationId: string; count: number }[] = [];
 
