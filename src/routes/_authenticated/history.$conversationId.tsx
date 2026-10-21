@@ -10,6 +10,8 @@ import { conversationQuery } from "@/lib/tess-queries";
 export const Route = createFileRoute("/_authenticated/history/$conversationId")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Search conversation — Chats" },
       { name: "description", content: "Search and review the full conversation." },
       { property: "og:title", content: "Search conversation — Chats" },

@@ -111,7 +111,7 @@ describe("multi-week life developments", () => {
       const state = root['facts'] as StoryState;
       const beats = milestones.filter(r=>(r['facts'] as Record<string,unknown>)['story_id']===root['id']).sort((a,b)=>Number((a['facts'] as Record<string,unknown>)['step'])-Number((b['facts'] as Record<string,unknown>)['step']));
       expect(beats.map(b=>(b['facts'] as Record<string,unknown>)['step'])).toEqual(Array.from({length:state['step']+1},(_,i)=>i));
-      expect((beats.at(-1)?['facts'] as Record<string,unknown>)['development']).toBe(state.summary);
+      expect((beats.at(-1)?.['facts'] as Record<string,unknown>)['development']).toBe(state.summary);
     }
     console.info("30-day simulation", { roots:events.length-milestones.length, milestones:milestones.length, transitions, outcomes:(db.tables['memories']??[]).length });
   });

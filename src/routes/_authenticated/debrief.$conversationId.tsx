@@ -12,6 +12,8 @@ import { STATE_KEYS } from "@/lib/tess-logic";
 export const Route = createFileRoute("/_authenticated/debrief/$conversationId")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Debrief — Chats" },
       { name: "description", content: "An honest read on how the conversation is going." },
       { property: "og:title", content: "Debrief — Chats" },

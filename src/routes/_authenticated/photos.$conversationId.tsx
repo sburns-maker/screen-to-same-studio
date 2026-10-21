@@ -9,6 +9,8 @@ import { PHOTO_SRC } from "@/lib/tess-photo-images";
 export const Route = createFileRoute("/_authenticated/photos/$conversationId")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Shared photos — Chats" },
       { name: "description", content: "Photos exchanged in this conversation." },
       { property: "og:title", content: "Shared photos — Chats" },

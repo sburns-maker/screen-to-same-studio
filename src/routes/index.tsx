@@ -6,6 +6,8 @@ import tess from "@/assets/tess.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Chats" },
       { name: "description", content: "Practice real conversation with persistent fictional people who have their own lives and opinions." },
       { property: "og:title", content: "Chats" },

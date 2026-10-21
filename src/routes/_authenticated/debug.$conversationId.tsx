@@ -8,6 +8,8 @@ import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
 export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Simulation debug — Chats" },
       { name: "description", content: "Hidden simulation values." },
       { property: "og:title", content: "Simulation debug — Chats" },
