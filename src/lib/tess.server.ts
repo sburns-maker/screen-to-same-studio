@@ -253,9 +253,25 @@ OUTPUT RULES
   return runStructured(replySchema, `${SYSTEM_CORE}\n${rules}`, `${context}\n\n${task}`);
 }
 
-export async function generateDebrief(args: { messages: Msg[]; tz: string; stage: Stage; state: TessState }): Promise<Debrief> {
-  const instructions = `You are a sharp, honest conversation analyst reviewing a flirting/dating texting practice session between "Him" (the user) and Tess (a fictional 34-year-old woman). Speak directly to the user as "you". Be conversational, specific, and willing to say a message didn't land. Quote short bits of his messages when helpful. Never reveal numeric scores. Do not cheerlead — if the exchange was flat, say so. Keep each field to one or two sentences; lists can be empty. Distinguish friendliness from flirting carefully: warmth, humor and responsiveness are NOT automatically romantic interest.`;
-  const input = `Tess's internal read (for your judgment only, don't quote numbers): stage "${args.stage}", ${JSON.stringify(args.state)}
+export async function generateDebrief(args: {
+  messages: Msg[];
+  tz: string;
+  stage: Stage;
+  state: TessState;
+  characterName?: string;
+  baselineNotes?: string;
+  romanticCapable?: boolean;
+}): Promise<Debrief> {
+  const name = args.characterName ?? "Tess";
+  const baseline =
+    args.baselineNotes ??
+    "Tess's baseline: dry, independent, subtle. She flirts rarely and indirectly; a direct flirt from her is a bigger shift than it would be from most people.";
+  const instructions = `You are a sharp, honest conversation analyst reviewing a texting practice session between "Him" (the user) and ${name} (a fictional character). Speak directly to the user as "you". Be conversational, specific, and willing to say a message didn't land. Quote short bits of his messages when helpful. Never reveal numeric scores. Do not cheerlead — if the exchange was flat, say so. Keep each field to one or two sentences; lists can be empty. Distinguish friendliness from flirting carefully: warmth, humor and responsiveness are NOT automatically romantic interest.
+
+CRITICAL — judge everything against THIS person's personal baseline, not generic dating rules:
+${baseline}
+${args.romanticCapable === false ? "This is a platonic friendship with no romantic dimension — analyze conversational connection, not attraction." : ""}`;
+  const input = `${name}'s internal read (for your judgment only, don't quote numbers): stage "${args.stage}", ${JSON.stringify(args.state)}
 
 TRANSCRIPT
 ${transcript(args.messages, args.tz)}
