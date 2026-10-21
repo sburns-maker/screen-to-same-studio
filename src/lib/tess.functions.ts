@@ -232,7 +232,7 @@ async function describeUserPhotos<T extends PhotoMsg>(supabase: Sb, convId: stri
           const buf = new Uint8Array(await blob.arrayBuffer());
           let bin = "";
           for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-          desc = await describeImage(`data:${blob.type || "image/jpeg"};base64,${btoa(bin)}`);
+          desc = (await describeImage(`data:${blob.type || "image/jpeg"};base64,${btoa(bin)}`)) ?? undefined;
           if (desc) {
             await supabase.from("messages").update({ metadata: { ...md, photo_desc: desc } })
               .eq("conversation_id", convId).eq("created_at", m.created_at).eq("sender", "user");
