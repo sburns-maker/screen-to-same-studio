@@ -23,6 +23,14 @@ import {
   type PhotoFrequency,
   type PhotoStyle,
 } from "./tess-photos";
+import {
+  activeLifeEvent,
+  decideInitiation,
+  decideLatency,
+  scheduleFor,
+  weatherFlavor,
+  type LifeEvent,
+} from "./tess-life";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -114,7 +122,7 @@ async function runTurn(
   supabase: Sb,
   userId: string,
   tz: string,
-  initiation?: { gapHours: number },
+  initiation?: { gapHours: number; reason?: string | null },
 ) {
   const { generateTessReply } = await import("./tess.server");
   const conv = await loadConversation(supabase, userId);
