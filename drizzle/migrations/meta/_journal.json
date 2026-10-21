@@ -36,6 +36,13 @@
       "when": 1792551430728,
       "tag": "0004_multi_character_contacts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792552381355,
+      "tag": "0005_living_world_push",
+      "breakpoints": true
     }
   ]
 }

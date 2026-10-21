@@ -63,6 +63,7 @@ export type Database = {
           difficulty: string
           id: string
           last_read_at: string | null
+          muted: boolean
           photo_frequency: string
           read_receipts: boolean
           real_time_mode: boolean
@@ -78,6 +79,7 @@ export type Database = {
           difficulty?: string
           id?: string
           last_read_at?: string | null
+          muted?: boolean
           photo_frequency?: string
           read_receipts?: boolean
           real_time_mode?: boolean
@@ -93,6 +95,7 @@ export type Database = {
           difficulty?: string
           id?: string
           last_read_at?: string | null
+          muted?: boolean
           photo_frequency?: string
           read_receipts?: boolean
           real_time_mode?: boolean
@@ -237,6 +240,33 @@ export type Database = {
           },
         ]
       }
+      job_runs: {
+        Row: {
+          detail: Json
+          finished_at: string | null
+          id: string
+          job: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          detail?: Json
+          finished_at?: string | null
+          id?: string
+          job: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          detail?: Json
+          finished_at?: string | null
+          id?: string
+          job?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       memories: {
         Row: {
           conversation_id: string
@@ -315,6 +345,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_subscriptions: {
+        Row: {
+          created_at: string
+          endpoint: string
+          id: string
+          keys: Json
+          last_used_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          id?: string
+          keys: Json
+          last_used_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          id?: string
+          keys?: Json
+          last_used_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       tess_life: {
         Row: {
@@ -422,23 +482,76 @@ export type Database = {
       user_profile: {
         Row: {
           key: string
+          quiet_end: number | null
+          quiet_start: number | null
           updated_at: string
           user_id: string
           value: string
         }
         Insert: {
           key: string
+          quiet_end?: number | null
+          quiet_start?: number | null
           updated_at?: string
           user_id: string
           value: string
         }
         Update: {
           key?: string
+          quiet_end?: number | null
+          quiet_start?: number | null
           updated_at?: string
           user_id?: string
           value?: string
         }
         Relationships: []
+      }
+      world_events: {
+        Row: {
+          character_key: string
+          conversation_id: string
+          created_at: string
+          id: string
+          kind: string
+          occurs_at: string
+          payload: Json
+          processed_at: string | null
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          character_key: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          occurs_at?: string
+          payload?: Json
+          processed_at?: string | null
+          summary: string
+          user_id: string
+        }
+        Update: {
+          character_key?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          occurs_at?: string
+          payload?: Json
+          processed_at?: string | null
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_events_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
