@@ -274,7 +274,9 @@ async function runTurn(
     // Real-Time Mode sleep boundary: she'll see it in the morning. No fake reply.
     return { count: 0, lastVisibleAt: null, sleep: true, latencyReason: latency.reason };
   }
-  let at = Date.now() + clampDelaySeconds(latency.seconds) * 1000;
+  // Practice delays stay 3s–4min; real-time delays may run longer (work, events).
+  const delaySec = realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
+  let at = Date.now() + delaySec * 1000;
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
     return {
