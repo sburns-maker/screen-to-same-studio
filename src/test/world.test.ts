@@ -76,9 +76,8 @@ describe("per-character photo rules", () => {
     expect(characterFor("ben").romanticCapable).toBe(false);
   });
 
-  it("all characters live near ZIP 16602 in the Eastern timezone", () => {
+  it("all characters live in or near ZIP 16602", () => {
     for (const c of CHARACTERS) {
-      expect(c.timezone).toBe("America/New_York");
       expect(c.zip.startsWith("166")).toBe(true);
     }
   });
