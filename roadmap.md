@@ -28,7 +28,7 @@
 - Tests: 21 new (social-logic.test.ts), 132 total passing; typecheck clean.
 
 ## Open / partial
-- Background push verified end-to-end only on a real Android PWA install — needs published app + device test.
+- Done: background push confirmed working by Sean on the published app (public visibility + push worker served from /api/public/push/, VAPID key fixed, stale sign-up reset).
 - Multi-week one-off storylines (e.g. Claire's family visit arc) use recurring events only; ad-hoc multi-week plotted arcs are not built.
 - Social-graph visualization on /world is list-based, not a graphical diagram.
 
