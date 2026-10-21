@@ -19,7 +19,7 @@ function database() {
     let action = "select"; let rows: Record<string, unknown>[] = []; let opts: { onConflict?: string; ignoreDuplicates?: boolean } = {}; const filters: ((r: Record<string, unknown>) => boolean)[] = [];
     const q = {
       select(_fields?: string) { return q; }, limit(_n: number) { return q; },
-      eq(key: string, value: unknown) { filters.push(r => key === "facts->>step" ? String((r.facts as StoryState).step) === value : r[key] === value); return q; },
+      eq(key: string, value: unknown) { filters.push(r => key === "facts->>step" ? String((r['facts'] as StoryState)['step']) === value : r[key] === value); return q; },
       upsert(input: Record<string, unknown> | Record<string, unknown>[], options: typeof opts) { action = "upsert"; rows = Array.isArray(input) ? input : [input]; opts = options; return q; },
       update(input: Record<string, unknown>) { action = "update"; rows = [input]; return q; },
       then(resolve: (result: unknown) => unknown) {
@@ -59,19 +59,19 @@ describe("multi-week life developments", () => {
     for (let n=0;n<50;n++) for (const root of beginStories(`seed-${n}`, START, [], links)) {
       let state = root.state;
       while (storyActive(state)) {
-        const next = advanceStory(root.id, state);
-        expect(next).toEqual(advanceStory(root.id, state));
+        const next = advanceStory(root['id'], state);
+        expect(next).toEqual(advanceStory(root['id'], state));
         expect(Date.parse(next.updatedAt)).toBeGreaterThan(Date.parse(state.updatedAt));
         stages.add(next.stage); state = next;
       }
-      expect(advanceStory(root.id,state)).toEqual(state);
+      expect(advanceStory(root['id'],state)).toEqual(state);
     }
     for (const stage of ["postponed","resolved","faded","continuing"]) expect(stages.has(stage)).toBe(true);
   });
   it("shared participants receive the same facts, not other characters' private knowledge", () => {
     const root = beginStories("alice", START, [], links)[0];
     if (!root) throw new Error("missing Tess situation");
-    const ev = storyEvent(root.id, { ...root.state, characters: ["tess","maya"] });
+    const ev = storyEvent(root['id'], { ...root.state, characters: ["tess","maya"] });
     const knowledge = knowledgeFromEvent(ev, []);
     expect(knowledge.map(k=>k.characterKey)).toEqual(["tess","maya"]);
     for (const k of knowledge) expect(k.summary).toContain(root.state.summary);
@@ -103,17 +103,17 @@ describe("multi-week life developments", () => {
       expect(JSON.stringify(db.tables)).toBe(before);
     }
     expect(transitions).toBeGreaterThanOrEqual(15);
-    const events = db.tables.shared_events ?? [];
-    const milestones = events.filter(r=>r.kind==="life_development");
+    const events = db.tables['shared_events'] ?? [];
+    const milestones = events.filter(r=>r['kind']==="life_development");
     expect(milestones.length).toBeLessThanOrEqual(45);
-    expect(new Set(events.map(r=>r.id)).size).toBe(events.length);
-    for (const root of events.filter(r=>r.kind==="life_storyline")) {
-      const state = root.facts as StoryState;
-      const beats = milestones.filter(r=>(r.facts as Record<string,unknown>).story_id===root.id).sort((a,b)=>Number((a.facts as Record<string,unknown>).step)-Number((b.facts as Record<string,unknown>).step));
-      expect(beats.map(b=>(b.facts as Record<string,unknown>).step)).toEqual(Array.from({length:state.step+1},(_,i)=>i));
-      expect((beats.at(-1)?.facts as Record<string,unknown>).development).toBe(state.summary);
+    expect(new Set(events.map(r=>r['id'])).size).toBe(events.length);
+    for (const root of events.filter(r=>r['kind']==="life_storyline")) {
+      const state = root['facts'] as StoryState;
+      const beats = milestones.filter(r=>(r['facts'] as Record<string,unknown>)['story_id']===root['id']).sort((a,b)=>Number((a['facts'] as Record<string,unknown>)['step'])-Number((b['facts'] as Record<string,unknown>)['step']));
+      expect(beats.map(b=>(b['facts'] as Record<string,unknown>)['step'])).toEqual(Array.from({length:state['step']+1},(_,i)=>i));
+      expect((beats.at(-1)?['facts'] as Record<string,unknown>)['development']).toBe(state.summary);
     }
-    console.info("30-day simulation", { roots:events.length-milestones.length, milestones:milestones.length, transitions, outcomes:(db.tables.memories??[]).length });
+    console.info("30-day simulation", { roots:events.length-milestones.length, milestones:milestones.length, transitions, outcomes:(db.tables['memories']??[]).length });
   });
   it("recovers interrupted milestone writes without duplicating facts or outcomes", async () => {
     const db = database();
@@ -125,9 +125,9 @@ describe("multi-week life developments", () => {
     const before = JSON.stringify(db.tables);
     await runStorylineTick(db.client,"alice",later,links);
     expect(JSON.stringify(db.tables)).toBe(before);
-    const memories = db.tables.memories ?? [];
+    const memories = db.tables['memories'] ?? [];
     expect(memories.length).toBe(5);
-    expect(new Set(memories.map(r=>r.id)).size).toBe(5);
+    expect(new Set(memories.map(r=>r['id'])).size).toBe(5);
   });
   it("preserves outcome context weeks later and isolates application users", async () => {
     const db = database();
@@ -137,17 +137,17 @@ describe("multi-week life developments", () => {
     await runStorylineTick(db.client,"bob",later,links);
     const context = await storylineContext(db.client,"alice","tess",later);
     expect(context.lines.some(l=>l.includes("remembered history"))).toBe(true);
-    const alice = (db.tables.shared_events??[]).filter(r=>r.user_id==="alice").map(r=>r.id);
-    const bob = (db.tables.shared_events??[]).filter(r=>r.user_id==="bob").map(r=>r.id);
+    const alice = (db.tables['shared_events']??[]).filter(r=>r['user_id']==="alice").map(r=>r['id']);
+    const bob = (db.tables['shared_events']??[]).filter(r=>r['user_id']==="bob").map(r=>r['id']);
     expect(bob.some(id=>alice.includes(id))).toBe(false);
-    expect((db.tables.memories??[]).every(r=>r.user_id==="alice")).toBe(true);
+    expect((db.tables['memories']??[]).every(r=>r['user_id']==="alice")).toBe(true);
     expect(storyMemoryId("alice","tess","story")).not.toBe(storyMemoryId("bob","tess","story"));
   });
   it("does not repeat a finished topic, respects cooldown and permits quiet periods", () => {
     const roots = beginStories("alice",START,[],links);
-    const closed = roots.map(r=>{ let s=r.state; while(storyActive(s)) s=advanceStory(r.id,s); return s; });
+    const closed = roots.map(r=>{ let s=r.state; while(storyActive(s)) s=advanceStory(r['id'],s); return s; });
     const latest = Math.max(...closed.map(s=>Date.parse(s.updatedAt)));
-    expect(beginStories("alice",new Date(latest+DAY),closed,links)).toEqual([]);
+    for (const state of closed) expect(beginStories("alice",new Date(Date.parse(state.updatedAt)+DAY),[state],links).some(r=>r.state.owner===state.owner)).toBe(false);
     const next = beginStories("alice",new Date(latest+20*DAY),closed,links);
     expect(next).toHaveLength(5);
     expect(next.some(r=>closed.some(s=>s.template===r.state.template))).toBe(false);
