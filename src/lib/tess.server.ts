@@ -285,7 +285,7 @@ ${KNOWLEDGE_RULES}
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
   reply.messages = cleaned.length || !reply.messages.length
     ? cleaned
-    : [reply.messages[0].replace(/\p{Extended_Pictographic}/gu, "").replace(/!+/g, ".").trim()].filter(Boolean);
+    : [(reply.messages[0] ?? "").replace(/\p{Extended_Pictographic}/gu, "").replace(/!+/g, ".").trim()].filter(Boolean);
   return reply;
 }
 
