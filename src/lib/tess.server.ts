@@ -254,12 +254,30 @@ OUTPUT RULES
 }
 
 export async function generateDebrief(args: { messages: Msg[]; tz: string; stage: Stage; state: TessState }): Promise<Debrief> {
-  const instructions = `You are a sharp, honest conversation analyst reviewing a flirting/dating texting practice session between "Him" (the user) and Tess (a fictional 34-year-old woman). Speak directly to the user as "you". Be conversational, specific, and willing to say a message didn't land. Quote short bits of his messages when helpful. Never reveal numeric scores. Do not cheerlead. Keep each list item to one or two sentences; lists can be empty.`;
+  const instructions = `You are a sharp, honest conversation analyst reviewing a flirting/dating texting practice session between "Him" (the user) and Tess (a fictional 34-year-old woman). Speak directly to the user as "you". Be conversational, specific, and willing to say a message didn't land. Quote short bits of his messages when helpful. Never reveal numeric scores. Do not cheerlead — if the exchange was flat, say so. Keep each field to one or two sentences; lists can be empty. Distinguish friendliness from flirting carefully: warmth, humor and responsiveness are NOT automatically romantic interest.`;
   const input = `Tess's internal read (for your judgment only, don't quote numbers): stage "${args.stage}", ${JSON.stringify(args.state)}
 
 TRANSCRIPT
 ${transcript(args.messages, args.tz)}
 
-Fill: headline (one-line verdict), felt_natural, worked, didnt_land, pressure (any pressure/reassurance-seeking/over-escalation, or "None noticeable"), missed_openings, tess_read (was she friendly, ambiguous, flirtatious, guarded, annoyed...), who_carried (was he carrying the conversation?), tess_invested (did she invest or initiate independently?), try_next (one concrete suggestion).`;
+Fill every field:
+- headline: one-line verdict.
+- felt_natural / worked / didnt_land: specific moments. Be willing to say "That line didn't really land."
+- pressure: any pressure, reassurance-seeking, pushing after a weak response, or over-escalation — or "None noticeable".
+- missed_openings: openings she gave that he didn't pick up (e.g. "She answered, but he didn't pick up the flirt." counts as HIS miss too — note either direction).
+- tess_read: friendly, ambiguous, flirtatious, guarded, annoyed — and how it compares to her normal baseline ("That was a stronger signal than her usual baseline." / "This reads more like comfort than attraction.").
+- who_carried: who was carrying the conversation ("You are carrying most of the interaction right now." if true).
+- tess_invested: did she invest independently — initiate, add topics, prolong ("She initiated and then added multiple new topics, which indicates investment.")?
+- initiation: who initiated this exchange and what that means.
+- reciprocity: is effort balanced or one-sided?
+- question_balance: did he ask too many questions / interrogate, or too few?
+- branches: who introduced new conversational branches and whether they got picked up.
+- exits: did she create an easy exit? Did he respect it or push? ("You gave her an easy exit and she chose to continue." is a strong positive signal.)
+- tone_read: did he correctly read her tone?
+- baseline_change: how this exchange compares to her normal baseline.
+- friendly_vs_flirty: was this friendliness or flirting? ("She was friendly, but there isn't much evidence of flirting in this exchange.")
+- interest_direction: is her interest increasing, stable, decreasing, or ambiguous — and why.
+- momentum: did the conversation have genuine momentum?
+- try_next: one concrete suggestion.`;
   return runStructured(debriefSchema, instructions, input);
 }
