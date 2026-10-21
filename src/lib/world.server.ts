@@ -361,13 +361,20 @@ export async function runWorldTick(): Promise<TickReport> {
                 tag: `conv-${conv.id}`,
               });
               report.pushed += push.sent;
-              await admin
+              // Mark the just-written messages pushed (merge, don't overwrite metadata).
+              const { data: newMsgs } = await admin
                 .from("messages")
-                .update({ metadata: { pushed: true } })
+                .select("id, metadata")
                 .eq("conversation_id", conv.id)
                 .eq("sender", "tess")
                 .gte("created_at", nowIso)
                 .is("metadata->>pushed", null);
+              for (const m of newMsgs ?? []) {
+                await admin
+                  .from("messages")
+                  .update({ metadata: { ...((m.metadata as Record<string, unknown>) ?? {}), pushed: true } })
+                  .eq("id", m.id);
+              }
               await admin.from("world_events").insert({
                 user_id: userId,
                 conversation_id: conv.id,
