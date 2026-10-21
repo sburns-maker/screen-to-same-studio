@@ -94,7 +94,9 @@ function Chat() {
     if (!msgs.isSuccess || initiated.current) return;
     initiated.current = true;
     initiate({ data: { tz: userTz() } })
-      .then((r) => r.count && refetch())
+      .then((r) => {
+        if (r.count) void refetch();
+      })
       .catch(() => {});
   }, [msgs.isSuccess, initiate, refetch]);
 

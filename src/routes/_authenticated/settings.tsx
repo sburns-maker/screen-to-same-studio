@@ -55,7 +55,7 @@ function SettingsPage() {
   const wipe = useServerFn(deleteAllData);
   const c = conv.data;
 
-  async function set(patch: Parameters<typeof update>[0]["data"]) {
+  async function set(patch: { difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean }) {
     qc.setQueryData(conversationQuery.queryKey, (old: typeof c) => (old ? { ...old, ...patch } : old));
     await update({ data: patch });
     qc.invalidateQueries({ queryKey: ["conversation"] });

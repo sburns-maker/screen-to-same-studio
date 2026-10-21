@@ -154,7 +154,7 @@ export async function generateTessReply(args: {
   messages: Msg[];
   memories: string[];
   tz: string;
-  initiation?: { gapHours: number };
+  initiation?: { gapHours: number } | undefined;
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));

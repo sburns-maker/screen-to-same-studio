@@ -134,7 +134,7 @@ async function runTurn(
     }));
   if (memRows.length) await supabase.from("memories").insert(memRows);
 
-  return { count: rows.length, lastVisibleAt: rows.length ? rows[rows.length - 1].visible_at : null };
+  return { count: rows.length, lastVisibleAt: rows.length ? rows[rows.length - 1]!.visible_at : null };
 }
 
 export const tessRespond = createServerFn({ method: "POST" })
@@ -226,6 +226,7 @@ export const updateSettings = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    await context.supabase.from("conversations").update(data).eq("user_id", context.userId);
+    const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+    await context.supabase.from("conversations").update(patch).eq("user_id", context.userId);
     return { ok: true };
   });

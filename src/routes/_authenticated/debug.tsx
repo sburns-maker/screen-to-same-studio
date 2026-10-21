@@ -32,9 +32,9 @@ function Debug() {
               <div className="text-xs text-muted-foreground">Stage</div>
               <div className="font-display text-2xl">{deriveStage(s)}</div>
               <div className="mt-1 text-xs text-muted-foreground">Last tone: {s.last_tone ?? "—"} · Difficulty: {conv.data?.difficulty}</div>
-              {Array.isArray(s.last_delta?.tags) && (s.last_delta.tags as string[]).length > 0 && (
+              {Array.isArray(s.last_delta?.['tags']) && (s.last_delta['tags'] as string[]).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {(s.last_delta.tags as string[]).map((t) => (
+                  {(s.last_delta['tags'] as string[]).map((t) => (
                     <span key={t} className="rounded-full bg-accent px-2 py-0.5 font-mono text-[11px] text-accent-foreground">{t}</span>
                   ))}
                 </div>
