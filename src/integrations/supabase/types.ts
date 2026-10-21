@@ -506,6 +506,24 @@ export type Database = {
         }
         Relationships: []
       }
+      world_control: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       world_events: {
         Row: {
           character_key: string
