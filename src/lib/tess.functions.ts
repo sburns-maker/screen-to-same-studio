@@ -362,19 +362,86 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const conv = await loadConversation(supabase, userId);
     if (!conv) return { count: 0 };
-    const { data: last } = await supabase
-      .from("messages")
-      .select("created_at")
-      .eq("conversation_id", conv.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const now = new Date();
+    const [{ data: last }, { data: stateRow }, { data: life }, { data: recentMsgs }] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("created_at")
+        .eq("conversation_id", conv.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
+      supabase.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
+      supabase
+        .from("messages")
+        .select("sender, body, created_at")
+        .eq("conversation_id", conv.id)
+        .order("created_at", { ascending: false })
+        .limit(30),
+    ]);
     if (!last) return { count: 0 };
     const gapHours = (Date.now() - new Date(last.created_at).getTime()) / 3_600_000;
-    if (gapHours < 5) return { count: 0 };
-    const chance = conv.difficulty === "chaos" ? 0.5 : 0.35;
-    if (Math.random() > chance) return { count: 0 };
-    return runTurn(supabase, userId, data.tz, { gapHours });
+
+    const state = pickState(stateRow ?? {});
+    const { getWeatherContext } = await import("./tess-weather.server");
+    const weather = await getWeatherContext();
+    const lifeEvent = activeLifeEvent(
+      now,
+      weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
+    );
+    const schedule = scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1);
+
+    // Who's been carrying the conversation lately?
+    const list = (recentMsgs ?? []).filter((m) => m.sender === "user" || m.sender === "tess");
+    const userCount = list.filter((m) => m.sender === "user").length;
+    const tessCount = list.filter((m) => m.sender === "tess").length;
+    const userCarrying = userCount > tessCount * 1.6 && userCount >= 5;
+
+    // A plausible reason makes initiation natural: weather hook, life event,
+    // or a callback-worthy memory. Weather alone never triggers — it only
+    // supplies the reason once the engine already considers her eligible.
+    const flavor = weather ? weatherFlavor(weather) : null;
+    const hasPlausibleReason = !!(flavor || lifeEvent || state.relationship_momentum > 35 || state.curiosity > 55);
+
+    const decision = decideInitiation({
+      state,
+      stage: deriveStage(state),
+      gapHours,
+      lastInitiatedAt: life?.last_initiated_at ? new Date(life.last_initiated_at) : null,
+      userCarrying,
+      recentQuality: Math.min(100, state.relationship_momentum + state.playfulness / 2),
+      schedule,
+      lifeEvent,
+      hasPlausibleReason,
+      now,
+    });
+    // Record the check so the debug screen can explain eligibility.
+    await supabase.from("tess_life").upsert({
+      conversation_id: conv.id,
+      user_id: userId,
+      current_event: lifeEvent ? { ...lifeEvent } : {},
+      last_initiation: {
+        at: now.toISOString(),
+        eligible: decision.eligible,
+        initiated: decision.initiate,
+        score: decision.score,
+        chance: decision.chance,
+        reasons: decision.reasons,
+      },
+      updated_at: now.toISOString(),
+    });
+    if (!decision.initiate) return { count: 0 };
+
+    const reason = lifeEvent?.summary ?? flavor ?? null;
+    const result = await runTurn(supabase, userId, data.tz, { gapHours, reason });
+    if (result.count > 0) {
+      await supabase
+        .from("tess_life")
+        .update({ last_initiated_at: now.toISOString(), updated_at: now.toISOString() })
+        .eq("conversation_id", conv.id);
+    }
+    return result;
   });
 
 export const runDebrief = createServerFn({ method: "POST" })
