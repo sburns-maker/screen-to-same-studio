@@ -3,6 +3,7 @@ import { Output, streamText } from "ai";
 import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
+import { KNOWLEDGE_RULES } from "./social-logic";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
@@ -217,6 +218,7 @@ export async function generateTessReply(args: {
   lifeEvent?: LifeEvent | null;
   initiationReason?: string | null;
   photoBoundary?: PhotoBoundary;
+  worldKnowledge?: string[];
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
@@ -240,6 +242,7 @@ NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.gen
 PHOTO FREQUENCY PREFERENCE: ${args.photoFrequency}
 HER RECENT PHOTO STYLES (avoid repeating the same combination unless the scene demands it): ${args.recentPhotoStyles?.length ? args.recentPhotoStyles.join(" | ") : "(none yet)"}
 LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
+WHAT SHE KNOWS LATELY (her own life and social circle): ${args.worldKnowledge?.length ? args.worldKnowledge.join(" | ") : "(nothing new)"}
 
 RECENT CONVERSATION
 ${transcript(args.messages, args.tz)}
@@ -252,6 +255,7 @@ ${transcript(args.messages, args.tz)}
   const rules = `
 OUTPUT RULES
 ${photoDecisionRules(args.photoBoundary)}
+${KNOWLEDGE_RULES}
 - messages: Tess's texts only, no quotes/narration.
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent. Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation.
@@ -333,6 +337,7 @@ export async function generateContactReply(args: {
   generateTypes?: string[];
   recentPhotoStyles?: string[];
   photoBoundary?: PhotoBoundary;
+  worldKnowledge?: string[];
 }): Promise<TessReply> {
   const c = args.character;
   const now = new Date();
@@ -353,6 +358,7 @@ ${c.preferredName.toUpperCase()}'S LOCAL TIME (Eastern): ${charLocal.toLocaleStr
 ${c.preferredName.toUpperCase()} RIGHT NOW: ${args.availabilityDetail}
 WEATHER IN ${c.preferredName.toUpperCase()}'S AREA (ZIP ${c.zip}): ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F` : "(unknown — don't bring it up)"}
 LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
+WHAT ${c.preferredName.toUpperCase()} KNOWS LATELY (their own life and social circle): ${args.worldKnowledge?.length ? args.worldKnowledge.join(" | ") : "(nothing new)"}
 
 RECENT CONVERSATION
 ${transcript(args.messages, args.tz, c.preferredName)}
@@ -365,6 +371,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
   const rules = `
 OUTPUT RULES
 ${photoDecisionRules(args.photoBoundary)}
+${KNOWLEDGE_RULES}
 - messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.
 - send_delay_seconds: realistic reply delay given availability and ${c.preferredName}'s texting habits.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent.${
