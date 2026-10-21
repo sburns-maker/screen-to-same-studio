@@ -205,10 +205,12 @@ export async function runWorldTick(): Promise<TickReport> {
       if (conv?.last_read_at && new Date(conv.last_read_at) >= new Date(msg.created_at)) continue; // already seen
       const { data: profile } = await admin
         .from("user_profile")
-        .select("quiet_start, quiet_end")
+        .select("value")
         .eq("user_id", msg.user_id)
+        .eq("key", "quiet_hours")
         .maybeSingle();
-      if (inQuietHours(now, profile?.quiet_start ?? null, profile?.quiet_end ?? null)) continue;
+      const qh = parseQuietHours(profile?.value);
+      if (inQuietHours(now, qh.start, qh.end)) continue;
       const name = conv?.character?.preferred_name ?? "Chats";
       const push = await pushToUser(admin, msg.user_id, {
         title: name,
@@ -254,9 +256,11 @@ export async function runWorldTick(): Promise<TickReport> {
       if (report.aiCalls >= aiBudget || report.paused) break;
       const { data: profile } = await admin
         .from("user_profile")
-        .select("quiet_start, quiet_end")
+        .select("value")
         .eq("user_id", userId)
+        .eq("key", "quiet_hours")
         .maybeSingle();
+      const quiet = parseQuietHours(profile?.value);
 
       for (const conv of convs ?? []) {
         if (report.aiCalls >= aiBudget || report.paused) break;
