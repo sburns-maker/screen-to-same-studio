@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedWorldRouteImport } from './routes/_authenticated/world'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedDebriefConversationIdRouteImport } from './routes/_authenticated/debrief.$conversationId'
 import { Route as AuthenticatedDebugConversationIdRouteImport } from './routes/_authenticated/debug.$conversationId'
@@ -44,6 +45,11 @@ const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWorldRoute = AuthenticatedWorldRouteImport.update({
+  id: '/world',
+  path: '/world',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedChatConversationIdRoute =
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/world': typeof AuthenticatedWorldRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/world': typeof AuthenticatedWorldRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/world': typeof AuthenticatedWorldRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/_authenticated/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/inbox'
     | '/settings'
+    | '/world'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/inbox'
     | '/settings'
+    | '/world'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/inbox'
     | '/_authenticated/settings'
+    | '/_authenticated/world'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/debrief/$conversationId'
     | '/_authenticated/debug/$conversationId'
@@ -214,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/world': {
+      id: '/_authenticated/world'
+      path: '/world'
+      fullPath: '/world'
+      preLoaderRoute: typeof AuthenticatedWorldRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/chat/$conversationId': {
@@ -271,6 +290,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedWorldRoute: typeof AuthenticatedWorldRoute
   AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
   AuthenticatedDebriefConversationIdRoute: typeof AuthenticatedDebriefConversationIdRoute
   AuthenticatedDebugConversationIdRoute: typeof AuthenticatedDebugConversationIdRoute
@@ -282,6 +302,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedWorldRoute: AuthenticatedWorldRoute,
   AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
   AuthenticatedDebriefConversationIdRoute:
     AuthenticatedDebriefConversationIdRoute,
