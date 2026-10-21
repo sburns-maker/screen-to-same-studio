@@ -97,6 +97,7 @@ function SettingsPage() {
         <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <NotificationsRow />
+          <QuietHoursRow />
           <MessagePreviewsRow />
           <Row>
             Typing indicator
@@ -237,6 +238,7 @@ function NotificationsRow() {
         const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) as BufferSource });
         const json = sub.toJSON();
         await save({ data: { endpoint: sub.endpoint, keys: { p256dh: json.keys!.p256dh, auth: json.keys!.auth }, userAgent: navigator.userAgent } });
+        localStorage.setItem("tess:notifications", "on"); // foreground toasts while the app is open
         toast.success("Background notifications on for this device.");
       } else {
         const reg = await navigator.serviceWorker.ready.catch(() => null);
@@ -245,6 +247,7 @@ function NotificationsRow() {
           await remove({ data: { endpoint: sub.endpoint } });
           await sub.unsubscribe();
         }
+        localStorage.setItem("tess:notifications", "off");
         toast.success("Background notifications off for this device.");
       }
       qc.invalidateQueries({ queryKey: ["pushStatus"] });
