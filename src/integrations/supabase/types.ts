@@ -14,7 +14,218 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          created_at: string
+          difficulty: string
+          id: string
+          read_receipts: boolean
+          relationship_stage: string
+          show_sim_data: boolean
+          typing_indicator: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          difficulty?: string
+          id?: string
+          read_receipts?: boolean
+          relationship_stage?: string
+          show_sim_data?: boolean
+          typing_indicator?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          difficulty?: string
+          id?: string
+          read_receipts?: boolean
+          relationship_stage?: string
+          show_sim_data?: boolean
+          typing_indicator?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      debriefs: {
+        Row: {
+          analysis: Json
+          conversation_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          analysis: Json
+          conversation_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          analysis?: Json
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "debriefs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memories: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          importance: number
+          memory_type: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          importance?: number
+          memory_type?: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          importance?: number
+          memory_type?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memories_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          sender: string
+          user_id: string
+          visible_at: string
+        }
+        Insert: {
+          body: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          sender: string
+          user_id: string
+          visible_at?: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          sender?: string
+          user_id?: string
+          visible_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tess_state: {
+        Row: {
+          comfort: number
+          conversation_id: string
+          curiosity: number
+          emotional_intimacy: number
+          irritation: number
+          last_delta: Json
+          last_tone: string | null
+          perceived_pressure: number
+          physical_attraction: number
+          playfulness: number
+          relationship_momentum: number
+          respect: number
+          romantic_attraction: number
+          trust: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comfort?: number
+          conversation_id: string
+          curiosity?: number
+          emotional_intimacy?: number
+          irritation?: number
+          last_delta?: Json
+          last_tone?: string | null
+          perceived_pressure?: number
+          physical_attraction?: number
+          playfulness?: number
+          relationship_momentum?: number
+          respect?: number
+          romantic_attraction?: number
+          trust?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          comfort?: number
+          conversation_id?: string
+          curiosity?: number
+          emotional_intimacy?: number
+          irritation?: number
+          last_delta?: Json
+          last_tone?: string | null
+          perceived_pressure?: number
+          physical_attraction?: number
+          playfulness?: number
+          relationship_momentum?: number
+          respect?: number
+          romantic_attraction?: number
+          trust?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tess_state_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
