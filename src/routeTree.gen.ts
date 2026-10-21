@@ -20,6 +20,7 @@ import { Route as AuthenticatedDebugConversationIdRouteImport } from './routes/_
 import { Route as AuthenticatedHistoryConversationIdRouteImport } from './routes/_authenticated/history.$conversationId'
 import { Route as AuthenticatedPhotosConversationIdRouteImport } from './routes/_authenticated/photos.$conversationId'
 import { Route as AuthenticatedProfileConversationIdRouteImport } from './routes/_authenticated/profile.$conversationId'
+import { Route as ApiPublicJobsWorldTickRouteImport } from './routes/api/public/jobs/world-tick'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -81,6 +82,11 @@ const AuthenticatedProfileConversationIdRoute =
     path: '/profile/$conversationId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicJobsWorldTickRoute = ApiPublicJobsWorldTickRouteImport.update({
+  id: '/api/public/jobs/world-tick',
+  path: '/api/public/jobs/world-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
   '/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
+  '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
   '/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
+  '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -119,6 +127,7 @@ export interface FileRoutesById {
   '/_authenticated/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/_authenticated/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
   '/_authenticated/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
+  '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/history/$conversationId'
     | '/photos/$conversationId'
     | '/profile/$conversationId'
+    | '/api/public/jobs/world-tick'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/history/$conversationId'
     | '/photos/$conversationId'
     | '/profile/$conversationId'
+    | '/api/public/jobs/world-tick'
   id:
     | '__root__'
     | '/'
@@ -158,12 +169,14 @@ export interface FileRouteTypes {
     | '/_authenticated/history/$conversationId'
     | '/_authenticated/photos/$conversationId'
     | '/_authenticated/profile/$conversationId'
+    | '/api/public/jobs/world-tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicJobsWorldTickRoute: typeof ApiPublicJobsWorldTickRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileConversationIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/jobs/world-tick': {
+      id: '/api/public/jobs/world-tick'
+      path: '/api/public/jobs/world-tick'
+      fullPath: '/api/public/jobs/world-tick'
+      preLoaderRoute: typeof ApiPublicJobsWorldTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -281,6 +301,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicJobsWorldTickRoute: ApiPublicJobsWorldTickRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
