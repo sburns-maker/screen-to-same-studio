@@ -123,6 +123,27 @@ function Chat() {
     }
   }, [respond, refetch, conversationId]);
 
+  // Opening a thread whose last message is the user's (unanswered) triggers a reply.
+  const checkedOrphan = useRef(false);
+  useEffect(() => {
+    if (checkedOrphan.current || !msgs.data) return;
+    checkedOrphan.current = true;
+    const last = msgs.data[msgs.data.length - 1];
+    if (last?.sender === "user" && Date.now() - new Date(last.created_at).getTime() > 5000) void runRespond();
+  }, [msgs.data, runRespond]);
+
+  // Leaving the thread before the debounce fires: send the reply request now.
+  useEffect(
+    () => () => {
+      if (debounce.current) {
+        clearTimeout(debounce.current);
+        debounce.current = null;
+        void respond({ data: { conversationId, tz: userTz() } }).catch(() => {});
+      }
+    },
+    [respond, conversationId],
+  );
+
   async function send() {
     const body = text.trim();
     if (!body || !convId) return;
