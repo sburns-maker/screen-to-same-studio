@@ -186,6 +186,7 @@ async function runTurn(
     photos,
     generateTypes,
     photoFrequency: freq,
+    recentPhotoStyles: recentStyles.map(describeStyle),
     memories: (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`),
     tz,
     initiation,
@@ -203,13 +204,25 @@ async function runTurn(
 
   // --- Photo: curated first, then optional generation, else none. Failures stay invisible.
   let photo: string | null = null;
-  let generated: { path: string; type: string; scene: string; selfie: boolean; tess: boolean; provider: string; model: string } | null = null;
+  let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   const p = reply.photo;
   if (p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type) && Math.random() < rules.generateChance) {
     try {
-      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, p.expression);
+      const rawStyle: PhotoStyle = {
+        pose_type: p.pose_type,
+        camera_angle: p.camera_angle,
+        crop_type: p.crop_type,
+        hairstyle: p.hairstyle,
+        expression: p.expression,
+        clothing_category: p.clothing_category,
+        setting: p.setting,
+        selfie_type: p.selfie_type,
+      };
+      // Context first, variety second: only nudge an exact repeat of a recent photo.
+      const style = varyStyle(rawStyle, recentStyles);
+      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style);
     } catch (e) {
       console.error("tess photo generation failed", e);
       photo = curatedFallback(p.scene, photos);
