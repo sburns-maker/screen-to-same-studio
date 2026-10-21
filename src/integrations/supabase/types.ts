@@ -21,6 +21,7 @@ export type Database = {
           id: string
           photo_frequency: string
           read_receipts: boolean
+          real_time_mode: boolean
           relationship_stage: string
           show_sim_data: boolean
           typing_indicator: boolean
@@ -33,6 +34,7 @@ export type Database = {
           id?: string
           photo_frequency?: string
           read_receipts?: boolean
+          real_time_mode?: boolean
           relationship_stage?: string
           show_sim_data?: boolean
           typing_indicator?: boolean
@@ -45,6 +47,7 @@ export type Database = {
           id?: string
           photo_frequency?: string
           read_receipts?: boolean
+          real_time_mode?: boolean
           relationship_stage?: string
           show_sim_data?: boolean
           typing_indicator?: boolean
@@ -252,6 +255,44 @@ export type Database = {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tess_life: {
+        Row: {
+          conversation_id: string
+          current_event: Json
+          event_expires_at: string | null
+          last_initiated_at: string | null
+          last_initiation: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          current_event?: Json
+          event_expires_at?: string | null
+          last_initiated_at?: string | null
+          last_initiation?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          current_event?: Json
+          event_expires_at?: string | null
+          last_initiated_at?: string | null
+          last_initiation?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tess_life_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },

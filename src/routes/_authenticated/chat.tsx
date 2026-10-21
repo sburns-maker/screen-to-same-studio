@@ -23,6 +23,20 @@ export const Route = createFileRoute("/_authenticated/chat")({
   component: Chat,
 });
 
+// ---- Offline outbox: messages sent without connectivity wait here. ----
+type QueuedMsg = { id: string; body: string; at: number };
+const QUEUE_KEY = "tess:outbox";
+function readQueue(): QueuedMsg[] {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]") as QueuedMsg[];
+  } catch {
+    return [];
+  }
+}
+function writeQueue(q: QueuedMsg[]) {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+}
+
 const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 function fmtDivider(d: Date) {
   const today = new Date();
@@ -47,6 +61,8 @@ function Chat() {
   const [now, setNow] = useState(() => Date.now());
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [queue, setQueue] = useState<QueuedMsg[]>(() => readQueue());
+  const [online, setOnline] = useState(() => navigator.onLine);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
   const again = useRef(false);
@@ -105,6 +121,14 @@ function Chat() {
     const body = text.trim();
     if (!body || !convId) return;
     setText("");
+    if (!navigator.onLine) {
+      // Offline: queue locally, send when connectivity returns. No fake reply.
+      const q = [...readQueue(), { id: crypto.randomUUID(), body, at: Date.now() }];
+      writeQueue(q);
+      setQueue(q);
+      taRef.current?.focus();
+      return;
+    }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("messages").insert({ conversation_id: convId, user_id: u.user!.id, sender: "user", body });
     if (error) {
@@ -118,6 +142,62 @@ function Chat() {
     debounce.current = setTimeout(() => void runRespond(), 2500);
     taRef.current?.focus();
   }
+
+  // Connectivity: flush the outbox when we're back online, then let Tess respond.
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!online || !convId || !queue.length) return;
+    void (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const pendingOut = readQueue();
+      for (const m of pendingOut) {
+        const { error } = await supabase
+          .from("messages")
+          .insert({ conversation_id: convId, user_id: u.user.id, sender: "user", body: m.body });
+        if (error) return; // still failing — keep the queue intact
+        writeQueue(readQueue().filter((x) => x.id !== m.id));
+      }
+      setQueue(readQueue());
+      await refetch();
+      debounce.current = setTimeout(() => void runRespond(), 1500);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, convId]);
+
+  // Notifications: only real message events, only when explicitly enabled.
+  const lastSeenTess = useRef<string | null>(null);
+  useEffect(() => {
+    const tessMsgs = visible.filter((m) => m.sender === "tess");
+    const latest = tessMsgs[tessMsgs.length - 1];
+    if (!latest) return;
+    if (lastSeenTess.current === null) {
+      lastSeenTess.current = latest.id;
+      return;
+    }
+    if (latest.id === lastSeenTess.current) return;
+    lastSeenTess.current = latest.id;
+    if (localStorage.getItem("tess:notifications") !== "on") return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!document.hidden) return;
+    const md = latest.metadata as { photo?: string; generated_path?: string } | null;
+    const body = latest.body?.trim() || (md?.photo || md?.generated_path ? "Sent a photo" : "Sent a message");
+    try {
+      new Notification("Tess", { body: body.slice(0, 140), icon: "/icon-512.png", tag: "tess-message" });
+    } catch {
+      /* some platforms require SW-based notifications */
+    }
+  }, [visible]);
 
   useLayoutEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
@@ -205,6 +285,16 @@ function Chat() {
               </div>
             );
           })}
+          {queue.map((q) => (
+            <div key={q.id} className="mb-2 flex justify-end">
+              <div className="flex max-w-[78%] flex-col items-end gap-0.5">
+                <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-bubble-me px-3.5 py-2 text-[15px] leading-snug text-bubble-me-foreground opacity-70">
+                  {q.body}
+                </div>
+                <div className="pr-1 text-[11px] text-muted-foreground">Queued — sends when you're back online</div>
+              </div>
+            </div>
+          ))}
           {showTyping && (
             <div className="mb-2 flex">
               <div className="flex gap-1 rounded-2xl rounded-bl-md bg-bubble-them px-4 py-3" aria-label="Tess is typing">

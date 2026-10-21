@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -55,7 +56,7 @@ function SettingsPage() {
   const wipe = useServerFn(deleteAllData);
   const c = conv.data;
 
-  async function set(patch: { photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean }) {
+  async function set(patch: { photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean; real_time_mode?: boolean }) {
     qc.setQueryData(conversationQuery.queryKey, (old: typeof c) => (old ? { ...old, ...patch } : old));
     await update({ data: patch });
     qc.invalidateQueries({ queryKey: ["conversation"] });
@@ -118,6 +119,14 @@ function SettingsPage() {
 
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversation</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-4 text-[15px]">
+              Real-Time Mode
+              <Switch checked={!!c?.real_time_mode} onCheckedChange={(v) => set({ real_time_mode: v })} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Tess follows her fictional daily schedule. Replies may take longer.</p>
+          </div>
+          <NotificationsRow />
           <Row>
             Typing indicator
             <Switch checked={!!c?.typing_indicator} onCheckedChange={(v) => set({ typing_indicator: v })} />
@@ -155,9 +164,42 @@ function SettingsPage() {
             Sign out
           </button>
         </div>
-        <p className="mt-8 text-center text-xs text-muted-foreground">Tess is fictional. Real-time mode and notifications are coming later.</p>
+        <p className="mt-8 text-center text-xs text-muted-foreground">Tess is fictional.</p>
       </Screen>
     </>
+  );
+}
+
+/** Push notifications: permission is requested only when the user explicitly turns this on. */
+function NotificationsRow() {
+  const [enabled, setEnabled] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("tess:notifications") === "on" : false));
+  async function toggle(v: boolean) {
+    if (v) {
+      if (!("Notification" in window)) {
+        toast.error("This browser doesn't support notifications.");
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        toast.error("Notifications weren't allowed. You can change this in your browser settings.");
+        return;
+      }
+      localStorage.setItem("tess:notifications", "on");
+      setEnabled(true);
+      toast.success("Notifications on. Tess will only ping you when she actually texts.");
+    } else {
+      localStorage.setItem("tess:notifications", "off");
+      setEnabled(false);
+    }
+  }
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between gap-4 text-[15px]">
+        Notifications
+        <Switch checked={enabled} onCheckedChange={toggle} />
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">Only when Tess actually sends a message or photo. Never engagement bait.</p>
+    </div>
   );
 }
 
