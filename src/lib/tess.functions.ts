@@ -18,7 +18,6 @@ import {
   curatedFallback,
   describeStyle,
   eligiblePhotos,
-  tooSimilarToRecent,
   varyStyle,
   type PhotoFrequency,
   type PhotoStyle,
@@ -31,6 +30,7 @@ import {
   weatherFlavor,
   type LifeEvent,
 } from "./tess-life";
+import { characterAvailability, characterFor, type CharacterDef } from "./characters";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -39,35 +39,120 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 type Sb = SupabaseClient<Database>;
 
-function pickState(row: Record<string, unknown>): TessState {
+type CharacterRow = Database["public"]["Tables"]["characters"]["Row"];
+type ConvRow = Database["public"]["Tables"]["conversations"]["Row"] & { character: CharacterRow | null };
+
+function pickState(row: Record<string, unknown>, fallback: TessState = SEED_STATE): TessState {
   const s = {} as TessState;
-  for (const k of STATE_KEYS) s[k] = Number(row[k] ?? SEED_STATE[k]);
+  for (const k of STATE_KEYS) s[k] = Number(row[k] ?? fallback[k]);
   return s;
 }
 
-async function loadConversation(supabase: Sb, userId: string) {
-  const { data: conv } = await supabase.from("conversations").select("*").eq("user_id", userId).maybeSingle();
-  return conv;
+async function loadConversation(supabase: Sb, userId: string, conversationId: string): Promise<ConvRow | null> {
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("*, character:characters(*)")
+    .eq("id", conversationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return conv as ConvRow | null;
 }
 
-async function seedConversation(supabase: Sb, userId: string) {
+async function loadConversations(supabase: Sb, userId: string): Promise<ConvRow[]> {
+  const { data } = await supabase
+    .from("conversations")
+    .select("*, character:characters(*)")
+    .eq("user_id", userId);
+  return (data ?? []) as ConvRow[];
+}
+
+async function seedConversation(supabase: Sb, userId: string, character: CharacterRow) {
+  const def = characterFor(character.key);
   const { data: conv, error } = await supabase
     .from("conversations")
-    .insert({ user_id: userId })
+    .insert({ user_id: userId, character_id: character.id })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  await supabase.from("tess_state").insert({ conversation_id: conv.id, user_id: userId });
-  await supabase.from("messages").insert({ conversation_id: conv.id, user_id: userId, sender: "tess", body: FIRST_MESSAGE });
+  await supabase.from("tess_state").insert({ conversation_id: conv.id, user_id: userId, ...def.seedState });
+  const opener = def.key === "tess" ? FIRST_MESSAGE : def.opener;
+  if (opener) {
+    await supabase.from("messages").insert({ conversation_id: conv.id, user_id: userId, sender: "tess", body: opener });
+  }
   return conv;
 }
 
-export const ensureConversation = createServerFn({ method: "POST" })
+/** Ensure the user has one conversation per enabled character. Existing threads (and all Tess history) are never touched. */
+export const ensureConversations = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const conv = (await loadConversation(supabase, userId)) ?? (await seedConversation(supabase, userId));
-    return { id: conv.id as string };
+    const { data: chars } = await supabase.from("characters").select("*").eq("enabled", true).order("sort_order");
+    const existing = await loadConversations(supabase, userId);
+    const have = new Set(existing.map((c) => c.character_id));
+    for (const ch of chars ?? []) {
+      if (!have.has(ch.id)) await seedConversation(supabase, userId, ch);
+    }
+    const convs = await loadConversations(supabase, userId);
+    return { ids: convs.map((c) => c.id as string) };
+  });
+
+/** Inbox rows: each conversation with its character, last visible message and unread count. */
+export const inboxOverview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const convs = await loadConversations(supabase, userId);
+    const nowIso = new Date().toISOString();
+    const rows = await Promise.all(
+      convs.map(async (conv) => {
+        const [{ data: last }, { count }] = await Promise.all([
+          supabase
+            .from("messages")
+            .select("sender, body, created_at, metadata")
+            .eq("conversation_id", conv.id)
+            .lte("visible_at", nowIso)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("conversation_id", conv.id)
+            .eq("sender", "tess")
+            .lte("visible_at", nowIso)
+            .gt("created_at", conv.last_read_at ?? "1970-01-01"),
+        ]);
+        const def = characterFor(conv.character?.key);
+        const md = (last?.metadata ?? null) as { photo?: string; generated_path?: string } | null;
+        const preview = last
+          ? last.body?.trim() || (md?.photo || md?.generated_path ? "Sent a photo" : "")
+          : "";
+        return {
+          id: conv.id as string,
+          characterKey: def.key,
+          name: def.preferredName,
+          fullName: def.fullName,
+          preview: last ? `${last.sender === "user" ? "You: " : ""}${preview}` : "",
+          lastAt: (last?.created_at ?? conv.created_at) as string,
+          unread: count ?? 0,
+        };
+      }),
+    );
+    rows.sort((a, b) => new Date(b.lastAt).getTime() - new Date(a.lastAt).getTime());
+    return rows;
+  });
+
+export const markRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    await context.supabase
+      .from("conversations")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("id", data.conversationId)
+      .eq("user_id", context.userId);
+    return { ok: true };
   });
 
 async function createGeneratedPhoto(
@@ -121,15 +206,18 @@ async function removeUserPhotos(supabase: Sb, userId: string) {
 async function runTurn(
   supabase: Sb,
   userId: string,
+  conversationId: string,
   tz: string,
   initiation?: { gapHours: number; reason?: string | null },
 ) {
-  const { generateTessReply } = await import("./tess.server");
-  const conv = await loadConversation(supabase, userId);
+  const { generateTessReply, generateContactReply } = await import("./tess.server");
+  const conv = await loadConversation(supabase, userId, conversationId);
   if (!conv) throw new Error("No conversation");
+  const def = characterFor(conv.character?.key);
+  const isTess = def.key === "tess";
   const nowIso = new Date().toISOString();
 
-  // Tess hadn't actually "sent" pending replies yet — let her reconsider with the new context.
+  // The contact hadn't actually "sent" pending replies yet — let them reconsider with the new context.
   if (!initiation) {
     await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso);
   }
@@ -149,73 +237,108 @@ async function runTurn(
       .eq("conversation_id", conv.id)
       .order("importance", { ascending: false })
       .limit(15),
-    supabase
-      .from("generated_images")
-      .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
-      .eq("conversation_id", conv.id)
-      .eq("includes_tess", true)
-      .order("created_at", { ascending: false })
-      .limit(5),
+    isTess
+      ? supabase
+          .from("generated_images")
+          .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
+          .eq("conversation_id", conv.id)
+          .eq("includes_tess", true)
+          .order("created_at", { ascending: false })
+          .limit(5)
+      : Promise.resolve({ data: null }),
   ]);
   const recentStyles = (recentGen ?? []) as PhotoStyle[];
 
-  const state = pickState(stateRow ?? {});
+  const state = pickState(stateRow ?? {}, def.seedState);
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
   const recent = msgs ?? [];
-  const sentPhotos = new Set(
-    recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean) as string[],
-  );
-  const freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
-  const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
-  const hasPhoto = (m: { metadata: unknown }) => {
-    const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
-    return !!(md?.photo || md?.generated_image_id);
-  };
-  // Cooldown counts Tess's own messages since her last photo (no fixed "every N" pattern: model + chance decide).
-  const tessRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
-  const recentlySentPhoto = tessRecent.some(hasPhoto);
-  const photos = recentlySentPhoto
-    ? []
-    : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id));
-  const generateTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
 
-  // Fictional-world context: schedule, rotating life event, regional weather.
+  // Fictional-world context: schedule, rotating life event, regional weather (all contacts live near ZIP 16602).
   const now = new Date();
   const { getWeatherContext } = await import("./tess-weather.server");
   const weather = await getWeatherContext();
-  const lifeEvent: LifeEvent | null = activeLifeEvent(
-    now,
-    weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
-  );
-  const flavor = weather ? weatherFlavor(weather) : null;
 
-  const reply = await generateTessReply({
-    state,
-    stage: deriveStage(state),
-    difficulty,
-    messages: [...recent].reverse().map((m) => ({
-      ...m,
-      body: (() => {
-        const md = m.metadata as { photo?: string; generated_path?: string } | null;
-        if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
-        if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
-        return m.body;
-      })(),
-    })),
-    photos,
-    generateTypes,
-    photoFrequency: freq,
-    recentPhotoStyles: recentStyles.map(describeStyle),
-    memories: (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`),
-    tz,
-    initiation,
-    weather,
-    weatherFlavor: flavor,
-    lifeEvent,
-    initiationReason: initiation?.reason ?? null,
-  });
+  const messageList = [...recent].reverse().map((m) => ({
+    ...m,
+    body: (() => {
+      const md = m.metadata as { photo?: string; generated_path?: string } | null;
+      if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
+      if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
+      return m.body;
+    })(),
+  }));
+  const memoryList = (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`);
+
+  let reply: import("./tess.server").TessReply;
+  let photos: ReturnType<typeof eligiblePhotos> = [];
+  let generateTypes: string[] = [];
+  let freq: PhotoFrequency = "normal";
+  let lifeEvent: LifeEvent | null = null;
+
+  if (isTess) {
+    const sentPhotos = new Set(
+      recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean) as string[],
+    );
+    freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
+    const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
+    const hasPhoto = (m: { metadata: unknown }) => {
+      const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
+      return !!(md?.photo || md?.generated_image_id);
+    };
+    // Cooldown counts Tess's own messages since her last photo (no fixed "every N" pattern: model + chance decide).
+    const tessRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
+    const recentlySentPhoto = tessRecent.some(hasPhoto);
+    photos = recentlySentPhoto
+      ? []
+      : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id));
+    generateTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+
+    lifeEvent = activeLifeEvent(
+      now,
+      weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
+    );
+    const flavor = weather ? weatherFlavor(weather) : null;
+
+    reply = await generateTessReply({
+      state,
+      stage: deriveStage(state),
+      difficulty,
+      messages: messageList,
+      photos,
+      generateTypes,
+      photoFrequency: freq,
+      recentPhotoStyles: recentStyles.map(describeStyle),
+      memories: memoryList,
+      tz,
+      initiation,
+      weather,
+      weatherFlavor: flavor,
+      lifeEvent,
+      initiationReason: initiation?.reason ?? null,
+    });
+  } else {
+    const avail = characterAvailability(def, now);
+    reply = await generateContactReply({
+      character: def,
+      state,
+      stage: deriveStage(state),
+      difficulty,
+      messages: messageList,
+      memories: memoryList,
+      tz,
+      initiation,
+      initiationReason: initiation?.reason ?? null,
+      availabilityDetail: avail.detail,
+      weather,
+    });
+    reply.photo = null; // non-Tess contacts never send photos in V1
+  }
 
   const delta = sanitizeDelta(reply.state_delta, difficulty);
+  if (!def.romanticCapable) {
+    delta.romantic_attraction = 0;
+    delta.physical_attraction = 0;
+  }
   const next = applyDelta(state, delta);
   const stage = deriveStage(next);
 
@@ -225,53 +348,60 @@ async function runTurn(
     .eq("conversation_id", conv.id);
   await supabase.from("conversations").update({ relationship_stage: stage, updated_at: nowIso }).eq("id", conv.id);
 
-  // --- Photo: curated first, then optional generation, else none. Failures stay invisible.
+  // --- Photo (Tess only): curated first, then optional generation, else none. Failures stay invisible.
   let photo: string | null = null;
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   const p = reply.photo;
-  if (p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
+  if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
-  } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type) && Math.random() < rules.generateChance) {
-    try {
-      const rawStyle: PhotoStyle = {
-        pose_type: p.pose_type,
-        camera_angle: p.camera_angle,
-        crop_type: p.crop_type,
-        hairstyle: p.hairstyle,
-        expression: p.expression,
-        clothing_category: p.clothing_category,
-        setting: p.setting,
-        selfie_type: p.selfie_type,
-      };
-      // Context first, variety second: only nudge an exact repeat of a recent photo.
-      const style = varyStyle(rawStyle, recentStyles);
-      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style);
-    } catch (e) {
-      console.error("tess photo generation failed", e);
-      photo = curatedFallback(p.scene, photos);
+  } else if (isTess && p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
+    const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
+    if (Math.random() < rules.generateChance) {
+      try {
+        const rawStyle: PhotoStyle = {
+          pose_type: p.pose_type,
+          camera_angle: p.camera_angle,
+          crop_type: p.crop_type,
+          hairstyle: p.hairstyle,
+          expression: p.expression,
+          clothing_category: p.clothing_category,
+          setting: p.setting,
+          selfie_type: p.selfie_type,
+        };
+        // Context first, variety second: only nudge an exact repeat of a recent photo.
+        const style = varyStyle(rawStyle, recentStyles);
+        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style);
+      } catch (e) {
+        console.error("tess photo generation failed", e);
+        photo = curatedFallback(p.scene, photos);
+      }
     }
   }
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
   if ((photo || generated) && !bubbles.length) bubbles.push("");
 
-  // Latency: practice mode keeps the 3s–4min delay; Real-Time Mode follows her schedule.
+  // Latency: practice mode keeps the 3s–4min delay; Real-Time Mode follows the contact's schedule.
   const realTime = !!(conv as { real_time_mode?: boolean }).real_time_mode;
   const lastUserMsg = recent.find((m) => m.sender === "user");
   const activelyChatting = !!lastUserMsg && Date.now() - new Date(lastUserMsg.created_at).getTime() < 5 * 60_000;
+  const schedule = isTess
+    ? scheduleFor(now, difficulty === "chaos" ? 2 : 1)
+    : (() => {
+        const a = characterAvailability(def, now);
+        return { activity: a.detail, availability: a.availability, detail: a.detail };
+      })();
   const latency = initiation
     ? { seconds: 3 as number | null, reason: "initiation — no reply delay" }
-    : decideLatency(
-        {
-          realTimeMode: realTime,
-          schedule: scheduleFor(now, difficulty === "chaos" ? 2 : 1),
-          lifeEvent,
-          state,
-          activelyChatting,
-          baseSeconds: reply.send_delay_seconds,
-        },
-      );
+    : decideLatency({
+        realTimeMode: realTime,
+        schedule,
+        lifeEvent,
+        state,
+        activelyChatting,
+        baseSeconds: reply.send_delay_seconds,
+      });
   if (latency.seconds === null) {
-    // Real-Time Mode sleep boundary: she'll see it in the morning. No fake reply.
+    // Real-Time Mode sleep boundary: they'll see it in the morning. No fake reply.
     return { count: 0, lastVisibleAt: null, sleep: true, latencyReason: latency.reason };
   }
   // Practice delays stay 3s–4min; real-time delays may run longer (work, events).
@@ -352,106 +482,125 @@ async function runTurn(
 
 export const tessRespond = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ tz: z.string().max(64) }).parse(d))
-  .handler(async ({ data, context }) => runTurn(context.supabase, context.userId, data.tz));
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid(), tz: z.string().max(64) }).parse(d))
+  .handler(async ({ data, context }) => runTurn(context.supabase, context.userId, data.conversationId, data.tz));
 
 export const tessMaybeInitiate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ tz: z.string().max(64) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const conv = await loadConversation(supabase, userId);
-    if (!conv) return { count: 0 };
+    const convs = await loadConversations(supabase, userId);
     const now = new Date();
-    const [{ data: last }, { data: stateRow }, { data: life }, { data: recentMsgs }] = await Promise.all([
-      supabase
-        .from("messages")
-        .select("created_at")
-        .eq("conversation_id", conv.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
-      supabase.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
-      supabase
-        .from("messages")
-        .select("sender, body, created_at")
-        .eq("conversation_id", conv.id)
-        .order("created_at", { ascending: false })
-        .limit(30),
-    ]);
-    if (!last) return { count: 0 };
-    const gapHours = (Date.now() - new Date(last.created_at).getTime()) / 3_600_000;
-
-    const state = pickState(stateRow ?? {});
     const { getWeatherContext } = await import("./tess-weather.server");
     const weather = await getWeatherContext();
-    const lifeEvent = activeLifeEvent(
-      now,
-      weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
-    );
-    const schedule = scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1);
-
-    // Who's been carrying the conversation lately?
-    const list = (recentMsgs ?? []).filter((m) => m.sender === "user" || m.sender === "tess");
-    const userCount = list.filter((m) => m.sender === "user").length;
-    const tessCount = list.filter((m) => m.sender === "tess").length;
-    const userCarrying = userCount > tessCount * 1.6 && userCount >= 5;
-
-    // A plausible reason makes initiation natural: weather hook, life event,
-    // or a callback-worthy memory. Weather alone never triggers — it only
-    // supplies the reason once the engine already considers her eligible.
     const flavor = weather ? weatherFlavor(weather) : null;
-    const hasPlausibleReason = !!(flavor || lifeEvent || state.relationship_momentum > 35 || state.curiosity > 55);
+    const results: { conversationId: string; count: number }[] = [];
 
-    const decision = decideInitiation({
-      state,
-      stage: deriveStage(state),
-      gapHours,
-      lastInitiatedAt: life?.last_initiated_at ? new Date(life.last_initiated_at) : null,
-      userCarrying,
-      recentQuality: Math.min(100, state.relationship_momentum + state.playfulness / 2),
-      schedule,
-      lifeEvent,
-      hasPlausibleReason,
-      now,
-    });
-    // Record the check so the debug screen can explain eligibility.
-    await supabase.from("tess_life").upsert({
-      conversation_id: conv.id,
-      user_id: userId,
-      current_event: lifeEvent ? { ...lifeEvent } : {},
-      last_initiation: {
-        at: now.toISOString(),
-        eligible: decision.eligible,
-        initiated: decision.initiate,
-        score: decision.score,
-        chance: decision.chance,
-        reasons: decision.reasons,
-      },
-      updated_at: now.toISOString(),
-    });
-    if (!decision.initiate) return { count: 0 };
+    for (const conv of convs) {
+      const def = characterFor(conv.character?.key);
+      const isTess = def.key === "tess";
+      const [{ data: last }, { data: stateRow }, { data: life }, { data: recentMsgs }] = await Promise.all([
+        supabase
+          .from("messages")
+          .select("created_at")
+          .eq("conversation_id", conv.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
+        supabase.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
+        supabase
+          .from("messages")
+          .select("sender, body, created_at")
+          .eq("conversation_id", conv.id)
+          .order("created_at", { ascending: false })
+          .limit(30),
+      ]);
+      if (!last) continue;
+      const gapHours = (Date.now() - new Date(last.created_at).getTime()) / 3_600_000;
 
-    const reason = lifeEvent?.summary ?? flavor ?? null;
-    const result = await runTurn(supabase, userId, data.tz, { gapHours, reason });
-    if (result.count > 0) {
-      await supabase
-        .from("tess_life")
-        .update({ last_initiated_at: now.toISOString(), updated_at: now.toISOString() })
-        .eq("conversation_id", conv.id);
+      const state = pickState(stateRow ?? {}, def.seedState);
+      const lifeEvent = isTess
+        ? activeLifeEvent(
+            now,
+            weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
+          )
+        : null;
+      const schedule = isTess
+        ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
+        : (() => {
+            const a = characterAvailability(def, now);
+            return { activity: a.detail, availability: a.availability, detail: a.detail };
+          })();
+
+      // Who's been carrying the conversation lately?
+      const list = (recentMsgs ?? []).filter((m) => m.sender === "user" || m.sender === "tess");
+      const userCount = list.filter((m) => m.sender === "user").length;
+      const contactCount = list.filter((m) => m.sender === "tess").length;
+      const userCarrying = userCount > contactCount * 1.6 && userCount >= 5;
+
+      // A plausible reason makes initiation natural: weather hook, life event,
+      // or a callback-worthy memory. Weather alone never triggers — it only
+      // supplies the reason once the engine already considers them eligible.
+      const hasPlausibleReason = !!(flavor || lifeEvent || state.relationship_momentum > 35 || state.curiosity > 55);
+
+      const decision = decideInitiation({
+        state,
+        stage: deriveStage(state),
+        gapHours,
+        lastInitiatedAt: life?.last_initiated_at ? new Date(life.last_initiated_at) : null,
+        userCarrying,
+        recentQuality: Math.min(100, state.relationship_momentum + state.playfulness / 2),
+        schedule,
+        lifeEvent,
+        hasPlausibleReason,
+        now,
+        minGapHours: def.initiation.minGapHours,
+        scoreMultiplier: def.initiation.scoreMultiplier,
+      });
+      // Record the check so the debug screen can explain eligibility.
+      await supabase.from("tess_life").upsert({
+        conversation_id: conv.id,
+        user_id: userId,
+        current_event: lifeEvent ? { ...lifeEvent } : {},
+        last_initiation: {
+          at: now.toISOString(),
+          eligible: decision.eligible,
+          initiated: decision.initiate,
+          score: decision.score,
+          chance: decision.chance,
+          reasons: decision.reasons,
+        },
+        updated_at: now.toISOString(),
+      });
+      if (!decision.initiate) {
+        results.push({ conversationId: conv.id, count: 0 });
+        continue;
+      }
+
+      const reason = lifeEvent?.summary ?? flavor ?? null;
+      const result = await runTurn(supabase, userId, conv.id, data.tz, { gapHours, reason });
+      if (result.count > 0) {
+        await supabase
+          .from("tess_life")
+          .update({ last_initiated_at: now.toISOString(), updated_at: now.toISOString() })
+          .eq("conversation_id", conv.id);
+      }
+      results.push({ conversationId: conv.id, count: result.count });
     }
-    return result;
+    return { results, count: results.reduce((n, r) => n + r.count, 0) };
   });
 
 export const runDebrief = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ tz: z.string().max(64) }).parse(d))
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid(), tz: z.string().max(64) }).parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { generateDebrief } = await import("./tess.server");
-    const conv = await loadConversation(supabase, userId);
+    const conv = await loadConversation(supabase, userId, data.conversationId);
     if (!conv) throw new Error("No conversation");
+    const def = characterFor(conv.character?.key);
     const [{ data: msgs }, { data: stateRow }] = await Promise.all([
       supabase
         .from("messages")
@@ -466,8 +615,16 @@ export const runDebrief = createServerFn({ method: "POST" })
     if (list.filter((m: { sender: string }) => m.sender === "user").length < 2) {
       throw new Error("Send a few more messages before asking for a debrief.");
     }
-    const state = pickState(stateRow ?? {});
-    const analysis = await generateDebrief({ messages: list, tz: data.tz, stage: deriveStage(state), state });
+    const state = pickState(stateRow ?? {}, def.seedState);
+    const analysis = await generateDebrief({
+      messages: list,
+      tz: data.tz,
+      stage: deriveStage(state),
+      state,
+      characterName: def.preferredName,
+      baselineNotes: def.baselineNotes,
+      romanticCapable: def.romanticCapable,
+    });
     const { data: row, error } = await supabase
       .from("debriefs")
       .insert({ conversation_id: conv.id, user_id: userId, analysis: { ...analysis, stage: deriveStage(state), state } })
@@ -479,11 +636,16 @@ export const runDebrief = createServerFn({ method: "POST" })
 
 export const resetRelationship = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await removeUserPhotos(supabase, userId);
-    await supabase.from("conversations").delete().eq("user_id", userId);
-    await seedConversation(supabase, userId);
+    const conv = await loadConversation(supabase, userId, data.conversationId);
+    if (!conv) throw new Error("No conversation");
+    const def = characterFor(conv.character?.key);
+    if (def.key === "tess") await removeUserPhotos(supabase, userId);
+    await supabase.from("conversations").delete().eq("id", conv.id);
+    const { data: ch } = await supabase.from("characters").select("*").eq("key", def.key).single();
+    if (ch) await seedConversation(supabase, userId, ch);
     return { ok: true };
   });
 
@@ -500,6 +662,7 @@ export const updateSettings = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
+        conversationId: z.string().uuid().optional(),
         difficulty: z.enum(DIFFICULTIES).optional(),
         typing_indicator: z.boolean().optional(),
         read_receipts: z.boolean().optional(),
@@ -517,17 +680,33 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (data.show_sim_data !== undefined) patch.show_sim_data = data.show_sim_data;
     if (data.photo_frequency !== undefined) patch.photo_frequency = data.photo_frequency;
     if (data.real_time_mode !== undefined) patch.real_time_mode = data.real_time_mode;
-    await context.supabase.from("conversations").update(patch).eq("user_id", context.userId);
+    // photo_frequency is Tess-specific; everything else applies to the given
+    // conversation, or all of the user's conversations when none is given.
+    if (data.photo_frequency !== undefined && !data.conversationId) {
+      const { data: tessChar } = await context.supabase.from("characters").select("id").eq("key", "tess").single();
+      await context.supabase
+        .from("conversations")
+        .update(patch)
+        .eq("user_id", context.userId)
+        .eq("character_id", tessChar!.id);
+    } else if (data.conversationId) {
+      await context.supabase.from("conversations").update(patch).eq("id", data.conversationId).eq("user_id", context.userId);
+    } else {
+      await context.supabase.from("conversations").update(patch).eq("user_id", context.userId);
+    }
     return { ok: true };
   });
 
 /** Everything the hidden debug screen needs, computed server-side. */
 export const debugSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const conv = await loadConversation(supabase, userId);
+    const conv = await loadConversation(supabase, userId, data.conversationId);
     if (!conv) throw new Error("No conversation");
+    const def = characterFor(conv.character?.key);
+    const isTess = def.key === "tess";
     const now = new Date();
     const nowIso = now.toISOString();
     const [{ data: stateRow }, { data: life }, { data: last }, { data: recentMsgs }, { data: mems }] = await Promise.all([
@@ -554,14 +733,21 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(8),
     ]);
-    const state = pickState(stateRow ?? {});
+    const state = pickState(stateRow ?? {}, def.seedState);
     const { getWeatherContext } = await import("./tess-weather.server");
     const weather = await getWeatherContext();
-    const lifeEvent = activeLifeEvent(
-      now,
-      weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
-    );
-    const schedule = scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1);
+    const lifeEvent = isTess
+      ? activeLifeEvent(
+          now,
+          weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
+        )
+      : null;
+    const schedule = isTess
+      ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
+      : (() => {
+          const a = characterAvailability(def, now);
+          return { activity: a.detail, availability: a.availability, detail: a.detail };
+        })();
     const gapHours = last ? (Date.now() - new Date(last.created_at).getTime()) / 3_600_000 : 0;
     const list = recentMsgs ?? [];
     const userCount = list.filter((m) => m.sender === "user").length;
@@ -578,6 +764,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       lifeEvent,
       hasPlausibleReason: !!(flavor || lifeEvent || state.relationship_momentum > 35 || state.curiosity > 55),
       now,
+      minGapHours: def.initiation.minGapHours,
+      scoreMultiplier: def.initiation.scoreMultiplier,
     });
     const freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
     const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
@@ -589,10 +777,11 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       .filter((m) => m.sender === "tess")
       .slice(0, rules.cooldown)
       .some(hasPhoto);
-    const curatedCount = recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
-    const genTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+    const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
+    const genTypes = !isTess || recentlySentPhoto ? [] : allowedGeneratedTypes(state);
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
     return {
+      character: { key: def.key, name: def.preferredName, fullName: def.fullName, photosEnabled: def.photosEnabled },
       state,
       lastDelta: JSON.parse(JSON.stringify(stateRow?.last_delta ?? {})) as Record<string, number | string | string[]>,
       lastTone: stateRow?.last_tone ?? null,
@@ -616,14 +805,16 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         lastInitiatedAt: life?.last_initiated_at ?? null,
       },
       photo: {
-        eligible: !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
-        reason: recentlySentPhoto
-          ? `cooldown — she sent a photo within her last ${rules.cooldown} messages`
-          : state.irritation >= 40
-            ? `irritation ${state.irritation} — no photos while annoyed`
-            : state.irritation >= 20
-              ? `irritation ${state.irritation} — selfies suppressed, context photos only`
-              : `${curatedCount} curated + generated types [${genTypes.join(", ") || "none"}] available`,
+        eligible: isTess && !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
+        reason: !isTess
+          ? `${def.preferredName} doesn't send photos (avatar only in V1)`
+          : recentlySentPhoto
+            ? `cooldown — she sent a photo within her last ${rules.cooldown} messages`
+            : state.irritation >= 40
+              ? `irritation ${state.irritation} — no photos while annoyed`
+              : state.irritation >= 20
+                ? `irritation ${state.irritation} — selfies suppressed, context photos only`
+                : `${curatedCount} curated + generated types [${genTypes.join(", ") || "none"}] available`,
         curatedCount,
         generatedTypes: genTypes,
       },

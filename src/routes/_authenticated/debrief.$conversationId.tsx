@@ -6,14 +6,15 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { Button } from "@/components/ui/button";
 import { runDebrief } from "@/lib/tess.functions";
 import { conversationQuery, debriefsQuery, userTz } from "@/lib/tess-queries";
+import { characterFor } from "@/lib/characters";
 import { STATE_KEYS } from "@/lib/tess-logic";
 
-export const Route = createFileRoute("/_authenticated/debrief")({
+export const Route = createFileRoute("/_authenticated/debrief/$conversationId")({
   head: () => ({
     meta: [
-      { title: "Debrief — Tess" },
+      { title: "Debrief — Chats" },
       { name: "description", content: "An honest read on how the conversation is going." },
-      { property: "og:title", content: "Debrief — Tess" },
+      { property: "og:title", content: "Debrief — Chats" },
       { property: "og:description", content: "An honest read on how the conversation is going." },
     ],
   }),
@@ -68,13 +69,15 @@ function Para({ title, text }: { title: string; text: string }) {
 }
 
 function DebriefPage() {
+  const { conversationId } = Route.useParams();
   const qc = useQueryClient();
-  const conv = useQuery(conversationQuery);
-  const list = useQuery(debriefsQuery(conv.data?.id));
+  const conv = useQuery(conversationQuery(conversationId));
+  const def = characterFor((conv.data?.character as { key?: string } | null)?.key);
+  const list = useQuery(debriefsQuery(conversationId));
   const fn = useServerFn(runDebrief);
   const m = useMutation({
-    mutationFn: () => fn({ data: { tz: userTz() } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["debriefs"] }),
+    mutationFn: () => fn({ data: { conversationId, tz: userTz() } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["debriefs", conversationId] }),
     onError: (e) => toast.error(e instanceof Error ? e.message : "Debrief failed"),
   });
   const latest = list.data?.[0];
@@ -82,9 +85,12 @@ function DebriefPage() {
 
   return (
     <>
-      <ScreenHeader title="Debrief" />
+      <ScreenHeader title="Debrief" backTo="/chat/$conversationId" backParams={{ conversationId }} />
       <Screen>
-        <p className="text-sm text-muted-foreground">An analyst's read on your recent messages. Not Tess — she doesn't see this.</p>
+        <p className="text-sm text-muted-foreground">
+          An analyst's read on your recent messages with {def.preferredName}, judged against {def.pronouns === "he/him" ? "his" : "her"} own
+          baseline — not generic rules. {def.preferredName} doesn't see this.
+        </p>
         <Button onClick={() => m.mutate()} disabled={m.isPending} className="mt-4 h-11 w-full rounded-full">
           {m.isPending ? "Reading the conversation…" : latest ? "Run a new debrief" : "Run debrief"}
         </Button>
@@ -93,24 +99,24 @@ function DebriefPage() {
           <article className="mt-6 rounded-2xl bg-surface p-5">
             <p className="text-xs text-muted-foreground">{new Date(latest!.created_at).toLocaleString()}</p>
             <h2 className="mt-1 font-display text-3xl leading-tight">{a.headline}</h2>
-            <Para title="How Tess is reading it" text={a.tess_read} />
+            <Para title={`How ${def.preferredName} is reading it`} text={a.tess_read} />
             <List title="Felt natural" items={a.felt_natural} />
             <List title="Worked" items={a.worked} />
             <List title="Didn't land" items={a.didnt_land} />
             <Para title="Pressure" text={a.pressure} />
             <List title="Missed openings" items={a.missed_openings} />
             {a.friendly_vs_flirty && <Para title="Friendly or flirting?" text={a.friendly_vs_flirty} />}
-            {a.interest_direction && <Para title="Where her interest is heading" text={a.interest_direction} />}
+            {a.interest_direction && <Para title="Where the interest is heading" text={a.interest_direction} />}
             {a.momentum && <Para title="Momentum" text={a.momentum} />}
             <Para title="Who's carrying it" text={a.who_carried} />
-            <Para title="Is she investing?" text={a.tess_invested} />
+            <Para title={`Is ${def.preferredName} investing?`} text={a.tess_invested} />
             {a.initiation && <Para title="Initiation" text={a.initiation} />}
             {a.reciprocity && <Para title="Reciprocity" text={a.reciprocity} />}
             {a.question_balance && <Para title="Question balance" text={a.question_balance} />}
             {a.branches && <Para title="New threads" text={a.branches} />}
             {a.exits && <Para title="Exits" text={a.exits} />}
-            {a.tone_read && <Para title="Reading her tone" text={a.tone_read} />}
-            {a.baseline_change && <Para title="Versus her usual baseline" text={a.baseline_change} />}
+            {a.tone_read && <Para title="Reading the tone" text={a.tone_read} />}
+            {a.baseline_change && <Para title={`Versus ${def.preferredName}'s usual baseline`} text={a.baseline_change} />}
             <Para title="Try next" text={a.try_next} />
             {conv.data?.show_sim_data && a.state && (
               <section className="mt-6 border-t pt-4">

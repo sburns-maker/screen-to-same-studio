@@ -14,11 +14,55 @@ export type Database = {
   }
   public: {
     Tables: {
+      characters: {
+        Row: {
+          age: number
+          avatar_key: string | null
+          created_at: string
+          enabled: boolean
+          full_name: string
+          id: string
+          key: string
+          preferred_name: string
+          pronouns: string
+          sort_order: number
+          zip: string
+        }
+        Insert: {
+          age: number
+          avatar_key?: string | null
+          created_at?: string
+          enabled?: boolean
+          full_name: string
+          id?: string
+          key: string
+          preferred_name: string
+          pronouns?: string
+          sort_order?: number
+          zip?: string
+        }
+        Update: {
+          age?: number
+          avatar_key?: string | null
+          created_at?: string
+          enabled?: boolean
+          full_name?: string
+          id?: string
+          key?: string
+          preferred_name?: string
+          pronouns?: string
+          sort_order?: number
+          zip?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
+          character_id: string
           created_at: string
           difficulty: string
           id: string
+          last_read_at: string | null
           photo_frequency: string
           read_receipts: boolean
           real_time_mode: boolean
@@ -29,9 +73,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          character_id: string
           created_at?: string
           difficulty?: string
           id?: string
+          last_read_at?: string | null
           photo_frequency?: string
           read_receipts?: boolean
           real_time_mode?: boolean
@@ -42,9 +88,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          character_id?: string
           created_at?: string
           difficulty?: string
           id?: string
+          last_read_at?: string | null
           photo_frequency?: string
           read_receipts?: boolean
           real_time_mode?: boolean
@@ -54,7 +102,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_character_id_fkey"
+            columns: ["character_id"]
+            isOneToOne: false
+            referencedRelation: "characters"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       debriefs: {
         Row: {
@@ -362,6 +418,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_profile: {
+        Row: {
+          key: string
+          updated_at: string
+          user_id: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          user_id: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          user_id?: string
+          value?: string
+        }
+        Relationships: []
       }
     }
     Views: {

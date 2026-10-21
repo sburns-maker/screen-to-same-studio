@@ -125,6 +125,9 @@ export type InitiationInput = {
   lifeEvent: LifeEvent | null;
   hasPlausibleReason: boolean; // a callback, plan follow-up, weather hook, Mabel/work story exists
   now: Date;
+  /** Per-contact tuning; defaults preserve Tess's behavior. */
+  minGapHours?: number;
+  scoreMultiplier?: number;
 };
 
 export type InitiationDecision = {
@@ -157,8 +160,9 @@ export function decideInitiation(input: InitiationInput, rng: () => number = Mat
     nextWindowHours,
   });
 
-  if (input.gapHours < MIN_INITIATION_GAP_HOURS) {
-    return no(`only ${input.gapHours.toFixed(1)}h since the last message — not eligible yet`, MIN_INITIATION_GAP_HOURS - input.gapHours);
+  const minGap = input.minGapHours ?? MIN_INITIATION_GAP_HOURS;
+  if (input.gapHours < minGap) {
+    return no(`only ${input.gapHours.toFixed(1)}h since the last message — not eligible yet`, minGap - input.gapHours);
   }
   reasons.push(`${Math.round(input.gapHours)}h gap — eligibility window open`);
 
@@ -190,6 +194,7 @@ export function decideInitiation(input: InitiationInput, rng: () => number = Mat
   if (input.lifeEvent && input.lifeEvent.mood === "up") score *= 1.1;
   if (input.stage === "Connection faded") score *= 0.4;
   if (input.schedule.availability === "busy") score *= 0.75;
+  score *= input.scoreMultiplier ?? 1;
   score = Math.min(100, Math.round(score));
 
   // Probability: even a great score is not a guarantee; a low score sometimes

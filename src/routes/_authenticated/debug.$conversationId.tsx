@@ -1,24 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { debugSnapshot } from "@/lib/tess.functions";
 import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
 
-export const Route = createFileRoute("/_authenticated/debug")({
+export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
   head: () => ({
     meta: [
-      { title: "Simulation debug — Tess" },
-      { name: "description", content: "Hidden simulation values for Tess." },
-      { property: "og:title", content: "Simulation debug — Tess" },
-      { property: "og:description", content: "Hidden simulation values for Tess." },
+      { title: "Simulation debug — Chats" },
+      { name: "description", content: "Hidden simulation values." },
+      { property: "og:title", content: "Simulation debug — Chats" },
+      { property: "og:description", content: "Hidden simulation values." },
     ],
   }),
   component: Debug,
 });
 
 type Snapshot = {
+  character: { key: string; name: string; fullName: string; photosEnabled: boolean };
   state: TessState;
   lastDelta: Record<string, number | string | string[]>;
   lastTone: string | null;
@@ -63,18 +63,19 @@ function KV({ k, v }: { k: string; v: React.ReactNode }) {
 }
 
 function Debug() {
+  const { conversationId } = Route.useParams();
   const fn = useServerFn(debugSnapshot);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   useEffect(() => {
     let stop = false;
-    const load = () => fn().then((d) => !stop && setSnap(d as Snapshot)).catch(() => {});
+    const load = () => fn({ data: { conversationId } }).then((d) => !stop && setSnap(d as Snapshot)).catch(() => {});
     load();
     const t = setInterval(load, 10000);
     return () => {
       stop = true;
       clearInterval(t);
     };
-  }, [fn]);
+  }, [fn, conversationId]);
 
   const s = snap?.state;
   const delta = snap?.lastDelta ?? {};
@@ -82,7 +83,7 @@ function Debug() {
 
   return (
     <>
-      <ScreenHeader title="Simulation debug" />
+      <ScreenHeader title={`Simulation debug · ${snap?.character.name ?? ""}`} backTo="/chat/$conversationId" backParams={{ conversationId }} />
       <Screen>
         {!snap && <p className="text-sm text-muted-foreground">Loading…</p>}
         {snap && s && (
@@ -121,7 +122,7 @@ function Debug() {
               })}
             </div>
 
-            <Section title="Her world right now">
+            <Section title="Their world right now">
               <KV k="activity" v={snap.schedule.activity} />
               <KV k="availability" v={snap.schedule.availability} />
               <KV k="detail" v={snap.schedule.detail} />
