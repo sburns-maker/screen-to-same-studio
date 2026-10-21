@@ -162,26 +162,32 @@ async function createGeneratedPhoto(
   scene: string,
   expression: string | null,
   style: PhotoStyle | null,
+  def?: CharacterDef,
 ) {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const t = type as import("./tess-image.server").TessImageType;
+  const characterKey = def?.key ?? "tess";
   let tessReference: Blob | null = null;
   if (includesTess(t)) {
-    const { data, error } = await supabaseAdmin.storage.from("tess-reference").download("canonical.jpg");
+    const refPath = characterKey === "tess" ? "canonical.jpg" : `${characterKey}.jpg`;
+    const { data, error } = await supabaseAdmin.storage.from("tess-reference").download(refPath);
     if (error || !data) throw new Error("canonical reference unavailable");
     tessReference = data;
   }
   // Mabel's canonical reference is optional — a missing file must never break a reply.
   let mabelReference: Blob | null = null;
-  if (sceneHasMabel(scene)) {
+  if (characterKey === "tess" && sceneHasMabel(scene)) {
     const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
     mabelReference = data ?? null;
   }
   const provider = lovableGatewayProvider(apiKey);
-  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style });
+  const identity = def
+    ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
+    : undefined;
+  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style, identity });
   const path = `${userId}/${crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
@@ -237,7 +243,7 @@ export async function runTurn(
       .eq("conversation_id", conv.id)
       .order("importance", { ascending: false })
       .limit(15),
-    isTess
+    def.photosEnabled
       ? supabase
           .from("generated_images")
           .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
