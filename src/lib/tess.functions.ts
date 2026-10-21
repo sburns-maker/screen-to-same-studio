@@ -271,7 +271,7 @@ export async function runTurn(
   // Fictional-world context: schedule, rotating life event, regional weather (all contacts live near ZIP 16602).
   const now = new Date();
   const { getWeatherContext } = await import("./tess-weather.server");
-  const weather = await getWeatherContext();
+  const weather = await getWeatherContext(def.zip);
 
   const messageList = [...recent].reverse().map((m) => ({
     ...m,
@@ -582,7 +582,7 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
     const convs = await loadConversations(supabase, userId);
     const now = new Date();
     const { getWeatherContext } = await import("./tess-weather.server");
-    const weather = await getWeatherContext();
+    const weather = await getWeatherContext(def.zip);
     const flavor = weather ? weatherFlavor(weather) : null;
     const results: { conversationId: string; count: number }[] = [];
 
@@ -838,7 +838,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     ]);
     const state = pickState(stateRow ?? {}, def.seedState);
     const { getWeatherContext } = await import("./tess-weather.server");
-    const weather = await getWeatherContext();
+    const weather = await getWeatherContext(def.zip);
     const lifeEvent = isTess
       ? activeLifeEvent(
           now,
