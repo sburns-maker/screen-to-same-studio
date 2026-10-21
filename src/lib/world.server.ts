@@ -25,6 +25,7 @@ import { activeLifeEvent, decideInitiation, scheduleFor, weatherFlavor } from ".
 import { deriveStage, type TessState, STATE_KEYS, SEED_STATE } from "./tess-logic";
 import { sendWebPush, type PushTarget } from "./webpush.server";
 import { VAPID_PUBLIC_KEY } from "./push-config";
+import { runSocialTick } from "./social.server";
 
 type Admin = SupabaseClient<Database>;
 
@@ -145,6 +146,7 @@ export type TickReport = {
   aiCalls: number;
   paused: boolean;
   aiPausedGlobally: boolean;
+  social: { eventsNew: number; knowledgeAdded: number; linkChanges: number };
   errors: string[];
 };
 
@@ -160,6 +162,7 @@ export async function runWorldTick(): Promise<TickReport> {
     aiCalls: 0,
     paused: false,
     aiPausedGlobally: false,
+    social: { eventsNew: 0, knowledgeAdded: 0, linkChanges: 0 },
     errors: [],
   };
 
@@ -261,6 +264,17 @@ export async function runWorldTick(): Promise<TickReport> {
         .eq("key", "quiet_hours")
         .maybeSingle();
       const quiet = parseQuietHours(profile?.value);
+
+      // Social world: independent circles, shared events, knowledge
+      // propagation. Structured simulation only — bounded, idempotent, no AI.
+      try {
+        const social = await runSocialTick(admin, userId, now);
+        report.social.eventsNew += social.eventsNew;
+        report.social.knowledgeAdded += social.knowledgeAdded;
+        report.social.linkChanges += social.linkChanges;
+      } catch (e) {
+        report.errors.push(`social: ${(e instanceof Error ? e.message : String(e)).slice(0, 140)}`);
+      }
 
       for (const conv of convs ?? []) {
         if (report.aiCalls >= aiBudget || report.paused) break;
@@ -420,6 +434,7 @@ export async function runWorldTick(): Promise<TickReport> {
       pushed: report.pushed,
       aiCalls: report.aiCalls,
       aiPausedGlobally: report.aiPausedGlobally,
+      social: report.social,
       errors: report.errors,
     });
   } catch (e) {
