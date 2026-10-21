@@ -93,14 +93,19 @@ export async function getWeatherContext(zip: string = WEATHER_ZIP, fetcher?: Fet
   const f: Fetcher =
     fetcher ??
     (async (url: string) => {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { "User-Agent": "TessApp/1.0 (weather)", Accept: "application/json" } });
       return { ok: res.ok, json: () => res.json() };
     });
   try {
-    const geoRes = await f(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(zip)}&count=1&country=US`);
-    if (!geoRes.ok) throw new Error("geocode failed");
-    const geo = (await geoRes.json()) as { results?: { latitude: number; longitude: number; name?: string }[] };
-    const loc = geo.results?.[0];
+    // Open-Meteo geocoding doesn't reliably resolve ZIP codes; use known coords for the home region.
+    let loc: { latitude: number; longitude: number; name?: string } | undefined =
+      zip === "16602" && !fetcher ? { latitude: 40.5187, longitude: -78.3947, name: "Altoona" } : undefined;
+    if (!loc) {
+      const geoRes = await f(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(zip)}&count=1&country=US`);
+      if (!geoRes.ok) throw new Error("geocode failed");
+      const geo = (await geoRes.json()) as { results?: { latitude: number; longitude: number; name?: string }[] };
+      loc = geo.results?.[0];
+    }
     if (!loc) throw new Error("zip not found");
     const wxRes = await f(
       `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
