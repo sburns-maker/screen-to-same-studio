@@ -19,17 +19,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAllData, resetRelationship, updateSettings } from "@/lib/tess.functions";
-import { conversationQuery } from "@/lib/tess-queries";
+import { conversationsQuery } from "@/lib/tess-queries";
 import { DIFFICULTIES, type Difficulty } from "@/lib/tess-logic";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Settings — Tess" },
-      { name: "description", content: "Difficulty, display options and your data." },
-      { property: "og:title", content: "Settings — Tess" },
-      { property: "og:description", content: "Difficulty, display options and your data." },
+      { title: "Settings — Chats" },
+      { name: "description", content: "Appearance, notifications and simulation options." },
+      { property: "og:title", content: "Settings — Chats" },
+      { property: "og:description", content: "Appearance, notifications and simulation options." },
     ],
   }),
   component: SettingsPage,
@@ -50,21 +50,23 @@ function Row({ children, className }: { children: React.ReactNode; className?: s
 function SettingsPage() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const conv = useQuery(conversationQuery);
+  const convs = useQuery(conversationsQuery);
   const update = useServerFn(updateSettings);
   const reset = useServerFn(resetRelationship);
   const wipe = useServerFn(deleteAllData);
-  const c = conv.data;
+  const list = convs.data ?? [];
+  const tessConv = list.find((c) => (c.character as { key?: string } | null)?.key === "tess");
+  const anyConv = list[0];
 
-  async function set(patch: { photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean; real_time_mode?: boolean }) {
-    qc.setQueryData(conversationQuery.queryKey, (old: typeof c) => (old ? { ...old, ...patch } : old));
+  async function set(patch: { conversationId?: string; photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean; real_time_mode?: boolean }) {
     await update({ data: patch });
+    qc.invalidateQueries({ queryKey: ["conversations"] });
     qc.invalidateQueries({ queryKey: ["conversation"] });
   }
 
   async function exportConvo() {
-    if (!c) return;
-    const { data } = await supabase.from("messages").select("sender, body, created_at").eq("conversation_id", c.id).lte("visible_at", new Date().toISOString()).order("created_at");
+    if (!tessConv) return;
+    const { data } = await supabase.from("messages").select("sender, body, created_at").eq("conversation_id", tessConv.id).lte("visible_at", new Date().toISOString()).order("created_at");
     const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), messages: data }, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -73,10 +75,11 @@ function SettingsPage() {
   }
 
   async function doReset() {
-    await reset();
+    if (!tessConv) return;
+    await reset({ data: { conversationId: tessConv.id } });
     qc.clear();
-    toast.success("Fresh start. You just met at trivia.");
-    navigate({ to: "/chat" });
+    toast.success("Fresh start with Tess. You just met at trivia.");
+    navigate({ to: "/inbox" });
   }
   async function doWipe() {
     await wipe();
@@ -89,7 +92,36 @@ function SettingsPage() {
     <>
       <ScreenHeader title="Settings" />
       <Screen>
-        <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Difficulty</h3>
+        <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
+        <div className="mt-2 divide-y rounded-2xl bg-surface">
+          <NotificationsRow />
+          <MessagePreviewsRow />
+          <Row>
+            Typing indicator
+            <Switch checked={!!anyConv?.typing_indicator} onCheckedChange={(v) => set({ typing_indicator: v })} />
+          </Row>
+          <Row>
+            Read receipts
+            <Switch checked={!!anyConv?.read_receipts} onCheckedChange={(v) => set({ read_receipts: v })} />
+          </Row>
+        </div>
+
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Simulation</h3>
+        <div className="mt-2 divide-y rounded-2xl bg-surface">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-4 text-[15px]">
+              Real-Time Mode
+              <Switch checked={!!anyConv?.real_time_mode} onCheckedChange={(v) => set({ real_time_mode: v })} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Contacts follow their fictional daily schedules. Replies may take longer.</p>
+          </div>
+          <Row>
+            Show simulation data
+            <Switch checked={!!anyConv?.show_sim_data} onCheckedChange={(v) => set({ show_sim_data: v })} />
+          </Row>
+        </div>
+
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Difficulty</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           {DIFFICULTIES.map((d) => (
             <button key={d} type="button" onClick={() => set({ difficulty: d })} className="flex w-full items-center justify-between px-4 py-3 text-left">
@@ -97,74 +129,60 @@ function SettingsPage() {
                 <span className="block text-[15px] font-medium capitalize">{d}</span>
                 <span className="block text-xs text-muted-foreground">{DIFF_COPY[d]}</span>
               </span>
-              <span className={cn("h-4 w-4 rounded-full border-2", c?.difficulty === d ? "border-primary bg-primary" : "border-border")} />
+              <span className={cn("h-4 w-4 rounded-full border-2", (anyConv?.difficulty ?? "realistic") === d ? "border-primary bg-primary" : "border-border")} />
             </button>
           ))}
         </div>
 
-        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tess photo frequency</h3>
-        <div className="mt-2 grid grid-cols-3 gap-1 rounded-2xl bg-surface p-1">
-          {(["rare", "normal", "frequent"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => set({ photo_frequency: f })}
-              className={cn("rounded-xl py-2 text-sm font-medium capitalize", (c?.photo_frequency ?? "normal") === f ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 px-1 text-xs text-muted-foreground">Only nudges how often. She still decides based on mood and how well you know each other.</p>
-
-        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversation</h3>
-        <div className="mt-2 divide-y rounded-2xl bg-surface">
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tess</h3>
+        <div className="mt-2 rounded-2xl bg-surface">
           <div className="px-4 py-3">
-            <div className="flex items-center justify-between gap-4 text-[15px]">
-              Real-Time Mode
-              <Switch checked={!!c?.real_time_mode} onCheckedChange={(v) => set({ real_time_mode: v })} />
+            <div className="text-[15px]">Photo frequency</div>
+            <div className="mt-2 grid grid-cols-3 gap-1 rounded-xl bg-background p-1">
+              {(["rare", "normal", "frequent"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => set({ photo_frequency: f })}
+                  className={cn("rounded-lg py-2 text-sm font-medium capitalize", (tessConv?.photo_frequency ?? "normal") === f ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+                >
+                  {f}
+                </button>
+              ))}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Tess follows her fictional daily schedule. Replies may take longer.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Only nudges how often. She still decides based on mood and how well you know each other.</p>
           </div>
-          <NotificationsRow />
-          <Row>
-            Typing indicator
-            <Switch checked={!!c?.typing_indicator} onCheckedChange={(v) => set({ typing_indicator: v })} />
-          </Row>
-          <Row>
-            Read receipts
-            <Switch checked={!!c?.read_receipts} onCheckedChange={(v) => set({ read_receipts: v })} />
-          </Row>
-          <Row>
-            Show simulation data
-            <Switch checked={!!c?.show_sim_data} onCheckedChange={(v) => set({ show_sim_data: v })} />
-          </Row>
-          {c?.show_sim_data && (
-            <Link to="/debug" className="flex items-center justify-between px-4 py-3 text-[15px]">
-              Simulation debug <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </Link>
-          )}
-          <Link to="/history" className="flex items-center justify-between px-4 py-3 text-[15px]">
-            Conversation history <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <div className="border-t">
+            <button type="button" onClick={exportConvo} className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px]">
+              Export Tess conversation <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
+        </div>
+
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">About</h3>
+        <div className="mt-2 divide-y rounded-2xl bg-surface">
+          <div className="px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+            Every contact in Chats is a fictional, AI-generated character. Conversations are generated by AI and designed
+            for interpersonal and texting practice. Nothing here is a real person, and no real contact data is used.
+          </div>
+          <Link to="/" className="flex items-center justify-between px-4 py-3 text-[15px]">
+            Replay the intro <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-          <button type="button" onClick={exportConvo} className="flex w-full items-center justify-between px-4 py-3 text-left text-[15px]">
-            Export conversation <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
         </div>
 
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Start over</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
-          <Confirm title="Reset relationship?" body="Everything with Tess is erased and you're back to the night you met at trivia." action="Reset" onConfirm={doReset}>
-            <button type="button" className="w-full px-4 py-3 text-left text-[15px]">Reset relationship / new scenario</button>
+          <Confirm title="Reset Tess?" body="Your history with Tess is erased and you're back to the night you met at trivia. Other contacts are untouched." action="Reset" onConfirm={doReset}>
+            <button type="button" className="w-full px-4 py-3 text-left text-[15px]">Reset Tess / new scenario</button>
           </Confirm>
-          <Confirm title="Delete all data?" body="Your conversation, debriefs and simulation data are permanently deleted, and you'll be signed out." action="Delete" onConfirm={doWipe}>
+          <Confirm title="Delete all data?" body="Every conversation, debrief and all simulation data is permanently deleted, and you'll be signed out." action="Delete" onConfirm={doWipe}>
             <button type="button" className="w-full px-4 py-3 text-left text-[15px] text-destructive">Delete all simulation data</button>
           </Confirm>
           <button type="button" onClick={() => supabase.auth.signOut().then(() => navigate({ to: "/" }))} className="w-full px-4 py-3 text-left text-[15px]">
             Sign out
           </button>
         </div>
-        <p className="mt-8 text-center text-xs text-muted-foreground">Tess is fictional.</p>
+        <p className="mt-8 text-center text-xs text-muted-foreground">All contacts are fictional.</p>
       </Screen>
     </>
   );
@@ -186,7 +204,7 @@ function NotificationsRow() {
       }
       localStorage.setItem("tess:notifications", "on");
       setEnabled(true);
-      toast.success("Notifications on. Tess will only ping you when she actually texts.");
+      toast.success("Notifications on. You'll only be pinged when someone actually texts.");
     } else {
       localStorage.setItem("tess:notifications", "off");
       setEnabled(false);
@@ -198,7 +216,24 @@ function NotificationsRow() {
         Notifications
         <Switch checked={enabled} onCheckedChange={toggle} />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">Only when Tess actually sends a message or photo. Never engagement bait.</p>
+      <p className="mt-1 text-xs text-muted-foreground">Only when a contact actually sends a message or photo. Never engagement bait.</p>
+    </div>
+  );
+}
+
+function MessagePreviewsRow() {
+  const [previews, setPreviews] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("tess:messagePreviews") !== "off" : true));
+  function toggle(v: boolean) {
+    localStorage.setItem("tess:messagePreviews", v ? "on" : "off");
+    setPreviews(v);
+  }
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between gap-4 text-[15px]">
+        Message previews in notifications
+        <Switch checked={previews} onCheckedChange={toggle} />
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">Off: notifications just say "New message".</p>
     </div>
   );
 }
