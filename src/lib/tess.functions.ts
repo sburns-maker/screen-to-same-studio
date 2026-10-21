@@ -12,6 +12,7 @@ import {
   type Difficulty,
   type TessState,
 } from "./tess-logic";
+import { eligiblePhotos } from "./tess-photos";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -71,7 +72,7 @@ async function runTurn(
     supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
     supabase
       .from("messages")
-      .select("sender, body, created_at")
+      .select("sender, body, created_at, metadata")
       .eq("conversation_id", conv.id)
       .lte("visible_at", nowIso)
       .order("created_at", { ascending: false })
@@ -86,11 +87,23 @@ async function runTurn(
 
   const state = pickState(stateRow ?? {});
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
+  const recent = msgs ?? [];
+  const sentPhotos = new Set(
+    recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean) as string[],
+  );
+  const recentlySentPhoto = recent.slice(0, 12).some((m) => (m.metadata as { photo?: string } | null)?.photo);
+  const photos = recentlySentPhoto
+    ? []
+    : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id));
   const reply = await generateTessReply({
     state,
     stage: deriveStage(state),
     difficulty,
-    messages: (msgs ?? []).reverse(),
+    messages: [...recent].reverse().map((m) => ({
+      ...m,
+      body: (m.metadata as { photo?: string } | null)?.photo ? `[sent a photo: ${(m.metadata as { photo: string }).photo}] ${m.body}` : m.body,
+    })),
+    photos,
     memories: (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`),
     tz,
     initiation,
@@ -106,7 +119,9 @@ async function runTurn(
     .eq("conversation_id", conv.id);
   await supabase.from("conversations").update({ relationship_stage: stage, updated_at: nowIso }).eq("id", conv.id);
 
+  const photo = reply.photo_id && photos.some((p) => p.id === reply.photo_id) ? reply.photo_id : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
+  if (photo && !bubbles.length) bubbles.push("");
   let at = Date.now() + clampDelaySeconds(initiation ? 3 : reply.send_delay_seconds) * 1000;
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
@@ -117,7 +132,7 @@ async function runTurn(
       body,
       visible_at: new Date(at).toISOString(),
       created_at: new Date(at).toISOString(),
-      metadata: { tone: reply.tone, tags: reply.event_tags, initiated: !!initiation },
+      metadata: { tone: reply.tone, tags: reply.event_tags, initiated: !!initiation, ...(photo && i === 0 ? { photo } : {}) },
     };
   });
   if (rows.length) await supabase.from("messages").insert(rows);

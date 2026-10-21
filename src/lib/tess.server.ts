@@ -92,6 +92,7 @@ export const replySchema = z.object({
   send_delay_seconds: z.number(),
   state_delta: deltaSchema,
   memory_candidates: z.array(z.object({ memory_type: z.string(), summary: z.string(), importance: z.number() })),
+  photo_id: z.string().nullable(),
   tone: z.string(),
   event_tags: z.array(z.string()),
 });
@@ -155,6 +156,7 @@ export async function generateTessReply(args: {
   memories: string[];
   tz: string;
   initiation?: { gapHours: number } | undefined;
+  photos: { id: string; about: string; selfie: boolean }[];
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
@@ -168,6 +170,7 @@ DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 TESS RIGHT NOW: ${availabilityFor(local)}
 CURRENT LIFE THREADS: ${currentLifeContext(now).join("; ")}
+PHOTOS TESS COULD SEND RIGHT NOW: ${args.photos.length ? args.photos.map((p) => `${p.id} (${p.about}${p.selfie ? ", selfie" : ""})`).join("; ") : "(none — don't send a photo)"}
 LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
 
 RECENT CONVERSATION
@@ -184,6 +187,7 @@ OUTPUT RULES
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent. Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation.
 - memory_candidates: only genuinely meaningful items (inside jokes, disclosures, disagreements, invitations, boundaries, meaningful flirting). Usually empty. memory_type one of: inside_joke, disclosure, disagreement, invitation, boundary, flirt, fact. importance 1–5.
+- photo_id: usually null. Only pick one of the listed photo ids when it fits naturally right now (topic, mood, her life thread, or she's initiating). Photos are occasional — most turns null. Selfies only when she's comfortable and in a good mood; never because he asked pushily. If he asks for a selfie too early, she can deflect or send Mabel instead. When sending a photo, the text bubbles should reference it casually (or messages can be a short caption).
 - tone: one word (playful, dry, warm, guarded, annoyed, flirty, distracted, neutral...).
 - event_tags: short tags for what happened this turn (e.g. "user_flirt", "flirt_rejected", "callback", "pressure", "apology").`;
 
