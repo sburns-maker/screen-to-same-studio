@@ -153,3 +153,12 @@ describe("multi-week life developments", () => {
     expect(next.some(r=>closed.some(s=>s.template===r.state.template))).toBe(false);
   });
 });
+import { STORY_TEMPLATES as ALL_TEMPLATES } from "@/lib/storyline-logic";
+describe("procedural storyline variety", () => {
+  it("gives every character well over 50 distinct storylines", () => {
+    for (const c of ["tess", "maya", "claire", "jordan", "ben"]) {
+      expect(ALL_TEMPLATES.filter(t => t.owner === c).length).toBeGreaterThan(50);
+    }
+    expect(new Set(ALL_TEMPLATES.map(t => t.key)).size).toBe(ALL_TEMPLATES.length);
+  });
+});
