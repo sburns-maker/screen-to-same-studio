@@ -15,6 +15,6 @@
 ## Open / partial
 - Push is foreground-only; background delivery needs VAPID + subscription storage (not built).
 - Offline queue is localStorage, flushes while app is open; closed-app flush not verified.
-- Email-confirmation setting: checking hosted auth config.
+- Email confirmation: auto-confirm enabled for development; RLS unchanged.
 - Real-Time sleep path: Tess replies when she wakes rather than queuing a morning message.
 - Photo system untouched this pass (preserved per instructions); consumes schedule/weather as prompt context only.
