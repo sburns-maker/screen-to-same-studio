@@ -100,8 +100,8 @@ export function activeLifeEvent(now: Date, weatherHint?: { snowing?: boolean; ra
 }
 
 /** Weather-flavored one-liners Tess might reference, keyed by condition. */
-export function weatherFlavor(w: { condition: string; temperature_f: number; snowing: boolean; rain: boolean; alert: string | null }): string | null {
-  if (w.alert) return `there's a weather alert in her area (${w.alert}) — plans may shift`;
+export function weatherFlavor(w: { condition: string; temperature_f: number; snowing: boolean; rain: boolean; weather_alert?: string | null }): string | null {
+  if (w.weather_alert) return `there's a weather alert in her area (${w.weather_alert}) — plans may shift`;
   if (w.snowing) return `it's snowing — she genuinely loves winter; Mabel goes feral in snow, roads are slow, trivia could get canceled if it keeps up`;
   if (w.rain) return `it's raining — wet dog, muddy walks, lazy-evening energy`;
   if (w.temperature_f >= 88) return `it's hot — shorter Mabel walks, iced coffee, complaining about the clinic AC`;

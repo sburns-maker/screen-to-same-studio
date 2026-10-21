@@ -594,7 +594,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
     return {
       state,
-      lastDelta: (stateRow?.last_delta ?? {}) as Record<string, unknown>,
+      lastDelta: JSON.parse(JSON.stringify(stateRow?.last_delta ?? {})) as Record<string, number | string | string[]>,
       lastTone: stateRow?.last_tone ?? null,
       stage: deriveStage(state),
       difficulty: conv.difficulty,
