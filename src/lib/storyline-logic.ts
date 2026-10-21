@@ -1,0 +1,103 @@
+import { hashSeed, mulberry32, type PlannedEvent, type LinkRow } from "./social-logic";
+import type { LifeEvent, TessActivity } from "./tess-life";
+
+export const STORY_LIMIT = 1; // per character, including shared involvement
+export const STORY_STEPS_PER_TICK = 10;
+export const STORY_COOLDOWN_DAYS = 14;
+const DAY = 86_400_000;
+export type StoryStage = "beginning" | "development" | "complication" | "decision" | "postponed" | "resolved" | "faded" | "continuing";
+export type StoryState = {
+  version: 1; template: string; owner: string; characters: string[]; npc: string;
+  stage: StoryStage; step: number; startedAt: string; updatedAt: string; nextAt: string | null;
+  summary: string; mood: LifeEvent["mood"]; availability: LifeEvent["availability"];
+};
+type Template = { key: string; owner: string; npc: string; title: string; location: string; start: string; develop: string; complication: string; decision: string; outcomes: string[]; photo: string };
+export const STORY_TEMPLATES: Template[] = [
+  { key: "clinic_rota", owner: "tess", npc: "Sam", title: "Clinic rota review", location: "the veterinary practice", start: "Tess and Sam are reviewing uneven clinic shift coverage", develop: "they are trying a revised rota for a few days", complication: "the trial leaves an awkward lunchtime coverage gap", decision: "they are comparing a smaller adjustment with keeping the trial", outcomes: ["they kept a small rota adjustment that made handovers easier", "they returned to the old rota; the trial was not worth the extra work"], photo: "a handwritten rota beside a coffee, with no client details" },
+  { key: "evan_plans", owner: "tess", npc: "Evan", title: "Helping Evan compare wedding plans", location: "home", start: "Evan has asked Tess to help compare a few wedding planning options", develop: "they have narrowed the practical options without settling anything", complication: "one option no longer fits the family budget", decision: "Evan is weighing the simpler options with Tess's practical input", outcomes: ["Evan picked a simpler option; Tess's part in comparing it is finished", "Evan decided to leave the choice for later; Tess is no longer actively helping"], photo: "a notebook of practical planning notes" },
+  { key: "maya_event", owner: "maya", npc: "Tasha", title: "Venue preparation project", location: "the venue", start: "Maya and Tasha are testing a clearer setup checklist for upcoming venue work", develop: "they are trying the checklist during normal preparations", complication: "some supplier timings do not fit their first draft", decision: "they are deciding which parts to simplify", outcomes: ["they kept the useful checklist sections and dropped the rest", "they shelved the checklist; the existing routine worked better"], photo: "setup supplies and an ordinary checklist without customer details" },
+  { key: "maya_visit", owner: "maya", npc: "Becca", title: "Making time for Becca", location: "home", start: "Maya and Becca are looking for a weekend when they can spend time together", develop: "they have compared calendars and a low-key visit looks possible", complication: "their work plans have shifted and the first dates no longer fit", decision: "they are considering a shorter visit instead of a whole weekend", outcomes: ["they managed a short, relaxed catch-up and enjoyed it", "they decided on a long phone catch-up rather than travel this time"], photo: "coffee and snacks ready for a quiet catch-up" },
+  { key: "claire_library", owner: "claire", npc: "Mrs. Abernathy", title: "Library display project", location: "the school library", start: "Claire is discussing a small library display refresh with Mrs. Abernathy", develop: "Claire is testing a modest display using books already available", complication: "there is less shelf space than expected", decision: "Claire is weighing a smaller rotating selection", outcomes: ["Claire finished a smaller display that fits the space", "Claire kept the existing shelves and saved the idea for another term"], photo: "books and a small display, no pupils in frame" },
+  { key: "claire_visit", owner: "claire", npc: "Natalie", title: "Planning time with Natalie", location: "Claire's home", start: "Claire and Natalie are planning some unhurried family time around their usual visits", develop: "Claire is fitting preparation and a simple meal around her library work", complication: "Natalie's family schedule makes the original plan awkward", decision: "they are considering a shorter visit with less preparation", outcomes: ["they had a relaxed meal together; keeping it simple helped", "they chose a short catch-up rather than the longer family plan"], photo: "ordinary meal preparation in the kitchen" },
+  { key: "jordan_project", owner: "jordan", npc: "Patel", title: "Drafting review", location: "the engineering office", start: "Jordan and Patel are working through a non-urgent drafting review", develop: "Jordan has tried a more precise way to organize the review notes", complication: "one detail needs another pass before they can settle it", decision: "they are choosing between a small revision and the existing approach", outcomes: ["they accepted the small revision and closed the review", "they kept the original approach after checking the alternatives"], photo: "a notebook and pencils with no confidential drawings visible" },
+  { key: "jordan_climb", owner: "jordan", npc: "Ruth", title: "Working on a climbing technique", location: "the climbing gym", start: "Jordan and Ruth are working patiently on a climbing technique during their normal sessions", develop: "they are making small adjustments rather than chasing a big milestone", complication: "the current approach is tiring without much improvement", decision: "they are considering an easier practice route for a while", outcomes: ["Jordan found a small technique adjustment useful and moved on", "Jordan set that technique aside and returned to comfortable routes"], photo: "chalk bag and climbing shoes at the gym" },
+  { key: "ben_work", owner: "ben", npc: "Mikey", title: "Organizing the work van", location: "the work van", start: "Ben and Mikey are trying to make the van's tool storage less chaotic", develop: "they are testing a simpler arrangement between normal jobs", complication: "the first arrangement makes a frequently used tool awkward to reach", decision: "they are choosing a practical compromise", outcomes: ["they kept a simpler tool layout that saves some rummaging", "they restored most of the old layout and labeled a few boxes instead"], photo: "ordinary toolboxes, with no customer addresses visible" },
+  { key: "ben_family", owner: "ben", npc: "Sarah", title: "Finding room for a family outing", location: "home", start: "Ben and Sarah are trying to fit a simple family outing around work and the kids' plans", develop: "they are comparing a few nearby, low-effort options", complication: "the first day conflicts with another family commitment", decision: "they are considering a shorter outing closer to home", outcomes: ["they enjoyed a short local family outing without making a big production of it", "they stayed home for a relaxed family afternoon instead"], photo: "packed snacks or an ordinary family picnic setting, no children in frame" },
+];
+
+export function readStory(value: unknown): StoryState | null {
+  if (!value || typeof value !== "object") return null;
+  const s = value as Partial<StoryState>;
+  if (s.version !== 1 || !STORY_TEMPLATES.some(t => t.key === s.template && t.owner === s.owner) || !Array.isArray(s.characters) || typeof s.step !== "number" || typeof s.summary !== "string" || typeof s.updatedAt !== "string" || typeof s.startedAt !== "string") return null;
+  return s as StoryState;
+}
+export function storyActive(s: StoryState): boolean { return s.nextAt !== null; }
+
+/** Tenant-specific, non-repeating topic selection; never reads user conversations. */
+export function beginStories(userId: string, now: Date, existing: StoryState[], links: LinkRow[]): { id: string; state: StoryState }[] {
+  const out: { id: string; state: StoryState }[] = [];
+  for (const owner of ["tess", "maya", "claire", "jordan", "ben"]) {
+    const all = [...existing, ...out.map(x => x.state)];
+    if (all.filter(s => storyActive(s) && s.characters.includes(owner)).length >= STORY_LIMIT) continue;
+    const previous = all.filter(s => s.characters.includes(owner)).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+    if (previous && now.getTime() - Date.parse(previous.updatedAt) < STORY_COOLDOWN_DAYS * DAY) continue;
+    const available = STORY_TEMPLATES.filter(t => t.owner === owner && !existing.some(s => s.template === t.key));
+    if (!available.length) continue;
+    const rng = mulberry32(hashSeed(`${userId}:${owner}:${existing.filter(s => s.owner === owner).length}`));
+    const t = available[Math.floor(rng() * available.length)];
+    if (!t) continue;
+    const characters = [owner];
+    const friend = links.find(l => l.characterKey === owner && l.otherType === "character" && ["friend", "close_friend", "family"].includes(l.level) && !all.some(s => storyActive(s) && s.characters.includes(l.otherKey)));
+    // An actual established friend can help with a practical project, not be retroactively made family.
+    if (friend && !["evan_plans", "claire_visit", "ben_family"].includes(t.key) && rng() < 0.12) characters.push(friend.otherKey);
+    const startedAt = now.toISOString();
+    out.push({ id: `life-story:${userId}:${t.key}`, state: { version: 1, template: t.key, owner, characters, npc: t.npc, stage: "beginning", step: 0, startedAt, updatedAt: startedAt, nextAt: new Date(now.getTime() + (3 + Math.floor(rng()*3))*DAY).toISOString(), summary: t.start, mood: "neutral", availability: "normal" } });
+  }
+  return out;
+}
+
+/** One stable branch per milestone; catch-up proceeds chronologically, never rerolls. */
+export function advanceStory(id: string, s: StoryState): StoryState {
+  if (!s.nextAt) return s;
+  const t = STORY_TEMPLATES.find(t => t.key === s.template);
+  if (!t) return s;
+  const step = s.step + 1;
+  const rng = mulberry32(hashSeed(`${id}:${step}`));
+  const roll = rng();
+  let stage: StoryStage; let summary: string;
+  if (step >= 6 || (s.stage === "decision" && roll < 0.75)) {
+    stage = roll < 0.68 ? "resolved" : roll < 0.86 ? "faded" : "continuing";
+    summary = stage === "resolved" ? (t.outcomes[Math.floor(rng()*t.outcomes.length)] ?? t.outcomes[0] ?? "the practical work is finished") : stage === "faded" ? "the plan has quietly fallen out of priority; no definite outcome was agreed" : "the matter remains open with no deadline or definite outcome; ordinary life continues";
+  } else if (roll < 0.18 && s.stage !== "postponed") {
+    stage = "postponed"; summary = "the next step has been postponed to fit ordinary work and family commitments; nothing has been settled";
+  } else if (step === 1 || s.stage === "postponed") { stage = "development"; summary = t.develop;
+  } else if (step <= 3 && roll < 0.55) { stage = "complication"; summary = t.complication;
+  } else { stage = "decision"; summary = t.decision; }
+  const terminal = ["resolved", "faded", "continuing"].includes(stage);
+  return { ...s, stage, step, updatedAt: s.nextAt, nextAt: terminal ? null : new Date(Date.parse(s.nextAt) + (stage === "postponed" ? 7 : 3) * DAY + Math.floor(rng()*3)*DAY).toISOString(), summary: `${t.title}: ${summary}`, mood: terminal ? (stage === "resolved" ? "up" : "neutral") : stage === "complication" ? "stressed" : "neutral", availability: !terminal && ["development", "complication"].includes(stage) ? "busy" : "normal" };
+}
+
+export function storyEvent(id: string, s: StoryState): PlannedEvent {
+  const t = STORY_TEMPLATES.find(t => t.key === s.template);
+  return { id: `${id}:step:${s.step}`, characterKey: s.owner, title: t?.title ?? s.template, kind: "life_development", location: t?.location ?? "home", occursAt: new Date(s.updatedAt), facts: { story_id: id, step: s.step, stage: s.stage, development: s.summary }, participants: [...s.characters.map(key => ({ type: "character" as const, key, met: [] as string[], perspective: key === s.owner ? "Directly involved; may choose to keep this private." : "Helped with this practical matter; has their own perspective." })), { type: "npc", key: s.npc, met: [] as string[], perspective: "Involved in the practical situation." }] };
+}
+
+export function storyLifeEvent(s: StoryState, now: Date): LifeEvent | null {
+  // A finished outcome remains memory, not a permanent mood/availability modifier.
+  if (!storyActive(s) || now.getTime() - Date.parse(s.updatedAt) > 5*DAY) return null;
+  return { id: `story:${s.template}`, summary: s.summary, mood: s.mood, availability: s.availability, days: 5 };
+}
+export function storySchedule(base: TessActivity, event: LifeEvent | null): TessActivity {
+  if (!event || base.availability === "asleep") return base;
+  return { ...base, availability: base.availability === "free" && event.availability === "busy" ? "limited" : base.availability, detail: `${base.detail}; ongoing situation: ${event.summary}` };
+}
+export function storyPrompt(s: StoryState): string {
+  const t = STORY_TEMPLATES.find(t => t.key === s.template);
+  return `[${s.updatedAt.slice(0,10)}; ${s.stage}] ${s.summary}. ${storyActive(s) ? `Current mood: ${s.mood}. Possible photo context only if actually doing it now: ${t?.photo ?? "ordinary surroundings"}.` : "This is remembered history, not something happening now."} Mention only if natural or relevant; privacy and unrelated conversation are valid. Never invent completion or demand user involvement.`;
+}
+
+/** Stable UUID for idempotent outcome memories, including recovery after partial writes. */
+export function storyMemoryId(userId: string, character: string, id: string): string {
+  const raw = [0,1,2,3].map(n => hashSeed(`${userId}:${character}:${id}:${n}`).toString(16).padStart(8,"0")).join("");
+  return `${raw.slice(0,8)}-${raw.slice(8,12)}-5${raw.slice(13,16)}-a${raw.slice(17,20)}-${raw.slice(20)}`;
+}
