@@ -18,7 +18,31 @@ export const Route = createFileRoute("/_authenticated/debug")({
   component: Debug,
 });
 
-type Snapshot = Awaited<ReturnType<typeof debugSnapshot>>;
+type Snapshot = {
+  state: TessState;
+  lastDelta: Record<string, number | string | string[]>;
+  lastTone: string | null;
+  stage: string;
+  difficulty: string;
+  realTimeMode: boolean;
+  schedule: { activity: string; availability: string; detail: string };
+  lifeEvent: { summary: string; mood: string } | null;
+  weather: { condition: string; temperature_f: number; wind_mph: number; weather_region: string } | null;
+  weatherFlavor: string | null;
+  gapHours: number;
+  initiation: {
+    eligible: boolean;
+    reasons: string[];
+    score: number;
+    chance: number;
+    nextWindowHours: number | null;
+    lastCheck: Record<string, unknown> | null;
+    lastInitiatedAt: string | null;
+  };
+  photo: { eligible: boolean; reason: string; curatedCount: number; generatedTypes: string[] };
+  latencyReason: string | null;
+  recentMemories: { memory_type: string; summary: string; importance: number; created_at: string }[];
+};
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
