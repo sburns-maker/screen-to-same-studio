@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ensureConversation, tessMaybeInitiate, tessRespond } from "@/lib/tess.functions";
 import { conversationQuery, messagesQuery, userTz } from "@/lib/tess-queries";
 import { cn } from "@/lib/utils";
+import { PHOTO_SRC } from "@/lib/tess-photo-images";
 
 export const Route = createFileRoute("/_authenticated/chat")({
   head: () => ({
@@ -178,14 +179,23 @@ function Chat() {
               <div key={m.id}>
                 {gap && <div className="my-3 text-center text-[11px] font-medium text-muted-foreground">{fmtDivider(t)}</div>}
                 <div className={cn("flex", mine ? "justify-end" : "justify-start", groupedNext ? "mb-0.5" : "mb-2")}>
-                  <div
+                  <div className={cn("flex max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
+                  {(() => {
+                    const photo = (m.metadata as { photo?: string } | null)?.photo;
+                    const src = photo ? PHOTO_SRC[photo] : undefined;
+                    return src ? (
+                      <img src={src} alt="Photo from Tess" loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" />
+                    ) : null;
+                  })()}
+                  {m.body && <div
                     title={fmtTime(t)}
                     className={cn(
-                      "bubble-in max-w-[78%] whitespace-pre-wrap break-words px-3.5 py-2 text-[15px] leading-snug",
+                      "bubble-in whitespace-pre-wrap break-words px-3.5 py-2 text-[15px] leading-snug",
                       mine ? "rounded-2xl rounded-br-md bg-bubble-me text-bubble-me-foreground" : "rounded-2xl rounded-bl-md bg-bubble-them text-bubble-them-foreground",
                     )}
                   >
                     {m.body}
+                  </div>}
                   </div>
                 </div>
                 {i === lastUserIdx && readReceipt && (
