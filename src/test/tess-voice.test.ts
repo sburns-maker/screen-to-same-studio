@@ -32,13 +32,13 @@ describe("enforceTessVoice", () => {
 
 describe("contact voice", () => {
   it("strips chatbot filler from Claire", () => {
-    const out = enforceTessVoice(["But seriously, I appreciate your kind words. Tomatoes, obviously."], { ...CONTACT_VOICE.claire });
+    const out = enforceTessVoice(["But seriously, I appreciate your kind words. Tomatoes, obviously."], { ...CONTACT_VOICE["claire"] });
     expect(out).toEqual(["Tomatoes, obviously."]);
   });
   it("caps Claire at two bubbles", () => {
-    expect(enforceTessVoice(["a one.", "b two.", "c three."], { ...CONTACT_VOICE.claire }).length).toBe(2);
+    expect(enforceTessVoice(["a one.", "b two.", "c three."], { ...CONTACT_VOICE["claire"] }).length).toBe(2);
   });
   it("Jordan never uses exclamation marks", () => {
-    expect(enforceTessVoice(["Fine!"], { ...CONTACT_VOICE.jordan })).toEqual(["Fine."]);
+    expect(enforceTessVoice(["Fine!"], { ...CONTACT_VOICE["jordan"] })).toEqual(["Fine."]);
   });
 });
