@@ -181,11 +181,12 @@ function Chat() {
                 <div className={cn("flex", mine ? "justify-end" : "justify-start", groupedNext ? "mb-0.5" : "mb-2")}>
                   <div className={cn("flex max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
                   {(() => {
-                    const photo = (m.metadata as { photo?: string } | null)?.photo;
-                    const src = photo ? PHOTO_SRC[photo] : undefined;
-                    return src ? (
-                      <img src={src} alt="Photo from Tess" loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" />
-                    ) : null;
+                    const md = m.metadata as { photo?: string; generated_path?: string } | null;
+                    const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
+                    if (src)
+                      return <img src={src} alt="Photo from Tess" loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" />;
+                    if (md?.generated_path) return <GeneratedPhoto path={md.generated_path} />;
+                    return null;
                   })()}
                   {m.body && <div
                     title={fmtTime(t)}
@@ -249,5 +250,31 @@ function Chat() {
         </div>
       </form>
     </div>
+  );
+}
+
+function GeneratedPhoto({ path }: { path: string }) {
+  const q = useQuery({
+    queryKey: ["photo-url", path],
+    staleTime: 50 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from("tess-photos").createSignedUrl(path, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+  });
+  const [failed, setFailed] = useState(false);
+  if (failed || q.isError) return null;
+  if (!q.data) return <div className="h-80 w-60 animate-pulse rounded-2xl rounded-bl-md bg-bubble-them" />;
+  return (
+    <img
+      src={q.data}
+      alt="Photo from Tess"
+      loading="lazy"
+      width={1024}
+      height={1536}
+      onError={() => setFailed(true)}
+      className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover"
+    />
   );
 }

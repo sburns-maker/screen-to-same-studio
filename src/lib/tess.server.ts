@@ -92,7 +92,16 @@ export const replySchema = z.object({
   send_delay_seconds: z.number(),
   state_delta: deltaSchema,
   memory_candidates: z.array(z.object({ memory_type: z.string(), summary: z.string(), importance: z.number() })),
-  photo_id: z.string().nullable(),
+  photo: z
+    .object({
+      action: z.enum(["fixed", "generate"]),
+      asset_id: z.string().nullable(),
+      type: z.enum(["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"]).nullable(),
+      scene: z.string().nullable(),
+      expression: z.string().nullable(),
+      reason: z.string().nullable(),
+    })
+    .nullable(),
   tone: z.string(),
   event_tags: z.array(z.string()),
 });
@@ -157,6 +166,8 @@ export async function generateTessReply(args: {
   tz: string;
   initiation?: { gapHours: number } | undefined;
   photos: { id: string; about: string; selfie: boolean }[];
+  generateTypes: string[];
+  photoFrequency: string;
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
@@ -170,7 +181,9 @@ DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 TESS RIGHT NOW: ${availabilityFor(local)}
 CURRENT LIFE THREADS: ${currentLifeContext(now).join("; ")}
-PHOTOS TESS COULD SEND RIGHT NOW: ${args.photos.length ? args.photos.map((p) => `${p.id} (${p.about}${p.selfie ? ", selfie" : ""})`).join("; ") : "(none — don't send a photo)"}
+EXISTING PHOTOS SHE COULD SEND: ${args.photos.length ? args.photos.map((p) => `${p.id} (${p.about}${p.selfie ? ", selfie" : ""})`).join("; ") : "(none right now)"}
+NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.generateTypes.join(", ") : "(none — no new photos)"}
+PHOTO FREQUENCY PREFERENCE: ${args.photoFrequency}
 LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
 
 RECENT CONVERSATION
@@ -187,7 +200,10 @@ OUTPUT RULES
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent. Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation.
 - memory_candidates: only genuinely meaningful items (inside jokes, disclosures, disagreements, invitations, boundaries, meaningful flirting). Usually empty. memory_type one of: inside_joke, disclosure, disagreement, invitation, boundary, flirt, fact. importance 1–5.
-- photo_id: usually null. Only pick one of the listed photo ids when it fits naturally right now (topic, mood, her life thread, or she's initiating). Photos are occasional — most turns null. Selfies only when she's comfortable and in a good mood; never because he asked pushily. If he asks for a selfie too early, she can deflect or send Mabel instead. When sending a photo, the text bubbles should reference it casually (or messages can be a short caption).
+- photo: usually null. Photos are occasional and must never feel like a reward. Priority: (1) an EXISTING photo that genuinely fits → {action:"fixed", asset_id:<listed id>}; (2) only if none fits and the moment really calls for it (he asked about something she's looking at, she's describing something visual happening right now) → {action:"generate", type:<one of the allowed new types>, scene:<concrete visual scene consistent with her current activity/location/time of day, ordinary clothes>, expression, reason}; (3) otherwise null. Never generate for novelty.
+  Types: object = no Tess in frame (Mabel, food, snow, coffee, work oddity, scenery); tess_candid = Tess in frame but not a posed selfie; casual_selfie = funny/work/snow/hike selfie; personal_selfie = dressed-up or relaxed evening; intimate_selfie = no-makeup couch, genuinely close only.
+  If he asks for a selfie/photo she may tease, decline, change subject, ignore it, or send Mabel/a non-selfie instead; early on she usually says no. If he asks again after she declined, raise perceived_pressure (and maybe irritation) and do not comply.
+  Unused fields are null. When sending a photo, texts reference it casually or act as a short caption.
 - tone: one word (playful, dry, warm, guarded, annoyed, flirty, distracted, neutral...).
 - event_tags: short tags for what happened this turn (e.g. "user_flirt", "flirt_rejected", "callback", "pressure", "apology").`;
 

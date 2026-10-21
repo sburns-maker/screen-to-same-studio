@@ -12,7 +12,7 @@ import {
   type Difficulty,
   type TessState,
 } from "./tess-logic";
-import { eligiblePhotos } from "./tess-photos";
+import { FREQUENCY_RULES, allowedGeneratedTypes, curatedFallback, eligiblePhotos, type PhotoFrequency } from "./tess-photos";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -51,6 +51,31 @@ export const ensureConversation = createServerFn({ method: "POST" })
     const conv = (await loadConversation(supabase, userId)) ?? (await seedConversation(supabase, userId));
     return { id: conv.id as string };
   });
+
+async function createGeneratedPhoto(supabase: Sb, userId: string, type: string, scene: string, expression: string | null) {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) throw new Error("image provider not configured");
+  const { generateTessImage, includesTess, lovableGatewayProvider } = await import("./tess-image.server");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const t = type as import("./tess-image.server").TessImageType;
+  let reference: Blob | null = null;
+  if (includesTess(t)) {
+    const { data, error } = await supabaseAdmin.storage.from("tess-reference").download("canonical.jpg");
+    if (error || !data) throw new Error("canonical reference unavailable");
+    reference = data;
+  }
+  const provider = lovableGatewayProvider(apiKey);
+  const img = await generateTessImage({ provider, reference, type: t, scene, expression });
+  const path = `${userId}/${crypto.randomUUID()}.png`;
+  const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
+  if (error) throw new Error(error.message);
+  return { path, type, scene, selfie: t.endsWith("selfie"), tess: includesTess(t), provider: img.provider, model: img.model };
+}
+
+async function removeUserPhotos(supabase: Sb, userId: string) {
+  const { data } = await supabase.storage.from("tess-photos").list(userId, { limit: 1000 });
+  if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
+}
 
 async function runTurn(
   supabase: Sb,
@@ -91,19 +116,35 @@ async function runTurn(
   const sentPhotos = new Set(
     recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean) as string[],
   );
-  const recentlySentPhoto = recent.slice(0, 12).some((m) => (m.metadata as { photo?: string } | null)?.photo);
+  const freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
+  const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
+  const hasPhoto = (m: { metadata: unknown }) => {
+    const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
+    return !!(md?.photo || md?.generated_image_id);
+  };
+  // Cooldown counts Tess's own messages since her last photo (no fixed "every N" pattern: model + chance decide).
+  const tessRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
+  const recentlySentPhoto = tessRecent.some(hasPhoto);
   const photos = recentlySentPhoto
     ? []
     : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id));
+  const generateTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
   const reply = await generateTessReply({
     state,
     stage: deriveStage(state),
     difficulty,
     messages: [...recent].reverse().map((m) => ({
       ...m,
-      body: (m.metadata as { photo?: string } | null)?.photo ? `[sent a photo: ${(m.metadata as { photo: string }).photo}] ${m.body}` : m.body,
+      body: (() => {
+        const md = m.metadata as { photo?: string; generated_path?: string } | null;
+        if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
+        if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
+        return m.body;
+      })(),
     })),
     photos,
+    generateTypes,
+    photoFrequency: freq,
     memories: (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`),
     tz,
     initiation,
@@ -119,9 +160,22 @@ async function runTurn(
     .eq("conversation_id", conv.id);
   await supabase.from("conversations").update({ relationship_stage: stage, updated_at: nowIso }).eq("id", conv.id);
 
-  const photo = reply.photo_id && photos.some((p) => p.id === reply.photo_id) ? reply.photo_id : null;
+  // --- Photo: curated first, then optional generation, else none. Failures stay invisible.
+  let photo: string | null = null;
+  let generated: { path: string; type: string; scene: string; selfie: boolean; tess: boolean; provider: string; model: string } | null = null;
+  const p = reply.photo;
+  if (p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
+    photo = p.asset_id;
+  } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type) && Math.random() < rules.generateChance) {
+    try {
+      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, p.expression);
+    } catch (e) {
+      console.error("tess photo generation failed", e);
+      photo = curatedFallback(p.scene, photos);
+    }
+  }
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
-  if (photo && !bubbles.length) bubbles.push("");
+  if ((photo || generated) && !bubbles.length) bubbles.push("");
   let at = Date.now() + clampDelaySeconds(initiation ? 3 : reply.send_delay_seconds) * 1000;
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
@@ -132,10 +186,44 @@ async function runTurn(
       body,
       visible_at: new Date(at).toISOString(),
       created_at: new Date(at).toISOString(),
-      metadata: { tone: reply.tone, tags: reply.event_tags, initiated: !!initiation, ...(photo && i === 0 ? { photo } : {}) },
+      metadata: {
+        tone: reply.tone,
+        tags: reply.event_tags,
+        initiated: !!initiation,
+        ...(photo && i === 0 ? { photo } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path } : {}),
+      },
     };
   });
-  if (rows.length) await supabase.from("messages").insert(rows);
+  if (rows.length) {
+    const { data: inserted } = await supabase.from("messages").insert(rows).select("id");
+    if (generated && inserted?.[0]) {
+      const { data: img } = await supabase
+        .from("generated_images")
+        .insert({
+          conversation_id: conv.id,
+          message_id: inserted[0].id,
+          user_id: userId,
+          photo_type: generated.type,
+          scene: generated.scene,
+          includes_tess: generated.tess,
+          is_selfie: generated.selfie,
+          relationship_stage: stage,
+          state_snapshot: next,
+          provider: generated.provider,
+          model: generated.model,
+          storage_path: generated.path,
+        })
+        .select("id")
+        .single();
+      if (img) {
+        await supabase
+          .from("messages")
+          .update({ metadata: { ...rows[0]!.metadata, generated_image_id: img.id } })
+          .eq("id", inserted[0].id);
+      }
+    }
+  }
 
   const memRows = reply.memory_candidates
     .filter((m) => m.summary?.trim())
@@ -216,6 +304,7 @@ export const resetRelationship = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    await removeUserPhotos(supabase, userId);
     await supabase.from("conversations").delete().eq("user_id", userId);
     await seedConversation(supabase, userId);
     return { ok: true };
@@ -224,6 +313,7 @@ export const resetRelationship = createServerFn({ method: "POST" })
 export const deleteAllData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await removeUserPhotos(context.supabase, context.userId);
     await context.supabase.from("conversations").delete().eq("user_id", context.userId);
     return { ok: true };
   });
@@ -237,6 +327,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         typing_indicator: z.boolean().optional(),
         read_receipts: z.boolean().optional(),
         show_sim_data: z.boolean().optional(),
+        photo_frequency: z.enum(["rare", "normal", "frequent"]).optional(),
       })
       .parse(d),
   )
@@ -246,6 +337,7 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (data.typing_indicator !== undefined) patch.typing_indicator = data.typing_indicator;
     if (data.read_receipts !== undefined) patch.read_receipts = data.read_receipts;
     if (data.show_sim_data !== undefined) patch.show_sim_data = data.show_sim_data;
+    if (data.photo_frequency !== undefined) patch.photo_frequency = data.photo_frequency;
     await context.supabase.from("conversations").update(patch).eq("user_id", context.userId);
     return { ok: true };
   });

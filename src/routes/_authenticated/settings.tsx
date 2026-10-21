@@ -55,7 +55,7 @@ function SettingsPage() {
   const wipe = useServerFn(deleteAllData);
   const c = conv.data;
 
-  async function set(patch: { difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean }) {
+  async function set(patch: { photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean }) {
     qc.setQueryData(conversationQuery.queryKey, (old: typeof c) => (old ? { ...old, ...patch } : old));
     await update({ data: patch });
     qc.invalidateQueries({ queryKey: ["conversation"] });
@@ -100,6 +100,21 @@ function SettingsPage() {
             </button>
           ))}
         </div>
+
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tess photo frequency</h3>
+        <div className="mt-2 grid grid-cols-3 gap-1 rounded-2xl bg-surface p-1">
+          {(["rare", "normal", "frequent"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => set({ photo_frequency: f })}
+              className={cn("rounded-xl py-2 text-sm font-medium capitalize", (c?.photo_frequency ?? "normal") === f ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 px-1 text-xs text-muted-foreground">Only nudges how often. She still decides based on mood and how well you know each other.</p>
 
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversation</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
