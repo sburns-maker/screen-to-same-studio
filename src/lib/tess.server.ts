@@ -7,7 +7,7 @@ import { KNOWLEDGE_RULES } from "./social-logic";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
-const OWN_MODEL = "gpt-4o-mini";
+const OWN_MODEL = "gpt-4.1-mini";
 
 export const CHARACTER_BIBLE = `
 TESS MORGAN — 34, she/her, single, no kids. Lives alone in a rented townhouse in a fictional mid-sized Pennsylvania city with her rescue dog Mabel (who steals socks).
