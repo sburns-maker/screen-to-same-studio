@@ -427,3 +427,27 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   reply.messages = cleaned.length || !reply.messages.length ? cleaned : reply.messages.slice(0, 1);
   return reply;
 }
+
+/** Vision: a short factual description of a photo the user sent, used as transcript context. */
+export async function describeImage(dataUrl: string): Promise<string | null> {
+  const ownKey = process.env["OPENAI_API_KEY"];
+  const gw = process.env["LOVABLE_API_KEY"];
+  const url = ownKey ? "https://api.openai.com/v1/chat/completions" : "https://ai.gateway.lovable.dev/v1/chat/completions";
+  const key = ownKey || gw;
+  if (!key) return null;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: ownKey ? "gpt-4.1-mini" : "google/gemini-2.5-flash",
+      max_tokens: 150,
+      messages: [
+        { role: "system", content: "Describe this photo a man texted to a friend in 1-2 plain factual sentences: what/who is in it, setting, notable details, mood. No speculation about identity." },
+        { role: "user", content: [{ type: "image_url", image_url: { url: dataUrl } }] },
+      ],
+    }),
+  });
+  if (!res.ok) { console.error("describeImage", res.status, await res.text()); return null; }
+  const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  return j.choices?.[0]?.message?.content?.trim().slice(0, 400) || null;
+}
