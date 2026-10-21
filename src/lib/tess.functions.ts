@@ -537,8 +537,22 @@ export async function runTurn(
     }
   }
 
-  const memRows = reply.memory_candidates
+  const { data: existingMem } = await supabase
+    .from("memories")
+    .select("summary")
+    .eq("conversation_id", conv.id)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const seen = new Set((existingMem ?? []).map((m: { summary: string }) => norm(m.summary)));
+  const memRows = (reply.memory_candidates ?? [])
     .filter((m) => m.summary?.trim())
+    .filter((m) => {
+      const k = norm(m.summary);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
     .slice(0, 3)
     .map((m) => ({
       conversation_id: conv.id,
@@ -547,7 +561,10 @@ export async function runTurn(
       summary: m.summary.slice(0, 300),
       importance: Math.min(5, Math.max(1, Math.round(m.importance || 3))),
     }));
-  if (memRows.length) await supabase.from("memories").insert(memRows);
+  if (memRows.length) {
+    const { error: memErr } = await supabase.from("memories").insert(memRows);
+    if (memErr) console.error("memory insert failed", memErr.message);
+  }
 
   return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null };
 }
