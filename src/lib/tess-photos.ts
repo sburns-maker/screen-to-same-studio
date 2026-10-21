@@ -75,3 +75,62 @@ export function curatedFallback(scene: string, eligible: PhotoDef[]) {
   for (const [re, id] of keys) if (re.test(s)) { const p = eligible.find((e) => e.id === id && !e.selfie); if (p) return p.id; }
   return null;
 }
+
+/** Composition attributes of a generated photo, chosen from context by Tess. */
+export type PhotoStyle = {
+  pose_type?: string | null;
+  camera_angle?: string | null;
+  crop_type?: string | null;
+  hairstyle?: string | null;
+  expression?: string | null;
+  clothing_category?: string | null;
+  setting?: string | null;
+  selfie_type?: string | null;
+};
+
+/** The attributes that make two photos feel like the same portrait recreated. */
+const STYLE_KEYS = ["pose_type", "camera_angle", "crop_type", "hairstyle"] as const;
+
+/** True when a proposed style repeats a recent photo on every defining attribute. */
+export function tooSimilarToRecent(style: PhotoStyle, recent: PhotoStyle[]): boolean {
+  return recent.some((r) => STYLE_KEYS.every((k) => style[k] && r[k] && style[k] === r[k]));
+}
+
+const VARIATIONS: Record<(typeof STYLE_KEYS)[number], string[]> = {
+  pose_type: ["standing", "sitting", "leaning", "walking", "crouching"],
+  camera_angle: ["eye_level", "slightly_above", "front_camera", "mirror", "slightly_below"],
+  crop_type: ["waist_up", "full_body", "chest_up", "close", "off_center"],
+  hairstyle: ["down_waves", "messy_bun", "ponytail", "clipped_up", "half_up", "hat"],
+};
+
+/**
+ * Context comes first, variety second: only nudge a style that exactly repeats a recent
+ * photo, and only change the first attribute that has an unused plausible alternative.
+ */
+export function varyStyle(style: PhotoStyle, recent: PhotoStyle[]): PhotoStyle {
+  if (!tooSimilarToRecent(style, recent)) return style;
+  const out = { ...style };
+  for (const k of STYLE_KEYS) {
+    const alt = VARIATIONS[k].find((v) => v !== out[k] && !recent.some((r) => r[k] === v));
+    if (alt) {
+      out[k] = alt;
+      return out;
+    }
+  }
+  return out;
+}
+
+/** Human-readable one-liner for the reply prompt's recent-styles list. */
+export function describeStyle(s: PhotoStyle): string {
+  const parts = [
+    s.pose_type,
+    s.camera_angle,
+    s.crop_type,
+    s.hairstyle,
+    s.expression,
+    s.clothing_category,
+    s.setting,
+    s.selfie_type,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : "(unrecorded style)";
+}
