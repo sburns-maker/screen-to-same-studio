@@ -1,4 +1,5 @@
 import { applyDisruption, disruptionFor } from "./daily-disruptions";
+import { recallMemories, type MemoryRow } from "./memory-recall";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -242,10 +243,10 @@ export async function runTurn(
       .limit(40),
     supabase
       .from("memories")
-      .select("summary, memory_type")
+      .select("summary, memory_type, importance, created_at")
       .eq("conversation_id", conv.id)
-      .order("importance", { ascending: false })
-      .limit(15),
+      .order("created_at", { ascending: false })
+      .limit(2000),
     def.photosEnabled
       ? supabase
           .from("generated_images")
@@ -281,7 +282,9 @@ export async function runTurn(
       return m.body;
     })(),
   }));
-  const memoryList = (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`);
+  const recentText = recent.slice(0, 6).map((m) => m.body ?? "").join(" ");
+  const memoryList = recallMemories((mems ?? []) as MemoryRow[], recentText, new Date())
+    .map((m) => `${m.memory_type}: ${m.summary}`);
 
   // Living-world knowledge: ONLY this character's own rows — knowledge
   // isolation is enforced by the query. Their prompt never sees what other
