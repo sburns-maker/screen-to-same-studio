@@ -126,7 +126,7 @@ async function runTurn(
     await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso);
   }
 
-  const [{ data: stateRow }, { data: msgs }, { data: mems }] = await Promise.all([
+  const [{ data: stateRow }, { data: msgs }, { data: mems }, { data: recentGen }] = await Promise.all([
     supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
     supabase
       .from("messages")
@@ -141,7 +141,15 @@ async function runTurn(
       .eq("conversation_id", conv.id)
       .order("importance", { ascending: false })
       .limit(15),
+    supabase
+      .from("generated_images")
+      .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
+      .eq("conversation_id", conv.id)
+      .eq("includes_tess", true)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
+  const recentStyles = (recentGen ?? []) as PhotoStyle[];
 
   const state = pickState(stateRow ?? {});
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
