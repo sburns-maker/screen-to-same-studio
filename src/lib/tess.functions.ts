@@ -62,24 +62,47 @@ export const ensureConversation = createServerFn({ method: "POST" })
     return { id: conv.id as string };
   });
 
-async function createGeneratedPhoto(supabase: Sb, userId: string, type: string, scene: string, expression: string | null) {
+async function createGeneratedPhoto(
+  supabase: Sb,
+  userId: string,
+  type: string,
+  scene: string,
+  expression: string | null,
+  style: PhotoStyle | null,
+) {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("image provider not configured");
-  const { generateTessImage, includesTess, lovableGatewayProvider } = await import("./tess-image.server");
+  const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const t = type as import("./tess-image.server").TessImageType;
-  let reference: Blob | null = null;
+  let tessReference: Blob | null = null;
   if (includesTess(t)) {
     const { data, error } = await supabaseAdmin.storage.from("tess-reference").download("canonical.jpg");
     if (error || !data) throw new Error("canonical reference unavailable");
-    reference = data;
+    tessReference = data;
+  }
+  // Mabel's canonical reference is optional — a missing file must never break a reply.
+  let mabelReference: Blob | null = null;
+  if (sceneHasMabel(scene)) {
+    const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
+    mabelReference = data ?? null;
   }
   const provider = lovableGatewayProvider(apiKey);
-  const img = await generateTessImage({ provider, reference, type: t, scene, expression });
+  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style });
   const path = `${userId}/${crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
-  return { path, type, scene, selfie: t.endsWith("selfie"), tess: includesTess(t), provider: img.provider, model: img.model };
+  return {
+    path,
+    type,
+    scene,
+    selfie: t.endsWith("selfie"),
+    tess: includesTess(t),
+    provider: img.provider,
+    model: img.model,
+    style,
+    identityReferenceUsed: img.identityReferenceUsed,
+  };
 }
 
 async function removeUserPhotos(supabase: Sb, userId: string) {
