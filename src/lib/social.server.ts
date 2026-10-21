@@ -10,6 +10,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { runStorylineTick } from "./storyline.server";
 import {
   CANON_LINKS,
   CANON_NPCS,
@@ -66,6 +67,8 @@ export type SocialTickReport = {
   eventsNew: number;
   knowledgeAdded: number;
   linkChanges: number;
+  storylinesStarted: number;
+  storylinesAdvanced: number;
 };
 
 /**
@@ -75,7 +78,7 @@ export type SocialTickReport = {
  * when the stored level still matches the expected "from" level.
  */
 export async function runSocialTick(admin: Admin, userId: string, now: Date): Promise<SocialTickReport> {
-  const report: SocialTickReport = { seeded: false, eventsPlanned: 0, eventsNew: 0, knowledgeAdded: 0, linkChanges: 0 };
+  const report: SocialTickReport = { seeded: false, eventsPlanned: 0, eventsNew: 0, knowledgeAdded: 0, linkChanges: 0, storylinesStarted: 0, storylinesAdvanced: 0 };
 
   const seed = await ensureSocialSeed(admin, userId);
   report.seeded = seed.npcs > 0;
@@ -134,7 +137,7 @@ export async function runSocialTick(admin: Admin, userId: string, now: Date): Pr
 
     // Knowledge: only write rows that don't exist yet (unique key ignores
     // duplicates), so told/witnessed facts never multiply.
-    const knowledge = knowledgeFromEvent(ev, links);
+    const knowledge = knowledgeFromEvent(ev, links).filter(k => k.acquiredAt <= now);
     if (knowledge.length) {
       const { data: inserted } = await admin
         .from("character_knowledge")
@@ -157,7 +160,7 @@ export async function runSocialTick(admin: Admin, userId: string, now: Date): Pr
 
     // Relationship evolution: apply only when the stored level still matches
     // the expected starting level (guards against double-application).
-    for (const change of linkChangesFromEvent(ev, links)) {
+    for (const change of ev.occursAt <= now ? linkChangesFromEvent(ev, links) : []) {
       const { data: updated } = await admin
         .from("social_links")
         .update({ level: change.to, reason: change.reason, canon: false, updated_at: now.toISOString() })
@@ -171,6 +174,9 @@ export async function runSocialTick(admin: Admin, userId: string, now: Date): Pr
     }
   }
 
+  const stories = await runStorylineTick(admin, userId, now, links);
+  report.storylinesStarted = stories.started;
+  report.storylinesAdvanced = stories.advanced;
   return report;
 }
 
@@ -189,6 +195,7 @@ export async function knowledgeForCharacter(
     .eq("user_id", userId)
     .eq("character_key", characterKey)
     .gte("acquired_at", since)
+    .lte("acquired_at", new Date().toISOString())
     .order("acquired_at", { ascending: false })
     .limit(limit);
   return data ?? [];

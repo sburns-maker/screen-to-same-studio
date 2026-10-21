@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
       { title: "Sign in — Tess" },
       { name: "description", content: "Sign in to continue your conversation with Tess." },
       { property: "og:title", content: "Sign in — Tess" },

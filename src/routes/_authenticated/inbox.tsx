@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/_authenticated/inbox")({
   head: () => ({
     meta: [
-      { title: "Chats" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { title: "Inbox — Chats" },
       { name: "description", content: "Your conversations." },
-      { property: "og:title", content: "Chats" },
+      { property: "og:title", content: "Inbox — Chats" },
       { property: "og:description", content: "Your conversations." },
     ],
   }),

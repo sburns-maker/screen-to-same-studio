@@ -26,6 +26,8 @@ import { deriveStage, type TessState, STATE_KEYS, SEED_STATE } from "./tess-logi
 import { sendWebPush, type PushTarget } from "./webpush.server";
 import { VAPID_PUBLIC_KEY } from "./push-config";
 import { runSocialTick } from "./social.server";
+import { storylineContext } from "./storyline.server";
+import { storySchedule } from "./storyline-logic";
 
 type Admin = SupabaseClient<Database>;
 
@@ -146,7 +148,7 @@ export type TickReport = {
   aiCalls: number;
   paused: boolean;
   aiPausedGlobally: boolean;
-  social: { eventsNew: number; knowledgeAdded: number; linkChanges: number };
+  social: { eventsNew: number; knowledgeAdded: number; linkChanges: number; storylinesStarted: number; storylinesAdvanced: number };
   errors: string[];
 };
 
@@ -162,7 +164,7 @@ export async function runWorldTick(): Promise<TickReport> {
     aiCalls: 0,
     paused: false,
     aiPausedGlobally: false,
-    social: { eventsNew: 0, knowledgeAdded: 0, linkChanges: 0 },
+    social: { eventsNew: 0, knowledgeAdded: 0, linkChanges: 0, storylinesStarted: 0, storylinesAdvanced: 0 },
     errors: [],
   };
 
@@ -256,7 +258,6 @@ export async function runWorldTick(): Promise<TickReport> {
 
     let probeAttempted = false;
     for (const [userId, convs] of users) {
-      if (report.aiCalls >= aiBudget || report.paused) break;
       const { data: profile } = await admin
         .from("user_profile")
         .select("value")
@@ -272,6 +273,8 @@ export async function runWorldTick(): Promise<TickReport> {
         report.social.eventsNew += social.eventsNew;
         report.social.knowledgeAdded += social.knowledgeAdded;
         report.social.linkChanges += social.linkChanges;
+        report.social.storylinesStarted += social.storylinesStarted;
+        report.social.storylinesAdvanced += social.storylinesAdvanced;
       } catch (e) {
         report.errors.push(`social: ${(e instanceof Error ? e.message : String(e)).slice(0, 140)}`);
       }
@@ -306,15 +309,16 @@ export async function runWorldTick(): Promise<TickReport> {
 
         const gapHours = last ? (now.getTime() - new Date(last.created_at).getTime()) / 3_600_000 : 999;
         const state = pickState(stateRow);
-        const lifeEvent = isTess
+        const story = await storylineContext(admin, userId, def.key, now);
+        const lifeEvent = story.event ?? (isTess
           ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined)
-          : null;
-        const schedule = isTess
+          : null);
+        const schedule = storySchedule(isTess
           ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
           : (() => {
               const a = characterAvailability(def, now);
               return { activity: a.detail, availability: a.availability, detail: a.detail };
-            })();
+            })(), story.event);
         const list = recentMsgs ?? [];
         const userCount = list.filter((m) => m.sender === "user").length;
         const contactCount = list.filter((m) => m.sender === "tess").length;

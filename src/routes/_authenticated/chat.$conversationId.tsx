@@ -21,9 +21,11 @@ import {
 export const Route = createFileRoute("/_authenticated/chat/$conversationId")({
   head: () => ({
     meta: [
-      { title: "Chats" },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+      { title: "Conversation — Chats" },
       { name: "description", content: "Conversation." },
-      { property: "og:title", content: "Chats" },
+      { property: "og:title", content: "Conversation — Chats" },
       { property: "og:description", content: "Conversation." },
     ],
   }),

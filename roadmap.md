@@ -1,5 +1,11 @@
 # Tess roadmap
 
+## Multi-week life upgrade
+- Done: persistent multi-week situations for all five characters; deterministic branching, postponement/fading/open-ended outcomes, shared milestones, participant context, and idempotent personal outcome memories, integrated with schedule, latency, initiation and photo prompts. No additional AI calls or schema changes.
+- Done: 9 focused tests; 30-day simulation produced 6 situations, 30 milestones, 24 transitions and 4 remembered outcomes; replay/partial-write recovery and user isolation passed. Full regression suite run once: 141 tests passed; preview build OK.
+- Done: signed-in /world tick created five situations and five initial milestones in the requesting user's world; existing timeline read them back; zero AI calls, no runtime errors or tick errors.
+- Limit: ten finite canon-grounded topics (two per character), never repeated; exhausted topics leave quiet lives rather than generating unlimited new plots. Actual 30-day elapsed production operation is not yet observed; time advancement was simulated through the real persistence module with an in-memory transport.
+
 ## Current fixes (Sean's report: push toggle off, empty inbox)
 - Done: dropped stale UNIQUE(user_id) on conversations (leftover from Tess-only schema) that blocked seeding Maya/Claire/Jordan/Ben — inbox now shows all 5 contacts (verified signed-in).
 - Done: VAPID public key in push-config.ts didn't match VAPID_PRIVATE_KEY secret; replaced with the derived key. User must re-toggle Background notifications after the next publish.
@@ -29,7 +35,7 @@
 
 ## Open / partial
 - Done: background push confirmed working by Sean on the published app (public visibility + push worker served from /api/public/push/, VAPID key fixed, stale sign-up reset).
-- Multi-week one-off storylines (e.g. Claire's family visit arc) use recurring events only; ad-hoc multi-week plotted arcs are not built.
+- Done: multi-week situations now use persistent roots and milestone events, separate from recurring weekly events.
 - Social-graph visualization on /world is list-based, not a graphical diagram.
 
 - Offline queue is localStorage, flushes while app is open; closed-app flush not verified.
