@@ -36,7 +36,7 @@ type Snapshot = {
     score: number;
     chance: number;
     nextWindowHours: number | null;
-    lastCheck: Record<string, unknown> | null;
+    lastCheck: Record<string, string | number | boolean | string[] | null> | null;
     lastInitiatedAt: string | null;
   };
   photo: { eligible: boolean; reason: string; curatedCount: number; generatedTypes: string[] };
