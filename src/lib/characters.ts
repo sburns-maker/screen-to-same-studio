@@ -1,3 +1,4 @@
+import { applyDisruption, disruptionFor } from "./daily-disruptions";
 // Fictional contact definitions. Tess keeps her full engine (canonical photos,
 // schedule, weather, life events) — the other contacts are deliberately
 // lighter for V1 but still have independent personalities, hidden state,
