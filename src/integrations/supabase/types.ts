@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           difficulty: string
           id: string
+          photo_frequency: string
           read_receipts: boolean
           relationship_stage: string
           show_sim_data: boolean
@@ -30,6 +31,7 @@ export type Database = {
           created_at?: string
           difficulty?: string
           id?: string
+          photo_frequency?: string
           read_receipts?: boolean
           relationship_stage?: string
           show_sim_data?: boolean
@@ -41,6 +43,7 @@ export type Database = {
           created_at?: string
           difficulty?: string
           id?: string
+          photo_frequency?: string
           read_receipts?: boolean
           relationship_stage?: string
           show_sim_data?: boolean
@@ -78,6 +81,72 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_images: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          includes_tess: boolean
+          is_selfie: boolean
+          message_id: string | null
+          model: string
+          photo_type: string
+          provider: string
+          relationship_stage: string | null
+          scene: string
+          state_snapshot: Json
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          includes_tess?: boolean
+          is_selfie?: boolean
+          message_id?: string | null
+          model: string
+          photo_type: string
+          provider: string
+          relationship_stage?: string | null
+          scene: string
+          state_snapshot?: Json
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          includes_tess?: boolean
+          is_selfie?: boolean
+          message_id?: string | null
+          model?: string
+          photo_type?: string
+          provider?: string
+          relationship_stage?: string | null
+          scene?: string
+          state_snapshot?: Json
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_images_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_images_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]
