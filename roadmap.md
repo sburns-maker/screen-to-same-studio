@@ -29,7 +29,9 @@
 
 ## Open / partial
 - Background push verified end-to-end only on a real Android PWA install — needs published app + device test.
-- Social graph between characters and non-Tess long-run life events: not built (canon relationships only).
+- Multi-week one-off storylines (e.g. Claire's family visit arc) use recurring events only; ad-hoc multi-week plotted arcs are not built.
+- Social-graph visualization on /world is list-based, not a graphical diagram.
+
 - Offline queue is localStorage, flushes while app is open; closed-app flush not verified.
 - Email confirmation: auto-confirm enabled for development; RLS unchanged.
 - VAPID subject is a placeholder mailto; rotate keys requires re-subscribing devices.
