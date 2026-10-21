@@ -30,6 +30,16 @@ type Analysis = {
   tess_read: string;
   who_carried: string;
   tess_invested: string;
+  initiation?: string;
+  reciprocity?: string;
+  question_balance?: string;
+  branches?: string;
+  exits?: string;
+  tone_read?: string;
+  baseline_change?: string;
+  friendly_vs_flirty?: string;
+  interest_direction?: string;
+  momentum?: string;
   try_next: string;
   stage?: string;
   state?: Record<string, number>;
@@ -89,8 +99,18 @@ function DebriefPage() {
             <List title="Didn't land" items={a.didnt_land} />
             <Para title="Pressure" text={a.pressure} />
             <List title="Missed openings" items={a.missed_openings} />
+            {a.friendly_vs_flirty && <Para title="Friendly or flirting?" text={a.friendly_vs_flirty} />}
+            {a.interest_direction && <Para title="Where her interest is heading" text={a.interest_direction} />}
+            {a.momentum && <Para title="Momentum" text={a.momentum} />}
             <Para title="Who's carrying it" text={a.who_carried} />
             <Para title="Is she investing?" text={a.tess_invested} />
+            {a.initiation && <Para title="Initiation" text={a.initiation} />}
+            {a.reciprocity && <Para title="Reciprocity" text={a.reciprocity} />}
+            {a.question_balance && <Para title="Question balance" text={a.question_balance} />}
+            {a.branches && <Para title="New threads" text={a.branches} />}
+            {a.exits && <Para title="Exits" text={a.exits} />}
+            {a.tone_read && <Para title="Reading her tone" text={a.tone_read} />}
+            {a.baseline_change && <Para title="Versus her usual baseline" text={a.baseline_change} />}
             <Para title="Try next" text={a.try_next} />
             {conv.data?.show_sim_data && a.state && (
               <section className="mt-6 border-t pt-4">
