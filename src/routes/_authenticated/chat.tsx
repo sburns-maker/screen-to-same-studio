@@ -121,6 +121,14 @@ function Chat() {
     const body = text.trim();
     if (!body || !convId) return;
     setText("");
+    if (!navigator.onLine) {
+      // Offline: queue locally, send when connectivity returns. No fake reply.
+      const q = [...readQueue(), { id: crypto.randomUUID(), body, at: Date.now() }];
+      writeQueue(q);
+      setQueue(q);
+      taRef.current?.focus();
+      return;
+    }
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("messages").insert({ conversation_id: convId, user_id: u.user!.id, sender: "user", body });
     if (error) {
@@ -134,6 +142,62 @@ function Chat() {
     debounce.current = setTimeout(() => void runRespond(), 2500);
     taRef.current?.focus();
   }
+
+  // Connectivity: flush the outbox when we're back online, then let Tess respond.
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!online || !convId || !queue.length) return;
+    void (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const pendingOut = readQueue();
+      for (const m of pendingOut) {
+        const { error } = await supabase
+          .from("messages")
+          .insert({ conversation_id: convId, user_id: u.user.id, sender: "user", body: m.body });
+        if (error) return; // still failing — keep the queue intact
+        writeQueue(readQueue().filter((x) => x.id !== m.id));
+      }
+      setQueue(readQueue());
+      await refetch();
+      debounce.current = setTimeout(() => void runRespond(), 1500);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [online, convId]);
+
+  // Notifications: only real message events, only when explicitly enabled.
+  const lastSeenTess = useRef<string | null>(null);
+  useEffect(() => {
+    const tessMsgs = visible.filter((m) => m.sender === "tess");
+    const latest = tessMsgs[tessMsgs.length - 1];
+    if (!latest) return;
+    if (lastSeenTess.current === null) {
+      lastSeenTess.current = latest.id;
+      return;
+    }
+    if (latest.id === lastSeenTess.current) return;
+    lastSeenTess.current = latest.id;
+    if (localStorage.getItem("tess:notifications") !== "on") return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!document.hidden) return;
+    const md = latest.metadata as { photo?: string; generated_path?: string } | null;
+    const body = latest.body?.trim() || (md?.photo || md?.generated_path ? "Sent a photo" : "Sent a message");
+    try {
+      new Notification("Tess", { body: body.slice(0, 140), icon: "/icon-512.png", tag: "tess-message" });
+    } catch {
+      /* some platforms require SW-based notifications */
+    }
+  }, [visible]);
 
   useLayoutEffect(() => {
     scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
