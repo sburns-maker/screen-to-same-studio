@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { debriefSchema, replySchema } from "@/lib/tess.server";
+import { STATE_KEYS } from "@/lib/tess-logic";
 
 describe("debrief schema", () => {
   it("covers the expanded analysis dimensions", () => {
@@ -31,11 +32,12 @@ describe("reply schema memory layers", () => {
       messages: ["hi"],
       send_delay_seconds: 10,
       state_delta: Object.fromEntries(
-        ["comfort", "trust", "romantic_attraction", "physical_attraction", "curiosity", "emotional_intimacy", "perceived_pressure", "irritation", "respect", "playfulness", "relationship_momentum"].map((k) => [k, 0]),
+        STATE_KEYS.map((k) => [k, 0]),
       ),
       photo: null,
       tone: "neutral",
       event_tags: [],
+      photo_boundary_decision: "unchanged",
     };
     for (const memory_type of ["relationship", "personal", "fact"]) {
       const r = replySchema.safeParse({ ...base, memory_candidates: [{ memory_type, summary: "x", importance: 3 }] });

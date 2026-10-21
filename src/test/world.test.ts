@@ -59,12 +59,12 @@ describe("per-character photo rules", () => {
     expect(tess.photoTypes).toContain("tess_candid");
   });
 
-  it("Claire never sends intimate selfies", () => {
-    expect(characterFor("claire").photoTypes).not.toContain("intimate_selfie");
+  it("Claire and Jordan share Tess's ordinary capabilities", () => {
+    for (const key of ["claire", "jordan"]) expect(characterFor(key).photoTypes).toEqual(characterFor("tess").photoTypes);
   });
 
-  it("Ben and Jordan only send everyday non-selfie-intimate photos", () => {
-    for (const key of ["ben", "jordan"]) {
+  it("Ben only sends everyday friendship photos", () => {
+    for (const key of ["ben"]) {
       const types = characterFor(key).photoTypes;
       expect(types).not.toContain("intimate_selfie");
       expect(types).not.toContain("personal_selfie");
