@@ -1,12 +1,8 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { Output, streamText } from "ai";
+import { runStructured } from "./text-ai.server";
 import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
 import { KNOWLEDGE_RULES } from "./social-logic";
-
-const GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const MODEL = "openai/gpt-6-astra";
 
 export const CHARACTER_BIBLE = `
 TESS MORGAN — 34, she/her, single, no kids. Lives alone in a rented townhouse in a fictional mid-sized Pennsylvania city with her rescue dog Mabel (who steals socks).
@@ -174,31 +170,6 @@ function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
       return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${m.body}`;
     })
     .join("\n");
-}
-
-async function runStructured<T>(schema: z.ZodType<T>, instructions: string, input: string): Promise<T> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("AI is not configured");
-  const provider = createOpenAI({
-    baseURL: GATEWAY,
-    apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-  });
-  const result = streamText({
-    model: provider.responses(MODEL),
-    instructions,
-    messages: [{ role: "user", content: input }],
-    output: Output.object({ schema }),
-    providerOptions: {
-      openai: {
-        store: false,
-        forceReasoning: true,
-        reasoningEffort: "low",
-        include: ["reasoning.encrypted_content"],
-      },
-    },
-  });
-  return (await result.output) as T;
 }
 
 export async function generateTessReply(args: {

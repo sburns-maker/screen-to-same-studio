@@ -213,7 +213,19 @@ async function removeUserPhotos(supabase: Sb, userId: string) {
   if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
 }
 
-export async function runTurn(
+// Coalesce simultaneous foreground/background attempts within this server instance.
+// Failed provider calls are never retried here and make no simulation writes.
+const activeTurns = new Map<string, Promise<Awaited<ReturnType<typeof runTurnUnlocked>>>>();
+export function runTurn(...args: Parameters<typeof runTurnUnlocked>) {
+  const key = `${args[1]}:${args[2]}`;
+  const active = activeTurns.get(key);
+  if (active) return active;
+  const turn = runTurnUnlocked(...args).finally(() => activeTurns.delete(key));
+  activeTurns.set(key, turn);
+  return turn;
+}
+
+async function runTurnUnlocked(
   supabase: Sb,
   userId: string,
   conversationId: string,
@@ -226,11 +238,6 @@ export async function runTurn(
   const def = characterFor(conv.character?.key);
   const isTess = def.key === "tess";
   const nowIso = new Date().toISOString();
-
-  // The contact hadn't actually "sent" pending replies yet — let them reconsider with the new context.
-  if (!initiation) {
-    await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso);
-  }
 
   const [{ data: stateRow }, { data: msgs }, { data: mems }, { data: recentGen }] = await Promise.all([
     supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
@@ -410,6 +417,11 @@ export async function runTurn(
     next.romantic_intent = 0;
   }
   const stage = deriveStage(next);
+
+  // The contact hadn't actually "sent" pending replies yet — let them reconsider with the new context.
+  if (!initiation) {
+    await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso);
+  }
 
   await supabase
     .from("tess_state")
