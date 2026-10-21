@@ -166,7 +166,7 @@ function Chat() {
     setNow(Date.now());
     await refetch();
     if (debounce.current) clearTimeout(debounce.current);
-    debounce.current = setTimeout(() => void runRespond(), 2500);
+    debounce.current = setTimeout(() => { debounce.current = null; void runRespond(); }, 2500);
     taRef.current?.focus();
   }
 
@@ -197,7 +197,7 @@ function Chat() {
       }
       setQueue(readQueue(conversationId));
       await refetch();
-      debounce.current = setTimeout(() => void runRespond(), 1500);
+      debounce.current = setTimeout(() => { debounce.current = null; void runRespond(); }, 1500);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, convId]);
