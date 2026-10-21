@@ -29,10 +29,10 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/chat" });
+      if (data.session) navigate({ to: "/inbox" });
     });
     const { data } = supabase.auth.onAuthStateChange((e, s) => {
-      if (s && e === "SIGNED_IN") navigate({ to: "/chat" });
+      if (s && e === "SIGNED_IN") navigate({ to: "/inbox" });
     });
     return () => data.subscription.unsubscribe();
   }, [navigate]);
@@ -48,7 +48,7 @@ function AuthPage() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + "/chat" },
+          options: { emailRedirectTo: window.location.origin + "/inbox" },
         });
         if (error) throw error;
         if (!data.session) setSent(true);

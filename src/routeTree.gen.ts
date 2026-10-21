@@ -12,12 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/chat'
-import { Route as AuthenticatedDebriefRouteImport } from './routes/_authenticated/debrief'
-import { Route as AuthenticatedDebugRouteImport } from './routes/_authenticated/debug'
-import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
-import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedDebriefConversationIdRouteImport } from './routes/_authenticated/debrief.$conversationId'
@@ -40,34 +35,9 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedChatRoute = AuthenticatedChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDebriefRoute = AuthenticatedDebriefRouteImport.update({
-  id: '/debrief',
-  path: '/debrief',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDebugRoute = AuthenticatedDebugRouteImport.update({
-  id: '/debug',
-  path: '/debug',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -77,27 +47,27 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 } as any)
 const AuthenticatedChatConversationIdRoute =
   AuthenticatedChatConversationIdRouteImport.update({
-    id: '/$conversationId',
-    path: '/$conversationId',
-    getParentRoute: () => AuthenticatedChatRoute,
+    id: '/chat/$conversationId',
+    path: '/chat/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDebriefConversationIdRoute =
   AuthenticatedDebriefConversationIdRouteImport.update({
-    id: '/$conversationId',
-    path: '/$conversationId',
-    getParentRoute: () => AuthenticatedDebriefRoute,
+    id: '/debrief/$conversationId',
+    path: '/debrief/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedDebugConversationIdRoute =
   AuthenticatedDebugConversationIdRouteImport.update({
-    id: '/$conversationId',
-    path: '/$conversationId',
-    getParentRoute: () => AuthenticatedDebugRoute,
+    id: '/debug/$conversationId',
+    path: '/debug/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedHistoryConversationIdRoute =
   AuthenticatedHistoryConversationIdRouteImport.update({
-    id: '/$conversationId',
-    path: '/$conversationId',
-    getParentRoute: () => AuthenticatedHistoryRoute,
+    id: '/history/$conversationId',
+    path: '/history/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedPhotosConversationIdRoute =
   AuthenticatedPhotosConversationIdRouteImport.update({
@@ -107,20 +77,15 @@ const AuthenticatedPhotosConversationIdRoute =
   } as any)
 const AuthenticatedProfileConversationIdRoute =
   AuthenticatedProfileConversationIdRouteImport.update({
-    id: '/$conversationId',
-    path: '/$conversationId',
-    getParentRoute: () => AuthenticatedProfileRoute,
+    id: '/profile/$conversationId',
+    path: '/profile/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/chat': typeof AuthenticatedChatRouteWithChildren
-  '/debrief': typeof AuthenticatedDebriefRouteWithChildren
-  '/debug': typeof AuthenticatedDebugRouteWithChildren
-  '/history': typeof AuthenticatedHistoryRouteWithChildren
   '/inbox': typeof AuthenticatedInboxRoute
-  '/profile': typeof AuthenticatedProfileRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
@@ -132,12 +97,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/chat': typeof AuthenticatedChatRouteWithChildren
-  '/debrief': typeof AuthenticatedDebriefRouteWithChildren
-  '/debug': typeof AuthenticatedDebugRouteWithChildren
-  '/history': typeof AuthenticatedHistoryRouteWithChildren
   '/inbox': typeof AuthenticatedInboxRoute
-  '/profile': typeof AuthenticatedProfileRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
@@ -151,12 +111,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
-  '/_authenticated/debrief': typeof AuthenticatedDebriefRouteWithChildren
-  '/_authenticated/debug': typeof AuthenticatedDebugRouteWithChildren
-  '/_authenticated/history': typeof AuthenticatedHistoryRouteWithChildren
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
-  '/_authenticated/profile': typeof AuthenticatedProfileRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
@@ -170,12 +125,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
-    | '/chat'
-    | '/debrief'
-    | '/debug'
-    | '/history'
     | '/inbox'
-    | '/profile'
     | '/settings'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
@@ -187,12 +137,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/chat'
-    | '/debrief'
-    | '/debug'
-    | '/history'
     | '/inbox'
-    | '/profile'
     | '/settings'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
@@ -205,12 +150,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
-    | '/_authenticated/chat'
-    | '/_authenticated/debrief'
-    | '/_authenticated/debug'
-    | '/_authenticated/history'
     | '/_authenticated/inbox'
-    | '/_authenticated/profile'
     | '/_authenticated/settings'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/debrief/$conversationId'
@@ -249,46 +189,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/chat': {
-      id: '/_authenticated/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof AuthenticatedChatRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/debrief': {
-      id: '/_authenticated/debrief'
-      path: '/debrief'
-      fullPath: '/debrief'
-      preLoaderRoute: typeof AuthenticatedDebriefRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/debug': {
-      id: '/_authenticated/debug'
-      path: '/debug'
-      fullPath: '/debug'
-      preLoaderRoute: typeof AuthenticatedDebugRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/history': {
-      id: '/_authenticated/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof AuthenticatedHistoryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/inbox': {
       id: '/_authenticated/inbox'
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AuthenticatedInboxRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/profile': {
-      id: '/_authenticated/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof AuthenticatedProfileRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -300,31 +205,31 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/chat/$conversationId': {
       id: '/_authenticated/chat/$conversationId'
-      path: '/$conversationId'
+      path: '/chat/$conversationId'
       fullPath: '/chat/$conversationId'
       preLoaderRoute: typeof AuthenticatedChatConversationIdRouteImport
-      parentRoute: typeof AuthenticatedChatRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/debrief/$conversationId': {
       id: '/_authenticated/debrief/$conversationId'
-      path: '/$conversationId'
+      path: '/debrief/$conversationId'
       fullPath: '/debrief/$conversationId'
       preLoaderRoute: typeof AuthenticatedDebriefConversationIdRouteImport
-      parentRoute: typeof AuthenticatedDebriefRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/debug/$conversationId': {
       id: '/_authenticated/debug/$conversationId'
-      path: '/$conversationId'
+      path: '/debug/$conversationId'
       fullPath: '/debug/$conversationId'
       preLoaderRoute: typeof AuthenticatedDebugConversationIdRouteImport
-      parentRoute: typeof AuthenticatedDebugRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/history/$conversationId': {
       id: '/_authenticated/history/$conversationId'
-      path: '/$conversationId'
+      path: '/history/$conversationId'
       fullPath: '/history/$conversationId'
       preLoaderRoute: typeof AuthenticatedHistoryConversationIdRouteImport
-      parentRoute: typeof AuthenticatedHistoryRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/photos/$conversationId': {
       id: '/_authenticated/photos/$conversationId'
@@ -335,93 +240,38 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/profile/$conversationId': {
       id: '/_authenticated/profile/$conversationId'
-      path: '/$conversationId'
+      path: '/profile/$conversationId'
       fullPath: '/profile/$conversationId'
       preLoaderRoute: typeof AuthenticatedProfileConversationIdRouteImport
-      parentRoute: typeof AuthenticatedProfileRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
-interface AuthenticatedChatRouteChildren {
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
-}
-
-const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
-  AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
-}
-
-const AuthenticatedChatRouteWithChildren =
-  AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
-
-interface AuthenticatedDebriefRouteChildren {
   AuthenticatedDebriefConversationIdRoute: typeof AuthenticatedDebriefConversationIdRoute
-}
-
-const AuthenticatedDebriefRouteChildren: AuthenticatedDebriefRouteChildren = {
-  AuthenticatedDebriefConversationIdRoute:
-    AuthenticatedDebriefConversationIdRoute,
-}
-
-const AuthenticatedDebriefRouteWithChildren =
-  AuthenticatedDebriefRoute._addFileChildren(AuthenticatedDebriefRouteChildren)
-
-interface AuthenticatedDebugRouteChildren {
   AuthenticatedDebugConversationIdRoute: typeof AuthenticatedDebugConversationIdRoute
-}
-
-const AuthenticatedDebugRouteChildren: AuthenticatedDebugRouteChildren = {
-  AuthenticatedDebugConversationIdRoute: AuthenticatedDebugConversationIdRoute,
-}
-
-const AuthenticatedDebugRouteWithChildren =
-  AuthenticatedDebugRoute._addFileChildren(AuthenticatedDebugRouteChildren)
-
-interface AuthenticatedHistoryRouteChildren {
   AuthenticatedHistoryConversationIdRoute: typeof AuthenticatedHistoryConversationIdRoute
-}
-
-const AuthenticatedHistoryRouteChildren: AuthenticatedHistoryRouteChildren = {
-  AuthenticatedHistoryConversationIdRoute:
-    AuthenticatedHistoryConversationIdRoute,
-}
-
-const AuthenticatedHistoryRouteWithChildren =
-  AuthenticatedHistoryRoute._addFileChildren(AuthenticatedHistoryRouteChildren)
-
-interface AuthenticatedProfileRouteChildren {
+  AuthenticatedPhotosConversationIdRoute: typeof AuthenticatedPhotosConversationIdRoute
   AuthenticatedProfileConversationIdRoute: typeof AuthenticatedProfileConversationIdRoute
 }
 
-const AuthenticatedProfileRouteChildren: AuthenticatedProfileRouteChildren = {
-  AuthenticatedProfileConversationIdRoute:
-    AuthenticatedProfileConversationIdRoute,
-}
-
-const AuthenticatedProfileRouteWithChildren =
-  AuthenticatedProfileRoute._addFileChildren(AuthenticatedProfileRouteChildren)
-
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
-  AuthenticatedDebriefRoute: typeof AuthenticatedDebriefRouteWithChildren
-  AuthenticatedDebugRoute: typeof AuthenticatedDebugRouteWithChildren
-  AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRouteWithChildren
-  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
-  AuthenticatedProfileRoute: typeof AuthenticatedProfileRouteWithChildren
-  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
-  AuthenticatedPhotosConversationIdRoute: typeof AuthenticatedPhotosConversationIdRoute
-}
-
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
-  AuthenticatedDebriefRoute: AuthenticatedDebriefRouteWithChildren,
-  AuthenticatedDebugRoute: AuthenticatedDebugRouteWithChildren,
-  AuthenticatedHistoryRoute: AuthenticatedHistoryRouteWithChildren,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
-  AuthenticatedProfileRoute: AuthenticatedProfileRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
+  AuthenticatedDebriefConversationIdRoute:
+    AuthenticatedDebriefConversationIdRoute,
+  AuthenticatedDebugConversationIdRoute: AuthenticatedDebugConversationIdRoute,
+  AuthenticatedHistoryConversationIdRoute:
+    AuthenticatedHistoryConversationIdRoute,
   AuthenticatedPhotosConversationIdRoute:
     AuthenticatedPhotosConversationIdRoute,
+  AuthenticatedProfileConversationIdRoute:
+    AuthenticatedProfileConversationIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
