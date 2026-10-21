@@ -285,6 +285,16 @@ function Chat() {
               </div>
             );
           })}
+          {queue.map((q) => (
+            <div key={q.id} className="mb-2 flex justify-end">
+              <div className="flex max-w-[78%] flex-col items-end gap-0.5">
+                <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-bubble-me px-3.5 py-2 text-[15px] leading-snug text-bubble-me-foreground opacity-70">
+                  {q.body}
+                </div>
+                <div className="pr-1 text-[11px] text-muted-foreground">Queued — sends when you're back online</div>
+              </div>
+            </div>
+          ))}
           {showTyping && (
             <div className="mb-2 flex">
               <div className="flex gap-1 rounded-2xl rounded-bl-md bg-bubble-them px-4 py-3" aria-label="Tess is typing">
