@@ -55,7 +55,7 @@ export type CharacterDef = {
 const TESS_SEED: TessState = {
   comfort: 42, trust: 25, romantic_attraction: 24, physical_attraction: 34, curiosity: 52,
   emotional_intimacy: 10, perceived_pressure: 4, irritation: 0, respect: 44, playfulness: 38,
-  relationship_momentum: 22,
+  relationship_momentum: 22, romantic_intent: 0,
 };
 
 export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
@@ -104,7 +104,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     seedState: {
       comfort: 50, trust: 30, romantic_attraction: 28, physical_attraction: 40, curiosity: 55,
       emotional_intimacy: 15, perceived_pressure: 0, irritation: 0, respect: 40, playfulness: 60,
-      relationship_momentum: 30,
+      relationship_momentum: 30, romantic_intent: 0,
     },
     bible: `MAYA REYNOLDS — 31, she/her, single. Lives in Altoona, PA (ZIP 16601). Event coordinator at a regional venue; big social circle, always knows about something happening.
 Personality: outgoing, social, confident, openly playful, fast conversational energy, emotionally expressive, spontaneous, likes going out, enjoys teasing.
@@ -137,11 +137,11 @@ Likes: banter, confidence, people with their own plans, spontaneity, not being m
     romanticCapable: true,
     photosEnabled: true,
     appearance: "35-year-old woman with shoulder-length auburn hair, hazel eyes, light freckles, gentle warm smile",
-    photoTypes: ["object", "tess_candid", "casual_selfie", "personal_selfie"],
+    photoTypes: ["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"],
     seedState: {
       comfort: 55, trust: 40, romantic_attraction: 8, physical_attraction: 15, curiosity: 50,
       emotional_intimacy: 25, perceived_pressure: 0, irritation: 0, respect: 50, playfulness: 35,
-      relationship_momentum: 28,
+      relationship_momentum: 28, romantic_intent: 0,
     },
     bible: `CLAIRE BENNETT — 35, she/her, divorced two years, amicable. Lives in Altoona, PA (ZIP 16602). School librarian; bookish, gardens, hosts a monthly book club.
 Personality: kind, warm, thoughtful, emotionally intelligent, conversational, asks good questions, remembers details, supportive, comfortable sharing life stories.
@@ -174,11 +174,11 @@ Likes: real conversation, follow-through, people who remember what she told them
     romanticCapable: true,
     photosEnabled: true,
     appearance: "33-year-old woman with dark brown hair usually pulled back, gray-blue eyes, minimal makeup, wry understated expression",
-    photoTypes: ["object", "tess_candid", "casual_selfie"],
+    photoTypes: ["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"],
     seedState: {
       comfort: 30, trust: 15, romantic_attraction: 20, physical_attraction: 25, curiosity: 40,
       emotional_intimacy: 5, perceived_pressure: 0, irritation: 0, respect: 35, playfulness: 25,
-      relationship_momentum: 12,
+      relationship_momentum: 12, romantic_intent: 0,
     },
     bible: `JORDAN HAYES — 33, she/her, single. Lives in Duncansville, PA (ZIP 16635). Structural drafter at an engineering firm; rock climbs, reads, keeps a small circle.
 Personality: guarded, highly independent, sarcastic, intelligent, somewhat skeptical, private, slow to trust, not expressive over text initially.
@@ -215,7 +215,7 @@ Likes: dry humor, patience, people who can sit with a pause, being argued with c
     seedState: {
       comfort: 50, trust: 35, romantic_attraction: 0, physical_attraction: 0, curiosity: 35,
       emotional_intimacy: 15, perceived_pressure: 0, irritation: 0, respect: 45, playfulness: 50,
-      relationship_momentum: 25,
+      relationship_momentum: 25, romantic_intent: 0,
     },
     bible: `BEN CARTER — 36, he/him, married, two kids. Lives in Altoona, PA (ZIP 16602). HVAC installer; fantasy football, home renovation projects, grills in all weather.
 Personality: funny, practical, blunt, friendly, casual, occasionally gives terrible advice, willing to disagree, sends random observations.

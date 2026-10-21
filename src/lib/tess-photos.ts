@@ -47,8 +47,8 @@ const GENERATED_MIN: Record<GeneratedType, Partial<TessState>> = {
   object: {},
   tess_candid: { comfort: 50, trust: 32 },
   casual_selfie: { comfort: 52, trust: 35 },
-  personal_selfie: { comfort: 60, trust: 45, romantic_attraction: 40, playfulness: 40 },
-  intimate_selfie: { comfort: 65, trust: 55, emotional_intimacy: 40, romantic_attraction: 45 },
+  personal_selfie: { comfort: 60, trust: 45 },
+  intimate_selfie: { comfort: 65, trust: 55, emotional_intimacy: 40 },
 };
 
 /** Which kinds of new photos Tess could plausibly create right now. */
