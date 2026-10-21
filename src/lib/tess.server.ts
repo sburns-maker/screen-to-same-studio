@@ -439,7 +439,7 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: ownKey ? "gpt-4.1-mini" : "google/gemini-2.5-flash",
+      model: ownKey ? "gpt-4.1-mini" : "google/gemini-3.8-flash",
       max_tokens: 150,
       messages: [
         { role: "system", content: "Describe this photo a man texted to a friend in 1-2 plain factual sentences: what/who is in it, setting, notable details, mood. No speculation about identity." },
