@@ -19,7 +19,7 @@
  *   message per character per run, regardless of how long the user was away.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { characterAvailability, characterFor } from "./characters";
 import { activeLifeEvent, decideInitiation, scheduleFor, weatherFlavor } from "./tess-life";
 import { deriveStage, type TessState, STATE_KEYS, SEED_STATE } from "./tess-logic";
@@ -83,7 +83,7 @@ async function acquireLease(admin: Admin): Promise<{ runId: string } | null> {
 async function finishRun(admin: Admin, runId: string, status: "ok" | "failed" | "paused", detail: Record<string, unknown>) {
   await admin
     .from("job_runs")
-    .update({ status, detail: detail as Database["public"]["Tables"]["job_runs"]["Update"]["detail"], finished_at: new Date().toISOString() })
+    .update({ status, detail: detail as unknown as Json, finished_at: new Date().toISOString() })
     .eq("id", runId);
 }
 
