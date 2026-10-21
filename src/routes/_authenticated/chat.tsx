@@ -23,6 +23,20 @@ export const Route = createFileRoute("/_authenticated/chat")({
   component: Chat,
 });
 
+// ---- Offline outbox: messages sent without connectivity wait here. ----
+type QueuedMsg = { id: string; body: string; at: number };
+const QUEUE_KEY = "tess:outbox";
+function readQueue(): QueuedMsg[] {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]") as QueuedMsg[];
+  } catch {
+    return [];
+  }
+}
+function writeQueue(q: QueuedMsg[]) {
+  localStorage.setItem(QUEUE_KEY, JSON.stringify(q));
+}
+
 const fmtTime = (d: Date) => d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 function fmtDivider(d: Date) {
   const today = new Date();
@@ -47,6 +61,8 @@ function Chat() {
   const [now, setNow] = useState(() => Date.now());
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [queue, setQueue] = useState<QueuedMsg[]>(() => readQueue());
+  const [online, setOnline] = useState(() => navigator.onLine);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
   const again = useRef(false);
