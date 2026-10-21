@@ -178,6 +178,17 @@ async function runTurn(
     ? []
     : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id));
   const generateTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+
+  // Fictional-world context: schedule, rotating life event, regional weather.
+  const now = new Date();
+  const { getWeatherContext } = await import("./tess-weather.server");
+  const weather = await getWeatherContext();
+  const lifeEvent: LifeEvent | null = activeLifeEvent(
+    now,
+    weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
+  );
+  const flavor = weather ? weatherFlavor(weather) : null;
+
   const reply = await generateTessReply({
     state,
     stage: deriveStage(state),
