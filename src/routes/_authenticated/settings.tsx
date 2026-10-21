@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { getPushRegistration } from "@/lib/pwa/register-sw";
+import { allLocalSubscriptions, findPushRegistration, getPushRegistration } from "@/lib/pwa/register-sw";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -310,7 +310,7 @@ function NotificationsRow() {
             Send test notification
           </button>
         )}
-        {(subs.length > 0 || localEndpoint) && (
+        {(
           <button type="button" disabled={busy} onClick={resetAll} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50">
             Reset notifications
           </button>
