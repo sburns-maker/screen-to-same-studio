@@ -342,7 +342,7 @@ export async function runTurn(
       initiationReason: initiation?.reason ?? null,
       photoBoundary: photoContext.boundary,
       worldKnowledge,
-      availabilityDetail: storySchedule(scheduleFor(now, difficulty === "chaos" ? 2 : 1), story.event).detail,
+      availabilityDetail: (() => { const b = scheduleFor(now, difficulty === "chaos" ? 2 : 1); return storySchedule(applyDisruption(b, disruptionFor("tess", now, b.activity.startsWith("at work"))), story.event).detail; })(),
     });
   } else {
     const avail = characterAvailability(def, now);

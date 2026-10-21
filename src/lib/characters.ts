@@ -250,8 +250,9 @@ export function characterAvailability(def: CharacterDef, now: Date): { availabil
   const s = def.schedule;
   const asleep = s.sleepStart > s.sleepEnd ? h >= s.sleepStart || h < s.sleepEnd : h >= s.sleepStart && h < s.sleepEnd;
   if (asleep) return { availability: "asleep", detail: "asleep" };
-  if (s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd) {
-    return { availability: "limited", detail: `at work (${def.preferredName}'s schedule: ${s.notes})` };
-  }
-  return { availability: "free", detail: "free-ish" };
+  const atWork = s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
+  const base = atWork
+    ? { availability: "limited" as const, detail: `at work (${def.preferredName}'s schedule: ${s.notes})` }
+    : { availability: "free" as const, detail: "free-ish" };
+  return applyDisruption<{ availability: "asleep" | "busy" | "limited" | "free"; detail: string }>(base, disruptionFor(def.key, now, atWork));
 }
