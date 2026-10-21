@@ -282,9 +282,10 @@ ${KNOWLEDGE_RULES}
   const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.`, `${context}\n\n${task}`);
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
-  // If filtering removed everything from a non-empty reply, keep one plain fallback rather than silence.
-  reply.messages = cleaned.length || !reply.messages.length ? cleaned : enforceTessVoice(reply.messages, { maxBubbles: 1 }).slice(0, 1);
-  if (!reply.messages.length && cleaned.length === 0 && !args.initiation) reply.messages = [];
+  // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
+  reply.messages = cleaned.length || !reply.messages.length
+    ? cleaned
+    : [reply.messages[0].replace(/\p{Extended_Pictographic}/gu, "").replace(/!+/g, ".").trim()].filter(Boolean);
   return reply;
 }
 
