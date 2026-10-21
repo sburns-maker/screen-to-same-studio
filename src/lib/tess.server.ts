@@ -8,7 +8,7 @@ import { KNOWLEDGE_RULES } from "./social-logic";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
 const OWN_MODEL = "gpt-4.1-mini";
-import { enforceTessVoice, cleanTessHistoryLine } from "./tess-voice";
+import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE } from "./tess-voice";
 
 export const CHARACTER_BIBLE = `
 TESS MORGAN — 34, she/her, single, no kids. Lives alone in a rented townhouse in a fictional mid-sized Pennsylvania city with her rescue dog Mabel (who steals socks).
@@ -174,7 +174,7 @@ function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
   return msgs
     .map((m) => {
       const t = new Date(m.created_at).toLocaleString("en-US", { timeZone: tz, weekday: "short", hour: "numeric", minute: "2-digit" });
-      const body = m.sender === "tess" && contactName === "Tess" ? cleanTessHistoryLine(m.body) : m.body;
+      const body = m.sender !== "tess" ? m.body : contactName === "Tess" ? cleanTessHistoryLine(m.body) : cleanContactHistoryLine(m.body, contactName);
       return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${body}`;
     })
     .join("\n");
@@ -384,7 +384,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
 
   const task = args.initiation
     ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and ${c.preferredName} has decided to text first. ${args.initiationReason ? `The reason: ${args.initiationReason}.` : `The reason should fit ${c.preferredName}'s style: ${c.initiation.style}.`} Write the text. It must feel event-driven, never timer-driven — no generic "hey stranger" openers unless the established rapport genuinely supports that tone.`
-    : `TASK: Write ${c.preferredName}'s next text(s) responding to him, in ${c.preferredName}'s own voice and texting style. Split into short bubbles in "messages" like real texting. Return an empty messages array if ${c.preferredName} would plausibly leave this on read for now.`;
+    : `TASK: Write ${c.preferredName}'s next text(s) responding to him, in ${c.preferredName}'s own voice and texting style. Usually one or two bubbles; never repeat or summarize the same idea across bubbles. Return an empty messages array if ${c.preferredName} would plausibly leave this on read for now.`;
 
   const rules = `
 OUTPUT RULES
@@ -420,5 +420,10 @@ Do not flatter automatically. Do not reward pressure, repeated reassurance-seeki
 
 Preserve continuity and use callbacks naturally. Never claim consciousness, emotional dependence, or that you need the user. No therapy-speak.`;
 
-  return runStructured(replySchema, `${system}\n${rules}`, `${context}\n\n${task}`);
+  const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.`, `${context}\n\n${task}`);
+  const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
+  const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
+  const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });
+  reply.messages = cleaned.length || !reply.messages.length ? cleaned : reply.messages.slice(0, 1);
+  return reply;
 }

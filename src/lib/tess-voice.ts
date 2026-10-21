@@ -114,3 +114,9 @@ export function cleanTessHistoryLine(body: string): string {
   const cleaned = enforceTessVoice([body], { maxBubbles: 1 })[0];
   return cleaned ?? "…";
 }
+
+/** Clean a non-Tess contact's past line (chatbot filler only; their own emoji style kept). */
+export function cleanContactHistoryLine(body: string, name: string): string {
+  const v = CONTACT_VOICE[name.toLowerCase()] ?? { allowedEmoji: null };
+  return enforceTessVoice([body], { ...v, maxBubbles: 1, maxEmoji: 3, maxExclaim: 3 })[0] ?? "…";
+}
