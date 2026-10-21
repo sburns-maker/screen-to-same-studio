@@ -32,11 +32,13 @@ export function registerServiceWorker() {
     return;
   }
   void (async () => {
+    if (!("serviceWorker" in navigator)) return;
     try {
-      const { registerSW } = await import("virtual:pwa-register");
-      registerSW({ immediate: true });
+      const reg = await navigator.serviceWorker.register("/sw.js");
+      // autoUpdate: pick up new workers without user action.
+      setInterval(() => void reg.update(), 60 * 60 * 1000);
     } catch {
-      // Module absent in dev — nothing to register.
+      // No sw.js (dev) — nothing to register.
     }
   })();
 }
