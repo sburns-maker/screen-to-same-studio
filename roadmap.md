@@ -1,16 +1,20 @@
-# Roadmap
+# Tess roadmap
 
-## Done
-- [x] Signed-in photo test: curated mabel-sock chosen by Tess, persists on reload + History; sleep boundary at 2 AM works; Frequent setting works.
-- [x] Canon: legal name Jessica Morgan, everyday Tess; toddler "Jess"→"Tess" origin in character bible; Theresa/Tessa/Contessa forbidden; natural-reveal-only rule; shared memory once user knows; proportional reactions to "Jessica".
-- [x] Profile still displays "Tess Morgan" (verified, no Jessica spoiler).
-- [x] Photo identity-vs-pose: reference defines identity only; new prompt wording; "same woman, different real photos".
-- [x] Structured style fields on generate requests: pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type (selfie/mirror/propped/friend, no invisible photographer).
-- [x] Repetition avoidance: last 5 Tess photos' styles fed to the model + varyStyle nudge on exact repeats (context first).
-- [x] generated_images extended with 9 style/identity columns (migration 0002).
-- [x] Mabel canonical reference: mabel-sock.jpg uploaded to tess-reference/mabel.jpg; used as second reference image when scene includes Mabel.
-- [x] Tess timezone → America/New_York (TESS_TZ); her availability/life context runs on Eastern, matching ZIP 16602.
-- [x] Tests: 35 passing (canon, image prompt, style variety, eligibility unchanged).
+## Done (this pass)
+- Initiation: 5h gap is eligibility-only; decideInitiation weighs curiosity, momentum, comfort, attraction, playfulness, trust, pressure, irritation, stage, schedule, life event, weather, plausible reason, recency; non-deterministic, not reverse-engineerable.
+- Fictional weekly schedule (Eastern): weekday vet-practice ops shifts, Thu trivia, Sun family dinner, Mabel walks, errands; rotating temporary life events via `tess_life` table.
+- Weather: server-side Open-Meteo for ZIP 16602 (Altoona PA), 30-min cache + 3h stale fallback, failure → omit silently; no GPS/permissions.
+- Real-Time Mode (default OFF, per-conversation `real_time_mode`): schedule/work/sleep/events shape latency; practice mode keeps 3–240s delays.
+- Debrief expanded: initiation, reciprocity, question balance, branches, exits, tone read, baseline change, friendly-vs-flirty, interest direction, momentum, who carried, tess_invested, missed openings, pressure — candid, no auto-praise.
+- Simulation Debug rewritten: state deltas, stage, schedule/availability, life event/weather, initiation reasoning, photo eligibility, latency, recent memories.
+- Offline: PWA service worker (NetworkFirst navigations, CacheFirst assets/images), localStorage outbox with "Queued" bubbles, auto-flush on reconnect; no fake offline replies.
+- Push: Settings opt-in only; foreground notifications for newly visible Tess messages.
+- Memory layers: relationship vs personal memory guidance in prompt; memory_type default `relationship`.
+- Tests: 68 passing (initiation, schedule, events, latency, weather, photos, logic, canon, debrief schema, routing).
 
-## Open
-- [ ] Generated photo landing in a live signed-in chat (blocked earlier by in-character 2 AM sleep boundary; pipeline verified standalone). Try again during her daytime hours.
+## Open / partial
+- Push is foreground-only; background delivery needs VAPID + subscription storage (not built).
+- Offline queue is localStorage, flushes while app is open; closed-app flush not verified.
+- Email confirmation: auto-confirm enabled for development; RLS unchanged.
+- Real-Time sleep path: Tess replies when she wakes rather than queuing a morning message.
+- Photo system untouched this pass (preserved per instructions); consumes schedule/weather as prompt context only.

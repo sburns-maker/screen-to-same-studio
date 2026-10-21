@@ -34,7 +34,7 @@ function base(over: Partial<InitiationInput> = {}, state: Partial<TessState> = {
 describe("initiation engine", () => {
   it("5 hours elapsed only opens eligibility — it never guarantees a message", () => {
     // With a low-inclination state, many checks pass with no initiation.
-    const low = base({ gapHours: 6 }, { curiosity: 10, relationship_momentum: 5, comfort: 15, romantic_attraction: 5, playfulness: 10, trust: 10 });
+    const low = base({ gapHours: 6 }, { curiosity: 30, relationship_momentum: 20, comfort: 25, romantic_attraction: 10, playfulness: 15, trust: 15 });
     let initiated = 0;
     for (let i = 0; i < 200; i++) if (decideInitiation(low).initiate) initiated++;
     expect(initiated).toBeLessThan(200); // not automatic
