@@ -63,7 +63,9 @@ export type Database = {
           difficulty: string
           id: string
           last_read_at: string | null
+          mature_photography: boolean
           muted: boolean
+          photo_boundary: string
           photo_frequency: string
           read_receipts: boolean
           real_time_mode: boolean
@@ -79,7 +81,9 @@ export type Database = {
           difficulty?: string
           id?: string
           last_read_at?: string | null
+          mature_photography?: boolean
           muted?: boolean
+          photo_boundary?: string
           photo_frequency?: string
           read_receipts?: boolean
           real_time_mode?: boolean
@@ -95,7 +99,9 @@ export type Database = {
           difficulty?: string
           id?: string
           last_read_at?: string | null
+          mature_photography?: boolean
           muted?: boolean
+          photo_boundary?: string
           photo_frequency?: string
           read_receipts?: boolean
           real_time_mode?: boolean
@@ -429,6 +435,7 @@ export type Database = {
           relationship_momentum: number
           respect: number
           romantic_attraction: number
+          romantic_intent: number
           trust: number
           updated_at: string
           user_id: string
@@ -447,6 +454,7 @@ export type Database = {
           relationship_momentum?: number
           respect?: number
           romantic_attraction?: number
+          romantic_intent?: number
           trust?: number
           updated_at?: string
           user_id: string
@@ -465,6 +473,7 @@ export type Database = {
           relationship_momentum?: number
           respect?: number
           romantic_attraction?: number
+          romantic_intent?: number
           trust?: number
           updated_at?: string
           user_id?: string

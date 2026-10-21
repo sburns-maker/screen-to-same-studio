@@ -10,6 +10,7 @@ export const STATE_KEYS = [
   "respect",
   "playfulness",
   "relationship_momentum",
+  "romantic_intent",
 ] as const;
 
 export type StateKey = (typeof STATE_KEYS)[number];
@@ -27,6 +28,7 @@ export const SEED_STATE: TessState = {
   respect: 44,
   playfulness: 38,
   relationship_momentum: 22,
+  romantic_intent: 0,
 };
 
 export const DIFFICULTIES = ["easy", "realistic", "ambiguous", "guarded", "chaos"] as const;

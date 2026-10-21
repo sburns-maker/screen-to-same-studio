@@ -2,6 +2,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { Output, streamText } from "ai";
 import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
+import type { PhotoBoundary } from "./photo-policy";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
@@ -99,6 +100,7 @@ const deltaSchema = z.object({
   respect: z.number(),
   playfulness: z.number(),
   relationship_momentum: z.number(),
+  romantic_intent: z.number(),
 });
 
 export const replySchema = z.object({
@@ -110,7 +112,10 @@ export const replySchema = z.object({
     .object({
       action: z.enum(["fixed", "generate"]),
       asset_id: z.string().nullable(),
-      type: z.enum(["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"]).nullable(),
+      type: z.enum(["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie", "mature_romantic"]).nullable(),
+      willing: z.boolean(),
+      contextual: z.boolean(),
+      framing: z.enum(["ordinary", "romantic"]),
       scene: z.string().nullable(),
       expression: z.string().nullable(),
       reason: z.string().nullable(),
@@ -125,8 +130,15 @@ export const replySchema = z.object({
     .nullable(),
   tone: z.string(),
   event_tags: z.array(z.string()),
+  photo_boundary_decision: z.enum(["unchanged", "selfies", "all_photos", "mature", "reopen"]),
 });
 export type TessReply = z.infer<typeof replySchema>;
+
+function photoDecisionRules(boundary: PhotoBoundary = "none"): string {
+  return `PHOTO AUTONOMY: Technical capability, current eligibility and your willingness are separate. Eligible types never obligate a photo. For any photo set willing=true only if you independently want to share, contextual=true only if natural now, and framing=ordinary or romantic honestly. Otherwise photo=null. Personal_selfie means ordinary home/dressy/morning sharing; intimate_selfie means emotionally close, fully clothed, non-erotic sharing. Neither implies romantic attraction. Romantic framing requires developed mutual romance and independent romantic_intent, never mere warmth/flirtation. Mature_romantic is a separate optional fully covered adult romantic portrait in opaque elegant sleepwear or ordinary dressy clothing; no lingerie, boudoir, nudity, sheer fabrics, explicit activity or sexualized poses. Only choose it when listed as eligible. Never put mature content in an ordinary category.
+PERSISTENT PHOTO BOUNDARY: ${boundary}. photo_boundary_decision=unchanged normally; when declining requests persist the appropriate scope (selfies, all_photos, mature). After refusal, repeated requests must NOT override it: no compliance, raise perceived_pressure, and possibly irritation. You may independently reopen later only without pressure or another request; use reopen with photo=null and express your changed willingness naturally. Do not reopen simply because the user asked again. A previous boundary is not consent. Save meaningful boundaries as relationship memories.
+romantic_intent is your independent desire to pursue a romantic relationship, not physical/romantic attraction, emotional closeness, commitment, or consent. Change it slowly from mutual interaction and complete history; often 0 delta. Warm friendship and Maya-style flirting do not automatically increase it.`;
+}
 
 export const debriefSchema = z.object({
   headline: z.string(),
@@ -204,6 +216,7 @@ export async function generateTessReply(args: {
   weatherFlavor?: string | null;
   lifeEvent?: LifeEvent | null;
   initiationReason?: string | null;
+  photoBoundary?: PhotoBoundary;
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
@@ -238,6 +251,7 @@ ${transcript(args.messages, args.tz)}
 
   const rules = `
 OUTPUT RULES
+${photoDecisionRules(args.photoBoundary)}
 - messages: Tess's texts only, no quotes/narration.
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent. Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation.
@@ -318,6 +332,7 @@ export async function generateContactReply(args: {
   weather?: WeatherContext | null;
   generateTypes?: string[];
   recentPhotoStyles?: string[];
+  photoBoundary?: PhotoBoundary;
 }): Promise<TessReply> {
   const c = args.character;
   const now = new Date();
@@ -349,6 +364,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
 
   const rules = `
 OUTPUT RULES
+${photoDecisionRules(args.photoBoundary)}
 - messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.
 - send_delay_seconds: realistic reply delay given availability and ${c.preferredName}'s texting habits.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent.${

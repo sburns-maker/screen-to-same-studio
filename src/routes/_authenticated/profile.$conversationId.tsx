@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { conversationQuery } from "@/lib/tess-queries";
 import { updateSettings } from "@/lib/tess.functions";
 import { characterFor } from "@/lib/characters";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/profile/$conversationId")({
   head: () => ({
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/_authenticated/profile/$conversationId")(
       { name: "description", content: "Contact details." },
       { property: "og:title", content: "Contact info — Chats" },
       { property: "og:description", content: "Contact details." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Profile,
@@ -27,10 +30,14 @@ function Profile() {
   const update = useServerFn(updateSettings);
   const def = characterFor((conv.data?.character as { key?: string } | null)?.key);
 
-  async function set(patch: { real_time_mode?: boolean; muted?: boolean }) {
-    await update({ data: { conversationId, ...patch } });
-    qc.invalidateQueries({ queryKey: ["conversation"] });
-    qc.invalidateQueries({ queryKey: ["conversations"] });
+  async function set(patch: { real_time_mode?: boolean; muted?: boolean; mature_photography?: boolean }) {
+    try {
+      await update({ data: { conversationId, ...patch } });
+      await qc.invalidateQueries({ queryKey: ["conversation"] });
+      await qc.invalidateQueries({ queryKey: ["conversations"] });
+    } catch {
+      toast.error("Couldn't save this preference. Please try again.");
+    }
   }
 
   return (
@@ -73,6 +80,15 @@ function Profile() {
         <p className="mt-6 rounded-2xl border border-dashed p-4 text-sm leading-relaxed text-muted-foreground">{def.profileBlurb}</p>
 
         <div className="mt-4 divide-y rounded-2xl bg-surface">
+          {def.age >= 18 && def.romanticCapable && (
+            <div className="px-4 py-3">
+              <div className="flex items-center justify-between gap-4 text-[15px]">
+                <label htmlFor="mature-photography">Mature Photography</label>
+                <Switch id="mature-photography" aria-label="Mature Photography" disabled={!conv.data} checked={!!conv.data?.mature_photography} onCheckedChange={(v) => set({ mature_photography: v })} />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">Optional, non-explicit adult romantic portraits. No nudity. {def.preferredName}'s boundaries still apply.</p>
+            </div>
+          )}
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-4 text-[15px]">
               Real-Time Mode

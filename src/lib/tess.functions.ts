@@ -14,7 +14,6 @@ import {
 } from "./tess-logic";
 import {
   FREQUENCY_RULES,
-  allowedGeneratedTypes,
   curatedFallback,
   describeStyle,
   eligiblePhotos,
@@ -31,6 +30,7 @@ import {
   type LifeEvent,
 } from "./tess-life";
 import { characterAvailability, characterFor, type CharacterDef } from "./characters";
+import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, willingPhotoAllowed, safePhotoScene, type PhotoContext, type PhotoBoundary } from "./photo-policy";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -165,6 +165,7 @@ async function createGeneratedPhoto(
   def?: CharacterDef,
 ) {
   const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!safePhotoScene([scene, expression, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -256,6 +257,11 @@ export async function runTurn(
   const recentStyles = (recentGen ?? []) as PhotoStyle[];
 
   const state = pickState(stateRow ?? {}, def.seedState);
+  const photoContext: PhotoContext = {
+    age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
+    supported: def.photoTypes, matureEnabled: conv.mature_photography,
+    boundary: (["none", "selfies", "all_photos", "mature"].includes(conv.photo_boundary) ? conv.photo_boundary : "all_photos") as PhotoBoundary,
+  };
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
   const recent = msgs ?? [];
 
@@ -296,8 +302,8 @@ export async function runTurn(
     const recentlySentPhoto = tessRecent.some(hasPhoto);
     photos = recentlySentPhoto
       ? []
-      : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id));
-    generateTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+      : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object"));
+    generateTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, photoContext);
 
     lifeEvent = activeLifeEvent(
       now,
@@ -321,6 +327,7 @@ export async function runTurn(
       weatherFlavor: flavor,
       lifeEvent,
       initiationReason: initiation?.reason ?? null,
+      photoBoundary: photoContext.boundary,
     });
   } else {
     const avail = characterAvailability(def, now);
@@ -335,7 +342,7 @@ export async function runTurn(
       const recentlySentPhoto = ownRecent.some(hasPhoto);
       generateTypes = recentlySentPhoto
         ? []
-        : allowedGeneratedTypes(state).filter((t) => def.photoTypes.includes(t));
+        : eligiblePhotoCategories(state, photoContext);
     }
     reply = await generateContactReply({
       character: def,
@@ -351,25 +358,44 @@ export async function runTurn(
       weather,
       generateTypes,
       recentPhotoStyles: recentStyles.map(describeStyle),
+      photoBoundary: photoContext.boundary,
     });
     if (!def.photosEnabled) reply.photo = null;
     else if (reply.photo?.action === "generate" && !generateTypes.includes(reply.photo.type ?? "")) reply.photo = null;
     else if (reply.photo && reply.photo.action !== "generate") reply.photo = null; // no curated library for contacts
   }
 
+  const boundary = nextPhotoBoundary(photoContext.boundary, reply.photo_boundary_decision, !!reply.photo);
+  if (reply.photo_boundary_decision === "reopen") reply.photo = null;
+  if (reply.photo) {
+    const fixed = photos.find((p) => p.id === reply.photo?.asset_id);
+    const category = reply.photo.action === "fixed" ? (fixed?.selfie ? "casual_selfie" : "object") : reply.photo.type;
+    const eligible = reply.photo.action === "fixed" && fixed ? [category] : generateTypes;
+    if (!category || !willingPhotoAllowed({ type: category as import("./photo-policy").PhotoCategory,
+      willing: reply.photo.willing, contextual: reply.photo.contextual, framing: reply.photo.framing,
+      eligible: eligible.filter((t): t is string => !!t), state,
+      context: { ...photoContext, boundary },
+    })) reply.photo = null;
+  }
   const delta = sanitizeDelta(reply.state_delta, difficulty);
   if (!def.romanticCapable) {
     delta.romantic_attraction = 0;
     delta.physical_attraction = 0;
+    delta.romantic_intent = 0;
   }
   const next = applyDelta(state, delta);
+  if (!def.romanticCapable) {
+    next.romantic_attraction = 0;
+    next.physical_attraction = 0;
+    next.romantic_intent = 0;
+  }
   const stage = deriveStage(next);
 
   await supabase
     .from("tess_state")
     .update({ ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone, updated_at: nowIso })
     .eq("conversation_id", conv.id);
-  await supabase.from("conversations").update({ relationship_stage: stage, updated_at: nowIso }).eq("id", conv.id);
+  await supabase.from("conversations").update({ relationship_stage: stage, photo_boundary: boundary, updated_at: nowIso }).eq("id", conv.id);
 
   // --- Photo: Tess curated first, then optional generation; other contacts generate only. Failures stay invisible.
   let photo: string | null = null;
@@ -445,7 +471,7 @@ export async function runTurn(
         initiated: !!initiation,
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
-        ...(generated && i === 0 ? { generated_path: generated.path } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path, photo_type: generated.type } : {}),
       },
     };
   });
@@ -479,10 +505,11 @@ export async function runTurn(
         })
         .select("id")
         .single();
-      if (img) {
+      const firstRow = rows[0];
+      if (img && firstRow) {
         await supabase
           .from("messages")
-          .update({ metadata: { ...rows[0]!.metadata, generated_image_id: img.id } })
+          .update({ metadata: { ...firstRow.metadata, generated_image_id: img.id } })
           .eq("id", inserted[0].id);
       }
     }
@@ -500,7 +527,7 @@ export async function runTurn(
     }));
   if (memRows.length) await supabase.from("memories").insert(memRows);
 
-  return { count: rows.length, lastVisibleAt: rows.length ? rows[rows.length - 1]!.visible_at : null };
+  return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null };
 }
 
 export const tessRespond = createServerFn({ method: "POST" })
@@ -693,6 +720,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         photo_frequency: z.enum(["rare", "normal", "frequent"]).optional(),
         real_time_mode: z.boolean().optional(),
         muted: z.boolean().optional(),
+        mature_photography: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -705,15 +733,24 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (data.photo_frequency !== undefined) patch.photo_frequency = data.photo_frequency;
     if (data.real_time_mode !== undefined) patch.real_time_mode = data.real_time_mode;
     if (data.muted !== undefined) patch.muted = data.muted;
+    if (data.mature_photography !== undefined) {
+      if (!data.conversationId) throw new Error("Choose a conversation for mature photography.");
+      const conv = await loadConversation(context.supabase, context.userId, data.conversationId);
+      if (!conv) throw new Error("No conversation");
+      const def = characterFor(conv.character?.key);
+      if (data.mature_photography && (def.age < 18 || !def.romanticCapable)) throw new Error("Mature photography is unavailable for this contact.");
+      patch.mature_photography = data.mature_photography;
+    }
     // photo_frequency is Tess-specific; everything else applies to the given
     // conversation, or all of the user's conversations when none is given.
     if (data.photo_frequency !== undefined && !data.conversationId) {
       const { data: tessChar } = await context.supabase.from("characters").select("id").eq("key", "tess").single();
+      if (!tessChar) throw new Error("Contact unavailable");
       await context.supabase
         .from("conversations")
         .update(patch)
         .eq("user_id", context.userId)
-        .eq("character_id", tessChar!.id);
+        .eq("character_id", tessChar.id);
     } else if (data.conversationId) {
       await context.supabase.from("conversations").update(patch).eq("id", data.conversationId).eq("user_id", context.userId);
     } else {
@@ -803,7 +840,11 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       .slice(0, rules.cooldown)
       .some(hasPhoto);
     const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
-    const genTypes = !isTess || recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+    const genTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, {
+      age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
+      supported: def.photoTypes, matureEnabled: conv.mature_photography,
+      boundary: conv.photo_boundary as PhotoBoundary,
+    });
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
     return {
       character: { key: def.key, name: def.preferredName, fullName: def.fullName, photosEnabled: def.photosEnabled },
@@ -830,10 +871,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         lastInitiatedAt: life?.last_initiated_at ?? null,
       },
       photo: {
-        eligible: isTess && !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
-        reason: !isTess
-          ? `${def.preferredName} doesn't send photos (avatar only in V1)`
-          : recentlySentPhoto
+        eligible: !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
+        reason: recentlySentPhoto
             ? `cooldown — she sent a photo within her last ${rules.cooldown} messages`
             : state.irritation >= 40
               ? `irritation ${state.irritation} — no photos while annoyed`
@@ -842,6 +881,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
                 : `${curatedCount} curated + generated types [${genTypes.join(", ") || "none"}] available`,
         curatedCount,
         generatedTypes: genTypes,
+        boundary: conv.photo_boundary,
+        matureEnabled: conv.mature_photography,
       },
       latencyReason: lastLatency,
       recentMemories: mems ?? [],

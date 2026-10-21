@@ -6,7 +6,7 @@ import type { PhotoStyle } from "./tess-photos";
 
 const GATEWAY = "https://ai.gateway.lovable.dev";
 
-export type TessImageType = "object" | "casual_selfie" | "personal_selfie" | "intimate_selfie" | "tess_candid";
+export type TessImageType = "object" | "casual_selfie" | "personal_selfie" | "intimate_selfie" | "tess_candid" | "mature_romantic";
 
 export type GeneratedImage = { bytes: Uint8Array; mime: string; provider: string; model: string };
 
@@ -32,6 +32,7 @@ export function identityBlock(id?: CharacterIdentity): string {
 }
 
 const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks.`;
+const MATURE_STYLE = `A non-explicit romantic personal portrait of one clearly adult fictional person aged 18 or older. Fully covered in opaque elegant sleepwear or ordinary dressy clothing, natural softly lit surroundings and realistic adult skin. No nudity, exposed breasts, genitals, transparent fabric, lingerie, boudoir, sexual activity, erotic posing, minors or age ambiguity. Do not sexualize the subject. Preserve the adult identity and natural phone-photo composition. No text overlays or watermarks. Follow the provider's content policy; do not evade moderation.`;
 
 const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-white wire-haired mutt with floppy ears. When a Mabel reference image is supplied, she is the exact same dog shown in it — same coat pattern, face, ears and approximate size, never a different breed.`;
 
@@ -62,6 +63,7 @@ function styleLines(style: PhotoStyle | null | undefined): string {
 }
 
 export function buildImagePrompt(type: TessImageType, scene: string, expression: string | null, style?: PhotoStyle | null, identity?: CharacterIdentity) {
+  if (identity && (!Number.isInteger(identity.age) || identity.age < 18)) throw new Error("adult identity required");
   const mabel = sceneHasMabel(scene) ? ` ${MABEL}` : "";
   const age = identity?.age ?? 34;
   const person = identity?.pronouns === "he/him" ? "man" : "woman";
@@ -71,7 +73,7 @@ export function buildImagePrompt(type: TessImageType, scene: string, expression:
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
     !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES["selfie"] : "";
-  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${STYLE}`;
+  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}`;
 }
 
 export function lovableGatewayProvider(apiKey: string): ImageProvider {
