@@ -102,13 +102,13 @@ export function seasonalBaseline(zip: string, now: Date = new Date()): WeatherCo
     new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", hour12: false })
       .formatToParts(now).map((p) => [p.type, p.value]),
   );
-  const month = Number(parts.month) - 1;
-  const day = Number(parts.day);
-  const hour = Number(parts.hour) % 24;
-  const [hi, lo] = NORMALS[month];
+  const month = Number(parts['month']) - 1;
+  const day = Number(parts['day']);
+  const hour = Number(parts['hour']) % 24;
+  const [hi, lo] = NORMALS[month] ?? [55, 40];
   // Coldest ~6am, warmest ~3pm.
   const t = (Math.cos(((hour - 15) / 24) * 2 * Math.PI) + 1) / 2;
-  const seed = (Number(parts.year) * 372 + month * 31 + day) % 97;
+  const seed = (Number(parts['year']) * 372 + month * 31 + day) % 97;
   const temp = Math.round(lo + (hi - lo) * t + ((seed % 7) - 3));
   const cold = temp <= 32;
   const roll = seed % 10;
