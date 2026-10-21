@@ -83,48 +83,139 @@ export function normalizeWeather(geo: { name?: string }, raw: unknown, zip: stri
   };
 }
 
+/** Known coordinates for every character's home ZIP — no geocoding round-trip needed. */
+const REGION_COORDS: Record<string, { latitude: number; longitude: number; name: string }> = {
+  "16601": { latitude: 40.5187, longitude: -78.3947, name: "Altoona" },
+  "16602": { latitude: 40.5187, longitude: -78.3947, name: "Altoona" },
+  "16635": { latitude: 40.4334, longitude: -78.4137, name: "Duncansville" },
+};
+
+// Central PA monthly normals (°F high / low), used only when every provider is down.
+const NORMALS: [number, number][] = [
+  [34, 19], [37, 20], [46, 27], [59, 37], [69, 47], [77, 56],
+  [81, 60], [79, 59], [72, 52], [61, 40], [49, 32], [38, 24],
+];
+
+/** Deterministic, plausible seasonal weather for the region (stable per day/hour). */
+export function seasonalBaseline(zip: string, now: Date = new Date()): WeatherContext {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", hour12: false })
+      .formatToParts(now).map((p) => [p.type, p.value]),
+  );
+  const month = Number(parts.month) - 1;
+  const day = Number(parts.day);
+  const hour = Number(parts.hour) % 24;
+  const [hi, lo] = NORMALS[month];
+  // Coldest ~6am, warmest ~3pm.
+  const t = (Math.cos(((hour - 15) / 24) * 2 * Math.PI) + 1) / 2;
+  const seed = (Number(parts.year) * 372 + month * 31 + day) % 97;
+  const temp = Math.round(lo + (hi - lo) * t + ((seed % 7) - 3));
+  const cold = temp <= 32;
+  const roll = seed % 10;
+  const condition = roll < 4 ? "cloudy" : roll < 6 ? (cold ? "snow" : "rain") : roll < 7 ? "fog" : "clear";
+  const wind = 4 + (seed % 9);
+  return {
+    condition,
+    temperature_f: temp,
+    feels_like_f: temp - (wind > 8 ? 4 : 1),
+    precipitation: condition === "rain" || condition === "snow",
+    snowing: condition === "snow",
+    rain: condition === "rain",
+    wind_mph: wind,
+    weather_alert: null,
+    sunrise: "",
+    sunset: "",
+    local_time: now.toISOString(),
+    timezone: "America/New_York",
+    weather_region: zip,
+  };
+}
+
+/** Map an NWS hourly period into the simulation shape. */
+export function normalizeNws(period: { temperature?: number; shortForecast?: string; windSpeed?: string; startTime?: string }, zip: string): WeatherContext {
+  const f = (period.shortForecast ?? "").toLowerCase();
+  const condition = /thunder/.test(f) ? "storm" : /snow|flurr|sleet/.test(f) ? "snow" : /rain|shower|drizzle/.test(f) ? "rain" : /fog/.test(f) ? "fog" : /cloud|overcast/.test(f) ? "cloudy" : "clear";
+  const wind = Number((period.windSpeed ?? "").match(/\d+/)?.[0] ?? 0);
+  const temp = Math.round(period.temperature ?? 50);
+  return {
+    condition,
+    temperature_f: temp,
+    feels_like_f: temp - (wind > 10 ? 4 : 0),
+    precipitation: ["rain", "snow", "storm"].includes(condition),
+    snowing: condition === "snow",
+    rain: condition === "rain" || condition === "storm",
+    wind_mph: wind,
+    weather_alert: condition === "storm" ? "thunderstorms in the area" : null,
+    sunrise: "",
+    sunset: "",
+    local_time: period.startTime ?? "",
+    timezone: "America/New_York",
+    weather_region: zip,
+  };
+}
+
+const caches = new Map<string, { at: number; data: WeatherContext }>();
+
 /**
- * Current weather for the simulation region. Returns null on any failure —
- * chat must continue without weather, and Tess never mentions the failure.
- * Results are cached for 30 minutes.
+ * Current weather for a character's region. Never returns null: Open-Meteo,
+ * then the National Weather Service, then recent cache, then a seasonal baseline.
+ * Results are cached for 30 minutes per ZIP.
  */
-export async function getWeatherContext(zip: string = WEATHER_ZIP, fetcher?: Fetcher): Promise<WeatherContext | null> {
-  if (cache && Date.now() - cache.at < CACHE_MS && cache.data.weather_region === zip) return cache.data;
+export async function getWeatherContext(zip: string = WEATHER_ZIP, fetcher?: Fetcher): Promise<WeatherContext> {
+  const cached = caches.get(zip);
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.data;
   const f: Fetcher =
     fetcher ??
     (async (url: string) => {
-      const res = await fetch(url, { headers: { "User-Agent": "TessApp/1.0 (weather)", Accept: "application/json" } });
+      const res = await fetch(url, { headers: { "User-Agent": "TessApp/1.0 (weather; contact@screen-to-same-studio.lovable.app)", Accept: "application/json, application/geo+json" } });
       return { ok: res.ok, json: () => res.json() };
     });
+  const save = (data: WeatherContext) => {
+    caches.set(zip, { at: Date.now(), data });
+    return data;
+  };
+
+  let loc: { latitude: number; longitude: number; name?: string } | undefined = REGION_COORDS[zip];
   try {
-    // Open-Meteo geocoding doesn't reliably resolve ZIP codes; use known coords for the home region.
-    let loc: { latitude: number; longitude: number; name?: string } | undefined =
-      zip === "16602" && !fetcher ? { latitude: 40.5187, longitude: -78.3947, name: "Altoona" } : undefined;
     if (!loc) {
       const geoRes = await f(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(zip)}&count=1&country=US`);
-      if (!geoRes.ok) throw new Error("geocode failed");
-      const geo = (await geoRes.json()) as { results?: { latitude: number; longitude: number; name?: string }[] };
-      loc = geo.results?.[0];
+      if (geoRes.ok) {
+        const geo = (await geoRes.json()) as { results?: { latitude: number; longitude: number; name?: string }[] };
+        loc = geo.results?.[0];
+      }
     }
-    if (!loc) throw new Error("zip not found");
+    loc ??= REGION_COORDS["16602"];
     const wxRes = await f(
       `https://api.open-meteo.com/v1/forecast?latitude=${loc.latitude}&longitude=${loc.longitude}` +
         `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation` +
         `&daily=sunrise,sunset&temperature_unit=fahrenheit&timezone=America%2FNew_York&forecast_days=1`,
     );
-    if (!wxRes.ok) throw new Error("forecast failed");
-    const data = normalizeWeather(loc, await wxRes.json(), zip);
-    cache = { at: Date.now(), data };
-    return data;
+    if (!wxRes.ok) throw new Error("open-meteo forecast failed");
+    return save(normalizeWeather(loc, await wxRes.json(), zip));
   } catch (e) {
-    console.error("weather lookup failed", e);
-    // Reasonably recent cached weather is better than none.
-    if (cache && Date.now() - cache.at < 6 * CACHE_MS) return cache.data;
-    return null;
+    console.warn("open-meteo failed, trying NWS", e);
   }
+
+  try {
+    const l = loc ?? REGION_COORDS["16602"];
+    const pts = await f(`https://api.weather.gov/points/${l.latitude.toFixed(4)},${l.longitude.toFixed(4)}`);
+    if (!pts.ok) throw new Error("nws points failed");
+    const hourlyUrl = ((await pts.json()) as { properties?: { forecastHourly?: string } }).properties?.forecastHourly;
+    if (!hourlyUrl) throw new Error("nws no hourly url");
+    const hr = await f(hourlyUrl);
+    if (!hr.ok) throw new Error("nws hourly failed");
+    const period = ((await hr.json()) as { properties?: { periods?: Parameters<typeof normalizeNws>[0][] } }).properties?.periods?.[0];
+    if (!period) throw new Error("nws no periods");
+    return save(normalizeNws(period, zip));
+  } catch (e) {
+    console.warn("NWS failed, using cache or seasonal baseline", e);
+  }
+
+  if (cached && Date.now() - cached.at < 6 * CACHE_MS) return cached.data;
+  return seasonalBaseline(zip);
 }
 
 /** Test hook: reset the module cache. */
 export function __resetWeatherCache() {
-  cache = null;
+  caches.clear();
 }
