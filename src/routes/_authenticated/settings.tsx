@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getPushRegistration } from "@/lib/pwa/register-sw";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -213,48 +214,72 @@ function NotificationsRow() {
   const status = useQuery({ queryKey: ["pushStatus"], queryFn: () => statusFn() });
   const [busy, setBusy] = useState(false);
   const [permission, setPermission] = useState(() => (typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"));
+  const [localEndpoint, setLocalEndpoint] = useState<string | null>(null);
   const subs = status.data?.subscriptions ?? [];
-  const enabled = subs.length > 0;
+  // On = this device holds a subscription the server also knows about.
+  const enabled = localEndpoint ? subs.some((s) => s.endpoint === localEndpoint) : false;
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    void navigator.serviceWorker
+      .getRegistration()
+      .then((r) => r?.pushManager?.getSubscription())
+      .then((s) => setLocalEndpoint(s?.endpoint ?? null))
+      .catch(() => setLocalEndpoint(null));
+  }, []);
+
+  /** Drop any existing subscription on this device (e.g. one made with an old key). */
+  async function clearLocal(reg: ServiceWorkerRegistration | null) {
+    const existing = await reg?.pushManager?.getSubscription().catch(() => null);
+    if (existing) {
+      await remove({ data: { endpoint: existing.endpoint } }).catch(() => undefined);
+      await existing.unsubscribe().catch(() => undefined);
+    }
+    setLocalEndpoint(null);
+  }
 
   async function toggle(v: boolean) {
     setBusy(true);
     try {
       if (v) {
-        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
-          toast.error("This browser doesn't support background notifications.");
-          return;
-        }
+        if (!("Notification" in window)) throw new Error("This browser doesn't support background notifications.");
         const perm = await Notification.requestPermission();
         setPermission(perm);
-        if (perm !== "granted") {
-          toast.error("Notifications weren't allowed. You can change this in your browser settings.");
-          return;
-        }
-        const reg = await navigator.serviceWorker.ready;
-        if (!reg.pushManager) {
-          toast.error("Background push needs the installed app or published site — it can't run in this preview.");
-          return;
-        }
+        if (perm !== "granted") throw new Error("Notifications weren't allowed. You can change this in your phone's settings.");
+        const reg = await getPushRegistration();
+        if (!reg.pushManager) throw new Error("This browser doesn't support background notifications.");
+        await clearLocal(reg); // always start fresh so a stale key can't block subscribing
         const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) as BufferSource });
         const json = sub.toJSON();
         await save({ data: { endpoint: sub.endpoint, keys: { p256dh: json.keys!["p256dh"], auth: json.keys!["auth"] }, userAgent: navigator.userAgent } });
+        setLocalEndpoint(sub.endpoint);
         localStorage.setItem("tess:notifications", "on"); // foreground toasts while the app is open
         toast.success("Background notifications on for this device.");
       } else {
-        const reg = await navigator.serviceWorker.ready.catch(() => null);
-        const sub = await reg?.pushManager?.getSubscription();
-        if (sub) {
-          await remove({ data: { endpoint: sub.endpoint } });
-          await sub.unsubscribe();
-        }
+        const reg = await navigator.serviceWorker.getRegistration().catch(() => undefined);
+        await clearLocal(reg ?? null);
         localStorage.setItem("tess:notifications", "off");
         toast.success("Background notifications off for this device.");
       }
-      qc.invalidateQueries({ queryKey: ["pushStatus"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't change notifications.");
     } finally {
       setBusy(false);
+      qc.invalidateQueries({ queryKey: ["pushStatus"] });
+    }
+  }
+
+  /** Full reset: forget every device registered to this account plus this device's subscription. */
+  async function resetAll() {
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
+      await clearLocal(reg ?? null);
+      for (const s of subs) await remove({ data: { endpoint: s.endpoint } }).catch(() => undefined);
+      toast.success("Notifications reset. Turn the switch on to register this device again.");
+    } finally {
+      setBusy(false);
+      qc.invalidateQueries({ queryKey: ["pushStatus"] });
     }
   }
 
@@ -282,12 +307,20 @@ function NotificationsRow() {
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
         Status: {permission === "unsupported" ? "unsupported browser" : `permission ${permission}`} · {subs.length} device(s) subscribed
+        {localEndpoint && !enabled ? " · this device needs re-registering" : ""}
       </p>
-      {enabled && (
-        <button type="button" disabled={busy} onClick={sendTest} className="mt-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50">
-          Send test notification
-        </button>
-      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {enabled && (
+          <button type="button" disabled={busy} onClick={sendTest} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50">
+            Send test notification
+          </button>
+        )}
+        {(subs.length > 0 || localEndpoint) && (
+          <button type="button" disabled={busy} onClick={resetAll} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50">
+            Reset notifications
+          </button>
+        )}
+      </div>
     </div>
   );
 }
