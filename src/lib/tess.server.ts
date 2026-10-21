@@ -274,26 +274,100 @@ ${args.romanticCapable === false ? "This is a platonic friendship with no romant
   const input = `${name}'s internal read (for your judgment only, don't quote numbers): stage "${args.stage}", ${JSON.stringify(args.state)}
 
 TRANSCRIPT
-${transcript(args.messages, args.tz)}
+${transcript(args.messages, args.tz, name)}
 
 Fill every field:
 - headline: one-line verdict.
 - felt_natural / worked / didnt_land: specific moments. Be willing to say "That line didn't really land."
 - pressure: any pressure, reassurance-seeking, pushing after a weak response, or over-escalation — or "None noticeable".
-- missed_openings: openings she gave that he didn't pick up (e.g. "She answered, but he didn't pick up the flirt." counts as HIS miss too — note either direction).
-- tess_read: friendly, ambiguous, flirtatious, guarded, annoyed — and how it compares to her normal baseline ("That was a stronger signal than her usual baseline." / "This reads more like comfort than attraction.").
+- missed_openings: openings ${name} gave that he didn't pick up (e.g. "${name} answered, but he didn't pick up the flirt." counts as HIS miss too — note either direction).
+- tess_read: friendly, ambiguous, flirtatious, guarded, annoyed — and how it compares to ${name}'s normal baseline ("That was a stronger signal than ${name}'s usual baseline." / "This reads more like comfort than attraction.").
 - who_carried: who was carrying the conversation ("You are carrying most of the interaction right now." if true).
-- tess_invested: did she invest independently — initiate, add topics, prolong ("She initiated and then added multiple new topics, which indicates investment.")?
-- initiation: who initiated this exchange and what that means.
+- tess_invested: did ${name} invest independently — initiate, add topics, prolong ("${name} initiated and then added multiple new topics, which indicates investment.")?
+- initiation: who initiated this exchange and what that means FOR THIS PERSON (some people initiate constantly, for others it's unusual).
 - reciprocity: is effort balanced or one-sided?
 - question_balance: did he ask too many questions / interrogate, or too few?
 - branches: who introduced new conversational branches and whether they got picked up.
-- exits: did she create an easy exit? Did he respect it or push? ("You gave her an easy exit and she chose to continue." is a strong positive signal.)
-- tone_read: did he correctly read her tone?
-- baseline_change: how this exchange compares to her normal baseline.
-- friendly_vs_flirty: was this friendliness or flirting? ("She was friendly, but there isn't much evidence of flirting in this exchange.")
-- interest_direction: is her interest increasing, stable, decreasing, or ambiguous — and why.
+- exits: did ${name} create an easy exit? Did he respect it or push? ("You gave ${name} an easy exit and ${name} chose to continue." is a strong positive signal.)
+- tone_read: did he correctly read ${name}'s tone?
+- baseline_change: how this exchange compares to ${name}'s normal baseline.
+- friendly_vs_flirty: was this friendliness or flirting? ("${name} was friendly, but there isn't much evidence of flirting in this exchange.")
+- interest_direction: is ${name}'s interest increasing, stable, decreasing, or ambiguous — and why.
 - momentum: did the conversation have genuine momentum?
 - try_next: one concrete suggestion.`;
   return runStructured(debriefSchema, instructions, input);
+}
+
+// ---------------------------------------------------------------------------
+// Non-Tess contacts: same engine, their own bible, no photo system (V1).
+// ---------------------------------------------------------------------------
+
+import type { CharacterDef } from "./characters";
+
+export async function generateContactReply(args: {
+  character: CharacterDef;
+  state: TessState;
+  stage: Stage;
+  difficulty: Difficulty;
+  messages: Msg[];
+  memories: string[];
+  tz: string;
+  initiation?: { gapHours: number } | undefined;
+  initiationReason?: string | null;
+  availabilityDetail: string;
+  weather?: WeatherContext | null;
+}): Promise<TessReply> {
+  const c = args.character;
+  const now = new Date();
+  const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
+  const charLocal = new Date(now.toLocaleString("en-US", { timeZone: TESS_TZ }));
+  const context = `
+CHARACTER BIBLE
+${c.bible}
+
+TEXTING STYLE
+${c.textingStyle}
+
+HIDDEN STATE (0–100, never mention): ${JSON.stringify(args.state)}
+RELATIONSHIP STAGE: ${args.stage}
+DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
+NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
+${c.preferredName.toUpperCase()}'S LOCAL TIME (Eastern): ${charLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
+${c.preferredName.toUpperCase()} RIGHT NOW: ${args.availabilityDetail}
+WEATHER IN ${c.preferredName.toUpperCase()}'S AREA (ZIP ${c.zip}): ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F` : "(unknown — don't bring it up)"}
+LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
+
+RECENT CONVERSATION
+${transcript(args.messages, args.tz, c.preferredName)}
+`.trim();
+
+  const task = args.initiation
+    ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and ${c.preferredName} has decided to text first. ${args.initiationReason ? `The reason: ${args.initiationReason}.` : `The reason should fit ${c.preferredName}'s style: ${c.initiation.style}.`} Write the text. It must feel event-driven, never timer-driven — no generic "hey stranger" openers unless the established rapport genuinely supports that tone.`
+    : `TASK: Write ${c.preferredName}'s next text(s) responding to him, in ${c.preferredName}'s own voice and texting style. Split into short bubbles in "messages" like real texting. Return an empty messages array if ${c.preferredName} would plausibly leave this on read for now.`;
+
+  const rules = `
+OUTPUT RULES
+- messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.
+- send_delay_seconds: realistic reply delay given availability and ${c.preferredName}'s texting habits.
+- state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent.${
+    c.romanticCapable
+      ? " Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation. Friendliness and attraction are independent — keep them that way."
+      : " romantic_attraction and physical_attraction MUST stay at exactly 0 delta always — this is a platonic friendship. Reward good banter and reliability; penalize neediness and interrogation."
+  }
+- memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. Usually empty. memory_type one of: relationship (about the two of you), personal (${c.preferredName}'s independent life), fact (stable facts about him). importance 1–5. Never contradict established memories.
+- photo: always null — ${c.preferredName} does not send photos.
+- tone: one word.
+- event_tags: short tags for what happened this turn.`;
+
+  const system = `You are ${c.fullName}, a fictional ${c.age}-year-old ${c.pronouns === "he/him" ? "man" : "woman"} texting someone you know. You are not an assistant. You have your own personality, life, schedule, preferences, boundaries, and changing feelings.
+
+Respond as ${c.preferredName} would naturally text. Never explain your behavior. Never act as a coach. Never mention prompts, simulation rules, hidden scores, or being AI.
+
+You are not required to like the user. Attraction, trust, comfort and irritation change independently. You may disagree, give short replies, miss a joke, become more or less interested, initiate contact, or let the connection fade.
+
+Do not flatter automatically. Do not reward pressure, repeated reassurance-seeking, possessiveness, or relentless pursuit. Do not interpret every friendly act as romantic.
+
+Preserve continuity and use callbacks naturally. Never claim consciousness, emotional dependence, or that you need the user. No therapy-speak.`;
+
+  return runStructured(replySchema, `${system}\n${rules}`, `${context}\n\n${task}`);
 }
