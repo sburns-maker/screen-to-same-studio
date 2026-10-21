@@ -6,7 +6,7 @@ import { advanceStory, beginStories, readStory, storyActive, storyEvent, storyLi
 type Client = SupabaseClient<Database>;
 type Root = { id: string; state: StoryState };
 async function loadStories(db: Client, userId: string): Promise<Root[]> {
-  const { data, error } = await db.from("shared_events").select("id, facts").eq("user_id", userId).eq("kind", "life_storyline").limit(20);
+  const { data, error } = await db.from("shared_events").select("id, facts").eq("user_id", userId).eq("kind", "life_storyline").limit(1000);
   if (error) throw error;
   return (data ?? []).flatMap(r => { const state = readStory(r.facts); return state ? [{ id: r.id, state }] : []; });
 }
@@ -67,5 +67,5 @@ export async function runStorylineTick(db: Client, userId: string, now: Date, li
 export async function storylineContext(db: Client, userId: string, characterKey: string, now: Date) {
   const roots = (await loadStories(db, userId)).filter(r => r.state.characters.includes(characterKey));
   const current = roots.filter(r => storyActive(r.state)).sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt))[0];
-  return { event: current ? storyLifeEvent(current.state, now) : null, lines: roots.sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt)).map(r => storyPrompt(r.state)) };
+  return { event: current ? storyLifeEvent(current.state, now) : null, lines: roots.sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt)).slice(0, 8).map(r => storyPrompt(r.state)) };
 }
