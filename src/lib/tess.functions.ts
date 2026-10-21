@@ -335,7 +335,7 @@ export async function runTurn(
       const recentlySentPhoto = ownRecent.some(hasPhoto);
       generateTypes = recentlySentPhoto
         ? []
-        : generateTypesFor(state, difficulty).filter((t) => def.photoTypes.includes(t));
+        : allowedGeneratedTypes(state).filter((t) => def.photoTypes.includes(t));
     }
     reply = await generateContactReply({
       character: def,
