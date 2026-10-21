@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAllData, resetRelationship, updateSettings } from "@/lib/tess.functions";
+import { pushStatus, quietHours, removePushSubscription, savePushSubscription, sendTestPush, updateQuietHours } from "@/lib/push.functions";
+import { VAPID_PUBLIC_KEY } from "@/lib/push-config";
 import { conversationsQuery } from "@/lib/tess-queries";
 import { DIFFICULTIES, type Difficulty } from "@/lib/tess-logic";
 import { cn } from "@/lib/utils";
@@ -95,6 +97,7 @@ function SettingsPage() {
         <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <NotificationsRow />
+          <QuietHoursRow />
           <MessagePreviewsRow />
           <Row>
             Typing indicator
@@ -188,35 +191,147 @@ function SettingsPage() {
   );
 }
 
-/** Push notifications: permission is requested only when the user explicitly turns this on. */
+function b64ToBytes(b64u: string): Uint8Array {
+  const b64 = b64u.replaceAll("-", "+").replaceAll("_", "/");
+  const bin = atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * Background push: real Web Push subscription for this device. Permission is
+ * requested only when the user explicitly turns this on. Requires the installed
+ * PWA / published site (service workers don't register in the editor preview).
+ */
 function NotificationsRow() {
-  const [enabled, setEnabled] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("tess:notifications") === "on" : false));
+  const qc = useQueryClient();
+  const save = useServerFn(savePushSubscription);
+  const remove = useServerFn(removePushSubscription);
+  const test = useServerFn(sendTestPush);
+  const statusFn = useServerFn(pushStatus);
+  const status = useQuery({ queryKey: ["pushStatus"], queryFn: () => statusFn() });
+  const [busy, setBusy] = useState(false);
+  const [permission, setPermission] = useState(() => (typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"));
+  const subs = status.data?.subscriptions ?? [];
+  const enabled = subs.length > 0;
+
   async function toggle(v: boolean) {
-    if (v) {
-      if (!("Notification" in window)) {
-        toast.error("This browser doesn't support notifications.");
-        return;
+    setBusy(true);
+    try {
+      if (v) {
+        if (!("Notification" in window) || !("serviceWorker" in navigator)) {
+          toast.error("This browser doesn't support background notifications.");
+          return;
+        }
+        const perm = await Notification.requestPermission();
+        setPermission(perm);
+        if (perm !== "granted") {
+          toast.error("Notifications weren't allowed. You can change this in your browser settings.");
+          return;
+        }
+        const reg = await navigator.serviceWorker.ready;
+        if (!reg.pushManager) {
+          toast.error("Background push needs the installed app or published site — it can't run in this preview.");
+          return;
+        }
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) as BufferSource });
+        const json = sub.toJSON();
+        await save({ data: { endpoint: sub.endpoint, keys: { p256dh: json.keys!["p256dh"], auth: json.keys!["auth"] }, userAgent: navigator.userAgent } });
+        localStorage.setItem("tess:notifications", "on"); // foreground toasts while the app is open
+        toast.success("Background notifications on for this device.");
+      } else {
+        const reg = await navigator.serviceWorker.ready.catch(() => null);
+        const sub = await reg?.pushManager?.getSubscription();
+        if (sub) {
+          await remove({ data: { endpoint: sub.endpoint } });
+          await sub.unsubscribe();
+        }
+        localStorage.setItem("tess:notifications", "off");
+        toast.success("Background notifications off for this device.");
       }
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") {
-        toast.error("Notifications weren't allowed. You can change this in your browser settings.");
-        return;
-      }
-      localStorage.setItem("tess:notifications", "on");
-      setEnabled(true);
-      toast.success("Notifications on. You'll only be pinged when someone actually texts.");
-    } else {
-      localStorage.setItem("tess:notifications", "off");
-      setEnabled(false);
+      qc.invalidateQueries({ queryKey: ["pushStatus"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't change notifications.");
+    } finally {
+      setBusy(false);
     }
   }
+
+  async function sendTest() {
+    setBusy(true);
+    try {
+      const r = await test({});
+      if (r.sent > 0) toast.success(`Test notification sent to ${r.sent} device(s).`);
+      else toast.error(`Not delivered${r.failures.length ? `: ${r.failures[0]}` : "."}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Test failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="px-4 py-3">
       <div className="flex items-center justify-between gap-4 text-[15px]">
-        Notifications
-        <Switch checked={enabled} onCheckedChange={toggle} />
+        Background notifications
+        <Switch checked={enabled} disabled={busy} onCheckedChange={toggle} />
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">Only when a contact actually sends a message or photo. Never engagement bait.</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Real push notifications when a contact texts while the app is closed. Only actual messages — never engagement bait.
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Status: {permission === "unsupported" ? "unsupported browser" : `permission ${permission}`} · {subs.length} device(s) subscribed
+      </p>
+      {enabled && (
+        <button type="button" disabled={busy} onClick={sendTest} className="mt-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50">
+          Send test notification
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Global quiet hours: no pushes between start and end (Eastern time). */
+function QuietHoursRow() {
+  const qc = useQueryClient();
+  const load = useServerFn(quietHours);
+  const save = useServerFn(updateQuietHours);
+  const q = useQuery({ queryKey: ["quietHours"], queryFn: () => load() });
+  const start = q.data?.quietStart ?? null;
+  const end = q.data?.quietEnd ?? null;
+
+  async function setHours(s: number | null, e: number | null) {
+    await save({ data: { quietStart: s, quietEnd: e } });
+    qc.invalidateQueries({ queryKey: ["quietHours"] });
+  }
+
+  const HourSelect = ({ value, onChange, label }: { value: number | null; onChange: (v: number | null) => void; label: string }) => (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      {label}
+      <select
+        className="rounded-md border bg-background px-2 py-1 text-sm text-foreground"
+        value={value === null ? "off" : String(value)}
+        onChange={(e) => onChange(e.target.value === "off" ? null : Number(e.target.value))}
+      >
+        <option value="off">Off</option>
+        {Array.from({ length: 24 }, (_, h) => (
+          <option key={h} value={h}>
+            {h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
+  return (
+    <div className="px-4 py-3">
+      <div className="text-[15px]">Quiet hours</div>
+      <div className="mt-2 flex items-center gap-4">
+        <HourSelect label="From" value={start} onChange={(v) => setHours(v, v === null ? null : (end ?? 7))} />
+        <HourSelect label="Until" value={end} onChange={(v) => setHours(v === null ? null : (start ?? 23), v)} />
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">No notifications between these hours (Eastern time). Messages still arrive silently.</p>
     </div>
   );
 }

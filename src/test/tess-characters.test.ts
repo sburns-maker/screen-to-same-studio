@@ -49,11 +49,15 @@ describe("character roster", () => {
     for (const c of CHARACTER_LIST) expect(c.baselineNotes.length).toBeGreaterThan(40);
   });
 
-  it("non-Tess contacts have their own personality bibles and no photos", () => {
+  it("non-Tess contacts have their own personality bibles and restricted photo sets", () => {
     for (const c of CHARACTER_LIST) {
       if (c.key === "tess") continue;
       expect(c.bible.length).toBeGreaterThan(200);
-      expect(c.photosEnabled).toBe(false);
+      expect(c.photosEnabled).toBe(true);
+      // Contacts generate photos only (no curated library). Intimate selfies are
+      // limited to romance-capable contacts; Claire, Jordan and Ben never send them.
+      if (c.key !== "maya") expect(c.photoTypes).not.toContain("intimate_selfie");
+      expect(c.photoTypes.length).toBeGreaterThan(0);
     }
   });
 

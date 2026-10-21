@@ -162,26 +162,32 @@ async function createGeneratedPhoto(
   scene: string,
   expression: string | null,
   style: PhotoStyle | null,
+  def?: CharacterDef,
 ) {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const t = type as import("./tess-image.server").TessImageType;
+  const characterKey = def?.key ?? "tess";
   let tessReference: Blob | null = null;
   if (includesTess(t)) {
-    const { data, error } = await supabaseAdmin.storage.from("tess-reference").download("canonical.jpg");
+    const refPath = characterKey === "tess" ? "canonical.jpg" : `${characterKey}.jpg`;
+    const { data, error } = await supabaseAdmin.storage.from("tess-reference").download(refPath);
     if (error || !data) throw new Error("canonical reference unavailable");
     tessReference = data;
   }
   // Mabel's canonical reference is optional — a missing file must never break a reply.
   let mabelReference: Blob | null = null;
-  if (sceneHasMabel(scene)) {
+  if (characterKey === "tess" && sceneHasMabel(scene)) {
     const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
     mabelReference = data ?? null;
   }
   const provider = lovableGatewayProvider(apiKey);
-  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style });
+  const identity = def
+    ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
+    : undefined;
+  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style, identity });
   const path = `${userId}/${crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
@@ -203,7 +209,7 @@ async function removeUserPhotos(supabase: Sb, userId: string) {
   if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
 }
 
-async function runTurn(
+export async function runTurn(
   supabase: Sb,
   userId: string,
   conversationId: string,
@@ -237,7 +243,7 @@ async function runTurn(
       .eq("conversation_id", conv.id)
       .order("importance", { ascending: false })
       .limit(15),
-    isTess
+    def.photosEnabled
       ? supabase
           .from("generated_images")
           .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
@@ -318,6 +324,19 @@ async function runTurn(
     });
   } else {
     const avail = characterAvailability(def, now);
+    if (def.photosEnabled) {
+      freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
+      const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
+      const hasPhoto = (m: { metadata: unknown }) => {
+        const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
+        return !!(md?.photo || md?.generated_image_id);
+      };
+      const ownRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
+      const recentlySentPhoto = ownRecent.some(hasPhoto);
+      generateTypes = recentlySentPhoto
+        ? []
+        : allowedGeneratedTypes(state).filter((t) => def.photoTypes.includes(t));
+    }
     reply = await generateContactReply({
       character: def,
       state,
@@ -330,8 +349,12 @@ async function runTurn(
       initiationReason: initiation?.reason ?? null,
       availabilityDetail: avail.detail,
       weather,
+      generateTypes,
+      recentPhotoStyles: recentStyles.map(describeStyle),
     });
-    reply.photo = null; // non-Tess contacts never send photos in V1
+    if (!def.photosEnabled) reply.photo = null;
+    else if (reply.photo?.action === "generate" && !generateTypes.includes(reply.photo.type ?? "")) reply.photo = null;
+    else if (reply.photo && reply.photo.action !== "generate") reply.photo = null; // no curated library for contacts
   }
 
   const delta = sanitizeDelta(reply.state_delta, difficulty);
@@ -348,13 +371,13 @@ async function runTurn(
     .eq("conversation_id", conv.id);
   await supabase.from("conversations").update({ relationship_stage: stage, updated_at: nowIso }).eq("id", conv.id);
 
-  // --- Photo (Tess only): curated first, then optional generation, else none. Failures stay invisible.
+  // --- Photo: Tess curated first, then optional generation; other contacts generate only. Failures stay invisible.
   let photo: string | null = null;
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   const p = reply.photo;
   if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
-  } else if (isTess && p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
+  } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
     const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
     if (Math.random() < rules.generateChance) {
       try {
@@ -370,10 +393,10 @@ async function runTurn(
         };
         // Context first, variety second: only nudge an exact repeat of a recent photo.
         const style = varyStyle(rawStyle, recentStyles);
-        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style);
+        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def);
       } catch (e) {
-        console.error("tess photo generation failed", e);
-        photo = curatedFallback(p.scene, photos);
+        console.error("photo generation failed", e);
+        if (isTess) photo = curatedFallback(p.scene, photos);
       }
     }
   }
@@ -669,6 +692,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         show_sim_data: z.boolean().optional(),
         photo_frequency: z.enum(["rare", "normal", "frequent"]).optional(),
         real_time_mode: z.boolean().optional(),
+        muted: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -680,6 +704,7 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (data.show_sim_data !== undefined) patch.show_sim_data = data.show_sim_data;
     if (data.photo_frequency !== undefined) patch.photo_frequency = data.photo_frequency;
     if (data.real_time_mode !== undefined) patch.real_time_mode = data.real_time_mode;
+    if (data.muted !== undefined) patch.muted = data.muted;
     // photo_frequency is Tess-specific; everything else applies to the given
     // conversation, or all of the user's conversations when none is given.
     if (data.photo_frequency !== undefined && !data.conversationId) {

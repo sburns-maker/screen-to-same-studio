@@ -25,6 +25,9 @@ export default defineConfig({
         manifest: false, // keep the existing public/manifest.webmanifest
         devOptions: { enabled: false },
         workbox: {
+          // Web Push handlers (push + notificationclick) live outside the
+          // precache pipeline so notifications work with the app closed.
+          importScripts: ["/push-handler.js"],
           navigateFallback: "/",
           navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
           runtimeCaching: [

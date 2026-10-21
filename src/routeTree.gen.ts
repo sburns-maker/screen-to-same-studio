@@ -14,12 +14,14 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedWorldRouteImport } from './routes/_authenticated/world'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedDebriefConversationIdRouteImport } from './routes/_authenticated/debrief.$conversationId'
 import { Route as AuthenticatedDebugConversationIdRouteImport } from './routes/_authenticated/debug.$conversationId'
 import { Route as AuthenticatedHistoryConversationIdRouteImport } from './routes/_authenticated/history.$conversationId'
 import { Route as AuthenticatedPhotosConversationIdRouteImport } from './routes/_authenticated/photos.$conversationId'
 import { Route as AuthenticatedProfileConversationIdRouteImport } from './routes/_authenticated/profile.$conversationId'
+import { Route as ApiPublicJobsWorldTickRouteImport } from './routes/api/public/jobs/world-tick'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -43,6 +45,11 @@ const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWorldRoute = AuthenticatedWorldRouteImport.update({
+  id: '/world',
+  path: '/world',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedChatConversationIdRoute =
@@ -81,30 +88,39 @@ const AuthenticatedProfileConversationIdRoute =
     path: '/profile/$conversationId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicJobsWorldTickRoute = ApiPublicJobsWorldTickRouteImport.update({
+  id: '/api/public/jobs/world-tick',
+  path: '/api/public/jobs/world-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/world': typeof AuthenticatedWorldRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
   '/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
+  '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/world': typeof AuthenticatedWorldRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
   '/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
+  '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -113,12 +129,14 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/world': typeof AuthenticatedWorldRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/_authenticated/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
   '/_authenticated/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/_authenticated/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
   '/_authenticated/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
+  '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -127,24 +145,28 @@ export interface FileRouteTypes {
     | '/auth'
     | '/inbox'
     | '/settings'
+    | '/world'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
     | '/history/$conversationId'
     | '/photos/$conversationId'
     | '/profile/$conversationId'
+    | '/api/public/jobs/world-tick'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/inbox'
     | '/settings'
+    | '/world'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
     | '/history/$conversationId'
     | '/photos/$conversationId'
     | '/profile/$conversationId'
+    | '/api/public/jobs/world-tick'
   id:
     | '__root__'
     | '/'
@@ -152,18 +174,21 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/inbox'
     | '/_authenticated/settings'
+    | '/_authenticated/world'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/debrief/$conversationId'
     | '/_authenticated/debug/$conversationId'
     | '/_authenticated/history/$conversationId'
     | '/_authenticated/photos/$conversationId'
     | '/_authenticated/profile/$conversationId'
+    | '/api/public/jobs/world-tick'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicJobsWorldTickRoute: typeof ApiPublicJobsWorldTickRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -201,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/world': {
+      id: '/_authenticated/world'
+      path: '/world'
+      fullPath: '/world'
+      preLoaderRoute: typeof AuthenticatedWorldRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/chat/$conversationId': {
@@ -245,12 +277,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProfileConversationIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/jobs/world-tick': {
+      id: '/api/public/jobs/world-tick'
+      path: '/api/public/jobs/world-tick'
+      fullPath: '/api/public/jobs/world-tick'
+      preLoaderRoute: typeof ApiPublicJobsWorldTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedWorldRoute: typeof AuthenticatedWorldRoute
   AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
   AuthenticatedDebriefConversationIdRoute: typeof AuthenticatedDebriefConversationIdRoute
   AuthenticatedDebugConversationIdRoute: typeof AuthenticatedDebugConversationIdRoute
@@ -262,6 +302,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedWorldRoute: AuthenticatedWorldRoute,
   AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
   AuthenticatedDebriefConversationIdRoute:
     AuthenticatedDebriefConversationIdRoute,
@@ -281,6 +322,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicJobsWorldTickRoute: ApiPublicJobsWorldTickRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

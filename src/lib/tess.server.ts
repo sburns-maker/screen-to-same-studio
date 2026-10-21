@@ -299,7 +299,7 @@ Fill every field:
 }
 
 // ---------------------------------------------------------------------------
-// Non-Tess contacts: same engine, their own bible, no photo system (V1).
+// Non-Tess contacts: same engine, their own bible, generation-only photos.
 // ---------------------------------------------------------------------------
 
 import type { CharacterDef } from "./characters";
@@ -316,6 +316,8 @@ export async function generateContactReply(args: {
   initiationReason?: string | null;
   availabilityDetail: string;
   weather?: WeatherContext | null;
+  generateTypes?: string[];
+  recentPhotoStyles?: string[];
 }): Promise<TessReply> {
   const c = args.character;
   const now = new Date();
@@ -355,7 +357,15 @@ OUTPUT RULES
       : " romantic_attraction and physical_attraction MUST stay at exactly 0 delta always — this is a platonic friendship. Reward good banter and reliability; penalize neediness and interrogation."
   }
 - memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. Usually empty. memory_type one of: relationship (about the two of you), personal (${c.preferredName}'s independent life), fact (stable facts about him). importance 1–5. Never contradict established memories.
-- photo: always null — ${c.preferredName} does not send photos.
+- photo: ${
+    c.photosEnabled
+      ? `usually null. Photos are occasional and must fit the moment — never a reward, never for novelty. ${c.preferredName} has no existing photo library; the only option is {action:"generate", type:<one of: ${(args.generateTypes ?? []).join(", ") || "none right now"}>, scene:<concrete visual scene consistent with ${c.preferredName}'s current activity/location/time of day, ordinary clothes>, expression, reason, ...style fields}, and only when the moment genuinely calls for it (they're describing something visual happening right now, or were asked about something they're looking at). If no type is listed, photo MUST be null. For photos with ${c.preferredName} in frame, choose context-appropriate style fields (pose_type, camera_angle, crop_type, hairstyle, clothing_category, setting, selfie_type) and vary them from recent photos: ${(args.recentPhotoStyles ?? []).join(" | ") || "(none yet)"}. ${
+          c.romanticCapable
+            ? "Selfies depend on comfort and trust; more personal ones need real warmth."
+            : "Never romantic, suggestive or couple-coded — this is a platonic friendship; photos are everyday life only."
+        } If asked for a photo, ${c.preferredName} may tease, decline, change the subject or send an ordinary non-selfie instead; repeated asking raises perceived_pressure.`
+      : `always null — ${c.preferredName} does not send photos.`
+  }
 - tone: one word.
 - event_tags: short tags for what happened this turn.`;
 

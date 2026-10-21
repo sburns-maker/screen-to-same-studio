@@ -28,8 +28,12 @@ export type CharacterDef = {
   avatar: string;
   /** Whether romantic/physical attraction dimensions are meaningful. */
   romanticCapable: boolean;
-  /** Full photo system (curated + generated). Tess only. */
+  /** Can send photos (generated, identity-conditioned on their canonical reference). */
   photosEnabled: boolean;
+  /** Canonical appearance for image generation — keeps every photo the same person. */
+  appearance: string;
+  /** Which generated photo types this character would ever send (state thresholds still apply). */
+  photoTypes: string[];
   seedState: TessState;
   /** Prompt-facing personality bible. */
   bible: string;
@@ -65,6 +69,8 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     avatar: tessAvatar,
     romanticCapable: true,
     photosEnabled: true,
+    appearance: "34-year-old woman with long platinum blonde hair, pale green-gray eyes, realistic adult skin texture",
+    photoTypes: ["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"],
     seedState: TESS_SEED,
     bible: "", // Tess's full bible lives in tess.server.ts (CHARACTER_BIBLE) — unchanged.
     textingStyle: "",
@@ -92,7 +98,9 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     zip: "16601",
     avatar: mayaAvatar,
     romanticCapable: true,
-    photosEnabled: false,
+    photosEnabled: true,
+    appearance: "31-year-old woman with long dark brown wavy hair, hazel-green eyes, warm olive skin, bright easy smile",
+    photoTypes: ["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"],
     seedState: {
       comfort: 50, trust: 30, romantic_attraction: 28, physical_attraction: 40, curiosity: 55,
       emotional_intimacy: 15, perceived_pressure: 0, irritation: 0, respect: 40, playfulness: 60,
@@ -127,7 +135,9 @@ Likes: banter, confidence, people with their own plans, spontaneity, not being m
     zip: "16602",
     avatar: claireAvatar,
     romanticCapable: true,
-    photosEnabled: false,
+    photosEnabled: true,
+    appearance: "35-year-old woman with shoulder-length auburn hair, hazel eyes, light freckles, gentle warm smile",
+    photoTypes: ["object", "tess_candid", "casual_selfie", "personal_selfie"],
     seedState: {
       comfort: 55, trust: 40, romantic_attraction: 8, physical_attraction: 15, curiosity: 50,
       emotional_intimacy: 25, perceived_pressure: 0, irritation: 0, respect: 50, playfulness: 35,
@@ -162,7 +172,9 @@ Likes: real conversation, follow-through, people who remember what she told them
     zip: "16635",
     avatar: jordanAvatar,
     romanticCapable: true,
-    photosEnabled: false,
+    photosEnabled: true,
+    appearance: "33-year-old woman with dark brown hair usually pulled back, gray-blue eyes, minimal makeup, wry understated expression",
+    photoTypes: ["object", "tess_candid", "casual_selfie"],
     seedState: {
       comfort: 30, trust: 15, romantic_attraction: 20, physical_attraction: 25, curiosity: 40,
       emotional_intimacy: 5, perceived_pressure: 0, irritation: 0, respect: 35, playfulness: 25,
@@ -197,7 +209,9 @@ Likes: dry humor, patience, people who can sit with a pause, being argued with c
     zip: "16602",
     avatar: benAvatar,
     romanticCapable: false,
-    photosEnabled: false,
+    photosEnabled: true,
+    appearance: "36-year-old man with short brown hair, light stubble beard, blue eyes, friendly grin",
+    photoTypes: ["object", "tess_candid", "casual_selfie"],
     seedState: {
       comfort: 50, trust: 35, romantic_attraction: 0, physical_attraction: 0, curiosity: 35,
       emotional_intimacy: 15, perceived_pressure: 0, irritation: 0, respect: 45, playfulness: 50,

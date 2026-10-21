@@ -23,6 +23,14 @@ export interface ImageProvider {
  */
 const IDENTITY = `The supplied canonical Tess Morgan reference defines the woman's identity only. Preserve the exact same recognizable fictional woman, facial structure, age, eyes, hair-color family and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. Tess is a real-looking 34-year-old adult woman living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve her facial identity, facial proportions, pale green-gray eyes, light platinum blonde hair color, apparent age of 34, realistic adult skin texture, and recognizable features — the same individual, not merely a similar-looking woman. Do not beautify her into a different person.`;
 
+/** Identity block for any character; Tess keeps her exact established wording. */
+export type CharacterIdentity = { key: string; name: string; age: number; pronouns: string; appearance: string };
+export function identityBlock(id?: CharacterIdentity): string {
+  if (!id || id.key === "tess") return IDENTITY;
+  const person = id.pronouns === "he/him" ? "man" : "woman";
+  return `The supplied canonical ${id.name} reference defines the ${person}'s identity only. Preserve the exact same recognizable fictional ${person}, facial structure, age, eyes, hair and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. ${id.name} is a real-looking ${id.age}-year-old adult ${person} living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve this identity: ${id.appearance}. The same individual, not merely a similar-looking ${person}. Do not beautify them into a different person.`;
+}
+
 const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks.`;
 
 const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-white wire-haired mutt with floppy ears. When a Mabel reference image is supplied, she is the exact same dog shown in it — same coat pattern, face, ears and approximate size, never a different breed.`;
@@ -53,15 +61,17 @@ function styleLines(style: PhotoStyle | null | undefined): string {
   return lines.length ? `\n${lines.join(" ")}` : "";
 }
 
-export function buildImagePrompt(type: TessImageType, scene: string, expression: string | null, style?: PhotoStyle | null) {
+export function buildImagePrompt(type: TessImageType, scene: string, expression: string | null, style?: PhotoStyle | null, identity?: CharacterIdentity) {
   const mabel = sceneHasMabel(scene) ? ` ${MABEL}` : "";
+  const age = identity?.age ?? 34;
+  const person = identity?.pronouns === "he/him" ? "man" : "woman";
   if (!includesTess(type)) {
-    return `A casual realistic smartphone photo taken by a 34-year-old woman in a mid-sized Pennsylvania city. Scene: ${scene}.${mabel} No people's faces visible. ${STYLE}`;
+    return `A casual realistic smartphone photo taken by a ${age}-year-old ${person} in a mid-sized Pennsylvania city. Scene: ${scene}.${mabel} No people's faces visible. ${STYLE}`;
   }
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
     !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES["selfie"] : "";
-  return `${IDENTITY}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${STYLE}`;
+  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${STYLE}`;
 }
 
 export function lovableGatewayProvider(apiKey: string): ImageProvider {
@@ -110,15 +120,16 @@ export async function generateTessImage(args: {
   scene: string;
   expression: string | null;
   style?: PhotoStyle | null;
+  identity?: CharacterIdentity | undefined;
 }) {
-  const prompt = buildImagePrompt(args.type, args.scene, args.expression, args.style);
+  const prompt = buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity);
   const needsRef = includesTess(args.type);
   if (needsRef && !args.tessReference) throw new Error("missing canonical reference");
   const references: Blob[] = [];
   if (needsRef && args.tessReference) references.push(args.tessReference);
   if (sceneHasMabel(args.scene) && args.mabelReference) references.push(args.mabelReference);
   const identityUsed = [
-    needsRef && args.tessReference ? "tess" : null,
+    needsRef && args.tessReference ? (args.identity?.key ?? "tess") : null,
     sceneHasMabel(args.scene) && args.mabelReference ? "mabel" : null,
   ]
     .filter(Boolean)
