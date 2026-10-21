@@ -52,7 +52,7 @@ export const ensureConversation = createServerFn({ method: "POST" })
     return { id: conv.id as string };
   });
 
-async function createGeneratedPhoto(userId: string, type: string, scene: string, expression: string | null) {
+async function createGeneratedPhoto(supabase: Sb, userId: string, type: string, scene: string, expression: string | null) {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider } = await import("./tess-image.server");
@@ -67,9 +67,14 @@ async function createGeneratedPhoto(userId: string, type: string, scene: string,
   const provider = lovableGatewayProvider(apiKey);
   const img = await generateTessImage({ provider, reference, type: t, scene, expression });
   const path = `${userId}/${crypto.randomUUID()}.png`;
-  const { error } = await supabaseAdmin.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
+  const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
   return { path, type, scene, selfie: t.endsWith("selfie"), tess: includesTess(t), provider: img.provider, model: img.model };
+}
+
+async function removeUserPhotos(supabase: Sb, userId: string) {
+  const { data } = await supabase.storage.from("tess-photos").list(userId, { limit: 1000 });
+  if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
 }
 
 async function runTurn(
@@ -158,7 +163,7 @@ async function runTurn(
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type) && Math.random() < rules.generateChance) {
     try {
-      generated = await createGeneratedPhoto(userId, p.type, p.scene, p.expression);
+      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, p.expression);
     } catch (e) {
       console.error("tess photo generation failed", e);
       photo = curatedFallback(p.scene, photos);
@@ -294,6 +299,7 @@ export const resetRelationship = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    await removeUserPhotos(supabase, userId);
     await supabase.from("conversations").delete().eq("user_id", userId);
     await seedConversation(supabase, userId);
     return { ok: true };
@@ -302,6 +308,7 @@ export const resetRelationship = createServerFn({ method: "POST" })
 export const deleteAllData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await removeUserPhotos(context.supabase, context.userId);
     await context.supabase.from("conversations").delete().eq("user_id", context.userId);
     return { ok: true };
   });
