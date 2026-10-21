@@ -48,7 +48,7 @@ function styleLines(style: PhotoStyle | null | undefined): string {
   if (style.expression) lines.push(`Her expression: ${style.expression.replaceAll("_", " ")}.`);
   if (style.clothing_category) lines.push(`Clothing: ${style.clothing_category.replaceAll("_", " ")}.`);
   if (style.setting) lines.push(`Setting: ${style.setting.replaceAll("_", " ")}.`);
-  const selfieLine = style.selfie_type ? SELFIE_LINES[style.selfie_type] : undefined;
+  const selfieLine = style.selfie_type ? SELFIE_LINES[style.selfie_type as string] : undefined;
   if (selfieLine) lines.push(selfieLine);
   return lines.length ? `\n${lines.join(" ")}` : "";
 }
