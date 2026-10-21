@@ -163,9 +163,42 @@ function SettingsPage() {
             Sign out
           </button>
         </div>
-        <p className="mt-8 text-center text-xs text-muted-foreground">Tess is fictional. Real-time mode and notifications are coming later.</p>
+        <p className="mt-8 text-center text-xs text-muted-foreground">Tess is fictional.</p>
       </Screen>
     </>
+  );
+}
+
+/** Push notifications: permission is requested only when the user explicitly turns this on. */
+function NotificationsRow() {
+  const [enabled, setEnabled] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("tess:notifications") === "on" : false));
+  async function toggle(v: boolean) {
+    if (v) {
+      if (!("Notification" in window)) {
+        toast.error("This browser doesn't support notifications.");
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        toast.error("Notifications weren't allowed. You can change this in your browser settings.");
+        return;
+      }
+      localStorage.setItem("tess:notifications", "on");
+      setEnabled(true);
+      toast.success("Notifications on. Tess will only ping you when she actually texts.");
+    } else {
+      localStorage.setItem("tess:notifications", "off");
+      setEnabled(false);
+    }
+  }
+  return (
+    <div className="px-4 py-3">
+      <div className="flex items-center justify-between gap-4 text-[15px]">
+        Notifications
+        <Switch checked={enabled} onCheckedChange={toggle} />
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">Only when Tess actually sends a message or photo. Never engagement bait.</p>
+    </div>
   );
 }
 
