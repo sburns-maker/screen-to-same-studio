@@ -209,6 +209,10 @@ async function runTurn(
     memories: (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`),
     tz,
     initiation,
+    weather,
+    weatherFlavor: flavor,
+    lifeEvent,
+    initiationReason: initiation?.reason ?? null,
   });
 
   const delta = sanitizeDelta(reply.state_delta, difficulty);
