@@ -50,6 +50,13 @@
       "when": 1792552827403,
       "tag": "0006_world_tick_lease_and_pause",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792554659621,
+      "tag": "0007_photo_consent_and_mature_preferences",
+      "breakpoints": true
     }
   ]
 }
