@@ -61,7 +61,7 @@ export type VoiceOptions = {
 
 /** Generic chatbot filler every character drifts into — never a real person's text. */
 const CHATBOT = [
-  /^\s*but (seriously|really),? /i,
+  /^\s*but (seriously|really|honestly),? /i,
   /\bi (really |truly )?appreciate (you|your|that|it)\b/i,
   /\b(that|it) (really )?means a lot\b/i,
   /\bit'?s (so )?(nice|great|encouraging|rewarding) (to (hear|have|feel|know)|feeling)\b/i,
