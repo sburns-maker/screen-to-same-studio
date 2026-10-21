@@ -1,5 +1,11 @@
 # Tess roadmap
 
+## Current photo correction
+- Remove unsupported Claire/Jordan restrictions; separate capability, eligibility and willingness.
+- Support platonic personal photos, persistent romantic intent and refusal boundaries.
+- Add adult-only, default-off non-explicit mature portrait preference where provider permits.
+- Verify rules, existing photos and signed-in preference persistence; report provider limitations.
+
 ## Done (living-world pass)
 - Photos for all five contacts: generation-only for Maya/Claire/Jordan/Ben with per-character canonical references (private storage), type restrictions (Claire/Jordan/Ben no intimate; Ben platonic), style-variety nudges, cooldown/frequency reuse. Tess's curated-first system untouched.
 - World tick: 15-min managed schedule → /api/public/jobs/world-tick; atomic lease (unique index), bounded (20 users/4 AI calls), durable AI pause + single-probe resume, push sweep for delayed replies, initiation through the same turn pipeline.
