@@ -110,6 +110,66 @@ function WorldPage() {
             );
           })}
         </div>
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social networks</h3>
+        <div className="mt-2 divide-y rounded-2xl bg-surface">
+          {(q.data?.social.links ?? []).length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">No social links yet — run a tick to seed the world.</p>}
+          {(["tess", "maya", "claire", "jordan", "ben"] as const).map((ck) => {
+            const charLinks = (q.data?.social.links ?? []).filter((l) => l.character_key === ck);
+            if (!charLinks.length) return null;
+            return (
+              <div key={ck} className="px-4 py-3">
+                <div className="text-[15px] font-medium capitalize">{ck}</div>
+                <div className="mt-1 space-y-1">
+                  {charLinks.map((l) => (
+                    <p key={l.id} className="text-xs text-muted-foreground">
+                      <span className="text-foreground">{l.other_key}</span> · {l.level}
+                      {l.canon ? " · canon" : " · developed"}
+                      {l.opinion ? ` — ${l.opinion}` : ""}
+                      {l.reason ? ` (${l.reason})` : ""}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shared events</h3>
+        <div className="mt-2 divide-y rounded-2xl bg-surface">
+          {(q.data?.social.sharedEvents ?? []).length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">No shared events yet.</p>}
+          {(q.data?.social.sharedEvents ?? []).map((e) => {
+            const parts = (q.data?.social.participants ?? []).filter((p) => p.event_id === e.id);
+            return (
+              <div key={e.id} className="px-4 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[15px]">{e.title}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{fmt(e.occurs_at)}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {e.kind} · {e.location} · {Object.entries((e.facts ?? {}) as Record<string, unknown>).map(([k, v]) => `${k}: ${v}`).join(", ") || "no facts"}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {parts.map((p) => `${p.participant_key}${(p.met as string[]).length ? ` (met: ${(p.met as string[]).join(", ")})` : ""}`).join(" · ") || "no participants"}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Character knowledge</h3>
+        <div className="mt-2 divide-y rounded-2xl bg-surface">
+          {(q.data?.social.knowledge ?? []).length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">No knowledge entries yet.</p>}
+          {(q.data?.social.knowledge ?? []).map((k) => (
+            <div key={k.id} className="px-4 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[15px] capitalize">{k.character_key} <span className="text-xs text-muted-foreground">· {k.knowledge_type}</span></span>
+                <span className="shrink-0 text-xs text-muted-foreground">{fmt(k.acquired_at)}</span>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">{k.summary}{k.source ? ` — ${k.source}` : ""}</p>
+            </div>
+          ))}
+        </div>
+
         <p className="mt-6 text-center text-xs text-muted-foreground">Developer view — only you can see this.</p>
       </Screen>
     </>

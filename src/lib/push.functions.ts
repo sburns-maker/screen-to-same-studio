@@ -130,11 +130,27 @@ export const worldTimeline = createServerFn({ method: "POST" })
       .order("occurs_at", { ascending: false })
       .limit(60);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [{ data: jobs }, { data: control }] = await Promise.all([
+    const [{ data: jobs }, { data: control }, { data: npcs }, { data: links }, { data: sharedEvents }, { data: participants }, { data: knowledge }] = await Promise.all([
       supabaseAdmin.from("job_runs").select("id, job, status, detail, started_at, finished_at").order("started_at", { ascending: false }).limit(20),
       supabaseAdmin.from("world_control").select("key, value, updated_at"),
+      supabase.from("npcs").select("id, character_key, name, relation, category, blurb, canon").eq("user_id", userId).order("character_key"),
+      supabase.from("social_links").select("id, character_key, other_type, other_key, level, opinion, reason, canon, updated_at").eq("user_id", userId).order("character_key"),
+      supabase.from("shared_events").select("id, title, kind, location, occurs_at, facts, source").eq("user_id", userId).order("occurs_at", { ascending: false }).limit(40),
+      supabase.from("event_participants").select("event_id, participant_type, participant_key, met, perspective").eq("user_id", userId).limit(200),
+      supabase.from("character_knowledge").select("id, character_key, subject_type, subject_id, knowledge_type, summary, source, acquired_at").eq("user_id", userId).order("acquired_at", { ascending: false }).limit(60),
     ]);
-    return { events: events ?? [], jobs: jobs ?? [], control: control ?? [] };
+    return {
+      events: events ?? [],
+      jobs: jobs ?? [],
+      control: control ?? [],
+      social: {
+        npcs: npcs ?? [],
+        links: links ?? [],
+        sharedEvents: sharedEvents ?? [],
+        participants: participants ?? [],
+        knowledge: knowledge ?? [],
+      },
+    };
   });
 
 /** Manually run one world tick (developer debug action). */

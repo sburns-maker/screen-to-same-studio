@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      character_knowledge: {
+        Row: {
+          acquired_at: string
+          character_key: string
+          id: string
+          knowledge_type: string
+          source: string
+          subject_id: string
+          subject_type: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          acquired_at?: string
+          character_key: string
+          id?: string
+          knowledge_type: string
+          source?: string
+          subject_id: string
+          subject_type: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          acquired_at?: string
+          character_key?: string
+          id?: string
+          knowledge_type?: string
+          source?: string
+          subject_id?: string
+          subject_type?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       characters: {
         Row: {
           age: number
@@ -152,6 +188,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      event_participants: {
+        Row: {
+          created_at: string
+          event_id: string
+          met: Json
+          participant_key: string
+          participant_type: string
+          perspective: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          met?: Json
+          participant_key: string
+          participant_type: string
+          perspective?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          met?: Json
+          participant_key?: string
+          participant_type?: string
+          perspective?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       generated_images: {
         Row: {
@@ -352,6 +418,42 @@ export type Database = {
           },
         ]
       }
+      npcs: {
+        Row: {
+          blurb: string
+          canon: boolean
+          category: string
+          character_key: string
+          created_at: string
+          id: string
+          name: string
+          relation: string
+          user_id: string
+        }
+        Insert: {
+          blurb?: string
+          canon?: boolean
+          category?: string
+          character_key: string
+          created_at?: string
+          id?: string
+          name: string
+          relation: string
+          user_id: string
+        }
+        Update: {
+          blurb?: string
+          canon?: boolean
+          category?: string
+          character_key?: string
+          created_at?: string
+          id?: string
+          name?: string
+          relation?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           created_at: string
@@ -378,6 +480,84 @@ export type Database = {
           keys?: Json
           last_used_at?: string | null
           user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      shared_events: {
+        Row: {
+          created_at: string
+          facts: Json
+          id: string
+          kind: string
+          location: string
+          occurs_at: string
+          source: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          facts?: Json
+          id: string
+          kind: string
+          location?: string
+          occurs_at: string
+          source?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          facts?: Json
+          id?: string
+          kind?: string
+          location?: string
+          occurs_at?: string
+          source?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      social_links: {
+        Row: {
+          canon: boolean
+          character_key: string
+          created_at: string
+          id: string
+          level: string
+          opinion: string
+          other_key: string
+          other_type: string
+          reason: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          canon?: boolean
+          character_key: string
+          created_at?: string
+          id?: string
+          level?: string
+          opinion?: string
+          other_key: string
+          other_type: string
+          reason?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          canon?: boolean
+          character_key?: string
+          created_at?: string
+          id?: string
+          level?: string
+          opinion?: string
+          other_key?: string
+          other_type?: string
+          reason?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

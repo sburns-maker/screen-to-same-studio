@@ -281,6 +281,16 @@ export async function runTurn(
   }));
   const memoryList = (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`);
 
+  // Living-world knowledge: ONLY this character's own rows — knowledge
+  // isolation is enforced by the query. Their prompt never sees what other
+  // characters witnessed or what the user said to anyone else.
+  const { knowledgeForCharacter } = await import("./social.server");
+  const { knowledgePromptLines } = await import("./social-logic");
+  const worldKnowledge = knowledgePromptLines(
+    await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
+    def.preferredName,
+  );
+
   let reply: import("./tess.server").TessReply;
   let photos: ReturnType<typeof eligiblePhotos> = [];
   let generateTypes: string[] = [];
@@ -328,6 +338,7 @@ export async function runTurn(
       lifeEvent,
       initiationReason: initiation?.reason ?? null,
       photoBoundary: photoContext.boundary,
+      worldKnowledge,
     });
   } else {
     const avail = characterAvailability(def, now);
@@ -359,6 +370,7 @@ export async function runTurn(
       generateTypes,
       recentPhotoStyles: recentStyles.map(describeStyle),
       photoBoundary: photoContext.boundary,
+      worldKnowledge,
     });
     if (!def.photosEnabled) reply.photo = null;
     else if (reply.photo?.action === "generate" && !generateTypes.includes(reply.photo.type ?? "")) reply.photo = null;

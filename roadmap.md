@@ -20,9 +20,18 @@
 - Developer Living World Timeline at /world (events, job history, AI pause state, manual tick), linked from Debug.
 - Tests: 94 passing; typecheck clean; build OK.
 
+## Done (social world pass)
+- Social ecosystem: per-character canon NPC circles (family/coworkers/hobby/exes), social_links with levels + reasons, deterministic weekly shared events (Tess Thu trivia with Marcus/Lena/Dev preserved), sparse plausible overlap (Maya/Ben may attend same trivia; attendance ≠ meeting), per-character knowledge (witnessed/told) with isolation, rare reasoned link evolution.
+- Social tick runs inside the world tick per user: bounded (≤12 events/user/week), idempotent (deterministic event ids, upserts, level-guarded link changes), no AI calls.
+- Reply prompts inject only the character's own knowledge rows; rules forbid referencing anything else or other people's private conversations.
+- /world debug: social networks, shared events with participants/met lists, character knowledge with source.
+- Tests: 21 new (social-logic.test.ts), 132 total passing; typecheck clean.
+
 ## Open / partial
 - Background push verified end-to-end only on a real Android PWA install — needs published app + device test.
-- Social graph between characters and non-Tess long-run life events: not built (canon relationships only).
+- Multi-week one-off storylines (e.g. Claire's family visit arc) use recurring events only; ad-hoc multi-week plotted arcs are not built.
+- Social-graph visualization on /world is list-based, not a graphical diagram.
+
 - Offline queue is localStorage, flushes while app is open; closed-app flush not verified.
 - Email confirmation: auto-confirm enabled for development; RLS unchanged.
 - VAPID subject is a placeholder mailto; rotate keys requires re-subscribing devices.
