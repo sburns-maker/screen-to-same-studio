@@ -610,7 +610,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         score: initiation.score,
         chance: initiation.chance,
         nextWindowHours: initiation.nextWindowHours,
-        lastCheck: (life?.last_initiation ?? null) as Record<string, unknown> | null,
+        lastCheck: life?.last_initiation ? (JSON.parse(JSON.stringify(life.last_initiation)) as Record<string, unknown>) : null,
         lastInitiatedAt: life?.last_initiated_at ?? null,
       },
       photo: {
