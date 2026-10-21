@@ -54,8 +54,9 @@ describe("character roster", () => {
       if (c.key === "tess") continue;
       expect(c.bible.length).toBeGreaterThan(200);
       expect(c.photosEnabled).toBe(true);
-      // Contacts generate photos only (no curated library) and never send intimate selfies.
-      expect(c.photoTypes).not.toContain("intimate_selfie");
+      // Contacts generate photos only (no curated library). Intimate selfies are
+      // limited to romance-capable contacts; Claire, Jordan and Ben never send them.
+      if (c.key !== "maya") expect(c.photoTypes).not.toContain("intimate_selfie");
       expect(c.photoTypes.length).toBeGreaterThan(0);
     }
   });
