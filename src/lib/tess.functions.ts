@@ -135,7 +135,12 @@ async function runTurn(
     difficulty,
     messages: [...recent].reverse().map((m) => ({
       ...m,
-      body: (m.metadata as { photo?: string } | null)?.photo ? `[sent a photo: ${(m.metadata as { photo: string }).photo}] ${m.body}` : m.body,
+      body: (() => {
+        const md = m.metadata as { photo?: string; generated_path?: string } | null;
+        if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
+        if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
+        return m.body;
+      })(),
     })),
     photos,
     generateTypes,
