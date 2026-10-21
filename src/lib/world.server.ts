@@ -223,7 +223,7 @@ export async function runWorldTick(): Promise<TickReport> {
         await admin.from("world_events").insert({
           user_id: msg.user_id,
           conversation_id: msg.conversation_id,
-          character_key: conv?.character?.key ?? null,
+          character_key: conv?.character?.key ?? "unknown",
           kind: "notification",
           summary: push.sent > 0 ? `Push sent to ${push.sent} device(s)` : `Push skipped (${push.skipped ?? "none delivered"})`,
           payload: { ...push, messageId: msg.id },
@@ -367,7 +367,7 @@ export async function runWorldTick(): Promise<TickReport> {
 
             // Immediate push for the initiation (its visible_at is ~seconds out,
             // so the next sweep would be up to a tick late). Mark messages pushed.
-            if (!conv.muted && !inQuietHours(now, profile?.quiet_start ?? null, profile?.quiet_end ?? null)) {
+            if (!conv.muted && !inQuietHours(now, quiet.start, quiet.end)) {
               const push = await pushToUser(admin, userId, {
                 title: def.preferredName,
                 body: "New message",

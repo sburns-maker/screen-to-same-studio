@@ -91,9 +91,13 @@ export const updateQuietHours = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await supabase
-      .from("user_profile")
-      .upsert({ user_id: userId, quiet_start: data.quietStart, quiet_end: data.quietEnd, updated_at: new Date().toISOString() });
+    // Stored as a single fact row: key 'quiet_hours', value "23-7" (empty = off).
+    await supabase.from("user_profile").delete().eq("user_id", userId).eq("key", "quiet_hours");
+    if (data.quietStart !== null && data.quietEnd !== null) {
+      await supabase
+        .from("user_profile")
+        .insert({ user_id: userId, key: "quiet_hours", value: `${data.quietStart}-${data.quietEnd}` });
+    }
     return { ok: true };
   });
 
@@ -102,10 +106,12 @@ export const quietHours = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { data } = await context.supabase
       .from("user_profile")
-      .select("quiet_start, quiet_end")
+      .select("value")
       .eq("user_id", context.userId)
+      .eq("key", "quiet_hours")
       .maybeSingle();
-    return { quietStart: data?.quiet_start ?? null, quietEnd: data?.quiet_end ?? null };
+    const m = /^(\d{1,2})-(\d{1,2})$/.exec(data?.value ?? "");
+    return { quietStart: m ? Number(m[1]) : null, quietEnd: m ? Number(m[2]) : null };
   });
 
 /**
