@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getPushRegistration } from "@/lib/pwa/register-sw";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
