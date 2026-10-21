@@ -302,6 +302,30 @@ export async function runWorldTick(): Promise<TickReport> {
             .limit(30),
         ]);
 
+        // Orphaned user message: the user's latest text never got a reply
+        // (app closed / request aborted). Answer it now, ahead of initiation.
+        const newest = (recentMsgs ?? [])[0];
+        if (newest?.sender === "user" && now.getTime() - new Date(newest.created_at).getTime() > 90_000) {
+          try {
+            report.aiCalls++;
+            const { runTurn } = await import("./tess.functions");
+            const r = await runTurn(admin, userId, conv.id, "America/New_York");
+            if (r.count > 0) {
+              await admin.from("world_events").insert({
+                user_id: userId,
+                conversation_id: conv.id,
+                character_key: def.key,
+                kind: "orphan_reply",
+                summary: `${def.preferredName} answered a message left without reply`,
+                payload: {},
+              });
+            }
+          } catch (e) {
+            report.errors.push(`orphan ${conv.id}: ${(e instanceof Error ? e.message : String(e)).slice(0, 140)}`);
+          }
+          continue;
+        }
+
         // Throttle: skip conversations checked recently (event-driven, not continuous).
         const lastCheck = (life?.last_initiation as { at?: string } | null)?.at ?? null;
         if (!isDue(lastCheck, now)) continue;
