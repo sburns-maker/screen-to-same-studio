@@ -129,7 +129,7 @@ export async function generateTessImage(args: {
   if (needsRef && args.tessReference) references.push(args.tessReference);
   if (sceneHasMabel(args.scene) && args.mabelReference) references.push(args.mabelReference);
   const identityUsed = [
-    needsRef && args.tessReference ? "tess" : null,
+    needsRef && args.tessReference ? (args.identity?.key ?? "tess") : null,
     sceneHasMabel(args.scene) && args.mabelReference ? "mabel" : null,
   ]
     .filter(Boolean)
