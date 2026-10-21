@@ -267,6 +267,15 @@ async function runTurn(
           provider: generated.provider,
           model: generated.model,
           storage_path: generated.path,
+          pose_type: generated.style?.pose_type ?? null,
+          camera_angle: generated.style?.camera_angle ?? null,
+          crop_type: generated.style?.crop_type ?? null,
+          hairstyle: generated.style?.hairstyle ?? null,
+          expression: generated.style?.expression ?? null,
+          clothing_category: generated.style?.clothing_category ?? null,
+          setting: generated.style?.setting ?? null,
+          selfie_type: generated.style?.selfie_type ?? null,
+          identity_reference_used: generated.identityReferenceUsed,
         })
         .select("id")
         .single();
