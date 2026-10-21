@@ -44,9 +44,22 @@ describe("weather provider", () => {
     expect(w.weather_alert).toMatch(/thunderstorm/i);
   });
 
-  it("provider failure returns null instead of breaking chat", async () => {
+  it("total provider failure falls back to a seasonal baseline, never null", async () => {
     const w = await getWeatherContext("16602", fakeFetcher(null, null, false));
-    expect(w).toBeNull();
+    expect(w).not.toBeNull();
+    expect(w.weather_region).toBe("16602");
+  });
+
+  it("falls back to the National Weather Service when Open-Meteo is blocked", async () => {
+    const f = async (url: string) => {
+      if (url.includes("open-meteo")) return { ok: false, json: async () => null };
+      if (url.includes("/points/")) return { ok: true, json: async () => ({ properties: { forecastHourly: "https://api.weather.gov/hourly" } }) };
+      return { ok: true, json: async () => ({ properties: { periods: [{ temperature: 44, shortForecast: "Light Rain", windSpeed: "12 mph" }] } }) };
+    };
+    const w = await getWeatherContext("16601", f);
+    expect(w.condition).toBe("rain");
+    expect(w.temperature_f).toBe(44);
+    expect(w.wind_mph).toBe(12);
   });
 
   it("a failure after success falls back to cached weather", async () => {
@@ -65,6 +78,6 @@ describe("weather provider", () => {
     await getWeatherContext("16602", counting);
     await getWeatherContext("16602", counting);
     await getWeatherContext("16602", counting);
-    expect(calls).toBe(2); // one geocode + one forecast, then cache
+    expect(calls).toBe(1); // known coords, one forecast, then cache
   });
 });
