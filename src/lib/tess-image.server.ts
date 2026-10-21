@@ -2,6 +2,8 @@
  * Server-only image provider abstraction for Tess's dynamically generated photos.
  * Swap providers by adding another implementation of `ImageProvider`.
  */
+import type { PhotoStyle } from "./tess-photos";
+
 const GATEWAY = "https://ai.gateway.lovable.dev";
 
 export type TessImageType = "object" | "casual_selfie" | "personal_selfie" | "intimate_selfie" | "tess_candid";
@@ -11,25 +13,55 @@ export type GeneratedImage = { bytes: Uint8Array; mime: string; provider: string
 export interface ImageProvider {
   name: string;
   model: string;
-  /** With a reference: identity-conditioned edit. Without: plain generation. */
-  generate(prompt: string, reference: Blob | null): Promise<GeneratedImage>;
+  /** With references: identity-conditioned edit (Tess first, Mabel second). Without: plain generation. */
+  generate(prompt: string, references: Blob[]): Promise<GeneratedImage>;
 }
 
-const IDENTITY = `Create a photorealistic casual phone photograph of the exact same adult woman shown in the supplied Tess Morgan canonical identity reference image. Tess is 34 years old. Preserve her facial identity, facial proportions, pale green-gray eyes, light platinum blonde hair, apparent age, and recognizable features. This must depict the same individual, not merely a similar-looking woman. Hair styling, clothing, expression, makeup and setting may change naturally.`;
+/**
+ * The canonical reference defines WHO Tess is — never her pose, angle, expression,
+ * hairstyle, crop, background or lighting. Same woman, different real photos.
+ */
+const IDENTITY = `The supplied canonical Tess Morgan reference defines the woman's identity only. Preserve the exact same recognizable fictional woman, facial structure, age, eyes, hair-color family and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. Tess is a real-looking 34-year-old adult woman living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve her facial identity, facial proportions, pale green-gray eyes, light platinum blonde hair color, apparent age of 34, realistic adult skin texture, and recognizable features — the same individual, not merely a similar-looking woman. Do not beautify her into a different person.`;
 
 const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks.`;
 
-const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-white wire-haired mutt with floppy ears.`;
+const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-white wire-haired mutt with floppy ears. When a Mabel reference image is supplied, she is the exact same dog shown in it — same coat pattern, face, ears and approximate size, never a different breed.`;
 
 export const includesTess = (t: TessImageType) => t !== "object";
 
-export function buildImagePrompt(type: TessImageType, scene: string, expression: string | null) {
-  const mabel = /mabel|dog/i.test(scene) ? ` ${MABEL}` : "";
+export const sceneHasMabel = (scene: string) => /mabel|dog/i.test(scene);
+
+const SELFIE_LINES: Record<string, string> = {
+  selfie: "It is a front-camera selfie she is holding at arm's length, with typical front-camera characteristics.",
+  mirror: "It is a mirror photo she took of herself.",
+  propped_phone: "The phone is propped on a table or counter (self-timer), so her hands are free.",
+  friend_photo: "A friend who is present took the picture of her.",
+};
+
+function styleLines(style: PhotoStyle | null | undefined): string {
+  if (!style) return "";
+  const lines: string[] = [];
+  if (style.pose_type) lines.push(`Pose: ${style.pose_type.replaceAll("_", " ")}.`);
+  if (style.camera_angle) lines.push(`Camera angle: ${style.camera_angle.replaceAll("_", " ")}.`);
+  if (style.crop_type) lines.push(`Framing: ${style.crop_type.replaceAll("_", " ")}.`);
+  if (style.hairstyle) lines.push(`Hairstyle: ${style.hairstyle.replaceAll("_", " ")}.`);
+  if (style.expression) lines.push(`Her expression: ${style.expression.replaceAll("_", " ")}.`);
+  if (style.clothing_category) lines.push(`Clothing: ${style.clothing_category.replaceAll("_", " ")}.`);
+  if (style.setting) lines.push(`Setting: ${style.setting.replaceAll("_", " ")}.`);
+  const selfieLine = style.selfie_type ? SELFIE_LINES[style.selfie_type] : undefined;
+  if (selfieLine) lines.push(selfieLine);
+  return lines.length ? `\n${lines.join(" ")}` : "";
+}
+
+export function buildImagePrompt(type: TessImageType, scene: string, expression: string | null, style?: PhotoStyle | null) {
+  const mabel = sceneHasMabel(scene) ? ` ${MABEL}` : "";
   if (!includesTess(type)) {
     return `A casual realistic smartphone photo taken by a 34-year-old woman in a mid-sized Pennsylvania city. Scene: ${scene}.${mabel} No people's faces visible. ${STYLE}`;
   }
-  const selfie = type === "tess_candid" ? "" : " It is a front-camera selfie held at arm's length.";
-  return `${IDENTITY}\n\nScene: ${scene}.${selfie}${expression ? ` Her expression: ${expression}.` : ""}${mabel}\n\n${STYLE}`;
+  const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
+  const selfieFallback =
+    !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES.selfie : "";
+  return `${IDENTITY}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${STYLE}`;
 }
 
 export function lovableGatewayProvider(apiKey: string): ImageProvider {
@@ -37,15 +69,15 @@ export function lovableGatewayProvider(apiKey: string): ImageProvider {
   return {
     name: "lovable-ai-gateway",
     model,
-    async generate(prompt, reference) {
+    async generate(prompt, references) {
       let res: Response;
-      if (reference) {
+      if (references.length) {
         const form = new FormData();
         form.set("model", model);
         form.set("prompt", prompt);
         form.set("size", "1024x1536");
         form.set("quality", "medium");
-        form.append("image", reference, "tess-reference.jpg");
+        references.forEach((ref, i) => form.append("image", ref, i === 0 ? "tess-reference.jpg" : `mabel-reference-${i}.jpg`));
         res = await fetch(`${GATEWAY}/v1/images/edits`, {
           method: "POST",
           headers: { Authorization: `Bearer ${apiKey}` },
@@ -72,13 +104,25 @@ export function lovableGatewayProvider(apiKey: string): ImageProvider {
 
 export async function generateTessImage(args: {
   provider: ImageProvider;
-  reference: Blob | null;
+  tessReference: Blob | null;
+  mabelReference?: Blob | null;
   type: TessImageType;
   scene: string;
   expression: string | null;
+  style?: PhotoStyle | null;
 }) {
-  const prompt = buildImagePrompt(args.type, args.scene, args.expression);
+  const prompt = buildImagePrompt(args.type, args.scene, args.expression, args.style);
   const needsRef = includesTess(args.type);
-  if (needsRef && !args.reference) throw new Error("missing canonical reference");
-  return args.provider.generate(prompt, needsRef ? args.reference : null);
+  if (needsRef && !args.tessReference) throw new Error("missing canonical reference");
+  const references: Blob[] = [];
+  if (needsRef && args.tessReference) references.push(args.tessReference);
+  if (sceneHasMabel(args.scene) && args.mabelReference) references.push(args.mabelReference);
+  const identityUsed = [
+    needsRef && args.tessReference ? "tess" : null,
+    sceneHasMabel(args.scene) && args.mabelReference ? "mabel" : null,
+  ]
+    .filter(Boolean)
+    .join("+");
+  const img = await args.provider.generate(prompt, references);
+  return { ...img, identityReferenceUsed: identityUsed || "none" };
 }

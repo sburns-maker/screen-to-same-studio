@@ -12,7 +12,17 @@ import {
   type Difficulty,
   type TessState,
 } from "./tess-logic";
-import { FREQUENCY_RULES, allowedGeneratedTypes, curatedFallback, eligiblePhotos, type PhotoFrequency } from "./tess-photos";
+import {
+  FREQUENCY_RULES,
+  allowedGeneratedTypes,
+  curatedFallback,
+  describeStyle,
+  eligiblePhotos,
+  tooSimilarToRecent,
+  varyStyle,
+  type PhotoFrequency,
+  type PhotoStyle,
+} from "./tess-photos";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
