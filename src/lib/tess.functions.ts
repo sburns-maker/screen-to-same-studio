@@ -226,7 +226,11 @@ export const updateSettings = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+    const patch: Database["public"]["Tables"]["conversations"]["Update"] = {};
+    if (data.difficulty !== undefined) patch.difficulty = data.difficulty;
+    if (data.typing_indicator !== undefined) patch.typing_indicator = data.typing_indicator;
+    if (data.read_receipts !== undefined) patch.read_receipts = data.read_receipts;
+    if (data.show_sim_data !== undefined) patch.show_sim_data = data.show_sim_data;
     await context.supabase.from("conversations").update(patch).eq("user_id", context.userId);
     return { ok: true };
   });
