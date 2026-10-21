@@ -1,5 +1,9 @@
 # Tess roadmap
 
+## Multi-week life upgrade
+- In progress: persistent bounded storylines, natural branching and unfinished outcomes, shared knowledge and behavior integration.
+- Pending: focused 30-day simulation and persistence tests, then existing regression suite once.
+
 ## Current fixes (Sean's report: push toggle off, empty inbox)
 - Done: dropped stale UNIQUE(user_id) on conversations (leftover from Tess-only schema) that blocked seeding Maya/Claire/Jordan/Ben — inbox now shows all 5 contacts (verified signed-in).
 - Done: VAPID public key in push-config.ts didn't match VAPID_PRIVATE_KEY secret; replaced with the derived key. User must re-toggle Background notifications after the next publish.
