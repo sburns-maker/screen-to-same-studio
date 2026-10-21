@@ -18,7 +18,7 @@ async function persistMilestone(db: Client, userId: string, root: Root, links: L
   const event = storyEvent(id, state);
   checked(await db.from("shared_events").upsert({ id: event.id, user_id: userId, title: event.title, kind: event.kind, location: event.location, occurs_at: state.updatedAt, facts: event.facts, source: "simulated" }, { onConflict: "user_id,id", ignoreDuplicates: true }));
   checked(await db.from("event_participants").upsert(event.participants.map(p => ({ user_id: userId, event_id: event.id, participant_type: p.type, participant_key: p.key, met: p.met, perspective: p.perspective })), { onConflict: "user_id,event_id,participant_type,participant_key", ignoreDuplicates: true }));
-  const knowledge = knowledgeFromEvent(event, links).filter(k => k.acquiredAt <= now);
+  const knowledge = knowledgeFromEvent(event, links);
   if (knowledge.length) checked(await db.from("character_knowledge").upsert(knowledge.map(k => ({ user_id: userId, character_key: k.characterKey, subject_type: k.subjectType, subject_id: k.subjectId, knowledge_type: k.knowledgeType, summary: k.summary, source: k.source, acquired_at: k.acquiredAt.toISOString() })), { onConflict: "user_id,character_key,subject_type,subject_id,knowledge_type", ignoreDuplicates: true }));
   // Only direct participants receive current situation context; outsiders keep just what they were told.
   checked(await db.from("character_knowledge").upsert(state.characters.map(key => ({ user_id: userId, character_key: key, subject_type: "storyline", subject_id: id, knowledge_type: "witnessed", summary: storyPrompt(state), source: "direct involvement", acquired_at: state.updatedAt })), { onConflict: "user_id,character_key,subject_type,subject_id,knowledge_type" }));
@@ -41,8 +41,12 @@ export async function runStorylineTick(db: Client, userId: string, now: Date, li
     checked(await db.from("shared_events").upsert({ id: r.id, user_id: userId, title: event.title, kind: "life_storyline", location: event.location, occurs_at: r.state.startedAt, facts: r.state, source: "simulated" }, { onConflict: "user_id,id", ignoreDuplicates: true }));
   }
   if (started.length) roots = await loadStories(db, userId);
-  // Repair the committed milestone first, including terminal outcomes after interrupted writes.
-  for (const root of roots) await persistMilestone(db, userId, root, links, now);
+  // Only an initial root can be unprojected: subsequent checkpoints are written last.
+  for (const root of roots.filter(r => !r.state.materialized)) {
+    await persistMilestone(db, userId, root, links, now);
+    root.state = { ...root.state, materialized: true };
+    checked(await db.from("shared_events").update({ facts: root.state }).eq("user_id", userId).eq("id", root.id));
+  }
   let advanced = 0;
   while (advanced < STORY_STEPS_PER_TICK) {
     const due = roots.filter(r => r.state.nextAt && Date.parse(r.state.nextAt) <= now.getTime()).sort((a,b) => (a.state.nextAt ?? "").localeCompare(b.state.nextAt ?? ""))[0];

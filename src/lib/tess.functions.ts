@@ -587,18 +587,20 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
       const gapHours = (Date.now() - new Date(last.created_at).getTime()) / 3_600_000;
 
       const state = pickState(stateRow ?? {}, def.seedState);
-      const lifeEvent = isTess
+      const { storylineContext } = await import("./storyline.server");
+      const story = await storylineContext(supabase, userId, def.key, now);
+      const lifeEvent = story.event ?? (isTess
         ? activeLifeEvent(
             now,
             weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
           )
-        : null;
-      const schedule = isTess
+        : null);
+      const schedule = storySchedule(isTess
         ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
         : (() => {
             const a = characterAvailability(def, now);
             return { activity: a.detail, availability: a.availability, detail: a.detail };
-          })();
+          })(), story.event);
 
       // Who's been carrying the conversation lately?
       const list = (recentMsgs ?? []).filter((m) => m.sender === "user" || m.sender === "tess");

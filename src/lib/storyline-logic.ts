@@ -10,6 +10,7 @@ export type StoryState = {
   version: 1; template: string; owner: string; characters: string[]; npc: string;
   stage: StoryStage; step: number; startedAt: string; updatedAt: string; nextAt: string | null;
   summary: string; mood: LifeEvent["mood"]; availability: LifeEvent["availability"];
+  materialized?: boolean;
 };
 type Template = { key: string; owner: string; npc: string; title: string; location: string; start: string; develop: string; complication: string; decision: string; outcomes: string[]; photo: string };
 export const STORY_TEMPLATES: Template[] = [
