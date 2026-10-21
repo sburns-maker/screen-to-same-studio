@@ -29,9 +29,10 @@ const PRESENTER = [
 
 const splitSentences = (s: string) => s.match(/[^.!?]+[.!?]*\s*/g) ?? [s];
 
-function stripSentences(text: string): string {
+function stripSentences(text: string, contact = false): string {
+  const bans = contact ? [...CHATBOT, ...PRESENTER] : [...SELF_DESCRIPTION, ...PRESENTER, ...CHATBOT];
   return splitSentences(text)
-    .filter((sent) => !SELF_DESCRIPTION.some((r) => r.test(sent)) && !PRESENTER.some((r) => r.test(sent)))
+    .filter((sent) => !bans.some((r) => r.test(sent)))
     .join("")
     .trim();
 }
@@ -47,25 +48,57 @@ export function similarity(a: string, b: string): number {
   return inter / (A.size + B.size - inter);
 }
 
-export type VoiceOptions = { maxBubbles?: number; recentTess?: string[] };
+export type VoiceOptions = {
+  maxBubbles?: number;
+  recentTess?: string[];
+  /** Max emoji per turn (default 1). */
+  maxEmoji?: number;
+  /** Allowed emoji; null = any (default Tess's set). */
+  allowedEmoji?: Set<string> | null;
+  /** Max exclamation marks per turn (default 1). */
+  maxExclaim?: number;
+};
+
+/** Generic chatbot filler every character drifts into — never a real person's text. */
+const CHATBOT = [
+  /^\s*but (seriously|really),? /i,
+  /\bi (really |truly )?appreciate (you|your|that|it)\b/i,
+  /\b(that|it) (really )?means a lot\b/i,
+  /\bit'?s (so )?(nice|great|encouraging|rewarding) (to (hear|have|feel|know)|feeling)\b/i,
+  /\bmakes? the little efforts\b/i,
+  /\bi wish i could (share|send) (photos|pictures)\b/i,
+  /\bsounds? (incredibly|so|really) (impactful|important|rewarding)\b/i,
+  /\bhope(fully)?,? you can give (them|it) a try\b/i,
+];
+
+/** Per-character voice limits for non-Tess contacts. */
+export const CONTACT_VOICE: Record<string, Omit<VoiceOptions, "recentTess">> = {
+  maya: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2 },
+  claire: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
+  jordan: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: new Set(["🙄"]), maxExclaim: 0 },
+  ben: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
+};
 
 /** Enforce Tess's voice on a fresh reply. Returns cleaned bubbles (may be fewer). */
 export function enforceTessVoice(bubbles: string[], opts: VoiceOptions = {}): string[] {
   const maxBubbles = opts.maxBubbles ?? 2;
   const recent = opts.recentTess ?? [];
+  const maxEmoji = opts.maxEmoji ?? 1;
+  const allowed = opts.allowedEmoji === undefined ? ALLOWED_EMOJI : opts.allowedEmoji;
+  const maxExclaim = opts.maxExclaim ?? 1;
   let emojiUsed = 0;
   let exclaimUsed = 0;
   const out: string[] = [];
   for (const raw of bubbles) {
-    let t = stripSentences(raw);
+    let t = stripSentences(raw, opts.allowedEmoji !== undefined);
     // Emoji: at most one per turn, only from her set.
     t = t.replace(EMOJI_RE, (e) => {
-      if (emojiUsed >= 1 || !ALLOWED_EMOJI.has(e)) return "";
+      if (emojiUsed >= maxEmoji || (allowed && !allowed.has(e))) return "";
       emojiUsed++;
       return e;
     });
     // Exclamation marks: at most one per turn; collapse "!!" and turn the rest into periods.
-    t = t.replace(/!+/g, () => (exclaimUsed++ === 0 ? "!" : "."));
+    t = t.replace(/!+/g, () => (exclaimUsed++ < maxExclaim ? "!" : "."));
     t = t.replace(/\s{2,}/g, " ").replace(/\s+([.,?!])/g, "$1").trim();
     if (!t || /^[.\s]+$/.test(t)) continue;
     // Repetition: drop bubbles that echo something she said recently or this turn.
@@ -80,4 +113,10 @@ export function enforceTessVoice(bubbles: string[], opts: VoiceOptions = {}): st
 export function cleanTessHistoryLine(body: string): string {
   const cleaned = enforceTessVoice([body], { maxBubbles: 1 })[0];
   return cleaned ?? "…";
+}
+
+/** Clean a non-Tess contact's past line (chatbot filler only; their own emoji style kept). */
+export function cleanContactHistoryLine(body: string, name: string): string {
+  const v = CONTACT_VOICE[name.toLowerCase()] ?? { allowedEmoji: null };
+  return enforceTessVoice([body], { ...v, maxBubbles: 1, maxEmoji: 3, maxExclaim: 3 })[0] ?? "…";
 }

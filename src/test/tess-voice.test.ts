@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { enforceTessVoice, cleanTessHistoryLine } from "@/lib/tess-voice";
+import { enforceTessVoice, cleanTessHistoryLine, CONTACT_VOICE } from "@/lib/tess-voice";
 
 describe("enforceTessVoice", () => {
   it("removes self-description of her personality", () => {
@@ -27,5 +27,18 @@ describe("enforceTessVoice", () => {
   });
   it("cleans history lines", () => {
     expect(cleanTessHistoryLine("It's a delicate balance between calm and chaos!")).toBe("…");
+  });
+});
+
+describe("contact voice", () => {
+  it("strips chatbot filler from Claire", () => {
+    const out = enforceTessVoice(["But seriously, I appreciate your kind words. Tomatoes, obviously."], { ...CONTACT_VOICE["claire"] });
+    expect(out).toEqual(["Tomatoes, obviously."]);
+  });
+  it("caps Claire at two bubbles", () => {
+    expect(enforceTessVoice(["a one.", "b two.", "c three."], { ...CONTACT_VOICE["claire"] }).length).toBe(2);
+  });
+  it("Jordan never uses exclamation marks", () => {
+    expect(enforceTessVoice(["Fine!"], { ...CONTACT_VOICE["jordan"] })).toEqual(["Fine."]);
   });
 });
