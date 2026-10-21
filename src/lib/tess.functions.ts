@@ -253,7 +253,28 @@ async function runTurn(
   }
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
   if ((photo || generated) && !bubbles.length) bubbles.push("");
-  let at = Date.now() + clampDelaySeconds(initiation ? 3 : reply.send_delay_seconds) * 1000;
+
+  // Latency: practice mode keeps the 3s–4min delay; Real-Time Mode follows her schedule.
+  const realTime = !!(conv as { real_time_mode?: boolean }).real_time_mode;
+  const lastUserMsg = recent.find((m) => m.sender === "user");
+  const activelyChatting = !!lastUserMsg && Date.now() - new Date(lastUserMsg.created_at).getTime() < 5 * 60_000;
+  const latency = initiation
+    ? { seconds: 3 as number | null, reason: "initiation — no reply delay" }
+    : decideLatency(
+        {
+          realTimeMode: realTime,
+          schedule: scheduleFor(now, difficulty === "chaos" ? 2 : 1),
+          lifeEvent,
+          state,
+          activelyChatting,
+          baseSeconds: reply.send_delay_seconds,
+        },
+      );
+  if (latency.seconds === null) {
+    // Real-Time Mode sleep boundary: she'll see it in the morning. No fake reply.
+    return { count: 0, lastVisibleAt: null, sleep: true, latencyReason: latency.reason };
+  }
+  let at = Date.now() + clampDelaySeconds(latency.seconds) * 1000;
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
     return {
@@ -267,6 +288,7 @@ async function runTurn(
         tone: reply.tone,
         tags: reply.event_tags,
         initiated: !!initiation,
+        latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
         ...(generated && i === 0 ? { generated_path: generated.path } : {}),
       },
