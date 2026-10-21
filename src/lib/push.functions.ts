@@ -77,3 +77,64 @@ export const sendTestPush = createServerFn({ method: "POST" })
     }
     return { sent, failed: failures.length, failures };
   });
+
+/** Global quiet hours (wall-clock, America/New_York). Nulls disable them. */
+export const updateQuietHours = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        quietStart: z.number().int().min(0).max(23).nullable(),
+        quietEnd: z.number().int().min(0).max(23).nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await supabase
+      .from("user_profile")
+      .upsert({ user_id: userId, quiet_start: data.quietStart, quiet_end: data.quietEnd, updated_at: new Date().toISOString() });
+    return { ok: true };
+  });
+
+export const quietHours = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data } = await context.supabase
+      .from("user_profile")
+      .select("quiet_start, quiet_end")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    return { quietStart: data?.quiet_start ?? null, quietEnd: data?.quiet_end ?? null };
+  });
+
+/**
+ * Developer-only Living World Timeline: recent world events, job history and
+ * the durable AI-pause state. world_events is owner-RLS (user's own rows);
+ * job_runs is service-role only, read here through the admin client after auth.
+ */
+export const worldTimeline = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: events } = await supabase
+      .from("world_events")
+      .select("id, character_key, kind, summary, payload, occurs_at, processed_at")
+      .eq("user_id", userId)
+      .order("occurs_at", { ascending: false })
+      .limit(60);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [{ data: jobs }, { data: control }] = await Promise.all([
+      supabaseAdmin.from("job_runs").select("id, job, status, detail, started_at, finished_at").order("started_at", { ascending: false }).limit(20),
+      supabaseAdmin.from("world_control").select("key, value, updated_at"),
+    ]);
+    return { events: events ?? [], jobs: jobs ?? [], control: control ?? [] };
+  });
+
+/** Manually run one world tick (developer debug action). */
+export const runWorldTickNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const { runWorldTick } = await import("./world.server");
+    return runWorldTick();
+  });

@@ -692,6 +692,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         show_sim_data: z.boolean().optional(),
         photo_frequency: z.enum(["rare", "normal", "frequent"]).optional(),
         real_time_mode: z.boolean().optional(),
+        muted: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -703,6 +704,7 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (data.show_sim_data !== undefined) patch.show_sim_data = data.show_sim_data;
     if (data.photo_frequency !== undefined) patch.photo_frequency = data.photo_frequency;
     if (data.real_time_mode !== undefined) patch.real_time_mode = data.real_time_mode;
+    if (data.muted !== undefined) patch.muted = data.muted;
     // photo_frequency is Tess-specific; everything else applies to the given
     // conversation, or all of the user's conversations when none is given.
     if (data.photo_frequency !== undefined && !data.conversationId) {
