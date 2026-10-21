@@ -324,6 +324,19 @@ export async function runTurn(
     });
   } else {
     const avail = characterAvailability(def, now);
+    if (def.photosEnabled) {
+      freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
+      const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
+      const hasPhoto = (m: { metadata: unknown }) => {
+        const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
+        return !!(md?.photo || md?.generated_image_id);
+      };
+      const ownRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
+      const recentlySentPhoto = ownRecent.some(hasPhoto);
+      generateTypes = recentlySentPhoto
+        ? []
+        : generateTypesFor(state, difficulty).filter((t) => def.photoTypes.includes(t));
+    }
     reply = await generateContactReply({
       character: def,
       state,
@@ -336,8 +349,12 @@ export async function runTurn(
       initiationReason: initiation?.reason ?? null,
       availabilityDetail: avail.detail,
       weather,
+      generateTypes,
+      recentPhotoStyles: recentStyles.map(describeStyle),
     });
-    reply.photo = null; // non-Tess contacts never send photos in V1
+    if (!def.photosEnabled) reply.photo = null;
+    else if (reply.photo?.action === "generate" && !generateTypes.includes(reply.photo.type ?? "")) reply.photo = null;
+    else if (reply.photo && reply.photo.action !== "generate") reply.photo = null; // no curated library for contacts
   }
 
   const delta = sanitizeDelta(reply.state_delta, difficulty);
@@ -354,13 +371,13 @@ export async function runTurn(
     .eq("conversation_id", conv.id);
   await supabase.from("conversations").update({ relationship_stage: stage, updated_at: nowIso }).eq("id", conv.id);
 
-  // --- Photo (Tess only): curated first, then optional generation, else none. Failures stay invisible.
+  // --- Photo: Tess curated first, then optional generation; other contacts generate only. Failures stay invisible.
   let photo: string | null = null;
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   const p = reply.photo;
   if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
-  } else if (isTess && p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
+  } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
     const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
     if (Math.random() < rules.generateChance) {
       try {
@@ -376,10 +393,10 @@ export async function runTurn(
         };
         // Context first, variety second: only nudge an exact repeat of a recent photo.
         const style = varyStyle(rawStyle, recentStyles);
-        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style);
+        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def);
       } catch (e) {
-        console.error("tess photo generation failed", e);
-        photo = curatedFallback(p.scene, photos);
+        console.error("photo generation failed", e);
+        if (isTess) photo = curatedFallback(p.scene, photos);
       }
     }
   }
