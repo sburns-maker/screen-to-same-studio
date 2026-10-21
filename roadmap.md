@@ -1,13 +1,14 @@
 # Tess roadmap
 
 ## Current photo correction
-- Remove unsupported Claire/Jordan restrictions; separate capability, eligibility and willingness.
-- Support platonic personal photos, persistent romantic intent and refusal boundaries.
-- Add adult-only, default-off non-explicit mature portrait preference where provider permits.
-- Verify rules, existing photos and signed-in preference persistence; report provider limitations.
+- Done: remove unsupported Claire/Jordan restrictions; separate capability, eligibility and willingness.
+- Done: support platonic personal photos, persistent romantic intent and refusal boundaries.
+- Done: add adult-only, default-off non-explicit mature portrait preference where provider permits.
+- Done: 111 tests pass; existing photo rules preserved; live Claire reply and covered-sleepwear image generation succeeded.
+- Blocked verification: signed-in preference persistence could not be exercised because the browser inbox remained blank; no successful UI persistence claim.
 
 ## Done (living-world pass)
-- Photos for all five contacts: generation-only for Maya/Claire/Jordan/Ben with per-character canonical references (private storage), type restrictions (Claire/Jordan/Ben no intimate; Ben platonic), style-variety nudges, cooldown/frequency reuse. Tess's curated-first system untouched.
+- Photos for all five contacts: generation-only for Maya/Claire/Jordan/Ben with per-character canonical references (private storage), shared ordinary capabilities for romantic-capable adults, Ben friendship-only, style-variety nudges, cooldown/frequency reuse. Tess's curated-first system untouched.
 - World tick: 15-min managed schedule → /api/public/jobs/world-tick; atomic lease (unique index), bounded (20 users/4 AI calls), durable AI pause + single-probe resume, push sweep for delayed replies, initiation through the same turn pipeline.
 - Real Web Push: VAPID keys (private in server secrets), aes128gcm sender on Web Crypto, per-device subscriptions with RLS, expiry cleanup, quiet hours, per-conversation mute, test button, SW push/click handlers.
 - Settings: background-notification toggle with live status, quiet hours, test notification. Profile: per-conversation Real-Time Mode + mute.
