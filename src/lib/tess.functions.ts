@@ -505,6 +505,7 @@ export const updateSettings = createServerFn({ method: "POST" })
         read_receipts: z.boolean().optional(),
         show_sim_data: z.boolean().optional(),
         photo_frequency: z.enum(["rare", "normal", "frequent"]).optional(),
+        real_time_mode: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -515,6 +516,116 @@ export const updateSettings = createServerFn({ method: "POST" })
     if (data.read_receipts !== undefined) patch.read_receipts = data.read_receipts;
     if (data.show_sim_data !== undefined) patch.show_sim_data = data.show_sim_data;
     if (data.photo_frequency !== undefined) patch.photo_frequency = data.photo_frequency;
+    if (data.real_time_mode !== undefined) patch.real_time_mode = data.real_time_mode;
     await context.supabase.from("conversations").update(patch).eq("user_id", context.userId);
     return { ok: true };
+  });
+
+/** Everything the hidden debug screen needs, computed server-side. */
+export const debugSnapshot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const conv = await loadConversation(supabase, userId);
+    if (!conv) throw new Error("No conversation");
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const [{ data: stateRow }, { data: life }, { data: last }, { data: recentMsgs }, { data: mems }] = await Promise.all([
+      supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
+      supabase.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
+      supabase
+        .from("messages")
+        .select("created_at, metadata")
+        .eq("conversation_id", conv.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("messages")
+        .select("sender, metadata")
+        .eq("conversation_id", conv.id)
+        .lte("visible_at", nowIso)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      supabase
+        .from("memories")
+        .select("memory_type, summary, importance, created_at")
+        .eq("conversation_id", conv.id)
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]);
+    const state = pickState(stateRow ?? {});
+    const { getWeatherContext } = await import("./tess-weather.server");
+    const weather = await getWeatherContext();
+    const lifeEvent = activeLifeEvent(
+      now,
+      weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
+    );
+    const schedule = scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1);
+    const gapHours = last ? (Date.now() - new Date(last.created_at).getTime()) / 3_600_000 : 0;
+    const list = recentMsgs ?? [];
+    const userCount = list.filter((m) => m.sender === "user").length;
+    const tessCount = list.filter((m) => m.sender === "tess").length;
+    const flavor = weather ? weatherFlavor(weather) : null;
+    const initiation = decideInitiation({
+      state,
+      stage: deriveStage(state),
+      gapHours,
+      lastInitiatedAt: life?.last_initiated_at ? new Date(life.last_initiated_at) : null,
+      userCarrying: userCount > tessCount * 1.6 && userCount >= 5,
+      recentQuality: Math.min(100, state.relationship_momentum + state.playfulness / 2),
+      schedule,
+      lifeEvent,
+      hasPlausibleReason: !!(flavor || lifeEvent || state.relationship_momentum > 35 || state.curiosity > 55),
+      now,
+    });
+    const freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
+    const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
+    const hasPhoto = (m: { metadata: unknown }) => {
+      const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
+      return !!(md?.photo || md?.generated_image_id);
+    };
+    const recentlySentPhoto = list
+      .filter((m) => m.sender === "tess")
+      .slice(0, rules.cooldown)
+      .some(hasPhoto);
+    const curatedCount = recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
+    const genTypes = recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+    const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
+    return {
+      state,
+      lastDelta: (stateRow?.last_delta ?? {}) as Record<string, unknown>,
+      lastTone: stateRow?.last_tone ?? null,
+      stage: deriveStage(state),
+      difficulty: conv.difficulty,
+      realTimeMode: !!(conv as { real_time_mode?: boolean }).real_time_mode,
+      schedule,
+      lifeEvent,
+      weather,
+      weatherFlavor: flavor,
+      gapHours: Math.round(gapHours * 10) / 10,
+      initiation: {
+        eligible: initiation.eligible,
+        reasons: initiation.reasons,
+        score: initiation.score,
+        chance: initiation.chance,
+        nextWindowHours: initiation.nextWindowHours,
+        lastCheck: (life?.last_initiation ?? null) as Record<string, unknown> | null,
+        lastInitiatedAt: life?.last_initiated_at ?? null,
+      },
+      photo: {
+        eligible: !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
+        reason: recentlySentPhoto
+          ? `cooldown — she sent a photo within her last ${rules.cooldown} messages`
+          : state.irritation >= 40
+            ? `irritation ${state.irritation} — no photos while annoyed`
+            : state.irritation >= 20
+              ? `irritation ${state.irritation} — selfies suppressed, context photos only`
+              : `${curatedCount} curated + generated types [${genTypes.join(", ") || "none"}] available`,
+        curatedCount,
+        generatedTypes: genTypes,
+      },
+      latencyReason: lastLatency,
+      recentMemories: mems ?? [],
+    };
   });
