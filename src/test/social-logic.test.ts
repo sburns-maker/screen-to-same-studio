@@ -156,7 +156,7 @@ describe("shared events and overlap", () => {
 
 describe("knowledge isolation and propagation", () => {
   it("only character participants witness an event", () => {
-    const e = planWeekEvents("tess", WEEK)[0];
+    const e = planWeekEvents("tess", WEEK)[0]!;
     const knowledge = knowledgeFromEvent(e, canonLinks());
     const witnessed = knowledge.filter((k) => k.knowledgeType === "witnessed");
     const attendeeKeys = e.participants.filter((p) => p.type === "character").map((p) => p.key);

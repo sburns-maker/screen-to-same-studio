@@ -366,7 +366,7 @@ export function planWeekEvents(characterKey: string, week: string): PlannedEvent
 
 /** Resolve a weekday/hour within a week id to an actual Date (Eastern). */
 function easternOccurrence(week: string, weekday: number, hour: number): Date {
-  const [y, w] = week.split("-W").map(Number);
+  const [y = 2026, w = 1] = week.split("-W").map(Number);
   const jan1 = new Date(Date.UTC(y, 0, 1));
   const weekStart = new Date(jan1.getTime() + (w - 1) * 7 * 86_400_000 - jan1.getUTCDay() * 86_400_000);
   const day = new Date(weekStart.getTime() + weekday * 86_400_000);
