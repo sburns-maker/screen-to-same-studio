@@ -154,11 +154,11 @@ export type Debrief = z.infer<typeof debriefSchema>;
 
 type Msg = { sender: string; body: string; created_at: string };
 
-function transcript(msgs: Msg[], tz: string) {
+function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
   return msgs
     .map((m) => {
       const t = new Date(m.created_at).toLocaleString("en-US", { timeZone: tz, weekday: "short", hour: "numeric", minute: "2-digit" });
-      return `[${t}] ${m.sender === "tess" ? "Tess" : "Him"}: ${m.body}`;
+      return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${m.body}`;
     })
     .join("\n");
 }
