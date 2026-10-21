@@ -40,6 +40,16 @@ function pickState(row: Record<string, unknown> | null | undefined): TessState {
   return s;
 }
 
+/** Quiet hours are stored as a user_profile fact row: key 'quiet_hours', value "23-7" (or empty = off). */
+export function parseQuietHours(value: string | null | undefined): { start: number | null; end: number | null } {
+  const m = /^(\d{1,2})-(\d{1,2})$/.exec(value ?? "");
+  if (!m) return { start: null, end: null };
+  const start = Number(m[1]);
+  const end = Number(m[2]);
+  if (start > 23 || end > 23) return { start: null, end: null };
+  return { start, end };
+}
+
 /** Quiet hours are wall-clock hours in America/New_York; nulls mean "no quiet hours". */
 export function inQuietHours(now: Date, quietStart: number | null, quietEnd: number | null): boolean {
   if (quietStart == null || quietEnd == null) return false;
@@ -73,12 +83,12 @@ async function acquireLease(admin: Admin): Promise<{ runId: string } | null> {
 async function finishRun(admin: Admin, runId: string, status: "ok" | "failed" | "paused", detail: Record<string, unknown>) {
   await admin
     .from("job_runs")
-    .update({ status, detail, finished_at: new Date().toISOString() })
+    .update({ status, detail: detail as Database["public"]["Tables"]["job_runs"]["Update"]["detail"], finished_at: new Date().toISOString() })
     .eq("id", runId);
 }
 
 /** Durable AI pause state (survives across runs and restarts). */
-async function readAiPause(admin: Admin): Promise<{ paused: boolean; reason?: string; since?: string }> {
+async function readAiPause(admin: Admin): Promise<{ paused: boolean; reason?: string | undefined; since?: string | undefined }> {
   const { data } = await admin.from("world_control").select("value").eq("key", "ai_pause").maybeSingle();
   const v = (data?.value ?? {}) as { paused?: boolean; reason?: string; since?: string };
   return { paused: !!v.paused, reason: v.reason, since: v.since };
