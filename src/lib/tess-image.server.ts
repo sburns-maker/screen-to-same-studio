@@ -120,7 +120,7 @@ export async function generateTessImage(args: {
   scene: string;
   expression: string | null;
   style?: PhotoStyle | null;
-  identity?: CharacterIdentity;
+  identity?: CharacterIdentity | undefined;
 }) {
   const prompt = buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity);
   const needsRef = includesTess(args.type);

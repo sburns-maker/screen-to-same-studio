@@ -47,7 +47,7 @@ describe("isDue", () => {
 
 describe("per-character photo rules", () => {
   it("every character has a photo policy and all are photo-capable", () => {
-    for (const c of CHARACTERS) {
+    for (const c of Object.values(CHARACTERS)) {
       expect(c.photosEnabled).toBe(true);
       expect(c.photoTypes.length).toBeGreaterThan(0);
     }
@@ -77,7 +77,7 @@ describe("per-character photo rules", () => {
   });
 
   it("all characters live in or near ZIP 16602", () => {
-    for (const c of CHARACTERS) {
+    for (const c of Object.values(CHARACTERS)) {
       expect(c.zip.startsWith("166")).toBe(true);
     }
   });
