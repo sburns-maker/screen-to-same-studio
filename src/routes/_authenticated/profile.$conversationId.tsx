@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight, Image as ImageIcon, Search, Settings as SettingsIcon, User } from "lucide-react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
+import { Switch } from "@/components/ui/switch";
 import { conversationQuery } from "@/lib/tess-queries";
+import { updateSettings } from "@/lib/tess.functions";
 import { characterFor } from "@/lib/characters";
 
 export const Route = createFileRoute("/_authenticated/profile/$conversationId")({
@@ -19,8 +22,16 @@ export const Route = createFileRoute("/_authenticated/profile/$conversationId")(
 
 function Profile() {
   const { conversationId } = Route.useParams();
+  const qc = useQueryClient();
   const conv = useQuery(conversationQuery(conversationId));
+  const update = useServerFn(updateSettings);
   const def = characterFor((conv.data?.character as { key?: string } | null)?.key);
+
+  async function set(patch: { real_time_mode?: boolean; muted?: boolean }) {
+    await update({ data: { conversationId, ...patch } });
+    qc.invalidateQueries({ queryKey: ["conversation"] });
+    qc.invalidateQueries({ queryKey: ["conversations"] });
+  }
 
   return (
     <>
@@ -60,6 +71,23 @@ function Profile() {
           ))}
         </dl>
         <p className="mt-6 rounded-2xl border border-dashed p-4 text-sm leading-relaxed text-muted-foreground">{def.profileBlurb}</p>
+
+        <div className="mt-4 divide-y rounded-2xl bg-surface">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-4 text-[15px]">
+              Real-Time Mode
+              <Switch checked={!!conv.data?.real_time_mode} onCheckedChange={(v) => set({ real_time_mode: v })} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{def.preferredName} follows their daily schedule — replies may take longer.</p>
+          </div>
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-4 text-[15px]">
+              Mute notifications
+              <Switch checked={!!(conv.data as { muted?: boolean } | undefined)?.muted} onCheckedChange={(v) => set({ muted: v })} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Messages still arrive; you just won't be notified about this conversation.</p>
+          </div>
+        </div>
 
         {def.photosEnabled && (
           <Link
