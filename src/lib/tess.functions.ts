@@ -213,6 +213,41 @@ async function removeUserPhotos(supabase: Sb, userId: string) {
   if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
 }
 
+type PhotoMsg = { id?: string; sender: string; body: string; created_at: string; metadata: unknown };
+
+/** User-sent photos: describe once with vision (cached in metadata), then show as text in the transcript. */
+async function describeUserPhotos<T extends PhotoMsg>(supabase: Sb, convId: string, list: T[]): Promise<T[]> {
+  const out: T[] = [];
+  let described = 0;
+  for (const m of list) {
+    const md = (m.metadata ?? {}) as { user_photo?: string; photo_desc?: string };
+    if (m.sender !== "user" || !md.user_photo) { out.push(m); continue; }
+    let desc = md.photo_desc;
+    if (!desc && described < 2) {
+      described++;
+      try {
+        const { data: blob } = await supabase.storage.from("tess-photos").download(md.user_photo);
+        if (blob) {
+          const { describeImage } = await import("./tess.server");
+          const buf = new Uint8Array(await blob.arrayBuffer());
+          let bin = "";
+          for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          desc = (await describeImage(`data:${blob.type || "image/jpeg"};base64,${btoa(bin)}`)) ?? undefined;
+          if (desc) {
+            await supabase.from("messages").update({ metadata: { ...md, photo_desc: desc } })
+              .eq("conversation_id", convId).eq("created_at", m.created_at).eq("sender", "user");
+          }
+        }
+      } catch (e) {
+        console.error("photo describe failed", e);
+      }
+    }
+    const tag = `[He sent a photo: ${desc || "couldn't make it out clearly"}]`;
+    out.push({ ...m, body: m.body ? `${m.body} ${tag}` : tag });
+  }
+  return out;
+}
+
 export async function runTurn(
   supabase: Sb,
   userId: string,
@@ -266,7 +301,7 @@ export async function runTurn(
     boundary: (["none", "selfies", "all_photos", "mature"].includes(conv.photo_boundary) ? conv.photo_boundary : "all_photos") as PhotoBoundary,
   };
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
-  const recent = msgs ?? [];
+  const recent = await describeUserPhotos(supabase, conv.id, msgs ?? []);
 
   // Fictional-world context: schedule, rotating life event, regional weather (all contacts live near ZIP 16602).
   const now = new Date();
