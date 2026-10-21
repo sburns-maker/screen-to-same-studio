@@ -55,7 +55,7 @@ function SettingsPage() {
   const wipe = useServerFn(deleteAllData);
   const c = conv.data;
 
-  async function set(patch: { photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean }) {
+  async function set(patch: { photo_frequency?: "rare" | "normal" | "frequent"; difficulty?: Difficulty; typing_indicator?: boolean; read_receipts?: boolean; show_sim_data?: boolean; real_time_mode?: boolean }) {
     qc.setQueryData(conversationQuery.queryKey, (old: typeof c) => (old ? { ...old, ...patch } : old));
     await update({ data: patch });
     qc.invalidateQueries({ queryKey: ["conversation"] });
@@ -118,6 +118,14 @@ function SettingsPage() {
 
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversation</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
+          <div className="px-4 py-3">
+            <div className="flex items-center justify-between gap-4 text-[15px]">
+              Real-Time Mode
+              <Switch checked={!!c?.real_time_mode} onCheckedChange={(v) => set({ real_time_mode: v })} />
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Tess follows her fictional daily schedule. Replies may take longer.</p>
+          </div>
+          <NotificationsRow />
           <Row>
             Typing indicator
             <Switch checked={!!c?.typing_indicator} onCheckedChange={(v) => set({ typing_indicator: v })} />
