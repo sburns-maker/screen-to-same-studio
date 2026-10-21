@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { MoreVertical, Search, Settings } from "lucide-react";
+import { MoreVertical, Search } from "lucide-react";
 import { ensureConversations, inboxOverview, tessMaybeInitiate } from "@/lib/tess.functions";
 import { userTz } from "@/lib/tess-queries";
 import { characterFor } from "@/lib/characters";
@@ -33,22 +33,17 @@ function fmtTime(iso: string) {
 function Inbox() {
   const ensure = useServerFn(ensureConversations);
   const initiate = useServerFn(tessMaybeInitiate);
+  const inboxFn = useServerFn(inboxOverview);
   const [q, setQ] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
 
   const ensured = useQuery({ queryKey: ["ensure"], queryFn: () => ensure(), staleTime: Infinity });
   const inbox = useQuery({
     queryKey: ["inbox"],
-    queryFn: () => useServerFnInline(),
+    queryFn: () => inboxFn({}),
     enabled: ensured.isSuccess,
     refetchInterval: 30_000,
   });
-
-  // useServerFn must be called at top level; wrap inboxOverview once.
-  function useServerFnInline() {
-    return inboxFn({ data: undefined as never });
-  }
-  const inboxFn = useServerFn(inboxOverview);
 
   // On opening the app, give each contact one chance to text first.
   useEffect(() => {

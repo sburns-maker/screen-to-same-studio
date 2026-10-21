@@ -16,6 +16,7 @@ import { Route as AuthenticatedChatRouteImport } from './routes/_authenticated/c
 import { Route as AuthenticatedDebriefRouteImport } from './routes/_authenticated/debrief'
 import { Route as AuthenticatedDebugRouteImport } from './routes/_authenticated/debug'
 import { Route as AuthenticatedHistoryRouteImport } from './routes/_authenticated/history'
+import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedProfileRouteImport } from './routes/_authenticated/profile'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 
@@ -53,6 +54,11 @@ const AuthenticatedHistoryRoute = AuthenticatedHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProfileRoute = AuthenticatedProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/debrief': typeof AuthenticatedDebriefRoute
   '/debug': typeof AuthenticatedDebugRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/inbox': typeof AuthenticatedInboxRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/settings': typeof AuthenticatedSettingsRoute
 }
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/debrief': typeof AuthenticatedDebriefRoute
   '/debug': typeof AuthenticatedDebugRoute
   '/history': typeof AuthenticatedHistoryRoute
+  '/inbox': typeof AuthenticatedInboxRoute
   '/profile': typeof AuthenticatedProfileRoute
   '/settings': typeof AuthenticatedSettingsRoute
 }
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/_authenticated/debrief': typeof AuthenticatedDebriefRoute
   '/_authenticated/debug': typeof AuthenticatedDebugRoute
   '/_authenticated/history': typeof AuthenticatedHistoryRoute
+  '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/profile': typeof AuthenticatedProfileRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
 }
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/debrief'
     | '/debug'
     | '/history'
+    | '/inbox'
     | '/profile'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
     | '/debrief'
     | '/debug'
     | '/history'
+    | '/inbox'
     | '/profile'
     | '/settings'
   id:
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/_authenticated/debrief'
     | '/_authenticated/debug'
     | '/_authenticated/history'
+    | '/_authenticated/inbox'
     | '/_authenticated/profile'
     | '/_authenticated/settings'
   fileRoutesById: FileRoutesById
@@ -187,6 +199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/inbox': {
+      id: '/_authenticated/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AuthenticatedInboxRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile': {
       id: '/_authenticated/profile'
       path: '/profile'
@@ -209,6 +228,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDebriefRoute: typeof AuthenticatedDebriefRoute
   AuthenticatedDebugRoute: typeof AuthenticatedDebugRoute
   AuthenticatedHistoryRoute: typeof AuthenticatedHistoryRoute
+  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedProfileRoute: typeof AuthenticatedProfileRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
 }
@@ -218,6 +238,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDebriefRoute: AuthenticatedDebriefRoute,
   AuthenticatedDebugRoute: AuthenticatedDebugRoute,
   AuthenticatedHistoryRoute: AuthenticatedHistoryRoute,
+  AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedProfileRoute: AuthenticatedProfileRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
 }
