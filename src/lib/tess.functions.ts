@@ -16,7 +16,9 @@ import {
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
 
-type Sb = Parameters<Parameters<ReturnType<typeof createServerFn>["handler"]>[0]>[0] extends never ? never : any;
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+type Sb = SupabaseClient<Database>;
 
 function pickState(row: Record<string, unknown>): TessState {
   const s = {} as TessState;
