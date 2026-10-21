@@ -8,11 +8,13 @@
  * - Event-driven, not continuous: a conversation is only considered when its
  *   last world check is older than TICK_INTERVAL_MINUTES.
  * - Bounded: at most MAX_USERS users, MAX_AI_CALLS generations per run.
- * - Single-flight: a lease row in job_runs prevents overlapping runs.
+ * - Single-flight: a partial unique index on job_runs makes the lease atomic;
+ *   a crashed run's stale lease is reclaimed after LEASE_MINUTES.
  * - Idempotent: initiation is recorded in tess_life.last_initiated_at and
- *   world_events; a re-run within the gap cannot double-send.
- * - Circuit breaker: an AI 402/403 pauses the run (status 'paused') and no
- *   further AI calls are made; the next scheduled run probes once.
+ *   world_events; pushes are deduped by a metadata.pushed flag on the message.
+ * - Circuit breaker: an AI 402/403 durably pauses the world (world_control
+ *   'ai_pause'); while paused each run makes at most one probe call and
+ *   resumes only after a probe succeeds.
  * - No backlog floods: catch-up never generates more than one initiated
  *   message per character per run, regardless of how long the user was away.
  */
@@ -29,6 +31,7 @@ type Admin = SupabaseClient<Database>;
 export const TICK_INTERVAL_MINUTES = 30;
 export const MAX_USERS_PER_RUN = 20;
 export const MAX_AI_CALLS_PER_RUN = 4;
+export const MAX_PUSH_SWEEP_PER_RUN = 10;
 const LEASE_MINUTES = 3;
 
 function pickState(row: Record<string, unknown> | null | undefined): TessState {
@@ -50,18 +53,20 @@ export function isDue(lastCheckIso: string | null | undefined, now: Date, interv
   return now.getTime() - new Date(lastCheckIso).getTime() >= intervalMinutes * 60_000;
 }
 
+/**
+ * Atomic lease: a partial unique index (job_runs_one_running) allows only one
+ * 'running' row per job. Stale leases (crashed runs) are reclaimed first.
+ */
 async function acquireLease(admin: Admin): Promise<{ runId: string } | null> {
-  const since = new Date(Date.now() - LEASE_MINUTES * 60_000).toISOString();
-  const { data: running } = await admin
+  const staleBefore = new Date(Date.now() - LEASE_MINUTES * 60_000).toISOString();
+  await admin
     .from("job_runs")
-    .select("id")
+    .update({ status: "failed", finished_at: new Date().toISOString(), detail: { error: "lease expired (stale run reclaimed)" } })
     .eq("job", "world-tick")
     .eq("status", "running")
-    .gte("started_at", since)
-    .limit(1);
-  if (running?.length) return null;
+    .lt("started_at", staleBefore);
   const { data, error } = await admin.from("job_runs").insert({ job: "world-tick", status: "running" }).select("id").single();
-  if (error || !data) return null;
+  if (error || !data) return null; // unique violation = another run holds the lease
   return { runId: data.id };
 }
 
@@ -70,6 +75,21 @@ async function finishRun(admin: Admin, runId: string, status: "ok" | "failed" | 
     .from("job_runs")
     .update({ status, detail, finished_at: new Date().toISOString() })
     .eq("id", runId);
+}
+
+/** Durable AI pause state (survives across runs and restarts). */
+async function readAiPause(admin: Admin): Promise<{ paused: boolean; reason?: string; since?: string }> {
+  const { data } = await admin.from("world_control").select("value").eq("key", "ai_pause").maybeSingle();
+  const v = (data?.value ?? {}) as { paused?: boolean; reason?: string; since?: string };
+  return { paused: !!v.paused, reason: v.reason, since: v.since };
+}
+
+async function writeAiPause(admin: Admin, paused: boolean, reason?: string) {
+  await admin.from("world_control").upsert({
+    key: "ai_pause",
+    value: paused ? { paused: true, reason: reason ?? "AI credits/policy block", since: new Date().toISOString() } : { paused: false },
+    updated_at: new Date().toISOString(),
+  });
 }
 
 async function pushToUser(
@@ -114,6 +134,7 @@ export type TickReport = {
   pushed: number;
   aiCalls: number;
   paused: boolean;
+  aiPausedGlobally: boolean;
   errors: string[];
 };
 
@@ -128,6 +149,7 @@ export async function runWorldTick(): Promise<TickReport> {
     pushed: 0,
     aiCalls: 0,
     paused: false,
+    aiPausedGlobally: false,
     errors: [],
   };
 
@@ -141,12 +163,68 @@ export async function runWorldTick(): Promise<TickReport> {
   try {
     const now = new Date();
     const nowIso = now.toISOString();
+    const aiPause = await readAiPause(admin);
+    report.aiPausedGlobally = aiPause.paused;
+    // While paused, each run may make exactly one probe call; a successful
+    // probe lifts the pause, a failed one keeps it (background-jobs rules).
+    const aiBudget = aiPause.paused ? 1 : MAX_AI_CALLS_PER_RUN;
 
-    // Users with any conversation activity, most recent first, bounded.
+    // --- Push sweep: delayed replies that became visible since the last tick.
+    // Covers interactive-path messages (visible_at in the future when written).
+    // Dedupe: metadata.pushed is set in the same step as the push attempt.
+    const { data: due } = await admin
+      .from("messages")
+      .select("id, conversation_id, user_id, body, created_at, metadata, conversation:conversations(muted, last_read_at, character:characters(key, preferred_name))")
+      .eq("sender", "tess")
+      .lte("visible_at", nowIso)
+      .gte("created_at", new Date(now.getTime() - 24 * 3_600_000).toISOString())
+      .is("metadata->>pushed", null)
+      .order("created_at", { ascending: true })
+      .limit(MAX_PUSH_SWEEP_PER_RUN);
+
+    for (const msg of due ?? []) {
+      const conv = msg.conversation as {
+        muted?: boolean;
+        last_read_at?: string | null;
+        character?: { key?: string; preferred_name?: string } | null;
+      } | null;
+      // Mark first so a retry never double-notifies, even if the push fails.
+      const md = { ...((msg.metadata as Record<string, unknown>) ?? {}), pushed: true };
+      await admin.from("messages").update({ metadata: md }).eq("id", msg.id);
+      if (conv?.muted) continue;
+      if (conv?.last_read_at && new Date(conv.last_read_at) >= new Date(msg.created_at)) continue; // already seen
+      const { data: profile } = await admin
+        .from("user_profile")
+        .select("quiet_start, quiet_end")
+        .eq("user_id", msg.user_id)
+        .maybeSingle();
+      if (inQuietHours(now, profile?.quiet_start ?? null, profile?.quiet_end ?? null)) continue;
+      const name = conv?.character?.preferred_name ?? "Chats";
+      const push = await pushToUser(admin, msg.user_id, {
+        title: name,
+        body: msg.body?.slice(0, 80) || "New message",
+        url: `/chat/${msg.conversation_id}`,
+        tag: `conv-${msg.conversation_id}`,
+      });
+      report.pushed += push.sent;
+      if (push.sent > 0 || push.removed > 0) {
+        await admin.from("world_events").insert({
+          user_id: msg.user_id,
+          conversation_id: msg.conversation_id,
+          character_key: conv?.character?.key ?? null,
+          kind: "notification",
+          summary: push.sent > 0 ? `Push sent to ${push.sent} device(s)` : `Push skipped (${push.skipped ?? "none delivered"})`,
+          payload: { ...push, messageId: msg.id },
+        });
+      }
+    }
+
+    // --- Initiation checks. Least-recently-active conversations first so quiet
+    // users' worlds keep moving; active users already get interactive turns.
     const { data: convRows } = await admin
       .from("conversations")
       .select("id, user_id, character_id, difficulty, muted, last_read_at, real_time_mode, character:characters(key)")
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending: true })
       .limit(200);
     const byUser = new Map<string, typeof convRows>();
     for (const c of convRows ?? []) {
@@ -161,8 +239,9 @@ export async function runWorldTick(): Promise<TickReport> {
     const weather = await getWeatherContext().catch(() => null);
     const flavor = weather ? weatherFlavor(weather) : null;
 
+    let probeAttempted = false;
     for (const [userId, convs] of users) {
-      if (report.aiCalls >= MAX_AI_CALLS_PER_RUN || report.paused) break;
+      if (report.aiCalls >= aiBudget || report.paused) break;
       const { data: profile } = await admin
         .from("user_profile")
         .select("quiet_start, quiet_end")
@@ -170,7 +249,7 @@ export async function runWorldTick(): Promise<TickReport> {
         .maybeSingle();
 
       for (const conv of convs ?? []) {
-        if (report.aiCalls >= MAX_AI_CALLS_PER_RUN || report.paused) break;
+        if (report.aiCalls >= aiBudget || report.paused) break;
         const def = characterFor((conv.character as { key?: string } | null)?.key);
         const isTess = def.key === "tess";
 
@@ -252,8 +331,14 @@ export async function runWorldTick(): Promise<TickReport> {
         const reason = lifeEvent?.summary ?? flavor ?? null;
         try {
           report.aiCalls++;
+          if (aiPause.paused) probeAttempted = true;
           const { runTurn } = await import("./tess.functions");
           const result = await runTurn(admin, userId, conv.id, "America/New_York", { gapHours, reason });
+          if (aiPause.paused && probeAttempted) {
+            // Probe succeeded — lift the durable pause.
+            await writeAiPause(admin, false);
+            report.aiPausedGlobally = false;
+          }
           if (result.count > 0) {
             await admin.from("tess_life").update({ last_initiated_at: nowIso, updated_at: nowIso }).eq("conversation_id", conv.id);
             report.initiated.push({ conversationId: conv.id, character: def.preferredName, reason });
@@ -266,7 +351,8 @@ export async function runWorldTick(): Promise<TickReport> {
               payload: { score: decision.score, reasons: decision.reasons, gapHours: Math.round(gapHours * 10) / 10 },
             });
 
-            // Background push — one per conversation per tick, deduped by tag.
+            // Immediate push for the initiation (its visible_at is ~seconds out,
+            // so the next sweep would be up to a tick late). Mark messages pushed.
             if (!conv.muted && !inQuietHours(now, profile?.quiet_start ?? null, profile?.quiet_end ?? null)) {
               const push = await pushToUser(admin, userId, {
                 title: def.preferredName,
@@ -275,6 +361,13 @@ export async function runWorldTick(): Promise<TickReport> {
                 tag: `conv-${conv.id}`,
               });
               report.pushed += push.sent;
+              await admin
+                .from("messages")
+                .update({ metadata: { pushed: true } })
+                .eq("conversation_id", conv.id)
+                .eq("sender", "tess")
+                .gte("created_at", nowIso)
+                .is("metadata->>pushed", null);
               await admin.from("world_events").insert({
                 user_id: userId,
                 conversation_id: conv.id,
@@ -288,9 +381,10 @@ export async function runWorldTick(): Promise<TickReport> {
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           if (/\b(402|403)\b/.test(msg)) {
-            // Circuit breaker: credits/policy block — pause the run, no more AI.
+            // Circuit breaker: credits/policy block — durably pause the world.
             report.paused = true;
             report.errors.push(`AI paused: ${msg.slice(0, 120)}`);
+            await writeAiPause(admin, true, msg.slice(0, 200));
             break;
           }
           report.errors.push(`${def.key}: ${msg.slice(0, 120)}`);
@@ -304,6 +398,7 @@ export async function runWorldTick(): Promise<TickReport> {
       initiated: report.initiated.length,
       pushed: report.pushed,
       aiCalls: report.aiCalls,
+      aiPausedGlobally: report.aiPausedGlobally,
       errors: report.errors,
     });
   } catch (e) {
