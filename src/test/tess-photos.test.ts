@@ -17,3 +17,31 @@ describe("tess photos", () => {
     expect(eligiblePhotos({ ...SEED_STATE, irritation: 45 })).toEqual([]);
   });
 });
+
+import { allowedGeneratedTypes, curatedFallback, FREQUENCY_RULES } from "@/lib/tess-photos";
+
+describe("generated photos", () => {
+  it("early on only allows object photos, no selfies", () => {
+    expect(allowedGeneratedTypes(SEED_STATE)).toEqual(["object"]);
+  });
+  it("mild irritation removes all selfie types", () => {
+    const warm = { ...SEED_STATE, comfort: 80, trust: 80, romantic_attraction: 80, playfulness: 80, emotional_intimacy: 80 };
+    expect(allowedGeneratedTypes(warm)).toContain("intimate_selfie");
+    expect(allowedGeneratedTypes({ ...warm, irritation: 25 })).toEqual(["object"]);
+  });
+  it("substantial annoyance means no photos at all", () => {
+    expect(allowedGeneratedTypes({ ...SEED_STATE, irritation: 45 })).toEqual([]);
+  });
+  it("pressure blocks flattering selfies", () => {
+    const warm = { ...SEED_STATE, comfort: 80, trust: 80, romantic_attraction: 80, playfulness: 80, emotional_intimacy: 80, perceived_pressure: 35 };
+    expect(allowedGeneratedTypes(warm)).not.toContain("personal_selfie");
+    expect(allowedGeneratedTypes(warm)).toContain("casual_selfie");
+  });
+  it("frequent still keeps a cooldown", () => {
+    expect(FREQUENCY_RULES.frequent.cooldown).toBeGreaterThanOrEqual(5);
+    expect(FREQUENCY_RULES.normal.cooldown).toBe(12);
+  });
+  it("falls back to a matching curated photo", () => {
+    expect(curatedFallback("Mabel stole my sock again", [{ id: "mabel-sock", selfie: false, about: "", min: {} }])).toBe("mabel-sock");
+  });
+});
