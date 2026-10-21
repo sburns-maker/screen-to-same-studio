@@ -1,5 +1,10 @@
 # Tess roadmap
 
+## Current fixes (Sean's report: push toggle off, empty inbox)
+- Done: dropped stale UNIQUE(user_id) on conversations (leftover from Tess-only schema) that blocked seeding Maya/Claire/Jordan/Ben — inbox now shows all 5 contacts (verified signed-in).
+- Done: VAPID public key in push-config.ts didn't match VAPID_PRIVATE_KEY secret; replaced with the derived key. User must re-toggle Background notifications after the next publish.
+- Note: drizzle/migrations is read-only; the constraint drop was applied via SQL only.
+
 ## Current photo correction
 - Done: remove unsupported Claire/Jordan restrictions; separate capability, eligibility and willingness.
 - Done: support platonic personal photos, persistent romantic intent and refusal boundaries.
