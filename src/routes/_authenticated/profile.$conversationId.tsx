@@ -42,7 +42,7 @@ function Profile() {
             <Link
               key={a.label}
               to={a.to}
-              params={a.to.includes("$conversationId") ? { conversationId } : undefined}
+              {...(a.to.includes("$conversationId") ? { params: { conversationId } } : {})}
               className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface py-3 text-xs text-muted-foreground"
             >
               <a.icon className="h-5 w-5" />
