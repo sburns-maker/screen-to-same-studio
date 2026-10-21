@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { getPushRegistration } from "@/lib/pwa/register-sw";
+import { allLocalSubscriptions, findPushRegistration, getPushRegistration } from "@/lib/pwa/register-sw";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -216,24 +216,21 @@ function NotificationsRow() {
   const [permission, setPermission] = useState(() => (typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported"));
   const [localEndpoint, setLocalEndpoint] = useState<string | null>(null);
   const subs = status.data?.subscriptions ?? [];
-  // On = this device holds a subscription the server also knows about.
+  // On = this device holds a push-worker subscription the server also knows about.
   const enabled = localEndpoint ? subs.some((s) => s.endpoint === localEndpoint) : false;
 
   useEffect(() => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    void navigator.serviceWorker
-      .getRegistration()
+    void findPushRegistration()
       .then((r) => r?.pushManager?.getSubscription())
       .then((s) => setLocalEndpoint(s?.endpoint ?? null))
       .catch(() => setLocalEndpoint(null));
   }, []);
 
-  /** Drop any existing subscription on this device (e.g. one made with an old key). */
-  async function clearLocal(reg: ServiceWorkerRegistration | null) {
-    const existing = await reg?.pushManager?.getSubscription().catch(() => null);
-    if (existing) {
-      await remove({ data: { endpoint: existing.endpoint } }).catch(() => undefined);
-      await existing.unsubscribe().catch(() => undefined);
+  /** Drop every subscription on this device (old /sw.js ones and ones made with an old key). */
+  async function clearLocal() {
+    for (const s of await allLocalSubscriptions()) {
+      await remove({ data: { endpoint: s.endpoint } }).catch(() => undefined);
+      await s.unsubscribe().catch(() => undefined);
     }
     setLocalEndpoint(null);
   }
@@ -248,7 +245,7 @@ function NotificationsRow() {
         if (perm !== "granted") throw new Error("Notifications weren't allowed. You can change this in your phone's settings.");
         const reg = await getPushRegistration();
         if (!reg.pushManager) throw new Error("This browser doesn't support background notifications.");
-        await clearLocal(reg); // always start fresh so a stale key can't block subscribing
+        await clearLocal(); // always start fresh so a stale key can't block subscribing
         const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(VAPID_PUBLIC_KEY) as BufferSource });
         const json = sub.toJSON();
         await save({ data: { endpoint: sub.endpoint, keys: { p256dh: json.keys!["p256dh"], auth: json.keys!["auth"] }, userAgent: navigator.userAgent } });
@@ -256,8 +253,7 @@ function NotificationsRow() {
         localStorage.setItem("tess:notifications", "on"); // foreground toasts while the app is open
         toast.success("Background notifications on for this device.");
       } else {
-        const reg = await navigator.serviceWorker.getRegistration().catch(() => undefined);
-        await clearLocal(reg ?? null);
+        await clearLocal();
         localStorage.setItem("tess:notifications", "off");
         toast.success("Background notifications off for this device.");
       }
@@ -269,12 +265,11 @@ function NotificationsRow() {
     }
   }
 
-  /** Full reset: forget every device registered to this account plus this device's subscription. */
+  /** Full reset: forget every device registered to this account plus this device's subscriptions. */
   async function resetAll() {
     setBusy(true);
     try {
-      const reg = await navigator.serviceWorker?.getRegistration().catch(() => undefined);
-      await clearLocal(reg ?? null);
+      await clearLocal();
       for (const s of subs) await remove({ data: { endpoint: s.endpoint } }).catch(() => undefined);
       toast.success("Notifications reset. Turn the switch on to register this device again.");
     } finally {
@@ -315,7 +310,7 @@ function NotificationsRow() {
             Send test notification
           </button>
         )}
-        {(subs.length > 0 || localEndpoint) && (
+        {(
           <button type="button" disabled={busy} onClick={resetAll} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50">
             Reset notifications
           </button>
