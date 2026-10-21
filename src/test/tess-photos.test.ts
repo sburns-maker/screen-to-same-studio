@@ -45,3 +45,41 @@ describe("generated photos", () => {
     expect(curatedFallback("Mabel stole my sock again", [{ id: "mabel-sock", selfie: false, about: "", min: {} }])).toBe("mabel-sock");
   });
 });
+
+import { describeStyle, tooSimilarToRecent, varyStyle, type PhotoStyle } from "@/lib/tess-photos";
+
+const chestUpSelfie: PhotoStyle = {
+  pose_type: "standing",
+  camera_angle: "front_camera",
+  crop_type: "chest_up",
+  hairstyle: "half_up",
+  expression: "slight_smile",
+};
+
+describe("photo style variety", () => {
+  it("flags an exact repeat of a recent photo's defining attributes", () => {
+    expect(tooSimilarToRecent(chestUpSelfie, [chestUpSelfie])).toBe(true);
+  });
+
+  it("does not flag a genuinely different composition", () => {
+    expect(tooSimilarToRecent({ ...chestUpSelfie, crop_type: "full_body" }, [chestUpSelfie])).toBe(false);
+    expect(tooSimilarToRecent(chestUpSelfie, [])).toBe(false);
+  });
+
+  it("ignores incomplete styles rather than guessing", () => {
+    expect(tooSimilarToRecent({ pose_type: "standing" }, [chestUpSelfie])).toBe(false);
+  });
+
+  it("nudges only exact repeats, leaving contextual choices alone", () => {
+    const varied = varyStyle(chestUpSelfie, [chestUpSelfie]);
+    expect(tooSimilarToRecent(varied, [chestUpSelfie])).toBe(false);
+    expect(varied.expression).toBe("slight_smile");
+    const untouched = varyStyle({ ...chestUpSelfie, hairstyle: "messy_bun" }, [chestUpSelfie]);
+    expect(untouched.hairstyle).toBe("messy_bun");
+  });
+
+  it("describes styles for the reply prompt", () => {
+    expect(describeStyle(chestUpSelfie)).toContain("front_camera");
+    expect(describeStyle({})).toBe("(unrecorded style)");
+  });
+});

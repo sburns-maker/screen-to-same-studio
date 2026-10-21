@@ -12,7 +12,17 @@ import {
   type Difficulty,
   type TessState,
 } from "./tess-logic";
-import { FREQUENCY_RULES, allowedGeneratedTypes, curatedFallback, eligiblePhotos, type PhotoFrequency } from "./tess-photos";
+import {
+  FREQUENCY_RULES,
+  allowedGeneratedTypes,
+  curatedFallback,
+  describeStyle,
+  eligiblePhotos,
+  tooSimilarToRecent,
+  varyStyle,
+  type PhotoFrequency,
+  type PhotoStyle,
+} from "./tess-photos";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -52,24 +62,47 @@ export const ensureConversation = createServerFn({ method: "POST" })
     return { id: conv.id as string };
   });
 
-async function createGeneratedPhoto(supabase: Sb, userId: string, type: string, scene: string, expression: string | null) {
+async function createGeneratedPhoto(
+  supabase: Sb,
+  userId: string,
+  type: string,
+  scene: string,
+  expression: string | null,
+  style: PhotoStyle | null,
+) {
   const apiKey = process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("image provider not configured");
-  const { generateTessImage, includesTess, lovableGatewayProvider } = await import("./tess-image.server");
+  const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const t = type as import("./tess-image.server").TessImageType;
-  let reference: Blob | null = null;
+  let tessReference: Blob | null = null;
   if (includesTess(t)) {
     const { data, error } = await supabaseAdmin.storage.from("tess-reference").download("canonical.jpg");
     if (error || !data) throw new Error("canonical reference unavailable");
-    reference = data;
+    tessReference = data;
+  }
+  // Mabel's canonical reference is optional — a missing file must never break a reply.
+  let mabelReference: Blob | null = null;
+  if (sceneHasMabel(scene)) {
+    const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
+    mabelReference = data ?? null;
   }
   const provider = lovableGatewayProvider(apiKey);
-  const img = await generateTessImage({ provider, reference, type: t, scene, expression });
+  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style });
   const path = `${userId}/${crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
-  return { path, type, scene, selfie: t.endsWith("selfie"), tess: includesTess(t), provider: img.provider, model: img.model };
+  return {
+    path,
+    type,
+    scene,
+    selfie: t.endsWith("selfie"),
+    tess: includesTess(t),
+    provider: img.provider,
+    model: img.model,
+    style,
+    identityReferenceUsed: img.identityReferenceUsed,
+  };
 }
 
 async function removeUserPhotos(supabase: Sb, userId: string) {
@@ -93,7 +126,7 @@ async function runTurn(
     await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso);
   }
 
-  const [{ data: stateRow }, { data: msgs }, { data: mems }] = await Promise.all([
+  const [{ data: stateRow }, { data: msgs }, { data: mems }, { data: recentGen }] = await Promise.all([
     supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
     supabase
       .from("messages")
@@ -108,7 +141,15 @@ async function runTurn(
       .eq("conversation_id", conv.id)
       .order("importance", { ascending: false })
       .limit(15),
+    supabase
+      .from("generated_images")
+      .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
+      .eq("conversation_id", conv.id)
+      .eq("includes_tess", true)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ]);
+  const recentStyles = (recentGen ?? []) as PhotoStyle[];
 
   const state = pickState(stateRow ?? {});
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
@@ -145,6 +186,7 @@ async function runTurn(
     photos,
     generateTypes,
     photoFrequency: freq,
+    recentPhotoStyles: recentStyles.map(describeStyle),
     memories: (mems ?? []).map((m: { memory_type: string; summary: string }) => `${m.memory_type}: ${m.summary}`),
     tz,
     initiation,
@@ -162,13 +204,25 @@ async function runTurn(
 
   // --- Photo: curated first, then optional generation, else none. Failures stay invisible.
   let photo: string | null = null;
-  let generated: { path: string; type: string; scene: string; selfie: boolean; tess: boolean; provider: string; model: string } | null = null;
+  let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   const p = reply.photo;
   if (p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type) && Math.random() < rules.generateChance) {
     try {
-      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, p.expression);
+      const rawStyle: PhotoStyle = {
+        pose_type: p.pose_type,
+        camera_angle: p.camera_angle,
+        crop_type: p.crop_type,
+        hairstyle: p.hairstyle,
+        expression: p.expression,
+        clothing_category: p.clothing_category,
+        setting: p.setting,
+        selfie_type: p.selfie_type,
+      };
+      // Context first, variety second: only nudge an exact repeat of a recent photo.
+      const style = varyStyle(rawStyle, recentStyles);
+      generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style);
     } catch (e) {
       console.error("tess photo generation failed", e);
       photo = curatedFallback(p.scene, photos);
@@ -213,6 +267,15 @@ async function runTurn(
           provider: generated.provider,
           model: generated.model,
           storage_path: generated.path,
+          pose_type: generated.style?.pose_type ?? null,
+          camera_angle: generated.style?.camera_angle ?? null,
+          crop_type: generated.style?.crop_type ?? null,
+          hairstyle: generated.style?.hairstyle ?? null,
+          expression: generated.style?.expression ?? null,
+          clothing_category: generated.style?.clothing_category ?? null,
+          setting: generated.style?.setting ?? null,
+          selfie_type: generated.style?.selfie_type ?? null,
+          identity_reference_used: generated.identityReferenceUsed,
         })
         .select("id")
         .single();

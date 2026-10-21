@@ -87,49 +87,76 @@ export type Database = {
       }
       generated_images: {
         Row: {
+          camera_angle: string | null
+          clothing_category: string | null
           conversation_id: string
           created_at: string
+          crop_type: string | null
+          expression: string | null
+          hairstyle: string | null
           id: string
+          identity_reference_used: string | null
           includes_tess: boolean
           is_selfie: boolean
           message_id: string | null
           model: string
           photo_type: string
+          pose_type: string | null
           provider: string
           relationship_stage: string | null
           scene: string
+          selfie_type: string | null
+          setting: string | null
           state_snapshot: Json
           storage_path: string
           user_id: string
         }
         Insert: {
+          camera_angle?: string | null
+          clothing_category?: string | null
           conversation_id: string
           created_at?: string
+          crop_type?: string | null
+          expression?: string | null
+          hairstyle?: string | null
           id?: string
+          identity_reference_used?: string | null
           includes_tess?: boolean
           is_selfie?: boolean
           message_id?: string | null
           model: string
           photo_type: string
+          pose_type?: string | null
           provider: string
           relationship_stage?: string | null
           scene: string
+          selfie_type?: string | null
+          setting?: string | null
           state_snapshot?: Json
           storage_path: string
           user_id: string
         }
         Update: {
+          camera_angle?: string | null
+          clothing_category?: string | null
           conversation_id?: string
           created_at?: string
+          crop_type?: string | null
+          expression?: string | null
+          hairstyle?: string | null
           id?: string
+          identity_reference_used?: string | null
           includes_tess?: boolean
           is_selfie?: boolean
           message_id?: string | null
           model?: string
           photo_type?: string
+          pose_type?: string | null
           provider?: string
           relationship_stage?: string | null
           scene?: string
+          selfie_type?: string | null
+          setting?: string | null
           state_snapshot?: Json
           storage_path?: string
           user_id?: string
