@@ -8,6 +8,7 @@ import { KNOWLEDGE_RULES } from "./social-logic";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
 const OWN_MODEL = "gpt-4.1-mini";
+import { enforceTessVoice, cleanTessHistoryLine } from "./tess-voice";
 
 export const CHARACTER_BIBLE = `
 TESS MORGAN — 34, she/her, single, no kids. Lives alone in a rented townhouse in a fictional mid-sized Pennsylvania city with her rescue dog Mabel (who steals socks).
@@ -173,7 +174,8 @@ function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
   return msgs
     .map((m) => {
       const t = new Date(m.created_at).toLocaleString("en-US", { timeZone: tz, weekday: "short", hour: "numeric", minute: "2-digit" });
-      return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${m.body}`;
+      const body = m.sender === "tess" && contactName === "Tess" ? cleanTessHistoryLine(m.body) : m.body;
+      return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${body}`;
     })
     .join("\n");
 }
@@ -277,7 +279,14 @@ ${KNOWLEDGE_RULES}
 - tone: one word (playful, dry, warm, guarded, annoyed, flirty, distracted, neutral...).
 - event_tags: short tags for what happened this turn (e.g. "user_flirt", "flirt_rejected", "callback", "pressure", "apology").`;
 
-  return runStructured(replySchema, `${SYSTEM_CORE}\n${rules}`, `${context}\n\n${task}`);
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.`, `${context}\n\n${task}`);
+  const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
+  const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
+  // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
+  reply.messages = cleaned.length || !reply.messages.length
+    ? cleaned
+    : [(reply.messages[0] ?? "").replace(/\p{Extended_Pictographic}/gu, "").replace(/!+/g, ".").trim()].filter(Boolean);
+  return reply;
 }
 
 export async function generateDebrief(args: {
