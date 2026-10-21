@@ -106,6 +106,13 @@ export const replySchema = z.object({
       scene: z.string().nullable(),
       expression: z.string().nullable(),
       reason: z.string().nullable(),
+      pose_type: z.string().nullable(),
+      camera_angle: z.string().nullable(),
+      crop_type: z.string().nullable(),
+      hairstyle: z.string().nullable(),
+      clothing_category: z.string().nullable(),
+      setting: z.string().nullable(),
+      selfie_type: z.string().nullable(),
     })
     .nullable(),
   tone: z.string(),
@@ -174,9 +181,11 @@ export async function generateTessReply(args: {
   photos: { id: string; about: string; selfie: boolean }[];
   generateTypes: string[];
   photoFrequency: string;
+  recentPhotoStyles?: string[];
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
+  const tessLocal = new Date(now.toLocaleString("en-US", { timeZone: TESS_TZ }));
   const context = `
 CHARACTER BIBLE
 ${CHARACTER_BIBLE}
@@ -185,11 +194,13 @@ HIDDEN STATE (0–100, never mention): ${JSON.stringify(args.state)}
 RELATIONSHIP STAGE: ${args.stage}
 DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
-TESS RIGHT NOW: ${availabilityFor(local)}
+TESS'S LOCAL TIME (Eastern): ${tessLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
+TESS RIGHT NOW: ${availabilityFor(tessLocal)}
 CURRENT LIFE THREADS: ${currentLifeContext(now).join("; ")}
 EXISTING PHOTOS SHE COULD SEND: ${args.photos.length ? args.photos.map((p) => `${p.id} (${p.about}${p.selfie ? ", selfie" : ""})`).join("; ") : "(none right now)"}
 NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.generateTypes.join(", ") : "(none — no new photos)"}
 PHOTO FREQUENCY PREFERENCE: ${args.photoFrequency}
+HER RECENT PHOTO STYLES (avoid repeating the same combination unless the scene demands it): ${args.recentPhotoStyles?.length ? args.recentPhotoStyles.join(" | ") : "(none yet)"}
 LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
 
 RECENT CONVERSATION
