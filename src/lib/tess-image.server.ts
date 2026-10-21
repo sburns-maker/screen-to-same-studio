@@ -60,7 +60,7 @@ export function buildImagePrompt(type: TessImageType, scene: string, expression:
   }
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
-    !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES.selfie : "";
+    !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES["selfie"] : "";
   return `${IDENTITY}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${STYLE}`;
 }
 
