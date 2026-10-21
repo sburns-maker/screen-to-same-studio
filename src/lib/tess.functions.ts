@@ -425,7 +425,9 @@ export async function runTurn(
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
     const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
-    if (Math.random() < rules.generateChance) {
+    // A requested on-demand photo the character chose to send is honored; the random roll only thins unprompted ones.
+    const askedForPhoto = /\b(photo|pic|picture|selfie|snap|show me|send me)\b/i.test(recentUserText ?? "");
+    if (askedForPhoto || Math.random() < rules.generateChance) {
       try {
         const rawStyle: PhotoStyle = {
           pose_type: p.pose_type,
