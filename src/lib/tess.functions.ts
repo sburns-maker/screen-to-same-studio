@@ -31,6 +31,7 @@ import {
 } from "./tess-life";
 import { characterAvailability, characterFor, type CharacterDef } from "./characters";
 import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, willingPhotoAllowed, safePhotoScene, type PhotoContext, type PhotoBoundary } from "./photo-policy";
+import { storySchedule } from "./storyline-logic";
 
 const FIRST_MESSAGE =
   "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
@@ -285,17 +286,19 @@ export async function runTurn(
   // isolation is enforced by the query. Their prompt never sees what other
   // characters witnessed or what the user said to anyone else.
   const { knowledgeForCharacter } = await import("./social.server");
+  const { storylineContext } = await import("./storyline.server");
+  const story = await storylineContext(supabase, userId, def.key, now);
   const { knowledgePromptLines } = await import("./social-logic");
-  const worldKnowledge = knowledgePromptLines(
+  const worldKnowledge = [...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
-  );
+  )];
 
   let reply: import("./tess.server").TessReply;
   let photos: ReturnType<typeof eligiblePhotos> = [];
   let generateTypes: string[] = [];
   let freq: PhotoFrequency = "normal";
-  let lifeEvent: LifeEvent | null = null;
+  let lifeEvent: LifeEvent | null = story.event;
 
   if (isTess) {
     const sentPhotos = new Set(
@@ -315,7 +318,7 @@ export async function runTurn(
       : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object"));
     generateTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, photoContext);
 
-    lifeEvent = activeLifeEvent(
+    lifeEvent = story.event ?? activeLifeEvent(
       now,
       weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
     );
@@ -339,6 +342,7 @@ export async function runTurn(
       initiationReason: initiation?.reason ?? null,
       photoBoundary: photoContext.boundary,
       worldKnowledge,
+      availabilityDetail: storySchedule(scheduleFor(now, difficulty === "chaos" ? 2 : 1), story.event).detail,
     });
   } else {
     const avail = characterAvailability(def, now);
@@ -365,7 +369,7 @@ export async function runTurn(
       tz,
       initiation,
       initiationReason: initiation?.reason ?? null,
-      availabilityDetail: avail.detail,
+      availabilityDetail: storySchedule({ activity: avail.detail, availability: avail.availability, detail: avail.detail }, story.event).detail,
       weather,
       generateTypes,
       recentPhotoStyles: recentStyles.map(describeStyle),
@@ -445,12 +449,12 @@ export async function runTurn(
   const realTime = !!(conv as { real_time_mode?: boolean }).real_time_mode;
   const lastUserMsg = recent.find((m) => m.sender === "user");
   const activelyChatting = !!lastUserMsg && Date.now() - new Date(lastUserMsg.created_at).getTime() < 5 * 60_000;
-  const schedule = isTess
+  const schedule = storySchedule(isTess
     ? scheduleFor(now, difficulty === "chaos" ? 2 : 1)
     : (() => {
         const a = characterAvailability(def, now);
         return { activity: a.detail, availability: a.availability, detail: a.detail };
-      })();
+      })(), story.event);
   const latency = initiation
     ? { seconds: 3 as number | null, reason: "initiation — no reply delay" }
     : decideLatency({

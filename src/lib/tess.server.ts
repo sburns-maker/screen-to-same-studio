@@ -219,6 +219,7 @@ export async function generateTessReply(args: {
   initiationReason?: string | null;
   photoBoundary?: PhotoBoundary;
   worldKnowledge?: string[];
+  availabilityDetail?: string;
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
@@ -233,10 +234,10 @@ RELATIONSHIP STAGE: ${args.stage}
 DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 TESS'S LOCAL TIME (Eastern): ${tessLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
-TESS RIGHT NOW: ${schedule.detail}
+TESS RIGHT NOW: ${args.availabilityDetail ?? schedule.detail}
 ACTIVE LIFE EVENT: ${args.lifeEvent ? `${args.lifeEvent.summary} (mood: ${args.lifeEvent.mood})` : "(none — ordinary week)"}
 WEATHER IN HER AREA: ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F (feels ${args.weather.feels_like_f}°F), wind ${args.weather.wind_mph} mph${args.weather.weather_alert ? `, alert: ${args.weather.weather_alert}` : ""}` : "(unknown — don't bring it up)"}${args.weatherFlavor ? `\nWEATHER FLAVOR SHE MIGHT USE: ${args.weatherFlavor}` : ""}
-CURRENT LIFE THREADS: ${currentLifeContext(now).join("; ")}
+CURRENT LIFE THREADS: ${args.worldKnowledge?.some(line => line.includes("Never invent completion")) ? "Use the persistent situations below as authoritative; no additional invented life threads." : currentLifeContext(now).join("; ")}
 EXISTING PHOTOS SHE COULD SEND: ${args.photos.length ? args.photos.map((p) => `${p.id} (${p.about}${p.selfie ? ", selfie" : ""})`).join("; ") : "(none right now)"}
 NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.generateTypes.join(", ") : "(none — no new photos)"}
 PHOTO FREQUENCY PREFERENCE: ${args.photoFrequency}
