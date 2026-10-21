@@ -138,6 +138,16 @@ export const debriefSchema = z.object({
   tess_read: z.string(),
   who_carried: z.string(),
   tess_invested: z.string(),
+  initiation: z.string(),
+  reciprocity: z.string(),
+  question_balance: z.string(),
+  branches: z.string(),
+  exits: z.string(),
+  tone_read: z.string(),
+  baseline_change: z.string(),
+  friendly_vs_flirty: z.string(),
+  interest_direction: z.string(),
+  momentum: z.string(),
   try_next: z.string(),
 });
 export type Debrief = z.infer<typeof debriefSchema>;
@@ -190,10 +200,15 @@ export async function generateTessReply(args: {
   generateTypes: string[];
   photoFrequency: string;
   recentPhotoStyles?: string[];
+  weather?: WeatherContext | null;
+  weatherFlavor?: string | null;
+  lifeEvent?: LifeEvent | null;
+  initiationReason?: string | null;
 }): Promise<TessReply> {
   const now = new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
   const tessLocal = new Date(now.toLocaleString("en-US", { timeZone: TESS_TZ }));
+  const schedule = scheduleFor(now, args.difficulty === "chaos" ? 2 : 1);
   const context = `
 CHARACTER BIBLE
 ${CHARACTER_BIBLE}
@@ -203,7 +218,9 @@ RELATIONSHIP STAGE: ${args.stage}
 DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 TESS'S LOCAL TIME (Eastern): ${tessLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
-TESS RIGHT NOW: ${availabilityFor(tessLocal)}
+TESS RIGHT NOW: ${schedule.detail}
+ACTIVE LIFE EVENT: ${args.lifeEvent ? `${args.lifeEvent.summary} (mood: ${args.lifeEvent.mood})` : "(none — ordinary week)"}
+WEATHER IN HER AREA: ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F (feels ${args.weather.feels_like_f}°F), wind ${args.weather.wind_mph} mph${args.weather.weather_alert ? `, alert: ${args.weather.weather_alert}` : ""}` : "(unknown — don't bring it up)"}${args.weatherFlavor ? `\nWEATHER FLAVOR SHE MIGHT USE: ${args.weatherFlavor}` : ""}
 CURRENT LIFE THREADS: ${currentLifeContext(now).join("; ")}
 EXISTING PHOTOS SHE COULD SEND: ${args.photos.length ? args.photos.map((p) => `${p.id} (${p.about}${p.selfie ? ", selfie" : ""})`).join("; ") : "(none right now)"}
 NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.generateTypes.join(", ") : "(none — no new photos)"}
