@@ -76,8 +76,8 @@ function Debug() {
     };
   }, [fn]);
 
-  const s = snap?.state as TessState | undefined;
-  const delta = (snap?.lastDelta ?? {}) as Record<string, number | string | string[]>;
+  const s = snap?.state;
+  const delta = snap?.lastDelta ?? {};
   const tags = Array.isArray(delta["tags"]) ? (delta["tags"] as string[]) : [];
 
   return (
