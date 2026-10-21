@@ -70,6 +70,6 @@ describe("photo autonomy and boundaries", () => {
   });
   it("Tess curated couch photo still permits genuine platonic closeness", () => {
     expect(eligiblePhotos(close).map(p => p.id)).toContain("selfie-couch");
-    expect(eligiblePhotos(SEED_STATE)).toHaveLength(5);
+    expect(eligiblePhotos(SEED_STATE).map(p => p.id)).toEqual(["mabel-sock", "mabel-walk", "trivia-sheet", "coffee"]);
   });
 });

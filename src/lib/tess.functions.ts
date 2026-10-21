@@ -14,7 +14,6 @@ import {
 } from "./tess-logic";
 import {
   FREQUENCY_RULES,
-  allowedGeneratedTypes,
   curatedFallback,
   describeStyle,
   eligiblePhotos,
@@ -385,6 +384,11 @@ export async function runTurn(
     delta.romantic_intent = 0;
   }
   const next = applyDelta(state, delta);
+  if (!def.romanticCapable) {
+    next.romantic_attraction = 0;
+    next.physical_attraction = 0;
+    next.romantic_intent = 0;
+  }
   const stage = deriveStage(next);
 
   await supabase
@@ -467,7 +471,7 @@ export async function runTurn(
         initiated: !!initiation,
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
-        ...(generated && i === 0 ? { generated_path: generated.path } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path, photo_type: generated.type } : {}),
       },
     };
   });
@@ -501,10 +505,11 @@ export async function runTurn(
         })
         .select("id")
         .single();
-      if (img) {
+      const firstRow = rows[0];
+      if (img && firstRow) {
         await supabase
           .from("messages")
-          .update({ metadata: { ...rows[0]!.metadata, generated_image_id: img.id } })
+          .update({ metadata: { ...firstRow.metadata, generated_image_id: img.id } })
           .eq("id", inserted[0].id);
       }
     }
@@ -522,7 +527,7 @@ export async function runTurn(
     }));
   if (memRows.length) await supabase.from("memories").insert(memRows);
 
-  return { count: rows.length, lastVisibleAt: rows.length ? rows[rows.length - 1]!.visible_at : null };
+  return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null };
 }
 
 export const tessRespond = createServerFn({ method: "POST" })
@@ -835,7 +840,11 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       .slice(0, rules.cooldown)
       .some(hasPhoto);
     const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
-    const genTypes = !isTess || recentlySentPhoto ? [] : allowedGeneratedTypes(state);
+    const genTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, {
+      age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
+      supported: def.photoTypes, matureEnabled: conv.mature_photography,
+      boundary: conv.photo_boundary as PhotoBoundary,
+    });
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
     return {
       character: { key: def.key, name: def.preferredName, fullName: def.fullName, photosEnabled: def.photosEnabled },
@@ -862,10 +871,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         lastInitiatedAt: life?.last_initiated_at ?? null,
       },
       photo: {
-        eligible: isTess && !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
-        reason: !isTess
-          ? `${def.preferredName} doesn't send photos (avatar only in V1)`
-          : recentlySentPhoto
+        eligible: !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
+        reason: recentlySentPhoto
             ? `cooldown — she sent a photo within her last ${rules.cooldown} messages`
             : state.irritation >= 40
               ? `irritation ${state.irritation} — no photos while annoyed`
@@ -874,6 +881,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
                 : `${curatedCount} curated + generated types [${genTypes.join(", ") || "none"}] available`,
         curatedCount,
         generatedTypes: genTypes,
+        boundary: conv.photo_boundary,
+        matureEnabled: conv.mature_photography,
       },
       latencyReason: lastLatency,
       recentMemories: mems ?? [],
