@@ -203,7 +203,7 @@ async function removeUserPhotos(supabase: Sb, userId: string) {
   if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
 }
 
-async function runTurn(
+export async function runTurn(
   supabase: Sb,
   userId: string,
   conversationId: string,
