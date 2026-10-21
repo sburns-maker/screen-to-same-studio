@@ -6,7 +6,7 @@ import { advanceStory, beginStories, readStory, storyActive, storyEvent, storyLi
 type Client = SupabaseClient<Database>;
 type Root = { id: string; state: StoryState };
 async function loadStories(db: Client, userId: string): Promise<Root[]> {
-  const { data, error } = await db.from("shared_events").select("id, facts").eq("user_id", userId).eq("kind", "life_storyline").limit(20);
+  const { data, error } = await db.from("shared_events").select("id, facts").eq("user_id", userId).eq("kind", "life_storyline").order("occurs_at", { ascending: false }).limit(1000);
   if (error) throw error;
   return (data ?? []).flatMap(r => { const state = readStory(r.facts); return state ? [{ id: r.id, state }] : []; });
 }

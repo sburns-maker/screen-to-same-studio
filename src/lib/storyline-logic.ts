@@ -3,7 +3,7 @@ import type { LifeEvent, TessActivity } from "./tess-life";
 
 export const STORY_LIMIT = 1; // per character, including shared involvement
 export const STORY_STEPS_PER_TICK = 10;
-export const STORY_COOLDOWN_DAYS = 14;
+export const STORY_COOLDOWN_DAYS = 3;
 const DAY = 86_400_000;
 export type StoryStage = "beginning" | "development" | "complication" | "decision" | "postponed" | "resolved" | "faded" | "continuing";
 export type StoryState = {
@@ -26,6 +26,49 @@ export const STORY_TEMPLATES: Template[] = [
   { key: "ben_family", owner: "ben", npc: "Sarah", title: "Finding room for a family outing", location: "home", start: "Ben and Sarah are trying to fit a simple family outing around work and the kids' plans", develop: "they are comparing a few nearby, low-effort options", complication: "the first day conflicts with another family commitment", decision: "they are considering a shorter outing closer to home", outcomes: ["they enjoyed a short local family outing without making a big production of it", "they stayed home for a relaxed family afternoon instead"], photo: "packed snacks or an ordinary family picnic setting, no children in frame" },
 ];
 
+type Cast = { name: string; domain: "work" | "family" | "hobby" | "home" | "community"; place: string };
+const CASTS: Record<string, Cast[]> = {
+  tess: [{ name: "Sam", domain: "work", place: "the veterinary practice" }, { name: "Dr. Kline", domain: "work", place: "the veterinary practice" }, { name: "Evan", domain: "family", place: "home" }, { name: "her mom", domain: "family", place: "her parents' house" }, { name: "the trivia team", domain: "hobby", place: "the trivia bar" }, { name: "her landlord", domain: "home", place: "her apartment" }, { name: "a neighbor", domain: "community", place: "the neighborhood" }],
+  maya: [{ name: "Tasha", domain: "work", place: "the venue" }, { name: "the venue manager", domain: "work", place: "the venue" }, { name: "Becca", domain: "family", place: "home" }, { name: "her sister", domain: "family", place: "her sister's place" }, { name: "her dance class", domain: "hobby", place: "the studio" }, { name: "her roommate", domain: "home", place: "her apartment" }, { name: "a regular customer", domain: "community", place: "downtown Altoona" }],
+  claire: [{ name: "Mrs. Abernathy", domain: "work", place: "the school library" }, { name: "a fellow teacher", domain: "work", place: "the school" }, { name: "Natalie", domain: "family", place: "Claire's home" }, { name: "her dad", domain: "family", place: "her dad's house" }, { name: "her book club", domain: "hobby", place: "the café" }, { name: "a contractor", domain: "home", place: "Claire's home" }, { name: "the library volunteers", domain: "community", place: "the public library" }],
+  jordan: [{ name: "Patel", domain: "work", place: "the engineering office" }, { name: "a project manager", domain: "work", place: "the engineering office" }, { name: "Ruth", domain: "hobby", place: "the climbing gym" }, { name: "their brother", domain: "family", place: "a family call" }, { name: "a cycling group", domain: "hobby", place: "the trails" }, { name: "the building super", domain: "home", place: "their apartment" }, { name: "a neighbor", domain: "community", place: "the neighborhood" }],
+  ben: [{ name: "Mikey", domain: "work", place: "the work van" }, { name: "a longtime client", domain: "work", place: "a job site" }, { name: "Sarah", domain: "family", place: "home" }, { name: "his parents", domain: "family", place: "his parents' house" }, { name: "his softball league", domain: "hobby", place: "the ballfield" }, { name: "a hardware store clerk", domain: "home", place: "the garage" }, { name: "the youth coach", domain: "community", place: "the rec center" }],
+};
+type Incident = { key: string; title: string; start: string; develop: string; complication: string; decision: string; outcomes: [string, string]; photo: string };
+const INCIDENTS: Record<Cast["domain"], Incident[]> = {
+  work: [
+    { key: "equipment", title: "a piece of equipment acting up", start: "a piece of equipment keeps acting up", develop: "they are working around it while waiting on a repair", complication: "the replacement part is backordered", decision: "they are weighing repair against replacing it", outcomes: ["it got repaired and works fine again", "they replaced it and stopped fighting the old one"], photo: "the workspace with the troublesome equipment" },
+    { key: "rush", title: "a busy stretch", start: "work is heading into an unusually busy stretch", develop: "the days are running long but manageable", complication: "someone is out sick during the rush", decision: "they are deciding what can wait until it eases", outcomes: ["the busy stretch passed and things calmed down", "it eased off gradually without any big moment"], photo: "a cluttered desk or counter mid-shift" },
+    { key: "training", title: "learning a new process", start: "there's a new process to learn", develop: "practice runs are going okay", complication: "the new process has a confusing step", decision: "they are choosing whether to adapt it or push back", outcomes: ["the new process stuck and feels normal now", "they kept parts of it and quietly dropped the rest"], photo: "printed instructions with a coffee" },
+    { key: "disagreement", title: "a mild disagreement at work", start: "there's a mild disagreement about how to handle something at work", develop: "they each tried their own approach for a bit", complication: "the disagreement resurfaced over a small detail", decision: "they are looking for a reasonable middle ground", outcomes: ["they settled on a compromise and moved on", "it fizzled out without either side really winning"], photo: "an ordinary view of the workplace" },
+    { key: "opportunity", title: "a small opportunity at work", start: "a small new responsibility was offered", develop: "they are trying it out alongside normal duties", complication: "it takes more time than expected", decision: "they are deciding whether to keep it", outcomes: ["they kept the new responsibility and like it", "they handed it back; it wasn't worth the extra time"], photo: "a notebook of ideas" },
+  ],
+  family: [
+    { key: "visit", title: "a family visit", start: "a family visit is being talked about", develop: "dates are being compared", complication: "the first date stopped working", decision: "they are considering a shorter visit", outcomes: ["the visit happened and was pleasant", "it turned into a long phone call instead"], photo: "a tidied living room or a simple meal" },
+    { key: "help", title: "helping family with a project", start: "family asked for help with a practical project", develop: "they spent a couple of evenings on it", complication: "the project turned out bigger than described", decision: "they are working out how much more to take on", outcomes: ["the project got finished together", "they helped with part and someone else finished it"], photo: "tools or boxes from the project" },
+    { key: "health", title: "a family member's minor health worry", start: "a family member has a minor health worry", develop: "an appointment has been scheduled", complication: "the appointment got pushed back", decision: "they are waiting on what the doctor says", outcomes: ["it turned out to be nothing serious", "it's being managed with some small changes"], photo: "a mug of tea at home" },
+    { key: "celebration", title: "planning a family celebration", start: "a small family celebration is coming up", develop: "plans are taking shape", complication: "people disagree about where to hold it", decision: "they are choosing a simple option", outcomes: ["the celebration went well", "it ended up smaller than planned, which was fine"], photo: "a card or a cake" },
+  ],
+  hobby: [
+    { key: "goal", title: "a personal hobby goal", start: "there's a small personal goal in a hobby", develop: "progress is steady but slow", complication: "a plateau has been frustrating", decision: "they are deciding whether to change approach", outcomes: ["they hit the goal and moved on", "they relaxed the goal and enjoyed it more"], photo: "hobby gear laid out" },
+    { key: "event", title: "a hobby event", start: "there's a hobby event coming up", develop: "they are casually preparing for it", complication: "the date conflicts with something else", decision: "they are deciding whether to go", outcomes: ["they went and had a good time", "they skipped it this time and didn't mind"], photo: "a flyer or the venue" },
+    { key: "newperson", title: "someone new in a hobby group", start: "someone new joined their hobby group", develop: "they have chatted a few times", complication: "the newcomer has different expectations", decision: "they are seeing whether they click", outcomes: ["they became friendly acquaintances", "they stayed polite but never really connected"], photo: "the hobby space" },
+  ],
+  home: [
+    { key: "repair", title: "a home repair", start: "something at home needs repairing", develop: "a fix has been scheduled", complication: "the first fix didn't fully work", decision: "they are deciding between patching and replacing", outcomes: ["it got properly fixed", "a patch is holding for now"], photo: "the spot that needed fixing" },
+    { key: "declutter", title: "decluttering a room", start: "they started decluttering a room", develop: "a few bags are out the door", complication: "it stalled halfway", decision: "they are deciding what to keep", outcomes: ["the room is finally organized", "it stalled at good enough"], photo: "boxes and a half-sorted room" },
+    { key: "rearrange", title: "rearranging the furniture", start: "they want to rearrange some furniture", develop: "they tried a new layout", complication: "the new layout blocks something", decision: "they are choosing between layouts", outcomes: ["the new layout stuck", "it went back mostly how it was"], photo: "a rearranged corner" },
+  ],
+  community: [
+    { key: "fundraiser", title: "a local fundraiser", start: "a local fundraiser asked for volunteers", develop: "they signed up for a small shift", complication: "the schedule got shuffled", decision: "they are deciding whether to stay involved", outcomes: ["the fundraiser went well", "they helped once and stepped back"], photo: "a table of donated items" },
+    { key: "street", title: "a neighborhood issue", start: "there's a minor neighborhood issue being discussed", develop: "neighbors are trading ideas", complication: "nobody agrees on a fix", decision: "they are waiting to see what happens", outcomes: ["it got sorted out", "it faded and nobody mentions it anymore"], photo: "an ordinary street view" },
+  ],
+};
+for (const [owner, casts] of Object.entries(CASTS)) for (const c of casts) for (const i of INCIDENTS[c.domain]) {
+  const who = c.name;
+  STORY_TEMPLATES.push({ key: `gen:${owner}:${c.domain}:${i.key}:${who.replace(/\W+/g, "_").toLowerCase()}`, owner, npc: who, title: `${who[0]!.toUpperCase()}${who.slice(1)} and ${i.title}`, location: c.place, start: `${i.start} (involving ${who})`, develop: i.develop, complication: i.complication, decision: i.decision, outcomes: [...i.outcomes], photo: `${i.photo}, ordinary and private details hidden` });
+}
+
 export function readStory(value: unknown): StoryState | null {
   if (!value || typeof value !== "object") return null;
   const s = value as Partial<StoryState>;
@@ -44,7 +87,7 @@ export function beginStories(userId: string, now: Date, existing: StoryState[], 
     if (previous && now.getTime() - Date.parse(previous.updatedAt) < STORY_COOLDOWN_DAYS * DAY) continue;
     const available = STORY_TEMPLATES.filter(t => t.owner === owner && !existing.some(s => s.template === t.key));
     if (!available.length) continue;
-    const rng = mulberry32(hashSeed(`${userId}:${owner}:${existing.filter(s => s.owner === owner).length}`));
+    const rng = mulberry32(hashSeed(`${userId}:${owner}:${existing.filter(s => s.owner === owner).length}:${Math.floor(now.getTime()/DAY)}`));
     const t = available[Math.floor(rng() * available.length)];
     if (!t) continue;
     const characters = [owner];
