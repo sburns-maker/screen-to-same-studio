@@ -1,4 +1,4 @@
-import { hashSeed, mulberry32, type PlannedEvent, type LinkRow } from "./social-logic";
+import { CANON_NPCS, hashSeed, mulberry32, type PlannedEvent, type LinkRow } from "./social-logic";
 import type { LifeEvent, TessActivity } from "./tess-life";
 
 export const STORY_LIMIT = 1; // per character, including shared involvement
@@ -26,16 +26,11 @@ export const STORY_TEMPLATES: Template[] = [
   { key: "ben_family", owner: "ben", npc: "Sarah", title: "Finding room for a family outing", location: "home", start: "Ben and Sarah are trying to fit a simple family outing around work and the kids' plans", develop: "they are comparing a few nearby, low-effort options", complication: "the first day conflicts with another family commitment", decision: "they are considering a shorter outing closer to home", outcomes: ["they enjoyed a short local family outing without making a big production of it", "they stayed home for a relaxed family afternoon instead"], photo: "packed snacks or an ordinary family picnic setting, no children in frame" },
 ];
 
-type Cast = { name: string; domain: "work" | "family" | "hobby" | "home" | "community"; place: string };
-const CASTS: Record<string, Cast[]> = {
-  tess: [{ name: "Sam", domain: "work", place: "the veterinary practice" }, { name: "Dr. Kline", domain: "work", place: "the veterinary practice" }, { name: "Evan", domain: "family", place: "home" }, { name: "her mom", domain: "family", place: "her parents' house" }, { name: "the trivia team", domain: "hobby", place: "the trivia bar" }, { name: "her landlord", domain: "home", place: "her apartment" }, { name: "a neighbor", domain: "community", place: "the neighborhood" }],
-  maya: [{ name: "Tasha", domain: "work", place: "the venue" }, { name: "the venue manager", domain: "work", place: "the venue" }, { name: "Becca", domain: "family", place: "home" }, { name: "her sister", domain: "family", place: "her sister's place" }, { name: "her dance class", domain: "hobby", place: "the studio" }, { name: "her roommate", domain: "home", place: "her apartment" }, { name: "a regular customer", domain: "community", place: "downtown Altoona" }],
-  claire: [{ name: "Mrs. Abernathy", domain: "work", place: "the school library" }, { name: "a fellow teacher", domain: "work", place: "the school" }, { name: "Natalie", domain: "family", place: "Claire's home" }, { name: "her dad", domain: "family", place: "her dad's house" }, { name: "her book club", domain: "hobby", place: "the café" }, { name: "a contractor", domain: "home", place: "Claire's home" }, { name: "the library volunteers", domain: "community", place: "the public library" }],
-  jordan: [{ name: "Patel", domain: "work", place: "the engineering office" }, { name: "a project manager", domain: "work", place: "the engineering office" }, { name: "Ruth", domain: "hobby", place: "the climbing gym" }, { name: "their brother", domain: "family", place: "a family call" }, { name: "a cycling group", domain: "hobby", place: "the trails" }, { name: "the building super", domain: "home", place: "their apartment" }, { name: "a neighbor", domain: "community", place: "the neighborhood" }],
-  ben: [{ name: "Mikey", domain: "work", place: "the work van" }, { name: "a longtime client", domain: "work", place: "a job site" }, { name: "Sarah", domain: "family", place: "home" }, { name: "his parents", domain: "family", place: "his parents' house" }, { name: "his softball league", domain: "hobby", place: "the ballfield" }, { name: "a hardware store clerk", domain: "home", place: "the garage" }, { name: "the youth coach", domain: "community", place: "the rec center" }],
-};
+type Domain = "work" | "family" | "hobby" | "home" | "community";
+const DOMAINS: Record<string, Domain[]> = { coworker: ["work"], family: ["family", "home"], hobby: ["hobby", "community"], friend: ["home", "community", "hobby"], acquaintance: ["community"] };
+const PLACES: Record<Domain, string> = { work: "work", family: "a family member's home", hobby: "their usual hobby spot", home: "home", community: "around town near Altoona" };
 type Incident = { key: string; title: string; start: string; develop: string; complication: string; decision: string; outcomes: [string, string]; photo: string };
-const INCIDENTS: Record<Cast["domain"], Incident[]> = {
+const INCIDENTS: Record<Domain, Incident[]> = {
   work: [
     { key: "equipment", title: "a piece of equipment acting up", start: "a piece of equipment keeps acting up", develop: "they are working around it while waiting on a repair", complication: "the replacement part is backordered", decision: "they are weighing repair against replacing it", outcomes: ["it got repaired and works fine again", "they replaced it and stopped fighting the old one"], photo: "the workspace with the troublesome equipment" },
     { key: "rush", title: "a busy stretch", start: "work is heading into an unusually busy stretch", develop: "the days are running long but manageable", complication: "someone is out sick during the rush", decision: "they are deciding what can wait until it eases", outcomes: ["the busy stretch passed and things calmed down", "it eased off gradually without any big moment"], photo: "a cluttered desk or counter mid-shift" },
@@ -64,9 +59,12 @@ const INCIDENTS: Record<Cast["domain"], Incident[]> = {
     { key: "street", title: "a neighborhood issue", start: "there's a minor neighborhood issue being discussed", develop: "neighbors are trading ideas", complication: "nobody agrees on a fix", decision: "they are waiting to see what happens", outcomes: ["it got sorted out", "it faded and nobody mentions it anymore"], photo: "an ordinary street view" },
   ],
 };
-for (const [owner, casts] of Object.entries(CASTS)) for (const c of casts) for (const i of INCIDENTS[c.domain]) {
-  const who = c.name;
-  STORY_TEMPLATES.push({ key: `gen:${owner}:${c.domain}:${i.key}:${who.replace(/\W+/g, "_").toLowerCase()}`, owner, npc: who, title: `${who[0]!.toUpperCase()}${who.slice(1)} and ${i.title}`, location: c.place, start: `${i.start} (involving ${who})`, develop: i.develop, complication: i.complication, decision: i.decision, outcomes: [...i.outcomes], photo: `${i.photo}, ordinary and private details hidden` });
+// Twists vary the complication, so the same situation type unfolds differently.
+const TWISTS: [string, (c: string) => string][] = [["a", c => c], ["b", () => "the timing clashed with another commitment"], ["c", () => "it ended up costing more time or money than expected"], ["d", () => "someone involved changed their mind partway through"]];
+// Only established (canon) NPCs anchor storylines; exes are left out to avoid manufactured drama.
+for (const n of CANON_NPCS) if (n.category !== "ex") for (const d of DOMAINS[n.category] ?? []) for (const i of INCIDENTS[d]) for (const [tk, twist] of TWISTS) {
+  const who = n.name;
+  STORY_TEMPLATES.push({ key: `gen:${n.characterKey}:${d}:${i.key}:${who.replace(/\W+/g, "_").toLowerCase()}:${tk}`, owner: n.characterKey, npc: who, title: `${i.title[0]!.toUpperCase()}${i.title.slice(1)} (with ${who})`, location: PLACES[d], start: `${i.start}; ${who} (${n.relation}) is involved`, develop: i.develop, complication: twist(i.complication), decision: i.decision, outcomes: [...i.outcomes], photo: `${i.photo}, ordinary, with private details hidden` });
 }
 
 export function readStory(value: unknown): StoryState | null {
