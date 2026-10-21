@@ -7,6 +7,7 @@ import { KNOWLEDGE_RULES } from "./social-logic";
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
+const OWN_MODEL = "gpt-4o-mini";
 
 export const CHARACTER_BIBLE = `
 TESS MORGAN — 34, she/her, single, no kids. Lives alone in a rented townhouse in a fictional mid-sized Pennsylvania city with her rescue dog Mabel (who steals socks).
@@ -177,25 +178,30 @@ function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
 }
 
 async function runStructured<T>(schema: z.ZodType<T>, instructions: string, input: string): Promise<T> {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  const ownKey = process.env["OPENAI_API_KEY"];
+  const apiKey = ownKey || process.env["LOVABLE_API_KEY"];
   if (!apiKey) throw new Error("AI is not configured");
-  const provider = createOpenAI({
-    baseURL: GATEWAY,
-    apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-  });
+  const provider = ownKey
+    ? createOpenAI({ apiKey: ownKey })
+    : createOpenAI({
+        baseURL: GATEWAY,
+        apiKey,
+        headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+      });
   const result = streamText({
-    model: provider.responses(MODEL),
+    model: provider.responses(ownKey ? OWN_MODEL : MODEL),
     instructions,
     messages: [{ role: "user", content: input }],
     output: Output.object({ schema }),
     providerOptions: {
-      openai: {
-        store: false,
-        forceReasoning: true,
-        reasoningEffort: "low",
-        include: ["reasoning.encrypted_content"],
-      },
+      openai: ownKey
+        ? { store: false }
+        : {
+            store: false,
+            forceReasoning: true,
+            reasoningEffort: "low",
+            include: ["reasoning.encrypted_content"],
+          },
     },
   });
   return (await result.output) as T;
