@@ -18,7 +18,6 @@ import {
   curatedFallback,
   describeStyle,
   eligiblePhotos,
-  tooSimilarToRecent,
   varyStyle,
   type PhotoFrequency,
   type PhotoStyle,

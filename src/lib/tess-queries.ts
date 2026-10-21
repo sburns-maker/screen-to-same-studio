@@ -1,14 +1,29 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export const conversationQuery = queryOptions({
-  queryKey: ["conversation"],
+export const conversationsQuery = queryOptions({
+  queryKey: ["conversations"],
   queryFn: async () => {
-    const { data, error } = await supabase.from("conversations").select("*").maybeSingle();
+    const { data, error } = await supabase.from("conversations").select("*, character:characters(*)");
     if (error) throw error;
-    return data;
+    return data ?? [];
   },
 });
+
+export const conversationQuery = (conversationId: string | undefined) =>
+  queryOptions({
+    queryKey: ["conversation", conversationId],
+    enabled: !!conversationId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("*, character:characters(*)")
+        .eq("id", conversationId!)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
 export const messagesQuery = (conversationId: string | undefined) =>
   queryOptions({

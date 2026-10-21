@@ -1,8 +1,8 @@
 {
-  "name": "Tess",
-  "short_name": "Tess",
-  "description": "A realistic texting simulator",
-  "start_url": "/chat",
+  "name": "Chats",
+  "short_name": "Chats",
+  "description": "Chats",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
