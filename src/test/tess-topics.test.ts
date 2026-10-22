@@ -28,3 +28,23 @@ describe("tess topic guard", () => {
     expect(topicGuidance(["Long day at the clinic."], "how was work")).toBe("");
   });
 });
+
+describe("topic guard for other characters", () => {
+  it("flags Maya's repeated chase line", () => {
+    expect(saturatedMotifs(["Catching me is the real game.", "Keep up if you can.", "Lunch Friday?"], 8, 2, "maya")).toContain("chase");
+  });
+  it("flags Claire's validation loop", () => {
+    expect(saturatedMotifs(["That's so valuable.", "Support is invaluable."], 8, 2, "claire")).toContain("validation");
+  });
+  it("respects explicit topic change for Jordan", () => {
+    expect(excludedTopics("tell me something other than climbing", "jordan")).toEqual(["climbing"]);
+  });
+  it("flags Ben's ninja jokes and invites disclosure", () => {
+    const g = topicGuidance(["kid ninja moves 😂", "shadow ninjas lol"], "what's new with you?", "ben");
+    expect(g).toContain("kid ninja jokes");
+    expect(g).toContain("YOUR life");
+  });
+  it("Tess motifs don't leak into other characters", () => {
+    expect(saturatedMotifs(["sock", "socks again"], 8, 2, "maya")).toEqual([]);
+  });
+});

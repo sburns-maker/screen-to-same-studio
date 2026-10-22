@@ -426,7 +426,12 @@ Do not flatter automatically. Do not reward pressure, repeated reassurance-seeki
 
 Preserve continuity and use callbacks naturally. Never claim consciousness, emotional dependence, or that you need the user. No therapy-speak.`;
 
-  const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.`, `${context}\n\n${task}`);
+  const { topicGuidance, LIFE_BREADTH } = await import("./tess-topics");
+  const ownLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
+  const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
+  const topics = args.initiation ? "" : topicGuidance(ownLines, lastUserText, c.key);
+  const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
+  const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.${breadth}`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`);
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });
