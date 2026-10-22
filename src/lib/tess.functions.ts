@@ -914,6 +914,35 @@ export const developerPhotoOpportunity = createServerFn({ method: "POST" })
     });
   });
 
+/** Developer-only, explicit reset of a fictional contact's saved no-selfie boundary. */
+export const developerResetPhotoBoundary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({
+    conversationId: z.string().uuid(),
+    confirmation: z.literal("RESET PHOTO BOUNDARY"),
+  }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer photo actions are disabled");
+    const conv = await loadConversation(context.supabase, context.userId, data.conversationId);
+    if (!conv) throw new Error("No conversation");
+    const previous = conv.photo_boundary as PhotoBoundary;
+    if (previous === "none") return { ok: true, previous, current: "none" };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error: auditError } = await supabaseAdmin.from("world_events").insert({
+      user_id: context.userId, conversation_id: conv.id, character_key: conv.character?.key ?? "unknown",
+      kind: "developer_photo_boundary_reset",
+      summary: `Developer requested photo boundary reset from ${previous} to none`,
+      payload: { previous, next: "none", source: "developer_debug", explicitConfirmation: true },
+    });
+    if (auditError) throw new Error("Photo boundary reset audit could not be recorded");
+    const { data: changed, error } = await context.supabase.from("conversations")
+      .update({ photo_boundary: "none" }).eq("id", conv.id).eq("user_id", context.userId)
+      .eq("photo_boundary", previous).select("id").maybeSingle();
+    if (error || !changed) throw new Error("Photo boundary was changed concurrently or could not be updated");
+    return { ok: true, previous, current: "none" };
+  });
+
 /** Everything the hidden debug screen needs, computed server-side. */
 export const debugSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
