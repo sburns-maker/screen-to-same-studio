@@ -22,6 +22,7 @@ import {
   varyStyle,
   type PhotoFrequency,
   type PhotoStyle,
+  photoMomentHint,
 } from "./tess-photos";
 import {
   activeLifeEvent,
@@ -339,6 +340,13 @@ export async function runTurn(
   let generateTypes: string[] = [];
   let freq: PhotoFrequency = "normal";
   let lifeEvent: LifeEvent | null = story.event;
+  // Own messages since this character's last photo (recent is newest-first).
+  const ownMsgs = recent.filter((m) => m.sender === "tess");
+  const lastPhotoIdx = ownMsgs.findIndex((m) => {
+    const md = m.metadata as { photo?: string; generated_image_id?: string; generated_path?: string } | null;
+    return !!(md?.photo || md?.generated_image_id || md?.generated_path);
+  });
+  const ownSinceLastPhoto = lastPhotoIdx === -1 ? ownMsgs.length + 99 : lastPhotoIdx;
 
   if (isTess) {
     const sentPhotos = new Set(
@@ -381,6 +389,7 @@ export async function runTurn(
       lifeEvent,
       initiationReason: initiation?.reason ?? null,
       photoBoundary: photoContext.boundary,
+      photoHint: photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
       worldKnowledge,
       availabilityDetail: (() => { const b = scheduleFor(now, difficulty === "chaos" ? 2 : 1); return storySchedule(applyDisruption(b, disruptionFor("tess", now, b.activity.startsWith("at work"))), story.event).detail; })(),
     });
@@ -414,6 +423,7 @@ export async function runTurn(
       generateTypes,
       recentPhotoStyles: recentStyles.map(describeStyle),
       photoBoundary: photoContext.boundary,
+      photoHint: def.photosEnabled ? photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: generateTypes.length > 0 }) : "",
       worldKnowledge,
     });
     if (!def.photosEnabled) reply.photo = null;

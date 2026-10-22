@@ -134,3 +134,23 @@ export function describeStyle(s: PhotoStyle): string {
   ].filter(Boolean);
   return parts.length ? parts.join(", ") : "(unrecorded style)";
 }
+
+/**
+ * Pure nudge for spontaneous photos. Without it the model almost always picks null,
+ * so unprompted photos never happen. Returns prompt guidance only — eligibility,
+ * willingness and boundaries are still enforced server-side.
+ */
+export function photoMomentHint(args: {
+  ownSinceLastPhoto: number;
+  freq: PhotoFrequency;
+  initiation: boolean;
+  hasTypes: boolean;
+}): string {
+  if (!args.hasTypes) return "";
+  const rules = FREQUENCY_RULES[args.freq] ?? FREQUENCY_RULES.normal;
+  if (args.ownSinceLastPhoto < rules.cooldown) return "";
+  const lead = args.initiation
+    ? "PHOTO MOMENT: It's been a while since you sent a photo. Real people often open a text with a quick picture of what they're looking at or doing right now (food, the view, a pet, work, a funny thing they spotted) plus a short caption."
+    : "PHOTO MOMENT: It's been a while since you sent a photo. If something visual from your current activity fits this reply (what you're eating, where you are, something funny you saw), sharing an unprompted picture is natural.";
+  return `${lead} Only if you genuinely want to and it fits your current activity/time of day; ordinary everyday photos, not a reward. Otherwise photo=null.`;
+}
