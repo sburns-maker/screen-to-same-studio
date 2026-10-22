@@ -1,3 +1,6 @@
+import { NpcIntroductionChip } from "@/components/NpcIntroductionChip";
+import { usePortraits } from "@/lib/use-portrait";
+import { PhotoViewer } from "@/components/PhotoViewer";
 import { VideoAttachment } from "@/components/VideoAttachment";
 import { VideoUploadButton } from "@/components/VideoUploadButton";
 import { userVideoMetadata } from "@/lib/user-video";
@@ -60,6 +63,7 @@ function fmtDivider(d: Date) {
 }
 
 function Chat() {
+  const portraits=usePortraits();
   const { conversationId } = Route.useParams();
   const qc = useQueryClient();
   const respond = useServerFn(tessRespond);
@@ -296,7 +300,7 @@ function Chat() {
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-full py-1 pr-2"
             aria-label={`${def.preferredName}'s profile`}
           >
-            <img src={def.avatar} alt="" width={1024} height={1024} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+            <img src={portraits.data?.[def.key]??def.avatar} alt="" width={1024} height={1024} className="h-9 w-9 shrink-0 rounded-full object-cover" />
             <div className="min-w-0 leading-tight">
               <div className="truncate text-[15px] font-semibold">{def.preferredName}</div>
               <div className="text-xs text-muted-foreground">{showTyping ? "typing…" : "Tap for info"}</div>
@@ -359,10 +363,11 @@ function Chat() {
                     if (md?.user_photo) return <GeneratedPhoto path={md.user_photo} name="you" />;
                     const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
                     if (src)
-                      return <img src={src} alt={`Photo from ${def.preferredName}`} loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" />;
+                      return <PhotoViewer src={src} alt={`Photo from ${def.preferredName}`}><img src={src} alt={`Photo from ${def.preferredName}`} loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" /></PhotoViewer>;
                     if (md?.generated_path) return <GeneratedPhoto path={md.generated_path} name={def.preferredName} />;
                     return null;
                   })()}
+                  {!mine&&<NpcIntroductionChip messageId={m.id} text={m.body}/>}
                   {m.body && <div
                     title={fmtTime(t)}
                     className={cn(
@@ -460,7 +465,7 @@ function GeneratedPhoto({ path, name }: { path: string; name: string }) {
   if (failed || q.isError) return null;
   if (!q.data) return <div className="h-80 w-60 animate-pulse rounded-2xl rounded-bl-md bg-bubble-them" />;
   return (
-    <img
+    <PhotoViewer src={q.data} alt={`Photo from ${name}`}><img
       src={q.data}
       alt={`Photo from ${name}`}
       loading="lazy"
@@ -468,6 +473,6 @@ function GeneratedPhoto({ path, name }: { path: string; name: string }) {
       height={1536}
       onError={() => setFailed(true)}
       className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover"
-    />
+    /></PhotoViewer>
   );
 }

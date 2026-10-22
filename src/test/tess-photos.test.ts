@@ -38,8 +38,8 @@ describe("generated photos", () => {
     expect(allowedGeneratedTypes(warm)).toContain("casual_selfie");
   });
   it("frequent still keeps a cooldown", () => {
-    expect(FREQUENCY_RULES.frequent.cooldown).toBeGreaterThanOrEqual(5);
-    expect(FREQUENCY_RULES.normal.cooldown).toBe(12);
+    expect(FREQUENCY_RULES.frequent.cooldown).toBeGreaterThanOrEqual(1);
+    expect(FREQUENCY_RULES.normal.cooldown).toBe(3);
   });
   it("falls back to a matching curated photo", () => {
     expect(curatedFallback("Mabel stole my sock again", [{ id: "mabel-sock", selfie: false, about: "", min: {} }])).toBe("mabel-sock");
@@ -87,7 +87,7 @@ describe("photo style variety", () => {
 import { photoMomentHint } from "@/lib/tess-photos";
 describe("photoMomentHint", () => {
   it("is silent during cooldown", () => {
-    expect(photoMomentHint({ ownSinceLastPhoto: 3, freq: "normal", initiation: false, hasTypes: true })).toBe("");
+    expect(photoMomentHint({ ownSinceLastPhoto: 2, freq: "normal", initiation: false, hasTypes: true })).toBe("");
   });
   it("is silent with no eligible types", () => {
     expect(photoMomentHint({ ownSinceLastPhoto: 99, freq: "normal", initiation: true, hasTypes: false })).toBe("");

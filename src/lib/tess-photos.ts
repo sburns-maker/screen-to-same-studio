@@ -35,9 +35,9 @@ export type PhotoFrequency = (typeof PHOTO_FREQUENCIES)[number];
 
 /** Minimum Tess messages between photos, and chance a justified new photo is actually created. */
 export const FREQUENCY_RULES: Record<PhotoFrequency, { cooldown: number; generateChance: number }> = {
-  rare: { cooldown: 20, generateChance: 0.35 },
-  normal: { cooldown: 12, generateChance: 0.65 },
-  frequent: { cooldown: 7, generateChance: 0.9 },
+  rare: { cooldown: 6, generateChance: 0.35 },
+  normal: { cooldown: 3, generateChance: 0.65 },
+  frequent: { cooldown: 1, generateChance: 0.9 },
 };
 
 export const GENERATED_TYPES = ["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"] as const;

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -171,6 +171,15 @@ function Plans() {
               {new Date(p.starts_at).toLocaleString()} ·{" "}
               {q.data.places.find((v) => v.key === p.place_key)?.label ?? p.place_key}
             </p>
+            {q.data.places.some((v) => v.key === p.place_key) && (
+              <Link
+                to="/place/$placeKey"
+                params={{ placeKey: p.place_key }}
+                className="mt-3 block text-sm text-primary underline"
+              >
+                Visit this place virtually
+              </Link>
+            )}
             <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
               {q.data.invitations
                 .filter((i) => i.plan_id === p.id)

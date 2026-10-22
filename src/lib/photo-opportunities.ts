@@ -1,3 +1,4 @@
+import { photoPacing, visualCue } from "./photo-pacing";
 import type { CharacterKey } from "./characters";
 import type { TessActivity } from "./tess-life";
 import type { TessState } from "./tess-logic";
@@ -63,6 +64,7 @@ export function photoOpportunity(args: {
   context?: string;
   preview?: boolean;
   activeConversation?: boolean;
+  userText?: string;
 }): PhotoOpportunity {
   const profile = PHOTO_TENDENCIES[args.character];
   const slot = Math.floor(args.now.getTime() / (profile.hours * 3_600_000));
@@ -75,7 +77,9 @@ export function photoOpportunity(args: {
     hint: "",
   });
   if (args.schedule.availability === "asleep" || args.schedule.availability === "busy")
-    return no(`Unavailable right now: ${args.schedule.detail} (${args.schedule.availability}). Wait for a compatible break.`);
+    return no(
+      `Unavailable right now: ${args.schedule.detail} (${args.schedule.availability}). Wait for a compatible break.`,
+    );
   if (
     /driv|surgery|emergency|phone (?:down|away)|patient|private|winding down/i.test(
       args.schedule.detail,
@@ -89,17 +93,28 @@ export function photoOpportunity(args: {
   if (args.state.irritation >= 20 || args.state.perceived_pressure >= 30)
     return no("not independently inclined to share");
   const scale = args.frequency === "rare" ? 2 : args.frequency === "frequent" ? 0.75 : 1;
-  if (
-    args.lastPhotoAt &&
-    args.now.getTime() - Date.parse(args.lastPhotoAt) < profile.hours * scale * 3_600_000
-  )
-    return no("photo time cooldown");
-  if (
-    args.lastPhotoAt &&
-    args.ownSinceLastPhoto <
-      Math.min(FREQUENCY_RULES[args.frequency].cooldown, Math.ceil(profile.messages * scale))
-  )
-    return no("photo message cooldown");
+  if (args.activeConversation) {
+    const pacing = photoPacing({
+      character: args.character,
+      frequency: args.frequency,
+      now: args.now,
+      lastPhotoAt: args.lastPhotoAt,
+      ownSinceLastPhoto: args.ownSinceLastPhoto,
+      userText: args.userText ?? "",
+      context: args.context ?? "",
+    });
+    if (!pacing.allowed) return no(pacing.reason);
+  } else {
+    const hours = profile.hours * scale * (visualCue(args.context ?? "") ? 0.6 : 1);
+    if (args.lastPhotoAt && args.now.getTime() - Date.parse(args.lastPhotoAt) < hours * 3600000)
+      return no("photo time cooldown");
+    if (
+      args.lastPhotoAt &&
+      args.ownSinceLastPhoto <
+        Math.min(FREQUENCY_RULES[args.frequency].cooldown, Math.ceil(profile.messages * scale))
+    )
+      return no("photo message cooldown");
+  }
   if (args.gapHours < 0) return no("a reply is still pending");
   if (!args.preview && !args.activeConversation && args.gapHours < 0.5)
     return no("conversation was active very recently");
@@ -109,7 +124,8 @@ export function photoOpportunity(args: {
   // Stable per opportunity: polling more often (or Practice mode) never rerolls the chance.
   let hash = 2166136261;
   for (const c of key) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
-  const selected = !!args.preview || (hash >>> 0) / 4294967296 < profile.chance;
+  const chance=Math.min(.85,profile.chance+(visualCue(args.userText??"")?.15:visualCue(args.context??"")?.08:0));
+  const selected = !!args.preview || (hash >>> 0) / 4294967296 < chance;
   return {
     eligible: true,
     selected,

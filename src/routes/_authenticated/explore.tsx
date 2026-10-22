@@ -18,7 +18,7 @@ function Explore() {
         Real geography, fictional places and people. This is your virtual location; your phone’s GPS
         is never used.
       </p>
-      <CountyMap />
+      <CountyMap places={q.data?.places} />
       <p className="my-3 text-xs text-muted-foreground">
         Venue pins are approximate fictional placements near public community centers. Map tiles
         load from OpenStreetMap.
@@ -33,7 +33,10 @@ function Explore() {
       <div className="space-y-3">
         {q.data?.places
           .filter((p) =>
-            `${p.label} ${p.community} ${p.kind}`.toLowerCase().includes(search.toLowerCase()),
+            `${p.label} ${p.community} ${p.kind}`
+              .toLowerCase()
+              .replace(/[^a-z0-9 ]/g, "")
+              .includes(search.toLowerCase().replace(/[^a-z0-9 ]/g, "")),
           )
           .map((p) => (
             <Link

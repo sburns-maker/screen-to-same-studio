@@ -1,3 +1,4 @@
+import { usePortraits } from "@/lib/use-portrait";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useTown } from "@/lib/town-queries";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +8,7 @@ import { characterFor } from "@/lib/characters";
 import { TownLayout, card } from "@/components/TownLayout";
 export const Route = createFileRoute("/_authenticated/people")({ component: People });
 function People() {
+  const portraits = usePortraits();
   const q = useTown(),
     load = useServerFn(inboxOverview),
     contacts = useQuery({ queryKey: ["inbox"], queryFn: () => load({}) });
@@ -25,7 +27,7 @@ function People() {
             className={`${card} flex items-center gap-3`}
           >
             <img
-              src={characterFor(c.characterKey).avatar}
+              src={portraits.data?.[c.characterKey] ?? characterFor(c.characterKey).avatar}
               alt=""
               className="h-12 w-12 rounded-full object-cover"
             />
@@ -38,22 +40,27 @@ function People() {
           </Link>
         ))}
         {q.data?.people
-          .filter((n) => n.connection)
+          .filter((n) => n.connection || n.introduction)
           .map((n) => (
             <Link
               key={n.key}
-              to="/encounter/$npcKey"
-              params={{ npcKey: n.key }}
+              to={n.connection ? "/encounter/$npcKey" : "/place/$placeKey"}
+              params={n.connection ? { npcKey: n.key } : { placeKey: n.place }}
               className={`${card} block`}
             >
               <h2 className="font-medium">{n.name}</h2>
               <p className="mt-1 text-xs text-primary">
                 {n.connection?.contact
                   ? "Messaging contact"
-                  : "Met in person · Contact not exchanged"}
+                  : n.connection
+                    ? "Met in person · Contact not exchanged"
+                    : `Introduction from ${n.introduction?.source_character} · Meet at a public place`}
               </p>
               <p className="mt-3 text-sm text-muted-foreground">{n.blurb}</p>
-              <p className="mt-2 text-xs text-muted-foreground">{n.interests.join(" · ")}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {n.interests.join(" · ")} · Photos unavailable until an identity portrait is
+                approved
+              </p>
             </Link>
           ))}
       </div>

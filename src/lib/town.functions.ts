@@ -12,12 +12,13 @@ export const actInTown = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        action: z.enum(["visit", "speak", "contact", "read"]),
+        action: z.enum(["visit", "speak", "contact", "read", "followups"]),
         id: z.string().uuid(),
         place: z.string().max(80).default(""),
         npc: z.string().max(80).default(""),
         text: z.string().trim().max(1500).default(""),
         mode: z.enum(["scene", "message"]).default("scene"),
+        enabled: z.boolean().default(false),
       })
       .parse(d),
   )
@@ -31,7 +32,14 @@ export const actInTown = createServerFn({ method: "POST" })
       if (!data.text) throw new Error("Write a message first");
       return encounterTurn(db, context.userId, data.id, data.npc, data.text, data.mode, now);
     }
-    return townCommand(db, context.userId, data.id, data.action, { npc: data.npc }, now);
+    return townCommand(
+      db,
+      context.userId,
+      data.id,
+      data.action,
+      { npc: data.npc, enabled: data.enabled },
+      now,
+    );
   });
 export const suggestGathering = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -132,4 +140,33 @@ export const townDirector = createServerFn({ method: "POST" })
         Math.max(0, Number(process.env["TOWN_DAILY_AI_LIMIT"] ?? 40) || 0),
       ),
     };
+  });
+export const rememberIntroduction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ messageId: z.string().uuid(), npc: z.string().max(80) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    await (await import("./town.server")).initializeTown(db, context.userId);
+    const m = await db
+      .from("messages")
+      .select("*")
+      .eq("id", data.messageId)
+      .eq("user_id", context.userId)
+      .eq("sender", "tess")
+      .lte("visible_at", new Date().toISOString())
+      .maybeSingle();
+    const targets = m.data
+      ? (await import("./npc-introductions")).introductionTargets(m.data.body)
+      : [];
+    const npc = targets.find((n) => n.key === data.npc);
+    if (!npc) throw new Error("An explicit, delivered introduction is required");
+    const r = await db.rpc("record_npc_introduction", {
+      p_user: context.userId,
+      p_message: data.messageId,
+      p_npc: npc.key,
+    });
+    if (r.error) throw new Error("Introduction unavailable; review migration 0015");
+    return { place: npc.place };
   });

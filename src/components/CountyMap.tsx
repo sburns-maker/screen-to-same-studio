@@ -2,7 +2,13 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { TOWN_PLACES } from "@/lib/town";
 /** OSM public raster tiles. No geolocation request, key, SDK, or paid map service. */
-export function CountyMap() {
+export function CountyMap({
+  places = TOWN_PLACES.slice(0, 4),
+}: {
+  places?:
+    | readonly Pick<(typeof TOWN_PLACES)[number], "key" | "label" | "latitude" | "longitude">[]
+    | undefined;
+}) {
   const [zoom, setZoom] = useState(12),
     [center, setCenter] = useState({ lat: 40.5187, lon: -78.3947 });
   const n = 2 ** zoom;
@@ -39,7 +45,7 @@ export function CountyMap() {
               />
             );
           })}
-          {TOWN_PLACES.map((p) => {
+          {places.map((p) => {
             const a = project(p.latitude, p.longitude);
             return (
               <Link

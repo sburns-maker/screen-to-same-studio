@@ -1,3 +1,5 @@
+import { ProfilePhotoPanel } from "@/components/ProfilePhotoPanel";
+import { usePortraits } from "@/lib/use-portrait";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -24,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/profile/$conversationId")(
 });
 
 function Profile() {
+  const portraits=usePortraits();
   const { conversationId } = Route.useParams();
   const qc = useQueryClient();
   const conv = useQuery(conversationQuery(conversationId));
@@ -45,11 +48,12 @@ function Profile() {
       <ScreenHeader title="Contact info" backTo="/chat/$conversationId" backParams={{ conversationId }} />
       <Screen>
         <div className="flex flex-col items-center text-center">
-          <img src={def.avatar} alt={def.fullName} width={1024} height={1024} className="h-36 w-36 rounded-full object-cover" />
+          <img src={portraits.data?.[def.key]??def.avatar} alt={def.fullName} width={1024} height={1024} className="h-36 w-36 rounded-full object-cover" />
           <h2 className="mt-4 font-display text-4xl">{def.fullName}</h2>
           <p className="text-sm text-muted-foreground">{def.pronouns}</p>
         </div>
 
+        <ProfilePhotoPanel character={def.key} canonical={def.avatar}/>
         <div className="mt-6 grid grid-cols-4 gap-2">
           {[
             { icon: User, label: "Profile", to: `/profile/$conversationId` },

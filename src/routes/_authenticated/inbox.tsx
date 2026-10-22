@@ -1,3 +1,4 @@
+import { usePortraits } from "@/lib/use-portrait";
 import { useTown } from "@/lib/town-queries";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +36,7 @@ function fmtTime(iso: string) {
 }
 
 function Inbox() {
+  const portraits=usePortraits();
   const town = useTown();
   const ensure = useServerFn(ensureConversations);
   const initiate = useServerFn(tessMaybeInitiate);
@@ -154,7 +156,7 @@ function Inbox() {
                   className="flex items-center gap-3 px-4 py-3 active:bg-muted/60"
                 >
                   <img
-                    src={def.avatar}
+                    src={portraits.data?.[def.key]??def.avatar}
                     alt=""
                     width={1024}
                     height={1024}
