@@ -46,7 +46,8 @@ describe("image prompt builder", () => {
   it("type classification is unchanged", () => {
     expect(includesTess("object")).toBe(false);
     expect(includesTess("intimate_selfie")).toBe(true);
-    expect(sceneHasMabel("walking the dog")).toBe(true);
+    expect(sceneHasMabel("walking the dog")).toBe(false);
+    expect(sceneHasMabel("a foster puppy at the clinic")).toBe(false);
     expect(sceneHasMabel("coffee shop")).toBe(false);
   });
 });

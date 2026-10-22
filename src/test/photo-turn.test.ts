@@ -1,8 +1,12 @@
+import * as canonical from "@/lib/canonical-profile.server";
+// Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
+vi.mock("@/lib/photo-identity-qc.server", () => ({ requireVisualScreen: () => {}, screenPhotoVisuals: mocks.visual }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED_STATE, STATE_KEYS } from "@/lib/tess-logic";
 
 const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
+  visual: vi.fn(),
   reserve: vi.fn(),
   prepare: vi.fn(),
   fail: vi.fn(),
@@ -53,6 +57,7 @@ beforeEach(() => {
   vi.stubEnv("LOVABLE_API_KEY", "");
   vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-only");
   vi.spyOn(console, "warn").mockImplementation(() => {});
+  mocks.visual.mockReset().mockResolvedValue({status:"screen_passed",method:"fictional_visual_design",reason:"features_consistent"});
   mocks.schedule.availability = "limited";
   mocks.realTime = true;
   mocks.reserve.mockReset().mockResolvedValueOnce(action).mockResolvedValue(null);
@@ -230,7 +235,7 @@ describe("normal spontaneous photo turn pipeline", () => {
       photoKey: "same-opportunity",
     };
     expect((await runTurn(client, uid, cid, "America/New_York", initiation)).count).toBe(1);
-    expect(download).toHaveBeenCalledWith("canonical.jpg");
+    expect(download).not.toHaveBeenCalled(); // No independent storage alias can override the profile.
     const [url, request] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://api.openai.com/v1/images/edits");
     expect(request.body.get("model")).toBe("gpt-image-1-mini");
@@ -268,13 +273,13 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(mocks.fail).toHaveBeenCalledWith(mocks.admin, action);
     expect(mocks.prepare).not.toHaveBeenCalled();
-    expect(mutations).not.toHaveBeenCalled();
+    expect(mutations.mock.calls.every(([table]) => table === "world_events")).toBe(true);
     expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain(
       "private request details",
     );
   });
   it("fails closed without the canonical identity or successful storage", async () => {
-    download.mockResolvedValue({ data: null, error: new Error("missing identity") });
+    vi.spyOn(canonical, "canonicalProfile").mockRejectedValueOnce(new Error("missing profile bytes"));
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { runTurn } = await import("@/lib/tess.functions");
@@ -350,6 +355,16 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(upload).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
     expect(mocks.fail).toHaveBeenCalledTimes(1);
+  });
+
+  it("never uploads or delivers a visually mismatched character image",async()=>{
+    mocks.visual.mockRejectedValueOnce(new Error("face_structure_drift"));
+    const fetchMock=vi.fn().mockResolvedValue(Response.json({data:[{b64_json:btoa("png")}]}));vi.stubGlobal("fetch",fetchMock);
+    const {runTurn}=await import("@/lib/tess.functions");
+    expect((await runTurn(client,uid,cid,"America/New_York",{gapHours:3,photoKey:"mismatch"})).count).toBe(0);
+    expect(upload).not.toHaveBeenCalled();expect(mocks.prepare).not.toHaveBeenCalled();expect(mocks.fail).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mutations).toHaveBeenCalledWith("world_events","insert");
   });
 
 });

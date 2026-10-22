@@ -9,27 +9,46 @@ export async function photoSetupStatus(userId: string, checkModel = false) {
   const servicePresent =
     !!process.env["SUPABASE_SERVICE_ROLE_KEY"] && !!process.env["SUPABASE_URL"];
   let migration: Check = "not checked";
-  let tessReference: Check = "not checked";
+  const { canonicalProfile } = await import("./canonical-profile.server");
+  const canonicalReferences = await Promise.all(
+    (["tess", "maya", "claire", "jordan", "ben"] as const).map(async (key) => {
+      try {
+        const ref = await canonicalProfile(key);
+        return {
+          character: key,
+          asset: ref.asset,
+          sha256: ref.sha256,
+          width: ref.width,
+          height: ref.height,
+          status: "structurally_usable",
+        };
+      } catch {
+        return {
+          character: key,
+          asset: null,
+          sha256: null,
+          width: null,
+          height: null,
+          status: "unavailable",
+        };
+      }
+    }),
+  );
+  const tessReference: Check =
+    canonicalReferences[0]?.status === "structurally_usable" ? "present" : "unavailable";
   if (servicePresent) {
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const rpc = await supabaseAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string });
+      const rpc = await supabaseAdmin.rpc("deliver_photo_turn", {
+        p_job_id: null as unknown as string,
+      });
       migration = rpc.error
         ? rpc.error.code === "PGRST202" || rpc.error.code === "42883"
           ? "missing"
           : "unavailable"
         : "present";
-      const refs = await supabaseAdmin.storage
-        .from("tess-reference")
-        .list("", { search: "canonical.jpg", limit: 100 });
-      tessReference = refs.error
-        ? "unavailable"
-        : refs.data?.some((file) => file.name === "canonical.jpg")
-          ? "present"
-          : "missing";
     } catch {
       migration = "unavailable";
-      tessReference = "unavailable";
     }
   }
   let modelAccess: Check = "not checked";
@@ -52,6 +71,8 @@ export async function photoSetupStatus(userId: string, checkModel = false) {
     servicePresent,
     migration,
     tessReference,
+    canonicalReferences,
+    visualScreenConfigured: keyPresent,
     model: TEXT_MODEL,
     modelAccess,
     developerFlag: process.env["ENABLE_DEV_PHOTO_ACTIONS"] === "true",
