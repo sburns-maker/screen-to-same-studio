@@ -765,7 +765,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      deliver_photo_turn: { Args: { p_job_id: string | null }; Returns: Json }
+      deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
