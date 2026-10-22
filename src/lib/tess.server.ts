@@ -231,6 +231,7 @@ export async function generateTessReply(args: {
   lifeEvent?: LifeEvent | null;
   initiationReason?: string | null;
   photoBoundary?: PhotoBoundary;
+  photoHint?: string;
   worldKnowledge?: string[];
   availabilityDetail?: string;
 }): Promise<TessReply> {
@@ -269,13 +270,13 @@ TESS VOICE CHECK (apply before answering): deadpan, understated, specific. Tell 
 
   const rules = `
 OUTPUT RULES
-${photoDecisionRules(args.photoBoundary)}
+${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
 - messages: Tess's texts only, no quotes/narration.
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent. Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation.
 - memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. ALWAYS save shared activities, hangouts, dates, plans made together, game/competition outcomes, gifts, milestones and inside jokes as relationship memories (include where/what happened). memory_type one of: relationship (inside jokes, disclosures, disagreements, invitations, boundaries, meaningful flirting, milestones — anything about the two of you), personal (HER independent life: work events, Mabel stories, family, Evan's wedding, trivia outcomes, plans she mentioned, temporary problems, accomplishments, frustrations), fact (stable facts about him). importance 1–5. If she mentions a future plan with a date (e.g. "Evan's venue appointment is Saturday"), save it as a personal memory including the date, and once that date passes treat it as having happened and follow up on it naturally. Never contradict established memories.
-- photo: usually null. Photos are occasional and must never feel like a reward. Priority: (1) an EXISTING photo that genuinely fits → {action:"fixed", asset_id:<listed id>}; (2) only if none fits and the moment really calls for it (he asked about something she's looking at, she's describing something visual happening right now) → {action:"generate", type:<one of the allowed new types>, scene:<concrete visual scene consistent with her current activity/location/time of day, ordinary clothes>, expression, reason, ...style fields}; (3) otherwise null. Never generate for novelty.
+- photo: usually null. Photos are occasional and must never feel like a reward. Priority: (1) an EXISTING photo that genuinely fits → {action:"fixed", asset_id:<listed id>}; (2) only if none fits and the moment really calls for it (he asked about something she's looking at, she's describing something visual happening right now, or a PHOTO MOMENT note says an unprompted everyday picture fits) → {action:"generate", type:<one of the allowed new types>, scene:<concrete visual scene consistent with her current activity/location/time of day, ordinary clothes>, expression, reason, ...style fields}; (3) otherwise null. Never generate for novelty.
   Types: object = no Tess in frame (Mabel, food, snow, coffee, work oddity, scenery); tess_candid = Tess in frame but not a posed selfie; casual_selfie = funny/work/snow/hike selfie; personal_selfie = dressed-up or relaxed evening; intimate_selfie = no-makeup couch, genuinely close only.
   For generated photos WITH Tess in frame, also choose context-appropriate style fields: pose_type (standing, sitting on couch, leaning on counter, crouching next to Mabel, walking, looking over her shoulder...), camera_angle (eye level, slightly above, front-camera arm's length, mirror...), crop_type (close, chest-up, waist-up, full-body, off-center...), hairstyle (down in loose waves, messy bun, ponytail, clipped up, knit hat — practical hair at the clinic, relaxed at home, styled when going out; NOT always half-up), clothing_category (home casual, work, winter, hiking, going out — ordinary contemporary adult clothes, not the same black sweater every time), setting, and selfie_type (selfie = she holds the phone; mirror; propped_phone = phone on a surface/timer; friend_photo = someone else took it — only if the current life context plausibly has someone present; never invent an invisible photographer when she's alone). Her expression should match the actual moment (genuine smile, laugh, deadpan, raised eyebrow, tired, squinting in sun, goofy...) — not a permanent half-smile. Vary the combination from HER RECENT PHOTO STYLES when the scene allows; context comes first, variety second. For object photos leave the Tess-specific style fields null.
   If he asks for a selfie/photo she may tease, decline, change subject, ignore it, or send Mabel/a non-selfie instead; early on she usually says no. If he asks again after she declined, raise perceived_pressure (and maybe irritation) and do not comply.
@@ -363,6 +364,7 @@ export async function generateContactReply(args: {
   generateTypes?: string[];
   recentPhotoStyles?: string[];
   photoBoundary?: PhotoBoundary;
+  photoHint?: string;
   worldKnowledge?: string[];
 }): Promise<TessReply> {
   const c = args.character;
@@ -396,7 +398,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
 
   const rules = `
 OUTPUT RULES
-${photoDecisionRules(args.photoBoundary)}
+${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
 - messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.
 - send_delay_seconds: realistic reply delay given availability and ${c.preferredName}'s texting habits.
@@ -408,7 +410,7 @@ ${KNOWLEDGE_RULES}
 - memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. ALWAYS save shared activities, hangouts, dates, plans made together, game/competition outcomes, gifts, milestones and inside jokes as relationship memories (include where/what happened). memory_type one of: relationship (about the two of you), personal (${c.preferredName}'s independent life), fact (stable facts about him). importance 1–5. Never contradict established memories.
 - photo: ${
     c.photosEnabled
-      ? `usually null. Photos are occasional and must fit the moment — never a reward, never for novelty. ${c.preferredName} has no existing photo library; the only option is {action:"generate", type:<one of: ${(args.generateTypes ?? []).join(", ") || "none right now"}>, scene:<concrete visual scene consistent with ${c.preferredName}'s current activity/location/time of day, ordinary clothes>, expression, reason, ...style fields}, and only when the moment genuinely calls for it (they're describing something visual happening right now, or were asked about something they're looking at). If no type is listed, photo MUST be null. For photos with ${c.preferredName} in frame, choose context-appropriate style fields (pose_type, camera_angle, crop_type, hairstyle, clothing_category, setting, selfie_type) and vary them from recent photos: ${(args.recentPhotoStyles ?? []).join(" | ") || "(none yet)"}. ${
+      ? `usually null. Photos are occasional and must fit the moment — never a reward, never for novelty. ${c.preferredName} has no existing photo library; the only option is {action:"generate", type:<one of: ${(args.generateTypes ?? []).join(", ") || "none right now"}>, scene:<concrete visual scene consistent with ${c.preferredName}'s current activity/location/time of day, ordinary clothes>, expression, reason, ...style fields}, and only when the moment genuinely calls for it (they're describing something visual happening right now, were asked about something they're looking at, or a PHOTO MOMENT note says an unprompted everyday picture would be natural). If no type is listed, photo MUST be null. For photos with ${c.preferredName} in frame, choose context-appropriate style fields (pose_type, camera_angle, crop_type, hairstyle, clothing_category, setting, selfie_type) and vary them from recent photos: ${(args.recentPhotoStyles ?? []).join(" | ") || "(none yet)"}. ${
           c.romanticCapable
             ? "Selfies depend on comfort and trust; more personal ones need real warmth."
             : "Never romantic, suggestive or couple-coded — this is a platonic friendship; photos are everyday life only."
