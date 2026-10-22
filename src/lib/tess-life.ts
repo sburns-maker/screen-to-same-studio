@@ -29,7 +29,7 @@ export type TessActivity = {
  * some Sundays dinner with parents, Mabel walks morning/evening.
  */
 export function scheduleFor(now: Date, chaos = 1): TessActivity {
-  const { hour, dow } = tessLocalParts(now);
+  const { hour, minute, dow } = tessLocalParts(now);
   const weekend = dow === 0 || dow === 6;
   // Deterministic per-day variation: some workdays are calm, some chaotic.
   const daySeed = Math.floor(now.getTime() / 86_400_000);
@@ -40,10 +40,14 @@ export function scheduleFor(now: Date, chaos = 1): TessActivity {
   if (hour < 8) return { activity: "walking Mabel", availability: "limited", detail: "morning Mabel walk / getting ready for the day" };
 
   if (!weekend && hour >= 8 && hour < 17) {
+    // A hectic shift still has ordinary breaks; a live emergency disruption can override them.
+    if (hour === 12) return { activity: "at work (lunch)", availability: "limited", detail: "at the clinic office, taking a lunch break, phone available" };
+    if ((hour === 10 && minute >= 30 && minute < 45) || (hour === 13 && minute >= 15 && minute < 30)) {
+      return { activity: "at work (desk break)", availability: "limited", detail: "a brief clinic office break, a few quiet minutes at her desk, phone available" };
+    }
     if (chaoticDay) {
       return { activity: "at work (chaotic day)", availability: "busy", detail: "at the clinic — chaotic day, short-staffed, replies are short and sporadic" };
     }
-    if (hour >= 12 && hour < 13) return { activity: "at work (lunch)", availability: "limited", detail: "at work, grabbing a late lunch — a few free minutes" };
     return { activity: "at work", availability: "limited", detail: "at the clinic — calm enough day, can text between things" };
   }
 

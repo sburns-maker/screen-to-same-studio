@@ -74,16 +74,16 @@ export function photoOpportunity(args: {
     key,
     hint: "",
   });
-  if (!args.eligibleTypes.length)
-    return no("no permitted photo categories (capability, relationship or boundary)");
   if (args.schedule.availability === "asleep" || args.schedule.availability === "busy")
-    return no(`unavailable: ${args.schedule.availability}`);
+    return no(`Unavailable right now: ${args.schedule.detail} (${args.schedule.availability}). Wait for a compatible break.`);
   if (
     /driv|surgery|emergency|phone (?:down|away)|patient|private|winding down/i.test(
       args.schedule.detail,
     )
   )
     return no("current activity is incompatible with a photo");
+  if (!args.eligibleTypes.length)
+    return no("no permitted photo categories (capability, relationship or boundary)");
   if (args.state.curiosity < 30 || (args.state.comfort < 40 && args.state.trust < 25))
     return no("not sufficiently interested or comfortable to initiate sharing");
   if (args.state.irritation >= 20 || args.state.perceived_pressure >= 30)
