@@ -1,0 +1,1 @@
+SELECT public.media_profile_status();

@@ -127,6 +127,13 @@
       "when": 1792771200006,
       "tag": "0017_media_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792771200007,
+      "tag": "0018_verify_media_profiles",
+      "breakpoints": true
     }
   ]
 }

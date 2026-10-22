@@ -162,7 +162,7 @@ describe("persistent display avatars and explicit canonical changes", () => {
       p_canonical: null,
       p_sha: null,
       p_source: null,
-    });
+    } as never);
     expect(r.error).not.toBeNull();
     const policy = (
       await db.query("select * from pg_policies where tablename='profile_identity_changes'")

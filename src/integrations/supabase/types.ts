@@ -1,4 +1,3 @@
-import type { ExpansionTables, ExpansionFunctions } from "./expansion-types";
 export type Json =
   | string
   | number
@@ -14,7 +13,7 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
-    Tables: ExpansionTables & {
+    Tables: {
       character_knowledge: {
         Row: {
           acquired_at: string
@@ -543,6 +542,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      profile_identity_changes: {
+        Row: {
+          canonical_changed: boolean
+          created_at: string
+          entity_key: string
+          id: string
+          new_asset: string
+          old_asset: string | null
+          source_message_id: string | null
+          user_id: string
+        }
+        Insert: {
+          canonical_changed?: boolean
+          created_at?: string
+          entity_key: string
+          id?: string
+          new_asset: string
+          old_asset?: string | null
+          source_message_id?: string | null
+          user_id: string
+        }
+        Update: {
+          canonical_changed?: boolean
+          created_at?: string
+          entity_key?: string
+          id?: string
+          new_asset?: string
+          old_asset?: string | null
+          source_message_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_identity_changes_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -1263,6 +1303,7 @@ export type Database = {
         Row: {
           active_message_id: string | null
           active_reason: string
+          active_storage_path: string | null
           approval: string
           canonical_asset: string | null
           canonical_sha256: string | null
@@ -1273,6 +1314,7 @@ export type Database = {
         Insert: {
           active_message_id?: string | null
           active_reason?: string
+          active_storage_path?: string | null
           approval: string
           canonical_asset?: string | null
           canonical_sha256?: string | null
@@ -1283,6 +1325,7 @@ export type Database = {
         Update: {
           active_message_id?: string | null
           active_reason?: string
+          active_storage_path?: string | null
           approval?: string
           canonical_asset?: string | null
           canonical_sha256?: string | null
@@ -1465,13 +1508,14 @@ export type Database = {
     Views: {
       [_ in never]: never
     }
-    Functions: ExpansionFunctions & {
+    Functions: {
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
       deliver_user_video: {
         Args: { p_id: string; p_user: string }
         Returns: Json
       }
+      media_profile_status: { Args: never; Returns: number }
       record_npc_introduction: {
         Args: { p_message: string; p_npc: string; p_user: string }
         Returns: boolean
@@ -1500,6 +1544,17 @@ export type Database = {
       }
       reserve_world_ai: {
         Args: { p_limit: number; p_user_id: string }
+        Returns: boolean
+      }
+      set_profile_media: {
+        Args: {
+          p_avatar: string
+          p_canonical: string
+          p_key: string
+          p_sha: string
+          p_source: string
+          p_user: string
+        }
         Returns: boolean
       }
       shared_plan_notice: {
@@ -1541,6 +1596,15 @@ export type Database = {
       }
       town_status: { Args: never; Returns: number }
       update_active_portrait: {
+        Args: {
+          p_key: string
+          p_message: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      update_screened_portrait: {
         Args: {
           p_key: string
           p_message: string
