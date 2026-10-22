@@ -1,3 +1,12 @@
+import { currentActivity } from "./world-continuity";
+import {
+  worldRuntimeAvailable,
+  persistWorldCheckpoint,
+  continuityContext,
+  deferIntention,
+  recordPhotoDecision,
+  reserveWorldAi,
+} from "./world-runtime.server";
 import { claimMessagePush, messagePushBody } from "./message-notifications.server";
 /**
  * Living-world engine: a bounded, idempotent server-side tick that advances
@@ -21,8 +30,8 @@ import { claimMessagePush, messagePushBody } from "./message-notifications.serve
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
-import { characterAvailability, characterFor } from "./characters";
-import { activeLifeEvent, decideInitiation, scheduleFor, weatherFlavor } from "./tess-life";
+import { characterFor } from "./characters";
+import { activeLifeEvent, decideInitiation, weatherFlavor } from "./tess-life";
 import { deriveStage, type TessState, STATE_KEYS, SEED_STATE } from "./tess-logic";
 import { sendWebPush, type PushTarget } from "./webpush.server";
 import { VAPID_PUBLIC_KEY } from "./push-config";
@@ -45,7 +54,10 @@ function pickState(row: Record<string, unknown> | null | undefined): TessState {
 }
 
 /** Quiet hours are stored as a user_profile fact row: key 'quiet_hours', value "23-7" (or empty = off). */
-export function parseQuietHours(value: string | null | undefined): { start: number | null; end: number | null } {
+export function parseQuietHours(value: string | null | undefined): {
+  start: number | null;
+  end: number | null;
+} {
   const m = /^(\d{1,2})-(\d{1,2})$/.exec(value ?? "");
   if (!m) return { start: null, end: null };
   const start = Number(m[1]);
@@ -55,14 +67,29 @@ export function parseQuietHours(value: string | null | undefined): { start: numb
 }
 
 /** Quiet hours are wall-clock hours in America/New_York; nulls mean "no quiet hours". */
-export function inQuietHours(now: Date, quietStart: number | null, quietEnd: number | null): boolean {
+export function inQuietHours(
+  now: Date,
+  quietStart: number | null,
+  quietEnd: number | null,
+): boolean {
   if (quietStart == null || quietEnd == null) return false;
-  const h = Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hour12: false }).format(now)) % 24;
+  const h =
+    Number(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        hour12: false,
+      }).format(now),
+    ) % 24;
   return quietStart > quietEnd ? h >= quietStart || h < quietEnd : h >= quietStart && h < quietEnd;
 }
 
 /** Which conversations are due for a world check right now. Pure + tested. */
-export function isDue(lastCheckIso: string | null | undefined, now: Date, intervalMinutes = TICK_INTERVAL_MINUTES): boolean {
+export function isDue(
+  lastCheckIso: string | null | undefined,
+  now: Date,
+  intervalMinutes = TICK_INTERVAL_MINUTES,
+): boolean {
   if (!lastCheckIso) return true;
   return now.getTime() - new Date(lastCheckIso).getTime() >= intervalMinutes * 60_000;
 }
@@ -75,16 +102,29 @@ async function acquireLease(admin: Admin): Promise<{ runId: string } | null> {
   const staleBefore = new Date(Date.now() - LEASE_MINUTES * 60_000).toISOString();
   await admin
     .from("job_runs")
-    .update({ status: "failed", finished_at: new Date().toISOString(), detail: { error: "lease expired (stale run reclaimed)" } })
+    .update({
+      status: "failed",
+      finished_at: new Date().toISOString(),
+      detail: { error: "lease expired (stale run reclaimed)" },
+    })
     .eq("job", "world-tick")
     .eq("status", "running")
     .lt("started_at", staleBefore);
-  const { data, error } = await admin.from("job_runs").insert({ job: "world-tick", status: "running" }).select("id").single();
+  const { data, error } = await admin
+    .from("job_runs")
+    .insert({ job: "world-tick", status: "running" })
+    .select("id")
+    .single();
   if (error || !data) return null; // unique violation = another run holds the lease
   return { runId: data.id };
 }
 
-async function finishRun(admin: Admin, runId: string, status: "ok" | "failed" | "paused", detail: Record<string, unknown>) {
+async function finishRun(
+  admin: Admin,
+  runId: string,
+  status: "ok" | "failed" | "paused",
+  detail: Record<string, unknown>,
+) {
   await admin
     .from("job_runs")
     .update({ status, detail: detail as unknown as Json, finished_at: new Date().toISOString() })
@@ -92,8 +132,14 @@ async function finishRun(admin: Admin, runId: string, status: "ok" | "failed" | 
 }
 
 /** Durable AI pause state (survives across runs and restarts). */
-async function readAiPause(admin: Admin): Promise<{ paused: boolean; reason?: string | undefined; since?: string | undefined }> {
-  const { data } = await admin.from("world_control").select("value").eq("key", "ai_pause").maybeSingle();
+async function readAiPause(
+  admin: Admin,
+): Promise<{ paused: boolean; reason?: string | undefined; since?: string | undefined }> {
+  const { data } = await admin
+    .from("world_control")
+    .select("value")
+    .eq("key", "ai_pause")
+    .maybeSingle();
   const v = (data?.value ?? {}) as { paused?: boolean; reason?: string; since?: string };
   return { paused: !!v.paused, reason: v.reason, since: v.since };
 }
@@ -101,7 +147,13 @@ async function readAiPause(admin: Admin): Promise<{ paused: boolean; reason?: st
 async function writeAiPause(admin: Admin, paused: boolean, reason?: string) {
   await admin.from("world_control").upsert({
     key: "ai_pause",
-    value: paused ? { paused: true, reason: reason ?? "AI credits/policy block", since: new Date().toISOString() } : { paused: false },
+    value: paused
+      ? {
+          paused: true,
+          reason: reason ?? "AI credits/policy block",
+          since: new Date().toISOString(),
+        }
+      : { paused: false },
     updated_at: new Date().toISOString(),
   });
 }
@@ -113,7 +165,10 @@ async function pushToUser(
 ): Promise<{ sent: number; removed: number; skipped: string | null }> {
   const vapidPrivate = process.env["VAPID_PRIVATE_KEY"];
   if (!vapidPrivate) return { sent: 0, removed: 0, skipped: "no VAPID key" };
-  const { data: subs } = await admin.from("push_subscriptions").select("id, endpoint, keys").eq("user_id", userId);
+  const { data: subs } = await admin
+    .from("push_subscriptions")
+    .select("id, endpoint, keys")
+    .eq("user_id", userId);
   if (!subs?.length) return { sent: 0, removed: 0, skipped: "no subscriptions" };
   let sent = 0;
   let removed = 0;
@@ -127,7 +182,10 @@ async function pushToUser(
       );
       if (result.ok) {
         sent++;
-        await admin.from("push_subscriptions").update({ last_used_at: new Date().toISOString() }).eq("id", sub.id);
+        await admin
+          .from("push_subscriptions")
+          .update({ last_used_at: new Date().toISOString() })
+          .eq("id", sub.id);
       } else if (result.gone) {
         removed++;
         await admin.from("push_subscriptions").delete().eq("id", sub.id);
@@ -149,12 +207,23 @@ export type TickReport = {
   aiCalls: number;
   paused: boolean;
   aiPausedGlobally: boolean;
-  social: { eventsNew: number; knowledgeAdded: number; linkChanges: number; storylinesStarted: number; storylinesAdvanced: number };
+  social: {
+    eventsNew: number;
+    knowledgeAdded: number;
+    linkChanges: number;
+    storylinesStarted: number;
+    storylinesAdvanced: number;
+  };
   errors: string[];
 };
 
 export async function runWorldTick(): Promise<TickReport> {
   const { supabaseAdmin: admin } = await import("@/integrations/supabase/client.server");
+  return runWorldTickWithAdmin(admin);
+}
+
+/** Injectable clock/database for offline integration tests. Production always uses the real clock. */
+export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Promise<TickReport> {
   const report: TickReport = {
     runId: null,
     skipped: false,
@@ -165,7 +234,13 @@ export async function runWorldTick(): Promise<TickReport> {
     aiCalls: 0,
     paused: false,
     aiPausedGlobally: false,
-    social: { eventsNew: 0, knowledgeAdded: 0, linkChanges: 0, storylinesStarted: 0, storylinesAdvanced: 0 },
+    social: {
+      eventsNew: 0,
+      knowledgeAdded: 0,
+      linkChanges: 0,
+      storylinesStarted: 0,
+      storylinesAdvanced: 0,
+    },
     errors: [],
   };
 
@@ -177,7 +252,7 @@ export async function runWorldTick(): Promise<TickReport> {
   report.runId = lease.runId;
 
   try {
-    const now = new Date();
+    const worldReady = await worldRuntimeAvailable(admin);
     const nowIso = now.toISOString();
     const aiPause = await readAiPause(admin);
     report.aiPausedGlobally = aiPause.paused;
@@ -186,8 +261,13 @@ export async function runWorldTick(): Promise<TickReport> {
     const aiBudget = aiPause.paused ? 1 : MAX_AI_CALLS_PER_RUN;
 
     // Resume prepared photo deliveries without another text/image call, even if a new initiation is not selected.
-    const { data: photoJobs, error: photoJobError } = await admin.from("job_runs").select("id, detail")
-      .like("job", "photo-turn:%").eq("status", "running").eq("detail->>phase", "prepared").limit(MAX_AI_CALLS_PER_RUN);
+    const { data: photoJobs, error: photoJobError } = await admin
+      .from("job_runs")
+      .select("id, detail")
+      .like("job", "photo-turn:%")
+      .eq("status", "running")
+      .eq("detail->>phase", "prepared")
+      .limit(MAX_AI_CALLS_PER_RUN);
     if (photoJobError) report.errors.push("Photo recovery queue unavailable");
     for (const job of photoJobs ?? []) {
       const detail = job.detail as { conversationId?: string; userId?: string };
@@ -195,7 +275,9 @@ export async function runWorldTick(): Promise<TickReport> {
       try {
         const { recoverPhotoDelivery } = await import("./photo-delivery.server");
         await recoverPhotoDelivery(admin, detail.conversationId, detail.userId);
-      } catch { report.errors.push("A prepared photo remains queued for delivery"); }
+      } catch {
+        report.errors.push("A prepared photo remains queued for delivery");
+      }
     }
 
     // --- Push sweep: delayed replies that became visible since the last tick.
@@ -203,25 +285,33 @@ export async function runWorldTick(): Promise<TickReport> {
     // Dedupe: metadata.pushed is set in the same step as the push attempt.
     const { data: due } = await admin
       .from("messages")
-      .select("id, conversation_id, user_id, body, created_at, metadata, conversation:conversations(muted, last_read_at, character:characters(key, preferred_name))")
+      .select(
+        "id, conversation_id, user_id, body, created_at, metadata, conversation:conversations(muted, last_read_at, character:characters(key, preferred_name))",
+      )
       .eq("sender", "tess")
       .lte("visible_at", nowIso)
       .gte("created_at", new Date(now.getTime() - 24 * 3_600_000).toISOString())
       .is("metadata->>pushed", null)
       .order("created_at", { ascending: true })
-      .limit(MAX_PUSH_SWEEP_PER_RUN);
+      .limit(MAX_PUSH_SWEEP_PER_RUN * 10);
 
+    let pushAttempts = 0;
     for (const msg of due ?? []) {
       const conv = msg.conversation as {
         muted?: boolean;
         last_read_at?: string | null;
         character?: { key?: string; preferred_name?: string } | null;
       } | null;
-      // Mark first so a retry never double-notifies, even if the push fails.
-      if (!await claimMessagePush(admin, msg)) continue;
-      if ((msg.metadata as { push_primary?: boolean } | null)?.push_primary === false) continue;
-      if (conv?.muted) continue;
-      if (conv?.last_read_at && new Date(conv.last_read_at) >= new Date(msg.created_at)) continue; // already seen
+      if (pushAttempts >= MAX_PUSH_SWEEP_PER_RUN) break;
+      // Permanently suppress non-primary, muted and already-read bubbles so they cannot clog the queue.
+      if (
+        (msg.metadata as { push_primary?: boolean } | null)?.push_primary === false ||
+        conv?.muted ||
+        (conv?.last_read_at && new Date(conv.last_read_at) >= new Date(msg.created_at))
+      ) {
+        await claimMessagePush(admin, msg);
+        continue;
+      }
       const { data: profile } = await admin
         .from("user_profile")
         .select("value")
@@ -230,6 +320,8 @@ export async function runWorldTick(): Promise<TickReport> {
         .maybeSingle();
       const qh = parseQuietHours(profile?.value);
       if (inQuietHours(now, qh.start, qh.end)) continue;
+      if (!(await claimMessagePush(admin, msg))) continue;
+      pushAttempts++;
       const name = conv?.character?.preferred_name ?? "Chats";
       const push = await pushToUser(admin, msg.user_id, {
         title: name,
@@ -244,19 +336,40 @@ export async function runWorldTick(): Promise<TickReport> {
           conversation_id: msg.conversation_id,
           character_key: conv?.character?.key ?? "unknown",
           kind: "notification",
-          summary: push.sent > 0 ? `Push sent to ${push.sent} device(s)` : `Push skipped (${push.skipped ?? "none delivered"})`,
+          summary:
+            push.sent > 0
+              ? `Push sent to ${push.sent} device(s)`
+              : `Push skipped (${push.skipped ?? "none delivered"})`,
           payload: { ...push, messageId: msg.id },
         });
       }
     }
 
-    // --- Initiation checks. Least-recently-active conversations first so quiet
-    // users' worlds keep moving; active users already get interactive turns.
-    const { data: convRows } = await admin
+    // --- Durable cursor prevents active or quiet conversations from starving later users.
+    const { data: cursorRow } = await admin
+      .from("world_control")
+      .select("value")
+      .eq("key", "world_cursor")
+      .maybeSingle();
+    const cursorValue = Number((cursorRow?.value as { offset?: number } | null)?.offset ?? 0);
+    const offset = Number.isSafeInteger(cursorValue) && cursorValue >= 0 ? cursorValue : 0;
+    const { data: convRows, error: convError } = await admin
       .from("conversations")
-      .select("id, user_id, character_id, difficulty, muted, last_read_at, real_time_mode, photo_frequency, photo_boundary, mature_photography, character:characters(key)")
-      .order("updated_at", { ascending: true })
-      .limit(200);
+      .select(
+        "id, user_id, character_id, difficulty, muted, last_read_at, real_time_mode, photo_frequency, photo_boundary, mature_photography, character:characters(key)",
+      )
+      .order("id", { ascending: true })
+      .range(offset, offset + MAX_USERS_PER_RUN - 1);
+    if (convError) throw new Error("World conversation queue unavailable");
+    await admin
+      .from("world_control")
+      .upsert({
+        key: "world_cursor",
+        value: {
+          offset: (convRows?.length ?? 0) < MAX_USERS_PER_RUN ? 0 : offset + MAX_USERS_PER_RUN,
+        },
+        updated_at: nowIso,
+      });
     const byUser = new Map<string, typeof convRows>();
     for (const c of convRows ?? []) {
       const list = byUser.get(c.user_id) ?? [];
@@ -294,165 +407,324 @@ export async function runWorldTick(): Promise<TickReport> {
       }
 
       for (const conv of convs ?? []) {
-        if (report.aiCalls >= aiBudget || report.paused) break;
-        const def = characterFor((conv.character as { key?: string } | null)?.key);
-        const isTess = def.key === "tess";
+        try {
+          // AI budget never prevents structured world progression for the remaining characters.
+          const def = characterFor((conv.character as { key?: string } | null)?.key);
+          const isTess = def.key === "tess";
 
-        const [{ data: life }, { data: last }, { data: stateRow }, { data: recentMsgs }] = await Promise.all([
-          admin.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
-          admin
-            .from("messages")
-            .select("created_at")
-            .eq("conversation_id", conv.id)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          admin.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
-          admin
-            .from("messages")
-            .select("sender, created_at")
-            .eq("conversation_id", conv.id)
-            .order("created_at", { ascending: false })
-            .limit(30),
-        ]);
+          const [
+            { data: life },
+            { data: last },
+            { data: stateRow },
+            { data: recentMsgs },
+            { data: checkpoint },
+          ] = await Promise.all([
+            admin.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
+            admin
+              .from("messages")
+              .select("created_at")
+              .eq("conversation_id", conv.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle(),
+            admin.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
+            admin
+              .from("messages")
+              .select("sender, created_at")
+              .eq("conversation_id", conv.id)
+              .order("created_at", { ascending: false })
+              .limit(30),
+            worldReady
+              ? admin
+                  .from("character_world_state")
+                  .select("updated_at")
+                  .eq("conversation_id", conv.id)
+                  .eq("user_id", userId)
+                  .maybeSingle()
+              : Promise.resolve({ data: null }),
+          ]);
 
-        // Orphaned user message: the user's latest text never got a reply
-        // (app closed / request aborted). Answer it now, ahead of initiation.
-        const newest = (recentMsgs ?? [])[0];
-        if (newest?.sender === "user" && now.getTime() - new Date(newest.created_at).getTime() > 90_000) {
+          // Throttle: skip conversations checked recently (event-driven, not continuous).
+          const lastCheck = worldReady
+            ? (checkpoint?.updated_at ?? null)
+            : ((life?.last_initiation as { at?: string } | null)?.at ?? null);
+          if (!isDue(lastCheck, now)) continue;
+          report.conversationsChecked++;
+
+          const gapHours = last
+            ? (now.getTime() - new Date(last.created_at).getTime()) / 3_600_000
+            : 999;
+          const state = pickState(stateRow);
+          const story = await storylineContext(admin, userId, def.key, now);
+          const lifeEvent =
+            story.event ??
+            (isTess
+              ? activeLifeEvent(
+                  now,
+                  weather
+                    ? {
+                        snowing: weather.snowing,
+                        rain: weather.rain,
+                        alert: !!weather.weather_alert,
+                      }
+                    : undefined,
+                )
+              : null);
+          const schedule = storySchedule(
+            currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1),
+            story.event,
+          );
+          if (worldReady)
+            await persistWorldCheckpoint(admin, {
+              userId,
+              conversationId: conv.id,
+              def,
+              now,
+              schedule,
+              event: lifeEvent ? { ...lifeEvent } : {},
+              chaos: conv.difficulty === "chaos" ? 2 : 1,
+            });
+          // Practice conversations retain interactive testing; they never receive real-clock background messages.
+          if (!conv.real_time_mode) continue;
+          if (worldReady) {
+            const { error: expiryError } = await admin
+              .from("world_records")
+              .update({ status: "expired", updated_at: nowIso })
+              .eq("user_id", userId)
+              .eq("conversation_id", conv.id)
+              .eq("status", "pending")
+              .lte("expires_at", nowIso);
+            if (expiryError) throw new Error("Follow-up expiry unavailable");
+          }
+          const continuity = worldReady
+            ? await continuityContext(admin, userId, conv.id, now)
+            : { due: null, lines: [] };
+          const dueIntention = continuity.due;
+          const list = recentMsgs ?? [];
+          const userCount = list.filter((m) => m.sender === "user").length;
+          const contactCount = list.filter((m) => m.sender === "tess").length;
+          const hasPlausibleReason = !!(lifeEvent || dueIntention);
+
+          // Orphaned user message: the user's latest text never got a reply
+          // (app closed / request aborted). Answer it now, ahead of initiation.
+          const newest = (recentMsgs ?? [])[0];
+          if (
+            newest?.sender === "user" &&
+            report.aiCalls < aiBudget &&
+            !report.paused &&
+            schedule.availability !== "asleep" &&
+            now.getTime() - new Date(newest.created_at).getTime() > 90_000
+          ) {
+            try {
+              if (worldReady && !(await reserveWorldAi(admin, userId))) continue;
+              report.aiCalls++;
+              const { runTurn } = await import("./tess.functions");
+              const r = await runTurn(admin, userId, conv.id, "America/New_York");
+              if (r.count > 0) {
+                await admin.from("world_events").insert({
+                  user_id: userId,
+                  conversation_id: conv.id,
+                  character_key: def.key,
+                  kind: "orphan_reply",
+                  summary: `${def.preferredName} answered a message left without reply`,
+                  payload: {},
+                });
+              }
+            } catch (e) {
+              report.errors.push(
+                `orphan ${conv.id}: ${(e instanceof Error ? e.message : String(e)).slice(0, 140)}`,
+              );
+            }
+            continue;
+          }
+
+          const decision = decideInitiation({
+            state,
+            stage: deriveStage(state),
+            gapHours,
+            lastInitiatedAt: life?.last_initiated_at ? new Date(life.last_initiated_at) : null,
+            userCarrying: userCount > contactCount * 1.6 && userCount >= 5,
+            recentQuality: Math.min(100, state.relationship_momentum + state.playfulness / 2),
+            schedule,
+            lifeEvent,
+            hasPlausibleReason,
+            now,
+            minGapHours: def.initiation.minGapHours,
+            scoreMultiplier: def.initiation.scoreMultiplier,
+          });
+
+          // Record the check regardless of outcome (debug "why / why not").
+          await admin.from("tess_life").upsert({
+            conversation_id: conv.id,
+            user_id: userId,
+            current_event: lifeEvent ? { ...lifeEvent } : {},
+            last_initiation: {
+              at: nowIso,
+              eligible: decision.eligible,
+              initiated: decision.initiate,
+              score: decision.score,
+              chance: decision.chance,
+              reasons: decision.reasons,
+              source: "world-tick",
+            },
+            updated_at: nowIso,
+          });
+
+          const { evaluateSpontaneousPhoto } = await import("./spontaneous-photo.server");
+          const photoChance = await evaluateSpontaneousPhoto(admin, {
+            def,
+            conversation: conv,
+            state,
+            schedule,
+            now,
+            gapHours,
+            lastInitiatedAt: life?.last_initiated_at ?? null,
+            context: lifeEvent?.summary ?? schedule.detail,
+          });
+          if (worldReady)
+            await recordPhotoDecision(admin, {
+              userId,
+              conversationId: conv.id,
+              character: def.key,
+              key: photoChance.key,
+              eligible: photoChance.eligible,
+              selected: photoChance.selected,
+              reason: photoChance.reason,
+              now,
+            });
+          const followUp =
+            !!dueIntention &&
+            gapHours >= 0.5 &&
+            (!life?.last_initiated_at ||
+              now.getTime() - Date.parse(life.last_initiated_at) >= 3_600_000);
+          if (!decision.initiate && !photoChance.selected && !followUp) continue;
+          if (
+            conv.muted ||
+            inQuietHours(now, quiet.start, quiet.end) ||
+            schedule.availability === "busy" ||
+            schedule.availability === "asleep" ||
+            report.aiCalls >= aiBudget ||
+            report.paused
+          )
+            continue;
+
+          // Generate the initiated message through the SAME turn pipeline as the
+          // interactive path, so tone/photos/latency rules stay identical.
+          const reason = followUp
+            ? `Follow through on your pending ${dueIntention!.kind} intention: ${dueIntention!.summary}. Only fulfill it if appropriate now; do not claim a photo was sent without actually attaching one.`
+            : photoChance.selected
+              ? photoChance.hint
+              : (lifeEvent?.summary ?? flavor ?? null);
           try {
+            if (worldReady && !(await reserveWorldAi(admin, userId))) continue;
             report.aiCalls++;
+            if (aiPause.paused) probeAttempted = true;
             const { runTurn } = await import("./tess.functions");
-            const r = await runTurn(admin, userId, conv.id, "America/New_York");
-            if (r.count > 0) {
+            const result = await runTurn(admin, userId, conv.id, "America/New_York", {
+              gapHours,
+              reason,
+              budgetReserved: worldReady,
+              ...(followUp
+                ? {
+                    intentionId: dueIntention!.id,
+                    photoKey: `intention:${dueIntention!.id}:${dueIntention!.attempts}`,
+                  }
+                : photoChance.selected
+                  ? { photoKey: photoChance.key }
+                  : {}),
+            });
+            if (followUp && dueIntention && worldReady) {
+              if ("reason" in result && result.reason?.includes("will not be recharged")) {
+                await admin
+                  .from("world_records")
+                  .update({ status: "cancelled", updated_at: nowIso })
+                  .eq("id", dueIntention.id)
+                  .eq("user_id", userId)
+                  .eq("status", "pending");
+              } else
+                await deferIntention(admin, dueIntention.id, userId, dueIntention.attempts, now);
+            }
+            if (aiPause.paused && probeAttempted) {
+              // Probe succeeded — lift the durable pause.
+              await writeAiPause(admin, false);
+              report.aiPausedGlobally = false;
+            }
+            if (result.count > 0) {
+              await admin
+                .from("tess_life")
+                .update({ last_initiated_at: nowIso, updated_at: nowIso })
+                .eq("conversation_id", conv.id);
+              report.initiated.push({
+                conversationId: conv.id,
+                character: def.preferredName,
+                reason,
+              });
               await admin.from("world_events").insert({
                 user_id: userId,
                 conversation_id: conv.id,
                 character_key: def.key,
-                kind: "orphan_reply",
-                summary: `${def.preferredName} answered a message left without reply`,
-                payload: {},
+                kind: "initiation",
+                summary: `${def.preferredName} texted first${reason ? ` — ${reason}` : ""}`,
+                payload: {
+                  score: decision.score,
+                  reasons: decision.reasons,
+                  gapHours: Math.round(gapHours * 10) / 10,
+                },
               });
-            }
-          } catch (e) {
-            report.errors.push(`orphan ${conv.id}: ${(e instanceof Error ? e.message : String(e)).slice(0, 140)}`);
-          }
-          continue;
-        }
 
-        // Throttle: skip conversations checked recently (event-driven, not continuous).
-        const lastCheck = (life?.last_initiation as { at?: string } | null)?.at ?? null;
-        if (!isDue(lastCheck, now)) continue;
-        report.conversationsChecked++;
-
-        const gapHours = last ? (now.getTime() - new Date(last.created_at).getTime()) / 3_600_000 : 999;
-        const state = pickState(stateRow);
-        const story = await storylineContext(admin, userId, def.key, now);
-        const lifeEvent = story.event ?? (isTess
-          ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined)
-          : null);
-        const schedule = storySchedule(isTess
-          ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
-          : (() => {
-              const a = characterAvailability(def, now);
-              return { activity: a.detail, availability: a.availability, detail: a.detail };
-            })(), story.event);
-        const list = recentMsgs ?? [];
-        const userCount = list.filter((m) => m.sender === "user").length;
-        const contactCount = list.filter((m) => m.sender === "tess").length;
-        const hasPlausibleReason = !!(flavor || lifeEvent || state.relationship_momentum > 35 || state.curiosity > 55);
-
-        const decision = decideInitiation({
-          state,
-          stage: deriveStage(state),
-          gapHours,
-          lastInitiatedAt: life?.last_initiated_at ? new Date(life.last_initiated_at) : null,
-          userCarrying: userCount > contactCount * 1.6 && userCount >= 5,
-          recentQuality: Math.min(100, state.relationship_momentum + state.playfulness / 2),
-          schedule,
-          lifeEvent,
-          hasPlausibleReason,
-          now,
-          minGapHours: def.initiation.minGapHours,
-          scoreMultiplier: def.initiation.scoreMultiplier,
-        });
-
-        // Record the check regardless of outcome (debug "why / why not").
-        await admin.from("tess_life").upsert({
-          conversation_id: conv.id,
-          user_id: userId,
-          current_event: lifeEvent ? { ...lifeEvent } : {},
-          last_initiation: {
-            at: nowIso,
-            eligible: decision.eligible,
-            initiated: decision.initiate,
-            score: decision.score,
-            chance: decision.chance,
-            reasons: decision.reasons,
-            source: "world-tick",
-          },
-          updated_at: nowIso,
-        });
-
-        const { evaluateSpontaneousPhoto } = await import("./spontaneous-photo.server");
-        const photoChance = await evaluateSpontaneousPhoto(admin, { def, conversation: conv, state, schedule, now,
-          gapHours, lastInitiatedAt: life?.last_initiated_at ?? null, context: lifeEvent?.summary ?? schedule.detail });
-        if (!decision.initiate && !photoChance.selected) continue;
-
-        // Generate the initiated message through the SAME turn pipeline as the
-        // interactive path, so tone/photos/latency rules stay identical.
-        const reason = photoChance.selected ? photoChance.hint : lifeEvent?.summary ?? flavor ?? null;
-        try {
-          report.aiCalls++;
-          if (aiPause.paused) probeAttempted = true;
-          const { runTurn } = await import("./tess.functions");
-          const result = await runTurn(admin, userId, conv.id, "America/New_York", { gapHours, reason, ...(photoChance.selected ? { photoKey: photoChance.key } : {}) });
-          if (aiPause.paused && probeAttempted) {
-            // Probe succeeded — lift the durable pause.
-            await writeAiPause(admin, false);
-            report.aiPausedGlobally = false;
-          }
-          if (result.count > 0) {
-            await admin.from("tess_life").update({ last_initiated_at: nowIso, updated_at: nowIso }).eq("conversation_id", conv.id);
-            report.initiated.push({ conversationId: conv.id, character: def.preferredName, reason });
-            await admin.from("world_events").insert({
-              user_id: userId,
-              conversation_id: conv.id,
-              character_key: def.key,
-              kind: "initiation",
-              summary: `${def.preferredName} texted first${reason ? ` — ${reason}` : ""}`,
-              payload: { score: decision.score, reasons: decision.reasons, gapHours: Math.round(gapHours * 10) / 10 },
-            });
-
-            // Claim the primary bubble only after it is visible. The sweep uses the same atomic claim.
-            if ("notificationGroup" in result && typeof result.notificationGroup === "string") {
-              const { data: primary } = await admin.from("messages").select("id, body, metadata, visible_at")
-                .eq("conversation_id", conv.id).eq("metadata->>notification_group", result.notificationGroup)
-                .eq("metadata->>push_primary", "true").maybeSingle();
-              if (primary) {
-                const waitMs = Date.parse(primary.visible_at) - Date.now();
-                if (waitMs > 0 && waitMs <= 5000) await new Promise((resolve) => setTimeout(resolve, waitMs + 20));
-                if (Date.parse(primary.visible_at) <= Date.now() && await claimMessagePush(admin, primary)
-                  && !conv.muted && !inQuietHours(new Date(), quiet.start, quiet.end)) {
-                  const push = await pushToUser(admin, userId, { title: def.preferredName, body: messagePushBody(primary),
-                    url: `/chat/${conv.id}`, tag: `conv-${conv.id}` });
-                  report.pushed += push.sent;
-                  await admin.from("world_events").insert({ user_id: userId, conversation_id: conv.id,
-                    character_key: def.key, kind: "notification", summary: `Push delivered to ${push.sent} device(s)`, payload: { ...push, messageId: primary.id } });
+              // Claim the primary bubble only after it is visible. The sweep uses the same atomic claim.
+              if ("notificationGroup" in result && typeof result.notificationGroup === "string") {
+                const { data: primary } = await admin
+                  .from("messages")
+                  .select("id, body, metadata, visible_at")
+                  .eq("conversation_id", conv.id)
+                  .eq("metadata->>notification_group", result.notificationGroup)
+                  .eq("metadata->>push_primary", "true")
+                  .maybeSingle();
+                if (primary) {
+                  const waitMs = Date.parse(primary.visible_at) - Date.now();
+                  if (waitMs > 0 && waitMs <= 5000)
+                    await new Promise((resolve) => setTimeout(resolve, waitMs + 20));
+                  if (
+                    Date.parse(primary.visible_at) <= Date.now() &&
+                    !conv.muted &&
+                    !inQuietHours(new Date(), quiet.start, quiet.end) &&
+                    (await claimMessagePush(admin, primary))
+                  ) {
+                    const push = await pushToUser(admin, userId, {
+                      title: def.preferredName,
+                      body: messagePushBody(primary),
+                      url: `/chat/${conv.id}`,
+                      tag: `conv-${conv.id}`,
+                    });
+                    report.pushed += push.sent;
+                    await admin
+                      .from("world_events")
+                      .insert({
+                        user_id: userId,
+                        conversation_id: conv.id,
+                        character_key: def.key,
+                        kind: "notification",
+                        summary: `Push delivered to ${push.sent} device(s)`,
+                        payload: { ...push, messageId: primary.id },
+                      });
+                  }
                 }
               }
             }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            if (/\b(402|403)\b/.test(msg)) {
+              // Circuit breaker: credits/policy block — durably pause the world.
+              report.paused = true;
+              report.errors.push(`AI paused: ${msg.slice(0, 120)}`);
+              await writeAiPause(admin, true, msg.slice(0, 200));
+              continue;
+            }
+            report.errors.push(`${def.key}: ${msg.slice(0, 120)}`);
           }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          if (/\b(402|403)\b/.test(msg)) {
-            // Circuit breaker: credits/policy block — durably pause the world.
-            report.paused = true;
-            report.errors.push(`AI paused: ${msg.slice(0, 120)}`);
-            await writeAiPause(admin, true, msg.slice(0, 200));
-            break;
-          }
-          report.errors.push(`${def.key}: ${msg.slice(0, 120)}`);
+        } catch {
+          report.errors.push(`World checkpoint or decision failed for conversation ${conv.id}`);
         }
       }
     }

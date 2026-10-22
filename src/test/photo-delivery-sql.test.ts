@@ -37,6 +37,7 @@ beforeAll(async () => {
     "0006_world_tick_lease_and_pause",
     "0007_photo_consent_and_mature_preferences",
     "0008_atomic_photo_delivery",
+    "0010_persistent_world",
   ]) {
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   }
@@ -45,7 +46,9 @@ afterAll(async () => {
   await db?.close();
 });
 beforeEach(async () => {
-  await db.exec("TRUNCATE public.conversations CASCADE; TRUNCATE public.job_runs;");
+  await db.exec(
+    "TRUNCATE public.conversations CASCADE; TRUNCATE public.job_runs CASCADE; TRUNCATE public.world_control;",
+  );
   await db.query(
     "insert into conversations(id,user_id,character_id) select $1,$2,id from characters where key='tess'",
     [cid, uid],
@@ -259,4 +262,128 @@ describe("real PostgreSQL photo outbox transaction", () => {
     expect(after.metadata["pushed"]).toBe(true);
     expect(messagePushBody({ body: "", metadata: after.metadata })).toBe("Sent a photo");
   });
+});
+
+describe("persistent world continuity and cost transactions", () => {
+  it("records an evidenced future photo promise atomically and does not duplicate it on retry", async () => {
+    const quote = "I'll send you a picture after work.";
+    (plan["rows"] as { body: string }[])[0]!.body = quote;
+    plan["continuity"] = {
+      fulfilled: null,
+      facts: [],
+      intentions: [
+        {
+          kind: "photo",
+          summary: "Share a workday photo",
+          source_quote: quote,
+          due_at: new Date(Date.now() + 3_600_000).toISOString(),
+        },
+      ],
+    };
+    await db.query("update job_runs set detail=jsonb_set(detail,'{plan}',$1::jsonb) where id=$2", [
+      JSON.stringify(plan),
+      job,
+    ]);
+    await deliver();
+    await deliver();
+    const records = (
+      await db.query<{ status: string; source_quote: string }>(
+        "select status,source_quote from world_records",
+      )
+    ).rows;
+    expect(records).toEqual([{ status: "pending", source_quote: quote }]);
+  });
+  it("keeps character improvisation tentative instead of automatically creating canon", async () => {
+    const quote = "Becca is helping with the room setup.";
+    (plan["rows"] as { body: string }[])[0]!.body = quote;
+    plan["continuity"] = {
+      fulfilled: null,
+      intentions: [],
+      facts: [
+        { kind: "npc", key: "npc:becca", value: quote, status: "confirmed", source_quote: quote },
+      ],
+    };
+    await db.query("update job_runs set detail=jsonb_set(detail,'{plan}',$1::jsonb) where id=$2", [
+      JSON.stringify(plan),
+      job,
+    ]);
+    await deliver();
+    expect(
+      (await db.query<{ status: string }>("select status from world_records")).rows[0]!.status,
+    ).toBe("tentative");
+  });
+  it("reserves each image attempt once, counts failures, and enforces monthly limits", async () => {
+    const reserve = () =>
+      db.query<{ allowed: boolean }>("select reserve_image_attempt($1,$2,$3,2,1) allowed", [
+        job,
+        cid,
+        uid,
+      ]);
+    expect((await reserve()).rows[0]!.allowed).toBe(true);
+    expect((await reserve()).rows[0]!.allowed).toBe(false);
+    await db.query("update media_attempts set status='failed' where action_id=$1", [job]);
+    await db.query("update job_runs set status='failed' where id=$1", [job]);
+    const another = "30000000-0000-4000-a000-000000000002";
+    await db.query("insert into job_runs(id,job,status,detail) values($1,$2,'running',$3)", [
+      another,
+      `photo-turn:${cid}`,
+      JSON.stringify({ userId: uid, conversationId: cid }),
+    ]);
+    expect(
+      (
+        await db.query<{ allowed: boolean }>("select reserve_image_attempt($1,$2,$3,2,1) allowed", [
+          another,
+          cid,
+          uid,
+        ])
+      ).rows[0]!.allowed,
+    ).toBe(false);
+  });
+  it("enforces autonomous text budgets across calls and rejects browser-role spending", async () => {
+    const reserve = () =>
+      db.query<{ allowed: boolean }>("select reserve_world_ai($1,1) allowed", [uid]);
+    expect((await reserve()).rows[0]!.allowed).toBe(true);
+    expect((await reserve()).rows[0]!.allowed).toBe(false);
+    await db.exec("SET ROLE authenticated");
+    try {
+      await expect(reserve()).rejects.toThrow(/permission denied/);
+    } finally {
+      await db.exec("RESET ROLE");
+    }
+  });
+  it("rejects world records with a mismatched conversation owner", async () => {
+    await expect(
+      db.query(
+        "insert into world_records(id,conversation_id,user_id,character_key,kind,key,summary,status,source_quote) values(gen_random_uuid(),$1,$2,'tess','npc','npc:other','Someone','tentative','A claimed person')",
+        [cid, "10000000-0000-4000-a000-000000000099"],
+      ),
+    ).rejects.toThrow(/owner mismatch/);
+  });
+});
+
+describe("photo promise follow-through", () => {
+  it.each([false, true])(
+    "fulfills a pending photo intention only with an actual attachment: %s",
+    async (attached) => {
+      const id = "60000000-0000-4000-a000-000000000001";
+      await db.query(
+        "insert into world_records(id,conversation_id,user_id,character_key,kind,key,summary,status,source_quote,due_at) values($1,$2,$3,'tess','photo','work-photo','A clinic photo','pending','I will share a clinic photo',now()-interval '1 hour')",
+        [id, cid, uid],
+      );
+      plan["intentionId"] = id;
+      if (!attached) {
+        plan["generated"] = null;
+        (plan["rows"] as { metadata: unknown }[])[0]!.metadata = { push_primary: true };
+      }
+      await db.query(
+        "update job_runs set detail=jsonb_set(detail,'{plan}',$1::jsonb) where id=$2",
+        [JSON.stringify(plan), job],
+      );
+      await deliver();
+      expect(
+        (await db.query<{ status: string }>("select status from world_records where id=$1", [id]))
+          .rows[0]!.status,
+      ).toBe(attached ? "fulfilled" : "pending");
+    },
+  );
 });

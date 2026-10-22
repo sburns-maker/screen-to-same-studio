@@ -1,3 +1,4 @@
+import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
 import { runStructured } from "./text-ai.server";
 import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
@@ -105,6 +106,7 @@ const deltaSchema = z.object({
 });
 
 export const replySchema = z.object({
+  continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
   send_delay_seconds: z.number(),
   state_delta: deltaSchema,
@@ -212,6 +214,7 @@ ${CHARACTER_BIBLE}
 HIDDEN STATE (0–100, never mention): ${JSON.stringify(args.state)}
 RELATIONSHIP STAGE: ${args.stage}
 DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
+CURRENT UTC TIMESTAMP: ${now.toISOString()}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 TESS'S LOCAL TIME (Eastern): ${tessLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 TESS RIGHT NOW: ${args.availabilityDetail ?? schedule.detail}
@@ -236,12 +239,13 @@ TESS VOICE CHECK (apply before answering): deadpan, understated, specific. Tell 
 
   const rules = `
 OUTPUT RULES
+${CONTINUITY_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
 - messages: Tess's texts only, no quotes/narration.
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent. Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation.
-- memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. ALWAYS save shared activities, hangouts, dates, plans made together, game/competition outcomes, gifts, milestones and inside jokes as relationship memories (include where/what happened). IN-PERSON MOMENTS ARE REAL: when the chat enacts an in-person meetup, drop-off or delivery, a fulfilled plan, a remembered preference (e.g. how you take your coffee) or a physical gift/token (even a joking one), it actually happened — save it THIS turn as a relationship memory, importance 4–5, with where/what/what you did with it. Never treat it as disposable roleplay or rank it below banter. memory_type one of: relationship (inside jokes, disclosures, disagreements, invitations, boundaries, meaningful flirting, milestones — anything about the two of you), personal (HER independent life: work events, Mabel stories, family, Evan's wedding, trivia outcomes, plans she mentioned, temporary problems, accomplishments, frustrations), fact (stable facts about him). importance 1–5. If she mentions a future plan with a date (e.g. "Evan's venue appointment is Saturday"), save it as a personal memory including the date, and once that date passes treat it as having happened and follow up on it naturally. Never contradict established memories.
+- memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. ALWAYS save shared activities, hangouts, dates, plans made together, game/competition outcomes, gifts, milestones and inside jokes as relationship memories (include where/what happened). IN-PERSON MOMENTS ARE REAL: when the chat enacts an in-person meetup, drop-off or delivery, a fulfilled plan, a remembered preference (e.g. how you take your coffee) or a physical gift/token (even a joking one), it actually happened — save it THIS turn as a relationship memory, importance 4–5, with where/what/what you did with it. Never treat it as disposable roleplay or rank it below banter. memory_type one of: relationship (inside jokes, disclosures, disagreements, invitations, boundaries, meaningful flirting, milestones — anything about the two of you), personal (HER independent life: work events, Mabel stories, family, Evan's wedding, trivia outcomes, plans she mentioned, temporary problems, accomplishments, frustrations), fact (stable facts about him). importance 1–5. If she mentions a future plan with a date (e.g. "Evan's venue appointment is Saturday"), save it as a personal memory including the date, and keep it unresolved until conversation evidence or a completed world event confirms what actually happened. A passed date alone is not proof of completion. Never contradict established memories.
 - photo: usually null. Photos are occasional and must never feel like a reward. Priority: (1) an EXISTING photo that genuinely fits → {action:"fixed", asset_id:<listed id>}; (2) only if none fits and the moment really calls for it (he asked about something she's looking at, she's describing something visual happening right now, or a PHOTO MOMENT note says an unprompted everyday picture fits) → {action:"generate", type:<one of the allowed new types>, scene:<concrete visual scene consistent with her current activity/location/time of day, ordinary clothes>, expression, reason, ...style fields}; (3) otherwise null. Never generate for novelty.
   Types: object = no Tess in frame (Mabel, food, snow, coffee, work oddity, scenery); tess_candid = Tess in frame but not a posed selfie; casual_selfie = funny/work/snow/hike selfie; personal_selfie = dressed-up or relaxed evening; intimate_selfie = no-makeup couch, genuinely close only.
   For generated photos WITH Tess in frame, also choose context-appropriate style fields: pose_type (standing, sitting on couch, leaning on counter, crouching next to Mabel, walking, looking over her shoulder...), camera_angle (eye level, slightly above, front-camera arm's length, mirror...), crop_type (close, chest-up, waist-up, full-body, off-center...), hairstyle (down in loose waves, messy bun, ponytail, clipped up, knit hat — practical hair at the clinic, relaxed at home, styled when going out; NOT always half-up), clothing_category (home casual, work, winter, hiking, going out — ordinary contemporary adult clothes, not the same black sweater every time), setting, and selfie_type (selfie = she holds the phone; mirror; propped_phone = phone on a surface/timer; friend_photo = someone else took it — only if the current life context plausibly has someone present; never invent an invisible photographer when she's alone). Her expression should match the actual moment (genuine smile, laugh, deadpan, raised eyebrow, tired, squinting in sun, goofy...) — not a permanent half-smile. Vary the combination from HER RECENT PHOTO STYLES when the scene allows; context comes first, variety second. For object photos leave the Tess-specific style fields null.
@@ -347,6 +351,7 @@ ${c.textingStyle}
 HIDDEN STATE (0–100, never mention): ${JSON.stringify(args.state)}
 RELATIONSHIP STAGE: ${args.stage}
 DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
+CURRENT UTC TIMESTAMP: ${now.toISOString()}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 ${c.preferredName.toUpperCase()}'S LOCAL TIME (Eastern): ${charLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 ${c.preferredName.toUpperCase()} RIGHT NOW: ${args.availabilityDetail}
@@ -364,6 +369,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
 
   const rules = `
 OUTPUT RULES
+${CONTINUITY_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
 - messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.

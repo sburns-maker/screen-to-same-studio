@@ -71,6 +71,13 @@
       "when": 1792688098585,
       "tag": "0009_atomic_photo_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792699200000,
+      "tag": "0010_persistent_world",
+      "breakpoints": true
     }
   ]
 }
