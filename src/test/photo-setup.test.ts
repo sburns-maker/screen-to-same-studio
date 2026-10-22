@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn(), registry: vi.fn() }));
 vi.mock("@/integrations/supabase/client.server", () => ({
-  supabaseAdmin: { rpc: mocks.rpc, storage: { from: () => ({ list: mocks.list }) } },
+  supabaseAdmin: {
+    rpc: mocks.rpc,
+    from: () => {
+      const q = { select: () => q, eq: () => q, maybeSingle: mocks.registry };
+      return q;
+    },
+    storage: { from: () => ({ list: mocks.list }) },
+  },
 }));
 import { photoSetupStatus } from "@/lib/photo-setup.server";
 
@@ -14,6 +21,7 @@ beforeEach(() => {
     "DEVELOPER_PHOTO_USER_IDS",
   ])
     vi.stubEnv(key, "");
+  mocks.registry.mockReset().mockResolvedValue({ data: null, error: null });
   mocks.rpc.mockReset();
   mocks.list.mockReset();
 });
@@ -32,7 +40,7 @@ describe("browser photo setup checks", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
-  it("uses only the no-write migration probe and bundled profile checks, never a paid generation", async () => {
+  it("reads approved references with bundled defaults and a no-write migration probe, never a paid generation", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-only-private-key");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "test-service-key");
     vi.stubEnv("SUPABASE_URL", "https://test.invalid");
@@ -42,7 +50,9 @@ describe("browser photo setup checks", () => {
     expect(status.migration).toBe("present");
     expect(status.tessReference).toBe("present");
     expect(status.canonicalReferences).toHaveLength(5);
-    expect(status.canonicalReferences.every(ref=>ref.status==="structurally_usable")).toBe(true);
+    expect(status.canonicalReferences.every((ref) => ref.status === "structurally_usable")).toBe(
+      true,
+    );
     expect(mocks.list).not.toHaveBeenCalled();
     expect(mocks.rpc).toHaveBeenCalledWith("deliver_photo_turn", { p_job_id: null });
     expect(JSON.stringify(status)).not.toMatch(/test-only-private-key|test-service-key/);

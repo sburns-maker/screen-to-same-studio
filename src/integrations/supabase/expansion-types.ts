@@ -27,6 +27,7 @@ export type ExpansionTables = {
     canonical_sha256: string | null;
     approval: string;
     active_message_id: string | null;
+    active_storage_path: string | null;
     active_reason: string;
     updated_at: string;
   }>;
@@ -39,6 +40,18 @@ export type ExpansionTables = {
   }>;
 };
 export type ExpansionFunctions = {
+  media_profile_status: { Args: Record<string, never>; Returns: number };
+  set_profile_media: {
+    Args: {
+      p_user: string;
+      p_key: string;
+      p_avatar: string;
+      p_canonical: string | null;
+      p_sha: string | null;
+      p_source: string | null;
+    };
+    Returns: boolean;
+  };
   record_npc_introduction: {
     Args: { p_user: string; p_message: string; p_npc: string };
     Returns: boolean;

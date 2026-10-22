@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { profilePhotoChoices, chooseProfilePhoto } from "@/lib/visual-profiles.functions";
 import type { CharacterKey } from "@/lib/characters";
 import { PhotoViewer } from "./PhotoViewer";
+import { useRef } from "react";
+import { ProfileImageEditor } from "./ProfileImageEditor";
 import { toast } from "sonner";
 export function ProfilePhotoPanel({
   character,
@@ -12,6 +14,8 @@ export function ProfilePhotoPanel({
   character: CharacterKey;
   canonical: string;
 }) {
+  const upload = useRef<HTMLInputElement>(null);
+  const [uploadUrl, setUploadUrl] = useState("");
   const [expanded, setExpanded] = useState(false),
     [selected, setSelected] = useState<string | null>(null),
     [reason, setReason] = useState("Using my original profile portrait."),
@@ -26,12 +30,18 @@ export function ProfilePhotoPanel({
     enabled: expanded,
     retry: false,
   });
+  useEffect(() => {
+    const change = () => setExpanded(true);
+    window.addEventListener("change-profile-photo", change);
+    return () => window.removeEventListener("change-profile-photo", change);
+  }, []);
   const currentId = q.data?.activeMessageId,
     currentReason = q.data?.activeReason,
-    ready = q.data?.available;
+    ready = q.data?.available,
+    custom = !!q.data?.activeStorageUrl;
   useEffect(() => {
     if (expanded && ready) {
-      setSelected(currentId ?? null);
+      setSelected(currentId ?? (custom ? "custom" : null));
       setReason(
         currentReason ||
           (currentId
@@ -40,7 +50,7 @@ export function ProfilePhotoPanel({
       );
       setApproved(false);
     }
-  }, [expanded, ready, currentId, currentReason]);
+  }, [expanded, ready, currentId, currentReason, custom]);
   async function save() {
     setBusy(true);
     try {
@@ -68,10 +78,67 @@ export function ProfilePhotoPanel({
       {expanded && (
         <div className="mt-3 space-y-3">
           <p className="text-xs text-muted-foreground">
-            The original portrait always anchors future generations. A new display photo needs a
-            delivered, screened casual portrait and your visual approval. Automatic changes are not
-            enabled.
+            Display photos and canonical references are separate. The established portrait remains
+            the identity anchor until you explicitly approve a replacement. Ordinary generations
+            never replace it.
           </p>
+          <input
+            ref={upload}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              if (f.size > 10_000_000) {
+                toast.error("Choose a photo smaller than 10 MB");
+                return;
+              }
+              setUploadUrl(URL.createObjectURL(f));
+            }}
+          />
+          <button
+            className="min-h-11 rounded-full border px-4 text-sm"
+            onClick={() => upload.current?.click()}
+          >
+            Upload / crop a new photo
+          </button>
+          {uploadUrl && (
+            <ProfileImageEditor
+              character={character}
+              source={async () => uploadUrl}
+              onClose={() => {
+                URL.revokeObjectURL(uploadUrl);
+                setUploadUrl("");
+              }}
+            />
+          )}
+          <p className="text-xs">
+            Select any received photo in Shared media, then use its More menu or long press to set a
+            profile photo.
+          </p>
+          {q.data?.canonicalUrl && (
+            <PhotoViewer src={q.data.canonicalUrl} alt="Current approved canonical identity">
+              <img
+                src={q.data.canonicalUrl}
+                alt="Current approved identity reference"
+                className="h-24 w-24 rounded-full object-cover"
+              />
+            </PhotoViewer>
+          )}
+          {q.data?.activeStorageUrl && (
+            <div className="text-xs">
+              <PhotoViewer src={q.data.activeStorageUrl} alt="Current display avatar">
+                <img
+                  src={q.data.activeStorageUrl}
+                  alt="Current display avatar"
+                  className="h-24 w-24 rounded-full object-cover"
+                />
+              </PhotoViewer>
+              <p>Your custom display avatar is active.</p>
+            </div>
+          )}
           <PhotoViewer src={canonical} alt="Original canonical identity">
             <img
               src={canonical}
@@ -99,7 +166,7 @@ export function ProfilePhotoPanel({
                     setApproved(false);
                   }}
                 />
-                Use the original portrait
+                Use the original display portrait (keep the approved identity reference)
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {q.data.choices.map((c) => (
@@ -150,7 +217,7 @@ export function ProfilePhotoPanel({
                 I reviewed this photo and approve it as the same fictional person.
               </label>
               <button
-                disabled={!approved || reason.trim().length < 5 || busy}
+                disabled={!approved || selected === "custom" || reason.trim().length < 5 || busy}
                 onClick={() => void save()}
                 className="w-full rounded-full bg-primary p-3 text-sm text-primary-foreground disabled:opacity-40"
               >

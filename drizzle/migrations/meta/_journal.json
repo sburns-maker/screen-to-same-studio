@@ -120,6 +120,13 @@
       "when": 1792771200005,
       "tag": "0016_verify_world_expansion",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1792771200006,
+      "tag": "0017_media_profiles",
+      "breakpoints": true
     }
   ]
 }

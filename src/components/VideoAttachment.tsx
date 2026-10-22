@@ -1,8 +1,9 @@
+import { PhotoViewer } from "./PhotoViewer";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { VIDEO_BUCKET, type UserVideo } from "@/lib/user-video";
-export function VideoAttachment({ video }: { video: UserVideo }) {
+export function VideoAttachment({ video, mediaId }: { video: UserVideo; mediaId?: string }) {
   const [failed, setFailed] = useState(false);
   const q = useQuery({
     queryKey: ["video-url", video.path],
@@ -38,15 +39,24 @@ export function VideoAttachment({ video }: { video: UserVideo }) {
     );
   return (
     <div className="w-64 max-w-full overflow-hidden rounded-2xl bg-surface">
-      <video
-        aria-label="Video you sent"
-        src={q.data}
-        controls
-        playsInline
-        preload="metadata"
-        onError={() => setFailed(true)}
-        className="max-h-96 w-full"
-      />
+      <PhotoViewer src={q.data} alt="Video attachment" kind="video" mediaId={mediaId}>
+        <div className="relative">
+          <video
+            aria-label="Video you sent"
+            src={q.data}
+            playsInline
+            preload="metadata"
+            onError={() => setFailed(true)}
+            className="max-h-96 w-full"
+          />
+          <span
+            className="absolute inset-0 grid place-items-center text-3xl text-white"
+            aria-hidden="true"
+          >
+            ▶
+          </span>
+        </div>
+      </PhotoViewer>
       <p className="px-3 py-2 text-[11px] text-muted-foreground">
         {Math.round(video.duration_seconds)} sec · {(video.bytes / 1_000_000).toFixed(1)} MB ·
         Contents not analyzed

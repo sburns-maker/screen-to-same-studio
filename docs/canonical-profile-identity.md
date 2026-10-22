@@ -1,5 +1,7 @@
 # Phase 4C: authoritative profile portraits
 
+> Updated by migration 0017: [Media viewer and explicit identity management](./mobile-media-and-identity.md). Bundled portraits remain the defaults and are never overwritten. A separate avatar-only edit preserves the current anchor; an explicit user-approved canonical replacement stores private per-user reference bytes used by all supported generation paths. The original-only descriptions below document the earlier implementation.
+
 ## Finding and fix
 
 The inbox, chat header and profile screen display bundled `CharacterDef.avatar` assets, not `characters.avatar_key` or a Supabase profile URL. Generation previously downloaded separate files named `tess-reference/canonical.jpg`, `maya.jpg`, etc. There was no byte/hash relationship between those files and the UI portraits. We cannot inspect production storage here, so this proves an implementation gap, not which bytes Maya's past request actually used.

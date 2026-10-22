@@ -1,3 +1,4 @@
+import type { ExpansionTables, ExpansionFunctions } from "./expansion-types";
 export type Json =
   | string
   | number
@@ -13,7 +14,7 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
-    Tables: {
+    Tables: ExpansionTables & {
       character_knowledge: {
         Row: {
           acquired_at: string
@@ -1464,7 +1465,7 @@ export type Database = {
     Views: {
       [_ in never]: never
     }
-    Functions: {
+    Functions: ExpansionFunctions & {
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
       deliver_user_video: {

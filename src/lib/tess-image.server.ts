@@ -187,9 +187,10 @@ export class PhotoGenerationFailure extends Error {
     super("Photo generation or visual screening failed");
   }
 }
-/** All callers use the exact UI profile bytes; no generated photograph can become a reference. */
+/** Generation uses the explicitly approved per-user reference; ordinary image output never changes it. */
 export async function generateTessImage(args: {
   provider: ImageProvider;
+  canonical?: (Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }) | undefined;
   mabelReference?: Blob | null;
   type: TessImageType;
   scene: string;
@@ -217,10 +218,10 @@ export async function generateTessImage(args: {
       )
     )
       throw new Error("unsupported_group_photo");
-    let canonical: Awaited<ReturnType<typeof canonicalProfile>> | null = null;
+    let canonical: (Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }) | null = null;
     if (needsRef) {
       if (!args.identity) throw new Error("canonical_character_missing");
-      canonical = await canonicalProfile(args.identity.key as CharacterKey);
+      canonical = args.canonical ?? await canonicalProfile(args.identity.key as CharacterKey);
       diagnostic.canonicalAsset = canonical.asset;
       diagnostic.canonicalSha256 = canonical.sha256;
       if (!args.provider.referenceConditioning)

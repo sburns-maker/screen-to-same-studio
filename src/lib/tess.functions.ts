@@ -189,7 +189,8 @@ async function createGeneratedPhoto(
   const identity = def
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
-  const img = await generateTessImage({ provider, mabelReference, type: t, scene, expression, style, identity, text });
+  const canonical = includesTess(t) ? await (await import("./profile-media.server")).currentCanonical(supabaseAdmin, userId, characterKey) : undefined;
+  const img = await generateTessImage({ provider, canonical, mabelReference, type: t, scene, expression, style, identity, text });
   const path = `${userId}/${actionId ?? crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
@@ -426,8 +427,8 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
   if (initiation?.developerPhoto === "preview") {
-    const { canonicalProfile } = await import("./canonical-profile.server");
-    const reference = await canonicalProfile(def.key).then(r => ({ asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable" })).catch(() => null);
+    const { currentCanonical } = await import("./profile-media.server");
+    const reference = await currentCanonical(photoAdmin ?? supabase, userId, def.key).then(r => ({ asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable" })).catch(() => null);
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
     return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, pacing, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
@@ -1010,8 +1011,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     }
     let photoIdentity = null;
     if (developerTools) {
-      const { canonicalProfile } = await import("./canonical-profile.server");
-      const canonical = await canonicalProfile(def.key).then(r=>({asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable"})).catch(()=>null);
+      const { currentCanonical } = await import("./profile-media.server");
+      const canonical = await currentCanonical(supabase, userId, def.key).then(r=>({asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable"})).catch(()=>null);
       const { data: recentPhotos } = await supabase.from("messages").select("id,metadata,visible_at").eq("conversation_id",conv.id).eq("user_id",userId).lte("visible_at",nowIso).is("metadata->>photo",null).order("created_at",{ascending:false}).limit(30);
       const lastPhoto = recentPhotos?.find(m => !!(m.metadata as {generated_path?:string}|null)?.generated_path);
       const metadata = lastPhoto?.metadata as {generated_path?:string;photo_identity?:import("@/integrations/supabase/types").Json;photo_source?:string}|undefined;
@@ -1020,7 +1021,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         const result = await supabase.storage.from("tess-photos").createSignedUrl(metadata.generated_path,120);
         comparisonUrl = result.data?.signedUrl ?? null;
       }
-      photoIdentity = {canonical, profileUrl:def.avatar, latest:metadata?.photo_identity ?? null, source:metadata?.photo_source ?? null, delivery:lastPhoto?"delivered":"none", comparisonUrl};
+      const profileUrl = canonical?.asset.startsWith(`${userId}/profile/${def.key}/`) && !canonical.asset.includes('..') ? (await supabase.storage.from('tess-photos').createSignedUrl(canonical.asset,120)).data?.signedUrl ?? def.avatar : def.avatar;
+      photoIdentity = {canonical, profileUrl, latest:metadata?.photo_identity ?? null, source:metadata?.photo_source ?? null, delivery:lastPhoto?"delivered":"none", comparisonUrl};
     }
     return {
       photoIdentity,

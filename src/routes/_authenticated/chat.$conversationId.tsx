@@ -1,3 +1,4 @@
+import { ConversationMedia } from "@/components/ConversationMedia";
 import { NpcIntroductionChip } from "@/components/NpcIntroductionChip";
 import { usePortraits } from "@/lib/use-portrait";
 import { PhotoViewer } from "@/components/PhotoViewer";
@@ -288,7 +289,7 @@ function Chat() {
   })();
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <ConversationMedia messages={visible} character={def.key}><div className="flex h-dvh flex-col bg-background">
       <header className="pt-safe z-10 border-b bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-xl items-center gap-1 px-2">
           <Link to="/inbox" aria-label="Back to Chats" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted">
@@ -319,9 +320,9 @@ function Chat() {
               <DropdownMenuItem asChild>
                 <Link to="/history/$conversationId" params={{ conversationId }}>Search conversation</Link>
               </DropdownMenuItem>
-              {def.photosEnabled && (
+              {(
                 <DropdownMenuItem asChild>
-                  <Link to="/photos/$conversationId" params={{ conversationId }}>Shared photos</Link>
+                  <Link to="/photos/$conversationId" params={{ conversationId }}>Shared media</Link>
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
@@ -358,13 +359,13 @@ function Chat() {
                   <div className={cn("flex max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
                   {(() => {
                     const video = userVideoMetadata(m.metadata);
-                    if (video) return <VideoAttachment video={video} />;
+                    if (video) return <VideoAttachment video={video} mediaId={m.id} />;
                     const md = m.metadata as { photo?: string; generated_path?: string; user_photo?: string } | null;
-                    if (md?.user_photo) return <GeneratedPhoto path={md.user_photo} name="you" />;
+                    if (md?.user_photo) return <GeneratedPhoto path={md.user_photo} name="you" mediaId={m.id} />;
                     const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
                     if (src)
-                      return <PhotoViewer src={src} alt={`Photo from ${def.preferredName}`}><img src={src} alt={`Photo from ${def.preferredName}`} loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" /></PhotoViewer>;
-                    if (md?.generated_path) return <GeneratedPhoto path={md.generated_path} name={def.preferredName} />;
+                      return <PhotoViewer src={src} mediaId={m.id} alt={`Photo from ${def.preferredName}`}><img src={src} alt={`Photo from ${def.preferredName}`} loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" /></PhotoViewer>;
+                    if (md?.generated_path) return <GeneratedPhoto path={md.generated_path} name={def.preferredName} mediaId={m.id} />;
                     return null;
                   })()}
                   {!mine&&<NpcIntroductionChip messageId={m.id} text={m.body}/>}
@@ -447,11 +448,11 @@ function Chat() {
           </button>
         </div>
       </form>
-    </div>
+    </div></ConversationMedia>
   );
 }
 
-function GeneratedPhoto({ path, name }: { path: string; name: string }) {
+function GeneratedPhoto({ path, name, mediaId }: { path: string; name: string; mediaId?: string }) {
   const q = useQuery({
     queryKey: ["photo-url", path],
     staleTime: 50 * 60_000,
@@ -462,10 +463,10 @@ function GeneratedPhoto({ path, name }: { path: string; name: string }) {
     },
   });
   const [failed, setFailed] = useState(false);
-  if (failed || q.isError) return null;
+  if (failed || q.isError) return <button className="rounded-xl border p-3 text-sm" onClick={()=>{setFailed(false);void q.refetch();}}>Photo unavailable · Reload</button>;
   if (!q.data) return <div className="h-80 w-60 animate-pulse rounded-2xl rounded-bl-md bg-bubble-them" />;
   return (
-    <PhotoViewer src={q.data} alt={`Photo from ${name}`}><img
+    <PhotoViewer src={q.data} mediaId={mediaId} alt={`Photo from ${name}`}><img
       src={q.data}
       alt={`Photo from ${name}`}
       loading="lazy"
