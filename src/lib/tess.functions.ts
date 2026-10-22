@@ -168,10 +168,11 @@ async function createGeneratedPhoto(
   style: PhotoStyle | null,
   def?: CharacterDef,
   actionId?: string,
+  text?: import("./photo-text").PhotoText | null,
 ) {
   // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
   const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
-  if (!safePhotoScene([scene, expression, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
+  if (!safePhotoScene([scene, expression, text?.exact, text?.surface, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -194,7 +195,7 @@ async function createGeneratedPhoto(
   const identity = def
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
-  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style, identity });
+  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style, identity, text });
   const path = `${userId}/${actionId ?? crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
@@ -208,6 +209,7 @@ async function createGeneratedPhoto(
     model: img.model,
     style,
     identityReferenceUsed: img.identityReferenceUsed,
+    textQuality: img.textQuality,
   };
 }
 
@@ -514,7 +516,7 @@ async function runTurnUnlocked(
         }
         const style = rawStyle;
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
-        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!);
+        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec);
         if (worldReady) {
           const { error } = await photoAdmin!.from("media_attempts").update({ status: "generated", storage_path: generated.path }).eq("action_id", photoAction!);
           if (error) console.warn("[character-photo] usage status pending; reserved attempt remains counted");
@@ -573,7 +575,7 @@ async function runTurnUnlocked(
         push_primary: i === 0,
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
-        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type, text_quality: generated.textQuality.status } : {}),
       },
     };
   });

@@ -336,4 +336,20 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
     expect(mocks.fail).toHaveBeenCalledTimes(1);
   });
+  it("does not upload or deliver a required-text photo when its lettering fails screening", async () => {
+    const original=await mocks.generate();
+    mocks.generate.mockResolvedValue({...original,photo:{...original.photo,text_spec:{exact:"AUTUMN READS",surface:"a small paper sign"}}});
+    vi.stubEnv("IMAGE_TEXT_QC","true");
+    const fetchMock=vi.fn()
+      .mockResolvedValueOnce(Response.json({data:[{b64_json:btoa("png")}]}))
+      .mockResolvedValueOnce(Response.json({choices:[{message:{content:JSON.stringify({legible:false,transcription:"AUTUNN REAOS",prominent_garbled_text:true})}}]}));
+    vi.stubGlobal("fetch",fetchMock);
+    const {runTurn}=await import("@/lib/tess.functions");
+    expect((await runTurn(client,uid,cid,"America/New_York",{gapHours:3})).count).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // One image, one vision call; never a regeneration.
+    expect(upload).not.toHaveBeenCalled();
+    expect(mocks.prepare).not.toHaveBeenCalled();
+    expect(mocks.fail).toHaveBeenCalledTimes(1);
+  });
+
 });

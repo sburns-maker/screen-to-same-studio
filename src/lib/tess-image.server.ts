@@ -1,3 +1,4 @@
+import { photoTextPrompt, validatePhotoText, imageCapabilities, type PhotoText } from "./photo-text";
 /**
  * Server-only image provider abstraction for Tess's dynamically generated photos.
  * Swap providers by adding another implementation of `ImageProvider`.
@@ -14,7 +15,7 @@ export interface ImageProvider {
   name: string;
   model: string;
   /** With references: identity-conditioned edit (Tess first, Mabel second). Without: plain generation. */
-  generate(prompt: string, references: Blob[]): Promise<GeneratedImage>;
+  generate(prompt: string, references: Blob[], options?: { highQuality: boolean }): Promise<GeneratedImage>;
 }
 
 /**
@@ -84,14 +85,15 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   return {
     name: ownKey ? "openai" : "lovable-ai-gateway",
     model,
-    async generate(prompt, references) {
+    async generate(prompt, references, options) {
+      const quality = options?.highQuality && imageCapabilities(ownKey ? "openai" : "lovable-ai-gateway", model).highQuality ? "high" : "medium";
       let res: Response;
       if (references.length) {
         const form = new FormData();
         form.set("model", model);
         form.set("prompt", prompt);
         form.set("size", "1024x1536");
-        form.set("quality", "medium");
+        form.set("quality", quality);
         references.forEach((ref, i) => form.append(ownKey && references.length > 1 ? "image[]" : "image", ref, i === 0 ? "tess-reference.jpg" : `mabel-reference-${i}.jpg`));
         res = await fetch(`${GATEWAY}/v1/images/edits`, {
           method: "POST",
@@ -104,7 +106,7 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
           method: "POST",
           signal: AbortSignal.timeout(90_000),
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model, prompt, size: "1024x1536", quality: "medium" }),
+          body: JSON.stringify({ model, prompt, size: "1024x1536", quality }),
         });
       }
       if (!res.ok) throw new Error(`image provider unavailable (${res.status})`);
@@ -128,8 +130,12 @@ export async function generateTessImage(args: {
   expression: string | null;
   style?: PhotoStyle | null;
   identity?: CharacterIdentity | undefined;
+  text?: PhotoText | null | undefined;
 }) {
-  const prompt = buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity);
+  const text = validatePhotoText(args.text);
+  const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
+  if (text && !textVerificationAvailable()) throw new Error("Required image text verification unavailable");
+  const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity)}\n\n${photoTextPrompt(text)}`;
   const needsRef = includesTess(args.type);
   if (needsRef && !args.tessReference) throw new Error("missing canonical reference");
   const references: Blob[] = [];
@@ -141,6 +147,7 @@ export async function generateTessImage(args: {
   ]
     .filter(Boolean)
     .join("+");
-  const img = await args.provider.generate(prompt, references);
-  return { ...img, identityReferenceUsed: identityUsed || "none" };
+  const img = await args.provider.generate(prompt, references, { highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true" });
+  const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
+  return { ...img, textQuality, identityReferenceUsed: identityUsed || "none" };
 }
