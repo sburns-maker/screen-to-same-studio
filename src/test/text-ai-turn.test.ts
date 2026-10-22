@@ -8,7 +8,7 @@ vi.mock("@/lib/tess.server", () => ({
 }));
 vi.mock("@/lib/tess-weather.server", () => ({ getWeatherContext: async () => null }));
 vi.mock("@/lib/social.server", () => ({ knowledgeForCharacter: async () => [] }));
-vi.mock("@/lib/world-runtime.server", async (orig) => ({ ...(await orig<object>()), continuityContext: async () => ({ lines: [] }) }));
+vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
 vi.mock("@/lib/storyline.server", () => ({
   storylineContext: async () => ({ lines: [], event: null }),
 }));
