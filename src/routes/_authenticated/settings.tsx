@@ -1,3 +1,4 @@
+import { PhotoSetup } from "@/components/PhotoSetup";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -97,6 +98,7 @@ function SettingsPage() {
     <>
       <ScreenHeader title="Settings" />
       <Screen>
+        <PhotoSetup tessConversationId={tessConv?.id} />
         <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <NotificationsRow />

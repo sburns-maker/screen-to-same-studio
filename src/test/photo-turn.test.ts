@@ -164,6 +164,22 @@ afterEach(() => {
 });
 
 describe("normal spontaneous photo turn pipeline", () => {
+  it("keeps ordinary text working before the migration without allowing image charges", async () => {
+    vi.mocked(mocks.admin["rpc"] as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: null,
+      error: { code: "PGRST202" },
+    });
+    const reply = await mocks.generate();
+    mocks.generate.mockResolvedValue({ ...reply, photo: null });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { runTurn } = await import("@/lib/tess.functions");
+    expect((await runTurn(client, uid, cid, "America/New_York")).count).toBe(1);
+    expect(mocks.generate.mock.calls.at(-1)![0].generateTypes).toEqual([]);
+    expect(mocks.reserve).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mutations).toHaveBeenCalledWith("messages", "insert");
+  });
   it.each([false, true])(
     "uses real opportunity timing and unchanged state math with real_time_mode=%s",
     async (realTime) => {

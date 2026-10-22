@@ -277,8 +277,14 @@ async function runTurnUnlocked(
   const isTess = def.key === "tess";
   const nowIso = new Date().toISOString();
   // Recover the durable outbox before any new paid generation.
-  const photoAdmin = process.env["SUPABASE_SERVICE_ROLE_KEY"]
+  const configuredPhotoAdmin = process.env["SUPABASE_SERVICE_ROLE_KEY"]
     ? (await import("@/integrations/supabase/client.server")).supabaseAdmin : null;
+  const deliveryProbe = configuredPhotoAdmin ? await configuredPhotoAdmin.rpc("deliver_photo_turn", { p_job_id: null }) : null;
+  const missingDeliveryFunction = deliveryProbe?.error && ["PGRST202", "42883"].includes(deliveryProbe.error.code);
+  if (deliveryProbe?.error && !missingDeliveryFunction) throw new Error("Character delivery service is unavailable; please retry later");
+  // A source merge cannot install a database function. Keep legacy text replies
+  // working during setup, but never charge for photos without durable delivery.
+  const photoAdmin = deliveryProbe && !deliveryProbe.error ? configuredPhotoAdmin : null;
   if (photoAdmin && initiation?.developerPhoto !== "preview") {
     const { recoverPhotoDelivery } = await import("./photo-delivery.server");
     const recovered = await recoverPhotoDelivery(photoAdmin, conv.id, userId);
@@ -386,6 +392,7 @@ async function runTurnUnlocked(
   const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
   let photos = isTess && !cooldown && photoCompatible
     ? eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object")) : [];
+  if (!photoAdmin) { generateTypes = []; photos = []; }
   const lifeEvent = story.event ?? (isTess ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined) : null);
   const opportunity = photoOpportunity({
     character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
