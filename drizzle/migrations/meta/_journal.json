@@ -99,6 +99,13 @@
       "when": 1792771200002,
       "tag": "0013_user_video_uploads",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792771200003,
+      "tag": "0014_verify_town_and_video_setup",
+      "breakpoints": true
     }
   ]
 }

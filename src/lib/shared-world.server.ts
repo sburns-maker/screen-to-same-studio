@@ -4,7 +4,7 @@ import { sharedRsvpDecision, scheduleAllows, type SharedPlan } from "./shared-wo
 import { type CharacterKey } from "./characters";
 type Client = SupabaseClient<Database>;
 export async function sharedWorldAvailable(db: Client) {
-  const { data, error } = await db.rpc("shared_world_status", {});
+  const { data, error } = await db.rpc("shared_world_status", {} as never);
   if (error && ["PGRST202", "42883"].includes(error.code)) return false;
   if (error) throw new Error("Shared world capability unavailable");
   return !!(data as { version?: number } | null)?.version;

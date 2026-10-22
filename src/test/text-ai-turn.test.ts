@@ -8,6 +8,7 @@ vi.mock("@/lib/tess.server", () => ({
 }));
 vi.mock("@/lib/tess-weather.server", () => ({ getWeatherContext: async () => null }));
 vi.mock("@/lib/social.server", () => ({ knowledgeForCharacter: async () => [] }));
+vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
 vi.mock("@/lib/storyline.server", () => ({
   storylineContext: async () => ({ lines: [], event: null }),
 }));
@@ -41,6 +42,7 @@ describe("turn safety on provider failure", () => {
           "limit",
           "single",
           "maybeSingle",
+          "in",
         ])
           query[method] = () => query;
         for (const method of ["delete", "update", "insert"])
