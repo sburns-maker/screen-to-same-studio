@@ -34,7 +34,7 @@ import {
   type LifeEvent,
 } from "./tess-life";
 import { characterFor, type CharacterDef } from "./characters";
-import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, willingPhotoAllowed, safePhotoScene, type PhotoContext, type PhotoBoundary } from "./photo-policy";
+import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, photoDecisionReason, safePhotoScene, type PhotoContext, type PhotoBoundary } from "./photo-policy";
 import { storySchedule } from "./storyline-logic";
 
 const FIRST_MESSAGE =
@@ -462,17 +462,22 @@ async function runTurnUnlocked(
   const proposedPhoto = !!reply.photo;
   const boundary = nextPhotoBoundary(photoContext.boundary, reply.photo_boundary_decision, !!reply.photo);
   if (reply.photo_boundary_decision === "reopen") reply.photo = null;
+  let photoRejectionReason: string | null = null;
   if (reply.photo) {
     const fixed = photos.find((p) => p.id === reply.photo?.asset_id);
     const category = reply.photo.action === "fixed" ? (fixed?.selfie ? "casual_selfie" : "object") : reply.photo.type;
     const eligible = reply.photo.action === "fixed" && fixed ? [category] : generateTypes;
-    if (!category || !willingPhotoAllowed({ type: category as import("./photo-policy").PhotoCategory,
-      willing: reply.photo.willing, contextual: reply.photo.contextual, framing: reply.photo.framing,
-      eligible: eligible.filter((t) => t !== null), state,
-      context: { ...photoContext, boundary },
-    })) reply.photo = null;
+    photoRejectionReason = !category
+      ? "photo proposal has no valid category or fixed asset"
+      : photoDecisionReason({ type: category as import("./photo-policy").PhotoCategory,
+        willing: reply.photo.willing, contextual: reply.photo.contextual, framing: reply.photo.framing,
+        eligible: eligible.filter((t) => t !== null), state,
+        context: { ...photoContext, boundary },
+      });
+    if (photoRejectionReason) reply.photo = null;
   }
-  if (proposedPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "photo decision did not pass policy checks" };
+  if (proposedPhoto && !reply.photo) return { count: 0, lastVisibleAt: null,
+    reason: photoRejectionReason ?? "character chose to reopen photo boundaries without sharing" };
   const delta = sanitizeDelta(reply.state_delta, difficulty);
   if (!def.romanticCapable) {
     delta.romantic_attraction = 0;
