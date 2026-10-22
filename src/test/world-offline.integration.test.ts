@@ -1,4 +1,6 @@
 // @vitest-environment node
+// Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
+vi.mock("@/lib/photo-identity-qc.server", () => ({ requireVisualScreen: () => {}, screenPhotoVisuals: async () => ({ status: "screen_passed", method: "fictional_visual_design", reason: "features_consistent" }) }));
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -19,6 +21,7 @@ vi.mock("@/integrations/supabase/client.server", () => ({
 }));
 vi.mock("@/integrations/supabase/auth-middleware", () => ({ requireSupabaseAuth: {} }));
 vi.mock("@tanstack/react-start", () => ({
+  createServerOnlyFn: (fn: unknown) => fn,
   createServerFn: () => {
     const chain = { middleware: () => chain, inputValidator: () => chain, handler: () => chain };
     return chain;
@@ -31,7 +34,7 @@ vi.mock("@/lib/tess.server", () => ({
 }));
 vi.mock("@/lib/tess-image.server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/tess-image.server")>()),
-  lovableGatewayProvider: () => ({ name: "test", model: "test-image", generate: mocks.image }),
+  lovableGatewayProvider: () => ({ name: "test", model: "test-image", referenceConditioning: true, generate: mocks.image }),
 }));
 import { runWorldTickWithAdmin } from "@/lib/world.server";
 let db: Awaited<ReturnType<typeof worldDatabase>>;
@@ -151,7 +154,7 @@ describe("offline living world through the normal character pipeline (fake paid 
       }>("select metadata from messages")
     ).rows;
     expect(messages).toHaveLength(1);
-    expect(messages[0]!.metadata).toMatchObject({ initiated: true, push_primary: true });
+    expect(messages[0]!.metadata).toMatchObject({ initiated: true, push_primary: true, photo_identity: {canonicalAsset:"src/assets/tess.jpg",referenceConditioning:true,validationStatus:"screen_passed"}, photo_source:"autonomous" });
     expect(files.has(`tess-photos/${messages[0]!.metadata.generated_path}`)).toBe(true);
     expect(await count("generated_images")).toBe(1);
     expect(await count("character_world_state")).toBe(1);

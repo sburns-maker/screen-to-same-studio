@@ -1,3 +1,6 @@
+// @vitest-environment node
+// Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
+vi.mock("@/lib/photo-identity-qc.server", () => ({ requireVisualScreen: () => {}, screenPhotoVisuals: async () => ({ status: "screen_passed", method: "fictional_visual_design", reason: "features_consistent" }) }));
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { imageCapabilities, photoTextPrompt, validatePhotoText } from "@/lib/photo-text";
 import { acceptsPhotoText, checkPhotoText } from "@/lib/photo-text-qc.server";
@@ -109,14 +112,13 @@ describe("bounded probabilistic lettering screening", () => {
       });
     await expect(
       generateTessImage({
-        provider: { name: "test", model: "test", generate },
-        tessReference: null,
-        type: "object",
+        provider: { name: "test", model: "test", referenceConditioning: true, generate },
+          type: "object",
         scene: "a birthday sign",
         expression: null,
         text,
       }),
-    ).rejects.toThrow("quality screening");
+    ).rejects.toThrow("Photo generation or visual screening failed");
     expect(generate).toHaveBeenCalledTimes(1);
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(fetch.mock.calls[0]![1])).not.toContain(text.exact); // Independent transcription, no answer supplied.
@@ -151,7 +153,8 @@ describe("bounded probabilistic lettering screening", () => {
   it("preserves Claire's identity reference and natural library composition", async () => {
     vi.stubEnv("IMAGE_TEXT_QC_ALL", "");
     vi.stubEnv("IMAGE_TEXT_QC", "false");
-    const reference = new Blob(["canonical"]);
+    const { canonicalProfile } = await import("@/lib/canonical-profile.server");
+    const reference = (await canonicalProfile("claire")).blob;
     const generate = vi
       .fn()
       .mockResolvedValue({
@@ -161,8 +164,7 @@ describe("bounded probabilistic lettering screening", () => {
         model: "test",
       });
     const result = await generateTessImage({
-      provider: { name: "test", model: "test", generate },
-      tessReference: reference,
+      provider: { name: "test", model: "test", referenceConditioning: true, generate },
       type: "casual_selfie",
       scene: "Claire with her autumn book display in the school library",
       expression: "quietly pleased",
@@ -176,7 +178,7 @@ describe("bounded probabilistic lettering screening", () => {
     });
     expect(generate.mock.calls[0]![0]).toContain("same recognizable fictional woman");
     expect(generate.mock.calls[0]![0]).toContain("spines turned away");
-    expect(generate.mock.calls[0]![1]).toEqual([reference]);
+    expect(new Uint8Array(await generate.mock.calls[0]![1][0].arrayBuffer())).toEqual(new Uint8Array(await reference.arrayBuffer()));
     expect(result.identityReferenceUsed).toBe("claire");
     expect(result.textQuality.status).toBe("not_checked");
   });
@@ -229,14 +231,13 @@ describe("bounded probabilistic lettering screening", () => {
     const generate = vi.fn();
     await expect(
       generateTessImage({
-        provider: { name: "test", model: "test", generate },
-        tessReference: null,
-        type: "object",
+        provider: { name: "test", model: "test", referenceConditioning: true, generate },
+          type: "object",
         scene: "a sign",
         expression: null,
         text,
       }),
-    ).rejects.toThrow("verification unavailable");
+    ).rejects.toThrow("Photo generation or visual screening failed");
     expect(generate).not.toHaveBeenCalled();
   });
   it("handles malformed and unavailable quality responses without retries", async () => {

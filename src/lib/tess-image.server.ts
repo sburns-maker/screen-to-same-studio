@@ -1,3 +1,6 @@
+import { canonicalProfile } from "./canonical-profile.server";
+import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
+import type { CharacterKey } from "./characters";
 import { photoTextPrompt, validatePhotoText, imageCapabilities, type PhotoText } from "./photo-text";
 /**
  * Server-only image provider abstraction for Tess's dynamically generated photos.
@@ -14,6 +17,7 @@ export type GeneratedImage = { bytes: Uint8Array; mime: string; provider: string
 export interface ImageProvider {
   name: string;
   model: string;
+  referenceConditioning?: boolean;
   /** With references: identity-conditioned edit (Tess first, Mabel second). Without: plain generation. */
   generate(prompt: string, references: Blob[], options?: { highQuality: boolean }): Promise<GeneratedImage>;
 }
@@ -22,14 +26,14 @@ export interface ImageProvider {
  * The canonical reference defines WHO Tess is — never her pose, angle, expression,
  * hairstyle, crop, background or lighting. Same woman, different real photos.
  */
-const IDENTITY = `The supplied canonical Tess Morgan reference defines the woman's identity only. Preserve the exact same recognizable fictional woman, facial structure, age, eyes, hair-color family and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. Tess is a real-looking 34-year-old adult woman living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve her facial identity, facial proportions, pale green-gray eyes, light platinum blonde hair color, apparent age of 34, realistic adult skin texture, and recognizable features — the same individual, not merely a similar-looking woman. Do not beautify her into a different person.`;
+const IDENTITY = `The supplied canonical Tess Morgan reference defines the woman's identity only. Preserve the exact same recognizable fictional woman, facial structure, age, eyes, hair-color family and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. Tess is a real-looking 34-year-old adult woman living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve the actual profile portrait's face proportions, eyes, nose, mouth, jaw, complexion, approximate age and recognizable features. The profile image overrides any conflicting written description; do not substitute a similar-looking generic woman. Do not beautify her into a different person.`;
 
-/** Identity block for any character; Tess keeps her exact established wording. */
+/** Profile pixels are authoritative; written appearance never replaces them. */
 export type CharacterIdentity = { key: string; name: string; age: number; pronouns: string; appearance: string };
 export function identityBlock(id?: CharacterIdentity): string {
   if (!id || id.key === "tess") return IDENTITY;
   const person = id.pronouns === "he/him" ? "man" : "woman";
-  return `The supplied canonical ${id.name} reference defines the ${person}'s identity only. Preserve the exact same recognizable fictional ${person}, facial structure, age, eyes, hair and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. ${id.name} is a real-looking ${id.age}-year-old adult ${person} living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve this identity: ${id.appearance}. The same individual, not merely a similar-looking ${person}. Do not beautify them into a different person.`;
+  return `The supplied canonical ${id.name} reference defines the ${person}'s identity only. Preserve the exact same recognizable fictional ${person}, facial structure, age, eyes, hair and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. ${id.name} is a real-looking ${id.age}-year-old adult ${person} living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. The actual profile image overrides all written appearance descriptions. Preserve its defining facial proportions, eyes, nose, mouth, jaw, complexion, approximate age and recognizable features. The same individual, not merely a similar-looking ${person}. Do not beautify them into a different person.`;
 }
 
 const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks. Never show patient or client identities, medical records, private screens, identifying paperwork or recognizable bystanders. At work, keep the background to ordinary blank or non-identifying surfaces.`;
@@ -39,7 +43,7 @@ const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-whit
 
 export const includesTess = (t: TessImageType) => t !== "object";
 
-export const sceneHasMabel = (scene: string) => /mabel|dog/i.test(scene);
+export const sceneHasMabel = (scene: string) => /\bmabel\b/i.test(scene);
 
 const SELFIE_LINES: Record<string, string> = {
   selfie: "It is a front-camera selfie she is holding at arm's length, with typical front-camera characteristics.",
@@ -85,6 +89,7 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   return {
     name: ownKey ? "openai" : "lovable-ai-gateway",
     model,
+    referenceConditioning: !!ownKey,
     async generate(prompt, references, options) {
       const quality = options?.highQuality && imageCapabilities(ownKey ? "openai" : "lovable-ai-gateway", model).highQuality ? "high" : "medium";
       let res: Response;
@@ -121,9 +126,25 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   };
 }
 
+export type PhotoDiagnostics = {
+  canonicalAsset: string | null;
+  canonicalSha256: string | null;
+  referenceConditioning: boolean;
+  provider: string;
+  model: string;
+  generationMode: "reference_edit" | "object_generation";
+  validationStatus: "pending" | "screen_passed" | "failed";
+  failureReason: string | null;
+  retryCount: number;
+};
+export class PhotoGenerationFailure extends Error {
+  constructor(public diagnostics: PhotoDiagnostics) {
+    super("Photo generation or visual screening failed");
+  }
+}
+/** All callers use the exact UI profile bytes; no generated photograph can become a reference. */
 export async function generateTessImage(args: {
   provider: ImageProvider;
-  tessReference: Blob | null;
   mabelReference?: Blob | null;
   type: TessImageType;
   scene: string;
@@ -132,22 +153,83 @@ export async function generateTessImage(args: {
   identity?: CharacterIdentity | undefined;
   text?: PhotoText | null | undefined;
 }) {
-  const text = validatePhotoText(args.text);
-  const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
-  if (text && !textVerificationAvailable()) throw new Error("Required image text verification unavailable");
-  const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity)}\n\n${photoTextPrompt(text)}`;
   const needsRef = includesTess(args.type);
-  if (needsRef && !args.tessReference) throw new Error("missing canonical reference");
-  const references: Blob[] = [];
-  if (needsRef && args.tessReference) references.push(args.tessReference);
-  if (sceneHasMabel(args.scene) && args.mabelReference) references.push(args.mabelReference);
-  const identityUsed = [
-    needsRef && args.tessReference ? (args.identity?.key ?? "tess") : null,
-    sceneHasMabel(args.scene) && args.mabelReference ? "mabel" : null,
-  ]
-    .filter(Boolean)
-    .join("+");
-  const img = await args.provider.generate(prompt, references, { highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true" });
-  const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
-  return { ...img, textQuality, identityReferenceUsed: identityUsed || "none" };
+  const diagnostic: PhotoDiagnostics = {
+    canonicalAsset: null,
+    canonicalSha256: null,
+    referenceConditioning: false,
+    provider: args.provider.name,
+    model: args.provider.model,
+    generationMode: needsRef ? "reference_edit" : "object_generation",
+    validationStatus: "pending",
+    failureReason: null,
+    retryCount: 0,
+  };
+  try {
+    let canonical: Awaited<ReturnType<typeof canonicalProfile>> | null = null;
+    if (needsRef) {
+      if (!args.identity) throw new Error("canonical_character_missing");
+      canonical = await canonicalProfile(args.identity.key as CharacterKey);
+      diagnostic.canonicalAsset = canonical.asset;
+      diagnostic.canonicalSha256 = canonical.sha256;
+      if (!args.provider.referenceConditioning)
+        throw new Error("reference_conditioning_unverified");
+    }
+    requireVisualScreen(); // Fail before any paid image if screening cannot run.
+    const text = validatePhotoText(args.text);
+    const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
+    if (text && !textVerificationAvailable()) throw new Error("text_verification_unavailable");
+    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity)}\n\n${photoTextPrompt(text)}`;
+    const references: Blob[] = [];
+    if (canonical) references.push(canonical.blob); // Always primary, original portrait.
+    if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)
+      references.push(args.mabelReference);
+    diagnostic.referenceConditioning = !!canonical;
+    const img = await args.provider.generate(prompt, references, {
+      highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
+    });
+    await screenPhotoVisuals(
+      canonical?.blob ?? null,
+      new Blob([new Uint8Array(img.bytes)], { type: img.mime }),
+      args.scene,
+    );
+    const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
+    diagnostic.validationStatus = "screen_passed";
+    const identityUsed = [
+      canonical ? args.identity!.key : null,
+      args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference
+        ? "mabel"
+        : null,
+    ]
+      .filter(Boolean)
+      .join("+");
+    return {
+      ...img,
+      textQuality,
+      diagnostics: diagnostic,
+      identityReferenceUsed: identityUsed || "none",
+    };
+  } catch (error) {
+    const known = [
+      "canonical_character_missing",
+      "reference_conditioning_unverified",
+      "visual_screen_unavailable",
+      "face_structure_drift",
+      "appearance_drift",
+      "reference_obscured",
+      "face_not_visible",
+      "scene_mismatch",
+      "uncertain",
+      "visual_screen_uncertain",
+      "text_verification_unavailable",
+    ];
+    diagnostic.validationStatus = "failed";
+    diagnostic.failureReason =
+      error instanceof Error && known.includes(error.message)
+        ? error.message
+        : diagnostic.canonicalAsset === null && needsRef
+          ? "canonical_reference_unavailable"
+          : "generation_or_quality_check_failed";
+    throw new PhotoGenerationFailure(diagnostic);
+  }
 }

@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
 
 type Snapshot = {
   world?: Record<string, unknown>;
+  photoIdentity?: { profileUrl: string; comparisonUrl: string | null; canonical: Record<string, string | number> | null; latest: Record<string, unknown> | null; source: string | null; delivery: string } | null;
   photoDeveloperTools: boolean;
   character: { key: string; name: string; fullName: string; photosEnabled: boolean };
   state: TessState;
@@ -125,6 +126,14 @@ function Debug() {
         {!snap && <p className="text-sm text-muted-foreground">Loading…</p>}
         {snap && s && (
           <>
+            {snap.photoDeveloperTools && snap.photoIdentity && <Section title="Canonical photo identity">
+              <p className="text-xs text-muted-foreground">The existing profile portrait is the generation anchor. Visual screening can miss drift; compare the actual images. Historic images may have no validation record.</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <figure><img src={snap.photoIdentity.profileUrl} alt="Authoritative existing profile portrait" className="w-full rounded-lg" /><figcaption className="text-xs">Canonical profile</figcaption></figure>
+                {snap.photoIdentity.comparisonUrl && <figure><img src={snap.photoIdentity.comparisonUrl} alt="Most recent delivered generated photograph for comparison" className="w-full rounded-lg" /><figcaption className="text-xs">Latest delivered generation</figcaption></figure>}
+              </div>
+              <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({canonical:snap.photoIdentity.canonical,latest:snap.photoIdentity.latest,source:snap.photoIdentity.source,delivery:snap.photoIdentity.delivery},null,2)}</pre>
+            </Section>}
             {snap.photoDeveloperTools && <Section title="Persistent world diagnostics">
               <p className="text-xs text-muted-foreground">Current backend checkpoint, pending intentions, photo decisions, delivery events and monthly image attempts. Schedule preview advances no data or relationship scores. Global worker history is on Living world timeline.</p>
               <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.world, null, 2)}</pre>

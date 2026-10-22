@@ -178,13 +178,6 @@ async function createGeneratedPhoto(
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const t = type as import("./tess-image.server").TessImageType;
   const characterKey = def?.key ?? "tess";
-  let tessReference: Blob | null = null;
-  if (includesTess(t)) {
-    const refPath = characterKey === "tess" ? "canonical.jpg" : `${characterKey}.jpg`;
-    const { data, error } = await supabaseAdmin.storage.from("tess-reference").download(refPath);
-    if (error || !data) throw new Error("canonical reference unavailable");
-    tessReference = data;
-  }
   // Mabel's canonical reference is optional — a missing file must never break a reply.
   let mabelReference: Blob | null = null;
   if (characterKey === "tess" && sceneHasMabel(scene)) {
@@ -195,7 +188,7 @@ async function createGeneratedPhoto(
   const identity = def
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
-  const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style, identity, text });
+  const img = await generateTessImage({ provider, mabelReference, type: t, scene, expression, style, identity, text });
   const path = `${userId}/${actionId ?? crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
@@ -210,6 +203,7 @@ async function createGeneratedPhoto(
     style,
     identityReferenceUsed: img.identityReferenceUsed,
     textQuality: img.textQuality,
+    diagnostics: img.diagnostics,
   };
 }
 
@@ -421,8 +415,10 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
   if (initiation?.developerPhoto === "preview") {
+    const { canonicalProfile } = await import("./canonical-profile.server");
+    const reference = await canonicalProfile(def.key).then(r => ({ asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable" })).catch(() => null);
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
-    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget,
+    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
       textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
       deliveryMigrationReady: !!migration && !migration.error };
@@ -522,6 +518,10 @@ async function runTurnUnlocked(
           if (error) console.warn("[character-photo] usage status pending; reserved attempt remains counted");
         }
       } catch (e) {
+        const { PhotoGenerationFailure } = await import("./tess-image.server");
+        if (e instanceof PhotoGenerationFailure && photoAdmin) {
+          await photoAdmin.from("world_events").insert({ user_id: userId, conversation_id: conv.id, character_key: def.key, kind: "photo_generation_failure", summary: `Photo withheld: ${e.diagnostics.failureReason}`, payload: { ...e.diagnostics, actionId: photoAction, source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation", delivery: "not_delivered" } });
+        }
         if (worldReady && photoAction) await photoAdmin!.from("media_attempts").update({ status: "failed" }).eq("action_id", photoAction).eq("status", "reserved");
         console.warn("[character-photo] generation unavailable; no image will be regenerated for this action");
       }
@@ -575,7 +575,7 @@ async function runTurnUnlocked(
         push_primary: i === 0,
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
-        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type, text_quality: generated.textQuality.status } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type, text_quality: generated.textQuality.status, photo_identity: generated.diagnostics, photo_source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation" } : {}),
       },
     };
   });
@@ -994,7 +994,22 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       ]);
       workerHealth = { lastTick, recentActions: actions ?? [] };
     }
+    let photoIdentity = null;
+    if (developerTools) {
+      const { canonicalProfile } = await import("./canonical-profile.server");
+      const canonical = await canonicalProfile(def.key).then(r=>({asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable"})).catch(()=>null);
+      const { data: recentPhotos } = await supabase.from("messages").select("id,metadata,visible_at").eq("conversation_id",conv.id).eq("user_id",userId).lte("visible_at",nowIso).is("metadata->>photo",null).order("created_at",{ascending:false}).limit(30);
+      const lastPhoto = recentPhotos?.find(m => !!(m.metadata as {generated_path?:string}|null)?.generated_path);
+      const metadata = lastPhoto?.metadata as {generated_path?:string;photo_identity?:import("@/integrations/supabase/types").Json;photo_source?:string}|undefined;
+      let comparisonUrl: string | null = null;
+      if (metadata?.generated_path?.startsWith(`${userId}/`) && metadata.generated_path.split("/").length === 2 && !metadata.generated_path.includes("..")) {
+        const result = await supabase.storage.from("tess-photos").createSignedUrl(metadata.generated_path,120);
+        comparisonUrl = result.data?.signedUrl ?? null;
+      }
+      photoIdentity = {canonical, profileUrl:def.avatar, latest:metadata?.photo_identity ?? null, source:metadata?.photo_source ?? null, delivery:lastPhoto?"delivered":"none", comparisonUrl};
+    }
     return {
+      photoIdentity,
       world: { checkpoint, records: records ?? [], events: events ?? [], imageAttemptsThisMonth: attempts?.length ?? 0, imageAttempts: attempts ?? [],
         workerHealth, imageBudget: await imageBudgetStatus(supabase, userId, conv.id, now).catch(() => null), schedulePreview: (await import("./world-runtime.server")).previewWorld(def, now), checkpointPresent: !!checkpoint },
       photoDeveloperTools: developerTools,

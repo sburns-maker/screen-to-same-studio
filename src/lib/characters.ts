@@ -11,11 +11,7 @@ import { applyDisruption, disruptionFor } from "./daily-disruptions";
 // conversation row with that character — never shared between contacts.
 
 import type { TessState } from "./tess-logic";
-import tessAvatar from "@/assets/tess.jpg";
-import mayaAvatar from "@/assets/avatars/maya.jpg";
-import claireAvatar from "@/assets/avatars/claire.jpg";
-import jordanAvatar from "@/assets/avatars/jordan.jpg";
-import benAvatar from "@/assets/avatars/ben.jpg";
+import { PROFILE_PORTRAITS } from "./character-portraits";
 
 export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben";
 
@@ -67,7 +63,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     age: 34,
     pronouns: "she/her",
     zip: "16602",
-    avatar: tessAvatar,
+    avatar: PROFILE_PORTRAITS.tess.avatar,
     romanticCapable: true,
     photosEnabled: true,
     appearance: "34-year-old woman with long platinum blonde hair, pale green-gray eyes, realistic adult skin texture",
@@ -97,7 +93,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     age: 31,
     pronouns: "she/her",
     zip: "16601",
-    avatar: mayaAvatar,
+    avatar: PROFILE_PORTRAITS.maya.avatar,
     romanticCapable: true,
     photosEnabled: true,
     appearance: "31-year-old woman with long dark brown wavy hair, hazel-green eyes, warm olive skin, bright easy smile",
@@ -134,7 +130,7 @@ Likes: banter, confidence, people with their own plans, spontaneity, not being m
     age: 35,
     pronouns: "she/her",
     zip: "16602",
-    avatar: claireAvatar,
+    avatar: PROFILE_PORTRAITS.claire.avatar,
     romanticCapable: true,
     photosEnabled: true,
     appearance: "35-year-old woman with shoulder-length auburn hair, hazel eyes, light freckles, gentle warm smile",
@@ -171,7 +167,7 @@ Likes: real conversation, follow-through, people who remember what she told them
     age: 33,
     pronouns: "she/her",
     zip: "16635",
-    avatar: jordanAvatar,
+    avatar: PROFILE_PORTRAITS.jordan.avatar,
     romanticCapable: true,
     photosEnabled: true,
     appearance: "33-year-old woman with dark brown hair usually pulled back, gray-blue eyes, minimal makeup, wry understated expression",
@@ -208,7 +204,7 @@ Likes: dry humor, patience, people who can sit with a pause, being argued with c
     age: 36,
     pronouns: "he/him",
     zip: "16602",
-    avatar: benAvatar,
+    avatar: PROFILE_PORTRAITS.ben.avatar,
     romanticCapable: false,
     photosEnabled: true,
     appearance: "36-year-old man with short brown hair, light stubble beard, blue eyes, friendly grin",
