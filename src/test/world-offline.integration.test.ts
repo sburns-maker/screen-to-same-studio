@@ -362,4 +362,44 @@ describe("offline living world through the normal character pipeline (fake paid 
     expect(await count("messages")).toBe(2);
     expect(mocks.image).not.toHaveBeenCalled();
   }, 30_000);
+  it("responds to an uploaded video's caption without claiming video analysis or invoking an image provider", async () => {
+    const response = await mocks.text();
+    mocks.text.mockClear();
+    mocks.text.mockResolvedValue({
+      ...response,
+      photo: null,
+      messages: ["What part of the walk did you want to show me?"],
+    });
+    const id = "70000000-0000-4000-a000-000000000001";
+    await db.query(
+      "insert into messages(id,conversation_id,user_id,sender,body,metadata,created_at,visible_at) values($1,$2,$3,'user','A clip from my walk',$4,$5,$5)",
+      [
+        id,
+        cid,
+        user,
+        JSON.stringify({
+          user_video: {
+            path: `${user}/${id}.mp4`,
+            mime: "video/mp4",
+            bytes: 16,
+            duration_seconds: 5,
+          },
+          video_analysis: "not_analyzed",
+        }),
+        now.toISOString(),
+      ],
+    );
+    const { runTurn } = await import("@/lib/tess.functions");
+    await runTurn(mocks.admin!, user, cid, "America/New_York");
+    const sent = mocks.text.mock.calls[0]![0].messages.find(
+      (m: { sender: string }) => m.sender === "user",
+    );
+    expect(sent.body).toContain("A clip from my walk");
+    expect(sent.body).toContain("NOT been analyzed");
+    expect(mocks.image).not.toHaveBeenCalled();
+    expect(
+      (await db.query<{ body: string }>("select body from messages where id=$1", [id])).rows[0]!
+        .body,
+    ).toBe("A clip from my walk");
+  }, 20000);
 });
