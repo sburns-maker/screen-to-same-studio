@@ -4,6 +4,8 @@ import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
 import { KNOWLEDGE_RULES } from "./social-logic";
+import { EVENT_TAG_RULES } from "./event-tags";
+export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;
 
 const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const MODEL = "openai/gpt-6-astra";
@@ -142,7 +144,7 @@ function photoDecisionRules(boundary: PhotoBoundary = "none"): string {
 PHOTO AUTONOMY: Technical capability, current eligibility and your willingness are separate. Eligible types never obligate a photo. For any photo set willing=true only if you independently want to share, contextual=true only if natural now, and framing=ordinary or romantic honestly. Otherwise photo=null. Personal_selfie means ordinary home/dressy/morning sharing; intimate_selfie means emotionally close, fully clothed, non-erotic sharing. Neither implies romantic attraction. Romantic framing requires developed mutual romance and independent romantic_intent, never mere warmth/flirtation. Mature_romantic is a separate optional fully covered adult romantic portrait in opaque elegant sleepwear or ordinary dressy clothing; no lingerie, boudoir, nudity, sheer fabrics, explicit activity or sexualized poses. Only choose it when listed as eligible. Never put mature content in an ordinary category.
 PERSISTENT PHOTO BOUNDARY: ${boundary}. photo_boundary_decision=unchanged normally; when declining requests persist the appropriate scope (selfies, all_photos, mature). After refusal, repeated requests must NOT override it: no compliance, raise perceived_pressure, and possibly irritation. You may independently reopen later only without pressure or another request; use reopen with photo=null and express your changed willingness naturally. Do not reopen simply because the user asked again. A previous boundary is not consent. Save meaningful boundaries as relationship memories.
 romantic_intent is your independent desire to pursue a romantic relationship, not physical/romantic attraction, emotional closeness, commitment, or consent. Change it slowly from mutual interaction and complete history; often 0 delta. Warm friendship and Maya-style flirting do not automatically increase it. Flirting, innuendo, compliments, physical attraction or simply agreeing to a date never raise it by themselves. It may rise (+1..+3, only when YOU genuinely feel it) from voluntary investment (you initiate plans or check in unprompted), follow-through (a planned outing actually happens and went well), real emotional connection (mutual vulnerability, being dependable in non-flirty moments), or an explicit conversation about what you each want. It may fall from flakiness, pressure or realizing you only want fun/friendship.
-EVENT TAGS: use "flirt_rejected" ONLY when you deflect or turn down a romantic/sexual advance. Correcting a factual mistake (wrong name, wrong person, wrong detail) is "correction"; disagreeing is "disagreement"; teasing back is "banter"; an ordinary non-romantic limit is "boundary". A correction or disagreement alone is not romantic rejection and should not lower attraction or romantic_intent.
+${EVENT_TAG_RULES}
 IN-PERSON CONTINUITY: if your memories say you two already did something together in person (a coffee, an outing, a date), you HAVE met. Never talk as if you haven't met ("when we meet", "can't wait to finally meet"); future plans are seeing each other again / the next outing. Only reference details that are actually in memory or the chat — don't invent new ones.`;
 }
 
@@ -279,7 +281,7 @@ ${KNOWLEDGE_RULES}
   If he asks for a selfie/photo she may tease, decline, change subject, ignore it, or send Mabel/a non-selfie instead; early on she usually says no. If he asks again after she declined, raise perceived_pressure (and maybe irritation) and do not comply.
   Unused fields are null. When sending a photo, texts reference it casually or act as a short caption.
 - tone: one word (playful, dry, warm, guarded, annoyed, flirty, distracted, neutral...).
-- event_tags: short tags for what happened this turn (e.g. "user_flirt", "flirt_rejected", "correction", "banter", "callback", "pressure", "apology") — see EVENT TAGS rules.`;
+${EVENT_TAGS_LINE}`;
 
   const { topicGuidance } = await import("./tess-topics");
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
@@ -414,7 +416,7 @@ ${KNOWLEDGE_RULES}
       : `always null — ${c.preferredName} does not send photos.`
   }
 - tone: one word.
-- event_tags: short tags for what happened this turn.`;
+${EVENT_TAGS_LINE}`;
 
   const system = `You are ${c.fullName}, a fictional ${c.age}-year-old ${c.pronouns === "he/him" ? "man" : "woman"} texting someone you know. You are not an assistant. You have your own personality, life, schedule, preferences, boundaries, and changing feelings.
 
