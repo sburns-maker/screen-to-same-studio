@@ -401,6 +401,11 @@ async function runTurnUnlocked(
     context: initiation?.reason || lifeEvent?.summary || schedule.detail,
     preview: !!initiation?.developerPhoto, activeConversation: !initiation,
   });
+  if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
+    opportunity.reason = !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
+      : cooldown ? "Photo cooldown is active. Wait before requesting another image."
+      : "No photo type is currently allowed by her photo boundaries and relationship eligibility.";
+  }
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
   if (initiation?.developerPhoto === "preview") {
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
