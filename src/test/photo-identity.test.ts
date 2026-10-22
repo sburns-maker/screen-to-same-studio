@@ -137,6 +137,36 @@ describe("every shared generation path anchors original portraits", () => {
     expect(result.diagnostics.validationStatus).toBe("screen_passed");
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+  it("uses an explicitly approved replacement as actual provider and screening pixels", async () => {
+    vision();
+    const original = await (
+      await import("@/lib/canonical-profile.server")
+    ).canonicalProfile("maya");
+    const approved = {
+      ...original,
+      blob: new Blob(["approved reference pixels"], { type: "image/jpeg" }),
+      asset: "owner/profile/maya/approved.jpg",
+      sha256: "approved-hash",
+    };
+    const generate = vi
+      .fn()
+      .mockResolvedValue({
+        bytes: new Uint8Array([1]),
+        mime: "image/png",
+        provider: "test",
+        model: "test",
+      });
+    const result = await generateTessImage({
+      provider: { name: "test", model: "test", referenceConditioning: true, generate },
+      canonical: approved,
+      type: "casual_selfie",
+      scene: "quiet venue",
+      expression: null,
+      identity: { key: "maya", name: "Maya", age: 29, pronouns: "she/her", appearance: "" },
+    });
+    expect(await (generate.mock.calls[0]![1][0] as Blob).text()).toBe("approved reference pixels");
+    expect(result.diagnostics.canonicalSha256).toBe("approved-hash");
+  });
   it("cannot turn a generated photograph or caller-supplied blob into the anchor", async () => {
     vision();
     const generate = vi.fn().mockResolvedValue({

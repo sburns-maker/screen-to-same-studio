@@ -22,6 +22,8 @@ export const profilePhotoChoices = createServerFn({ method: "POST" })
         canonical: null,
         activeMessageId: null,
         activeReason: "",
+        activeStorageUrl: null as string | null,
+        canonicalUrl: null as string | null,
       };
     const owned = await db.from("characters").select("id").eq("key", data.key).single();
     const conv = owned.data
@@ -68,8 +70,23 @@ export const profilePhotoChoices = createServerFn({ method: "POST" })
       if (signed.data) choices.push({ id: m.id, url: signed.data.signedUrl, at: m.created_at });
       if (choices.length >= 8) break;
     }
+    const registry = await db
+      .from("visual_identity_registry")
+      .select("*")
+      .eq("user_id", context.userId)
+      .eq("entity_key", data.key)
+      .single();
+    const privateUrl = async (path: string | null) => {
+      if (!path?.startsWith(`${context.userId}/profile/${data.key}/`) || path.includes(".."))
+        return null;
+      return (
+        (await db.storage.from("tess-photos").createSignedUrl(path, 600)).data?.signedUrl ?? null
+      );
+    };
     return {
       available: true,
+      activeStorageUrl: await privateUrl(registry.data?.active_storage_path ?? null),
+      canonicalUrl: await privateUrl(anchor.asset),
       activeMessageId: anchor.activeMessageId,
       activeReason: anchor.activeReason,
       choices,

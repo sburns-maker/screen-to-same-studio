@@ -24,6 +24,7 @@ export async function worldDatabase() {
     "0012_town_exploration",
     "0013_user_video_uploads",
     "0015_contextual_world_expansion",
+    "0016_media_profiles",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   return db;

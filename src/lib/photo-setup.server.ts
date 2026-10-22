@@ -10,10 +10,18 @@ export async function photoSetupStatus(userId: string, checkModel = false) {
     !!process.env["SUPABASE_SERVICE_ROLE_KEY"] && !!process.env["SUPABASE_URL"];
   let migration: Check = "not checked";
   const { canonicalProfile } = await import("./canonical-profile.server");
+  let resolveReference = canonicalProfile as (
+    key: "tess" | "maya" | "claire" | "jordan" | "ben",
+  ) => Promise<Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }>;
+  if (servicePresent) {
+    const { currentCanonical } = await import("./profile-media.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    resolveReference = (key) => currentCanonical(supabaseAdmin, userId, key);
+  }
   const canonicalReferences = await Promise.all(
     (["tess", "maya", "claire", "jordan", "ben"] as const).map(async (key) => {
       try {
-        const ref = await canonicalProfile(key);
+        const ref = await resolveReference(key);
         return {
           character: key,
           asset: ref.asset,

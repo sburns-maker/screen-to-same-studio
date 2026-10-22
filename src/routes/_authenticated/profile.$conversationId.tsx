@@ -1,9 +1,22 @@
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { PhotoViewer } from "@/components/PhotoViewer";
 import { ProfilePhotoPanel } from "@/components/ProfilePhotoPanel";
 import { usePortraits } from "@/lib/use-portrait";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronRight, Image as ImageIcon, Search, Settings as SettingsIcon, User } from "lucide-react";
+import {
+  ChevronRight,
+  Image as ImageIcon,
+  Search,
+  Settings as SettingsIcon,
+  User,
+} from "lucide-react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { Switch } from "@/components/ui/switch";
 import { conversationQuery } from "@/lib/tess-queries";
@@ -26,14 +39,18 @@ export const Route = createFileRoute("/_authenticated/profile/$conversationId")(
 });
 
 function Profile() {
-  const portraits=usePortraits();
+  const portraits = usePortraits();
   const { conversationId } = Route.useParams();
   const qc = useQueryClient();
   const conv = useQuery(conversationQuery(conversationId));
   const update = useServerFn(updateSettings);
   const def = characterFor((conv.data?.character as { key?: string } | null)?.key);
 
-  async function set(patch: { real_time_mode?: boolean; muted?: boolean; mature_photography?: boolean }) {
+  async function set(patch: {
+    real_time_mode?: boolean;
+    muted?: boolean;
+    mature_photography?: boolean;
+  }) {
     try {
       await update({ data: { conversationId, ...patch } });
       await qc.invalidateQueries({ queryKey: ["conversation"] });
@@ -45,19 +62,55 @@ function Profile() {
 
   return (
     <>
-      <ScreenHeader title="Contact info" backTo="/chat/$conversationId" backParams={{ conversationId }} />
+      <ScreenHeader
+        title="Contact info"
+        backTo="/chat/$conversationId"
+        backParams={{ conversationId }}
+      />
       <Screen>
         <div className="flex flex-col items-center text-center">
-          <img src={portraits.data?.[def.key]??def.avatar} alt={def.fullName} width={1024} height={1024} className="h-36 w-36 rounded-full object-cover" />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button aria-label={`${def.preferredName} profile photo options`}>
+                <img
+                  src={portraits.data?.[def.key] ?? def.avatar}
+                  alt={def.fullName}
+                  width={1024}
+                  height={1024}
+                  className="h-36 w-36 rounded-full object-cover"
+                />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <PhotoViewer
+                  src={portraits.data?.[def.key] ?? def.avatar}
+                  alt={`${def.preferredName} profile photo`}
+                >
+                  View photo
+                </PhotoViewer>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => window.dispatchEvent(new Event("change-profile-photo"))}
+              >
+                Change photo
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/photos/$conversationId" params={{ conversationId }}>
+                  Choose from shared media
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <h2 className="mt-4 font-display text-4xl">{def.fullName}</h2>
           <p className="text-sm text-muted-foreground">{def.pronouns}</p>
         </div>
 
-        <ProfilePhotoPanel character={def.key} canonical={def.avatar}/>
+        <ProfilePhotoPanel character={def.key} canonical={def.avatar} />
         <div className="mt-6 grid grid-cols-4 gap-2">
           {[
             { icon: User, label: "Profile", to: `/profile/$conversationId` },
-            ...(def.photosEnabled ? [{ icon: ImageIcon, label: "Photos", to: `/photos/$conversationId` }] : []),
+            { icon: ImageIcon, label: "Media", to: `/photos/$conversationId` },
             { icon: Search, label: "Search", to: `/history/$conversationId` },
             { icon: SettingsIcon, label: "Settings", to: `/settings` },
           ].map((a) => (
@@ -81,43 +134,64 @@ function Profile() {
             </div>
           ))}
         </dl>
-        <p className="mt-6 rounded-2xl border border-dashed p-4 text-sm leading-relaxed text-muted-foreground">{def.profileBlurb}</p>
+        <p className="mt-6 rounded-2xl border border-dashed p-4 text-sm leading-relaxed text-muted-foreground">
+          {def.profileBlurb}
+        </p>
 
         <div className="mt-4 divide-y rounded-2xl bg-surface">
           {def.age >= 18 && def.romanticCapable && (
             <div className="px-4 py-3">
               <div className="flex items-center justify-between gap-4 text-[15px]">
                 <label htmlFor="mature-photography">Mature Photography</label>
-                <Switch id="mature-photography" aria-label="Mature Photography" disabled={!conv.data} checked={!!conv.data?.mature_photography} onCheckedChange={(v) => set({ mature_photography: v })} />
+                <Switch
+                  id="mature-photography"
+                  aria-label="Mature Photography"
+                  disabled={!conv.data}
+                  checked={!!conv.data?.mature_photography}
+                  onCheckedChange={(v) => set({ mature_photography: v })}
+                />
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">Optional, non-explicit adult romantic portraits. No nudity. {def.preferredName}'s boundaries still apply.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Optional, non-explicit adult romantic portraits. No nudity. {def.preferredName}'s
+                boundaries still apply.
+              </p>
             </div>
           )}
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-4 text-[15px]">
               Real-Time Mode
-              <Switch checked={!!conv.data?.real_time_mode} onCheckedChange={(v) => set({ real_time_mode: v })} />
+              <Switch
+                checked={!!conv.data?.real_time_mode}
+                onCheckedChange={(v) => set({ real_time_mode: v })}
+              />
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{def.preferredName} follows their daily schedule — replies may take longer.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {def.preferredName} follows their daily schedule — replies may take longer.
+            </p>
           </div>
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-4 text-[15px]">
               Mute notifications
-              <Switch checked={!!(conv.data as { muted?: boolean } | undefined)?.muted} onCheckedChange={(v) => set({ muted: v })} />
+              <Switch
+                checked={!!(conv.data as { muted?: boolean } | undefined)?.muted}
+                onCheckedChange={(v) => set({ muted: v })}
+              />
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Messages still arrive; you just won't be notified about this conversation.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Messages still arrive; you just won't be notified about this conversation.
+            </p>
           </div>
         </div>
 
-        {def.photosEnabled && (
+        {
           <Link
             to="/photos/$conversationId"
             params={{ conversationId }}
             className="mt-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3.5 text-[15px]"
           >
-            Shared photos <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            Shared media <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </Link>
-        )}
+        }
       </Screen>
     </>
   );
