@@ -37,3 +37,36 @@ describe("tess logic", () => {
     expect(clampDelaySeconds(3600)).toBe(240);
   });
 });
+
+import { applyDelta as _ad, deriveStage as _ds, SEED_STATE as _seed } from "@/lib/tess-logic";
+describe("relationship progression realism", () => {
+  const z = () => Object.fromEntries(Object.keys(_seed).map((k) => [k, 0])) as typeof _seed;
+  it("gains taper near the cap but meaningful turns still progress", () => {
+    const s = { ..._seed, trust: 95, comfort: 40 };
+    const d = { ...z(), trust: 3, comfort: 3 };
+    const n = _ad(s, d);
+    expect(n.trust).toBe(96);
+    expect(n.comfort).toBe(43);
+  });
+  it("negative deltas apply in full even at high scores", () => {
+    const n = _ad({ ..._seed, trust: 95 }, { ...z(), trust: -4 });
+    expect(n.trust).toBe(91);
+  });
+  it("rounds and clamps to 0..100", () => {
+    expect(_ad({ ..._seed, trust: 2 }, { ...z(), trust: -6 }).trust).toBe(0);
+    expect(_ad({ ..._seed, comfort: 99 }, { ...z(), comfort: 6 }).comfort).toBe(100);
+  });
+  it("dynamic states cool on flat turns; durable ones do not decay", () => {
+    const n = _ad({ ..._seed, playfulness: 100, curiosity: 90, trust: 90, romantic_attraction: 80 }, z());
+    expect(n.playfulness).toBe(99);
+    expect(n.curiosity).toBe(89);
+    expect(n.trust).toBe(90);
+    expect(n.romantic_attraction).toBe(80);
+  });
+  it("dating stages require romantic intent, not attraction alone", () => {
+    const s = { ..._seed, romantic_attraction: 90, trust: 90, emotional_intimacy: 90, curiosity: 90, comfort: 90, romantic_intent: 0 };
+    expect(_ds(s)).toBe("Mutual romantic curiosity");
+    expect(_ds({ ...s, romantic_intent: 30 })).toBe("Early dating");
+    expect(_ds({ ...s, romantic_intent: 70 })).toBe("Established relationship");
+  });
+});
