@@ -1,3 +1,4 @@
+import type { TownTables, TownFunctions } from "./town-types";
 import type { SharedWorldTables, SharedWorldFunctions } from "./shared-world-types";
 import type { Json } from "./types";
 type Table<R, K extends keyof R> = {
@@ -44,43 +45,45 @@ export type MediaAttempt = {
   storage_path: string | null;
   created_at: string;
 };
-export type WorldTables = SharedWorldTables & {
-  character_world_state: Table<
-    WorldState,
-    | "conversation_id"
-    | "user_id"
-    | "character_key"
-    | "activity"
-    | "location"
-    | "availability"
-    | "next_transition_at"
-    | "next_check_at"
-  >;
-  world_records: Table<
-    WorldRecord,
-    | "id"
-    | "conversation_id"
-    | "user_id"
-    | "character_key"
-    | "kind"
-    | "key"
-    | "summary"
-    | "status"
-    | "source_quote"
-  >;
-  media_attempts: Table<MediaAttempt, "action_id" | "conversation_id" | "user_id">;
-};
-export type WorldFunctions = SharedWorldFunctions & {
-  reserve_world_ai: { Args: { p_user_id: string; p_limit: number }; Returns: boolean };
-  world_runtime_status: { Args: Record<string, never>; Returns: Json };
-  reserve_image_attempt: {
-    Args: {
-      p_action_id: string;
-      p_conversation_id: string;
-      p_user_id: string;
-      p_daily: number;
-      p_monthly: number;
-    };
-    Returns: boolean;
+export type WorldTables = TownTables &
+  SharedWorldTables & {
+    character_world_state: Table<
+      WorldState,
+      | "conversation_id"
+      | "user_id"
+      | "character_key"
+      | "activity"
+      | "location"
+      | "availability"
+      | "next_transition_at"
+      | "next_check_at"
+    >;
+    world_records: Table<
+      WorldRecord,
+      | "id"
+      | "conversation_id"
+      | "user_id"
+      | "character_key"
+      | "kind"
+      | "key"
+      | "summary"
+      | "status"
+      | "source_quote"
+    >;
+    media_attempts: Table<MediaAttempt, "action_id" | "conversation_id" | "user_id">;
   };
-};
+export type WorldFunctions = TownFunctions &
+  SharedWorldFunctions & {
+    reserve_world_ai: { Args: { p_user_id: string; p_limit: number }; Returns: boolean };
+    world_runtime_status: { Args: Record<string, never>; Returns: Json };
+    reserve_image_attempt: {
+      Args: {
+        p_action_id: string;
+        p_conversation_id: string;
+        p_user_id: string;
+        p_daily: number;
+        p_monthly: number;
+      };
+      Returns: boolean;
+    };
+  };

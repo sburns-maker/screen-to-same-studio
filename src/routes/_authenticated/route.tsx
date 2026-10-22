@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { WorldNavigation } from "@/components/WorldNavigation";
+import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -8,5 +9,18 @@ export const Route = createFileRoute("/_authenticated")({
     if (!data.user) throw redirect({ to: "/auth" });
     return { user: data.user };
   },
-  component: () => <Outlet />,
+  component: AuthenticatedShell,
 });
+
+function AuthenticatedShell() {
+  const path = useLocation().pathname;
+  const thread = /^\/(chat|encounter)\//.test(path);
+  return (
+    <>
+      <div className={thread ? "" : "pb-20"}>
+        <Outlet />
+      </div>
+      <WorldNavigation />
+    </>
+  );
+}

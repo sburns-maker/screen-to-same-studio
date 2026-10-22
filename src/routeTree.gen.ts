@@ -12,14 +12,20 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedExploreRouteImport } from './routes/_authenticated/explore'
+import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
+import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
+import { Route as AuthenticatedPlansRouteImport } from './routes/_authenticated/plans'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedWorldRouteImport } from './routes/_authenticated/world'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedDebriefConversationIdRouteImport } from './routes/_authenticated/debrief.$conversationId'
 import { Route as AuthenticatedDebugConversationIdRouteImport } from './routes/_authenticated/debug.$conversationId'
+import { Route as AuthenticatedEncounterNpcKeyRouteImport } from './routes/_authenticated/encounter.$npcKey'
 import { Route as AuthenticatedHistoryConversationIdRouteImport } from './routes/_authenticated/history.$conversationId'
 import { Route as AuthenticatedPhotosConversationIdRouteImport } from './routes/_authenticated/photos.$conversationId'
+import { Route as AuthenticatedPlacePlaceKeyRouteImport } from './routes/_authenticated/place.$placeKey'
 import { Route as AuthenticatedProfileConversationIdRouteImport } from './routes/_authenticated/profile.$conversationId'
 import { Route as ApiPublicPushWorkerRouteImport } from './routes/api/public/push-worker'
 import { Route as ApiPublicJobsWorldTickRouteImport } from './routes/api/public/jobs/world-tick'
@@ -38,9 +44,29 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedExploreRoute = AuthenticatedExploreRouteImport.update({
+  id: '/explore',
+  path: '/explore',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPlansRoute = AuthenticatedPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -71,6 +97,12 @@ const AuthenticatedDebugConversationIdRoute =
     path: '/debug/$conversationId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedEncounterNpcKeyRoute =
+  AuthenticatedEncounterNpcKeyRouteImport.update({
+    id: '/encounter/$npcKey',
+    path: '/encounter/$npcKey',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedHistoryConversationIdRoute =
   AuthenticatedHistoryConversationIdRouteImport.update({
     id: '/history/$conversationId',
@@ -81,6 +113,12 @@ const AuthenticatedPhotosConversationIdRoute =
   AuthenticatedPhotosConversationIdRouteImport.update({
     id: '/photos/$conversationId',
     path: '/photos/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPlacePlaceKeyRoute =
+  AuthenticatedPlacePlaceKeyRouteImport.update({
+    id: '/place/$placeKey',
+    path: '/place/$placeKey',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedProfileConversationIdRoute =
@@ -103,14 +141,20 @@ const ApiPublicJobsWorldTickRoute = ApiPublicJobsWorldTickRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/explore': typeof AuthenticatedExploreRoute
+  '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/people': typeof AuthenticatedPeopleRoute
+  '/plans': typeof AuthenticatedPlansRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/world': typeof AuthenticatedWorldRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
+  '/encounter/$npcKey': typeof AuthenticatedEncounterNpcKeyRoute
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
+  '/place/$placeKey': typeof AuthenticatedPlacePlaceKeyRoute
   '/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
   '/api/public/push-worker': typeof ApiPublicPushWorkerRoute
   '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
@@ -118,14 +162,20 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/explore': typeof AuthenticatedExploreRoute
+  '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
+  '/people': typeof AuthenticatedPeopleRoute
+  '/plans': typeof AuthenticatedPlansRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/world': typeof AuthenticatedWorldRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
+  '/encounter/$npcKey': typeof AuthenticatedEncounterNpcKeyRoute
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
+  '/place/$placeKey': typeof AuthenticatedPlacePlaceKeyRoute
   '/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
   '/api/public/push-worker': typeof ApiPublicPushWorkerRoute
   '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
@@ -135,14 +185,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/explore': typeof AuthenticatedExploreRoute
+  '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
+  '/_authenticated/people': typeof AuthenticatedPeopleRoute
+  '/_authenticated/plans': typeof AuthenticatedPlansRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/world': typeof AuthenticatedWorldRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/_authenticated/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
+  '/_authenticated/encounter/$npcKey': typeof AuthenticatedEncounterNpcKeyRoute
   '/_authenticated/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/_authenticated/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
+  '/_authenticated/place/$placeKey': typeof AuthenticatedPlacePlaceKeyRoute
   '/_authenticated/profile/$conversationId': typeof AuthenticatedProfileConversationIdRoute
   '/api/public/push-worker': typeof ApiPublicPushWorkerRoute
   '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
@@ -152,14 +208,20 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/explore'
+    | '/home'
     | '/inbox'
+    | '/people'
+    | '/plans'
     | '/settings'
     | '/world'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
+    | '/encounter/$npcKey'
     | '/history/$conversationId'
     | '/photos/$conversationId'
+    | '/place/$placeKey'
     | '/profile/$conversationId'
     | '/api/public/push-worker'
     | '/api/public/jobs/world-tick'
@@ -167,14 +229,20 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/explore'
+    | '/home'
     | '/inbox'
+    | '/people'
+    | '/plans'
     | '/settings'
     | '/world'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
+    | '/encounter/$npcKey'
     | '/history/$conversationId'
     | '/photos/$conversationId'
+    | '/place/$placeKey'
     | '/profile/$conversationId'
     | '/api/public/push-worker'
     | '/api/public/jobs/world-tick'
@@ -183,14 +251,20 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/explore'
+    | '/_authenticated/home'
     | '/_authenticated/inbox'
+    | '/_authenticated/people'
+    | '/_authenticated/plans'
     | '/_authenticated/settings'
     | '/_authenticated/world'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/debrief/$conversationId'
     | '/_authenticated/debug/$conversationId'
+    | '/_authenticated/encounter/$npcKey'
     | '/_authenticated/history/$conversationId'
     | '/_authenticated/photos/$conversationId'
+    | '/_authenticated/place/$placeKey'
     | '/_authenticated/profile/$conversationId'
     | '/api/public/push-worker'
     | '/api/public/jobs/world-tick'
@@ -227,11 +301,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/explore': {
+      id: '/_authenticated/explore'
+      path: '/explore'
+      fullPath: '/explore'
+      preLoaderRoute: typeof AuthenticatedExploreRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/home': {
+      id: '/_authenticated/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AuthenticatedHomeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/inbox': {
       id: '/_authenticated/inbox'
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof AuthenticatedInboxRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/people': {
+      id: '/_authenticated/people'
+      path: '/people'
+      fullPath: '/people'
+      preLoaderRoute: typeof AuthenticatedPeopleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/plans': {
+      id: '/_authenticated/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof AuthenticatedPlansRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -269,6 +371,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDebugConversationIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/encounter/$npcKey': {
+      id: '/_authenticated/encounter/$npcKey'
+      path: '/encounter/$npcKey'
+      fullPath: '/encounter/$npcKey'
+      preLoaderRoute: typeof AuthenticatedEncounterNpcKeyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/history/$conversationId': {
       id: '/_authenticated/history/$conversationId'
       path: '/history/$conversationId'
@@ -281,6 +390,13 @@ declare module '@tanstack/react-router' {
       path: '/photos/$conversationId'
       fullPath: '/photos/$conversationId'
       preLoaderRoute: typeof AuthenticatedPhotosConversationIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/place/$placeKey': {
+      id: '/_authenticated/place/$placeKey'
+      path: '/place/$placeKey'
+      fullPath: '/place/$placeKey'
+      preLoaderRoute: typeof AuthenticatedPlacePlaceKeyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/profile/$conversationId': {
@@ -308,29 +424,41 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedExploreRoute: typeof AuthenticatedExploreRoute
+  AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
+  AuthenticatedPlansRoute: typeof AuthenticatedPlansRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWorldRoute: typeof AuthenticatedWorldRoute
   AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
   AuthenticatedDebriefConversationIdRoute: typeof AuthenticatedDebriefConversationIdRoute
   AuthenticatedDebugConversationIdRoute: typeof AuthenticatedDebugConversationIdRoute
+  AuthenticatedEncounterNpcKeyRoute: typeof AuthenticatedEncounterNpcKeyRoute
   AuthenticatedHistoryConversationIdRoute: typeof AuthenticatedHistoryConversationIdRoute
   AuthenticatedPhotosConversationIdRoute: typeof AuthenticatedPhotosConversationIdRoute
+  AuthenticatedPlacePlaceKeyRoute: typeof AuthenticatedPlacePlaceKeyRoute
   AuthenticatedProfileConversationIdRoute: typeof AuthenticatedProfileConversationIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedExploreRoute: AuthenticatedExploreRoute,
+  AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
+  AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
+  AuthenticatedPlansRoute: AuthenticatedPlansRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWorldRoute: AuthenticatedWorldRoute,
   AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
   AuthenticatedDebriefConversationIdRoute:
     AuthenticatedDebriefConversationIdRoute,
   AuthenticatedDebugConversationIdRoute: AuthenticatedDebugConversationIdRoute,
+  AuthenticatedEncounterNpcKeyRoute: AuthenticatedEncounterNpcKeyRoute,
   AuthenticatedHistoryConversationIdRoute:
     AuthenticatedHistoryConversationIdRoute,
   AuthenticatedPhotosConversationIdRoute:
     AuthenticatedPhotosConversationIdRoute,
+  AuthenticatedPlacePlaceKeyRoute: AuthenticatedPlacePlaceKeyRoute,
   AuthenticatedProfileConversationIdRoute:
     AuthenticatedProfileConversationIdRoute,
 }

@@ -85,6 +85,13 @@
       "when": 1792771200000,
       "tag": "0011_shared_world_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792771200001,
+      "tag": "0012_town_exploration",
+      "breakpoints": true
     }
   ]
 }

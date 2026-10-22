@@ -361,15 +361,13 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       .order("id", { ascending: true })
       .range(offset, offset + MAX_USERS_PER_RUN - 1);
     if (convError) throw new Error("World conversation queue unavailable");
-    await admin
-      .from("world_control")
-      .upsert({
-        key: "world_cursor",
-        value: {
-          offset: (convRows?.length ?? 0) < MAX_USERS_PER_RUN ? 0 : offset + MAX_USERS_PER_RUN,
-        },
-        updated_at: nowIso,
-      });
+    await admin.from("world_control").upsert({
+      key: "world_cursor",
+      value: {
+        offset: (convRows?.length ?? 0) < MAX_USERS_PER_RUN ? 0 : offset + MAX_USERS_PER_RUN,
+      },
+      updated_at: nowIso,
+    });
     const byUser = new Map<string, typeof convRows>();
     for (const c of convRows ?? []) {
       const list = byUser.get(c.user_id) ?? [];
@@ -396,7 +394,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       try {
         const { runSharedWorldTick } = await import("./shared-world.server");
         await runSharedWorldTick(admin, userId, now);
-      } catch { report.errors.push("Shared plan progression failed; existing state retained"); }
+      } catch {
+        report.errors.push("Shared plan progression failed; existing state retained");
+      }
       // Social world: independent circles, shared events, knowledge
       // propagation. Structured simulation only — bounded, idempotent, no AI.
       try {
@@ -476,10 +476,12 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               : null);
           const { sharedPlanContext } = await import("./shared-world.server");
           const shared = await sharedPlanContext(admin, userId, def.key, now);
-          const schedule = shared ?? storySchedule(
-            currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1),
-            story.event,
-          );
+          const schedule =
+            shared ??
+            storySchedule(
+              currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1),
+              story.event,
+            );
           if (worldReady)
             await persistWorldCheckpoint(admin, {
               userId,
@@ -559,6 +561,15 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             scoreMultiplier: def.initiation.scoreMultiplier,
           });
 
+          const blockedBy = [
+            ...(conv.muted ? ["conversation muted"] : []),
+            ...(inQuietHours(now, quiet.start, quiet.end) ? ["user quiet hours"] : []),
+            ...(["busy", "asleep"].includes(schedule.availability)
+              ? [`character ${schedule.availability}`]
+              : []),
+            ...(report.aiCalls >= aiBudget ? ["worker AI budget exhausted"] : []),
+            ...(report.paused ? ["provider paused"] : []),
+          ];
           // Record the check regardless of outcome (debug "why / why not").
           await admin.from("tess_life").upsert({
             conversation_id: conv.id,
@@ -567,10 +578,11 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             last_initiation: {
               at: nowIso,
               eligible: decision.eligible,
-              initiated: decision.initiate,
+              initiated: false,
+              selected: decision.initiate,
               score: decision.score,
               chance: decision.chance,
-              reasons: decision.reasons,
+              reasons: [...decision.reasons, ...blockedBy],
               source: "world-tick",
             },
             updated_at: nowIso,
@@ -604,15 +616,31 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             (!life?.last_initiated_at ||
               now.getTime() - Date.parse(life.last_initiated_at) >= 3_600_000);
           if (!decision.initiate && !photoChance.selected && !followUp) continue;
-          if (
-            conv.muted ||
-            inQuietHours(now, quiet.start, quiet.end) ||
-            schedule.availability === "busy" ||
-            schedule.availability === "asleep" ||
-            report.aiCalls >= aiBudget ||
-            report.paused
-          )
+          const recordOutcome = async (initiated: boolean, blockers: string[]) => {
+            const { error } = await admin
+              .from("tess_life")
+              .update({
+                last_initiation: {
+                  at: nowIso,
+                  eligible: decision.eligible,
+                  selected: decision.initiate || photoChance.selected || followUp,
+                  initiated,
+                  score: decision.score,
+                  chance: decision.chance,
+                  reasons: [...decision.reasons, ...blockers],
+                  photoSelected: photoChance.selected,
+                  followUp,
+                  source: "world-tick",
+                },
+              })
+              .eq("conversation_id", conv.id)
+              .eq("user_id", userId);
+            if (error) report.errors.push("Initiation outcome could not be saved");
+          };
+          if (blockedBy.length) {
+            await recordOutcome(false, blockedBy);
             continue;
+          }
 
           // Generate the initiated message through the SAME turn pipeline as the
           // interactive path, so tone/photos/latency rules stay identical.
@@ -622,7 +650,10 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               ? photoChance.hint
               : (lifeEvent?.summary ?? flavor ?? null);
           try {
-            if (worldReady && !(await reserveWorldAi(admin, userId))) continue;
+            if (worldReady && !(await reserveWorldAi(admin, userId))) {
+              await recordOutcome(false, ["per-user daily autonomous AI limit"]);
+              continue;
+            }
             report.aiCalls++;
             if (aiPause.paused) probeAttempted = true;
             const { runTurn } = await import("./tess.functions");
@@ -656,6 +687,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               report.aiPausedGlobally = false;
             }
             if (result.count > 0) {
+              await recordOutcome(true, []);
               await admin
                 .from("tess_life")
                 .update({ last_initiated_at: nowIso, updated_at: nowIso })
@@ -704,16 +736,14 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
                       tag: `conv-${conv.id}`,
                     });
                     report.pushed += push.sent;
-                    await admin
-                      .from("world_events")
-                      .insert({
-                        user_id: userId,
-                        conversation_id: conv.id,
-                        character_key: def.key,
-                        kind: "notification",
-                        summary: `Push delivered to ${push.sent} device(s)`,
-                        payload: { ...push, messageId: primary.id },
-                      });
+                    await admin.from("world_events").insert({
+                      user_id: userId,
+                      conversation_id: conv.id,
+                      character_key: def.key,
+                      kind: "notification",
+                      summary: `Push delivered to ${push.sent} device(s)`,
+                      payload: { ...push, messageId: primary.id },
+                    });
                   }
                 }
               }

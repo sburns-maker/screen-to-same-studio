@@ -1,6 +1,13 @@
 // @vitest-environment node
 // Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
-vi.mock("@/lib/photo-identity-qc.server", () => ({ requireVisualScreen: () => {}, screenPhotoVisuals: async () => ({ status: "screen_passed", method: "fictional_visual_design", reason: "features_consistent" }) }));
+vi.mock("@/lib/photo-identity-qc.server", () => ({
+  requireVisualScreen: () => {},
+  screenPhotoVisuals: async () => ({
+    status: "screen_passed",
+    method: "fictional_visual_design",
+    reason: "features_consistent",
+  }),
+}));
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -36,7 +43,12 @@ vi.mock("@/lib/tess.server", () => ({
 }));
 vi.mock("@/lib/tess-image.server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/tess-image.server")>()),
-  lovableGatewayProvider: () => ({ name: "test", model: "test-image", referenceConditioning: true, generate: mocks.image }),
+  lovableGatewayProvider: () => ({
+    name: "test",
+    model: "test-image",
+    referenceConditioning: true,
+    generate: mocks.image,
+  }),
 }));
 import { runWorldTickWithAdmin } from "@/lib/world.server";
 let db: Awaited<ReturnType<typeof worldDatabase>>;
@@ -67,7 +79,7 @@ beforeEach(async () => {
   files = adapter.files;
   mocks.text.mockReset();
   mocks.image.mockReset();
-  mocks.push.mockReset().mockResolvedValue({ok:true,gone:false});
+  mocks.push.mockReset().mockResolvedValue({ ok: true, gone: false });
   mocks.image.mockResolvedValue({
     bytes: new Uint8Array([1, 2, 3]),
     mime: "image/png",
@@ -157,7 +169,16 @@ describe("offline living world through the normal character pipeline (fake paid 
       }>("select metadata from messages")
     ).rows;
     expect(messages).toHaveLength(1);
-    expect(messages[0]!.metadata).toMatchObject({ initiated: true, push_primary: true, photo_identity: {canonicalAsset:"src/assets/tess.jpg",referenceConditioning:true,validationStatus:"screen_passed"}, photo_source:"autonomous" });
+    expect(messages[0]!.metadata).toMatchObject({
+      initiated: true,
+      push_primary: true,
+      photo_identity: {
+        canonicalAsset: "src/assets/tess.jpg",
+        referenceConditioning: true,
+        validationStatus: "screen_passed",
+      },
+      photo_source: "autonomous",
+    });
     expect(files.has(`tess-photos/${messages[0]!.metadata.generated_path}`)).toBe(true);
     expect(await count("generated_images")).toBe(1);
     expect(await count("character_world_state")).toBe(1);
@@ -241,41 +262,104 @@ describe("offline living world through the normal character pipeline (fake paid 
     const report = await runWorldTickWithAdmin(mocks.admin!, now);
     expect(report.errors).toEqual([]);
     expect(mocks.text).not.toHaveBeenCalled();
+    const recorded = (
+      await db.query<{ last_initiation: { initiated: boolean; reasons: string[] } }>(
+        "select last_initiation from tess_life where conversation_id=$1",
+        [cid],
+      )
+    ).rows[0]!.last_initiation;
+    expect(recorded.initiated).toBe(false);
+    expect(recorded.reasons).toContain("user quiet hours");
     expect(
       (await db.query<{ metadata: Record<string, unknown> }>("select metadata from messages"))
         .rows[0]!.metadata["pushed"],
     ).toBeUndefined();
   });
-  it("a shared gathering yields participant-only autonomous follow-ups and normal deduplicated push attempts",async()=>{
-    const {sharedCommand,runSharedWorldTick}=await import("@/lib/shared-world.server");
-    const {sharedRsvpDecision}=await import("@/lib/shared-world");
-    await db.query("update conversations set muted=true where id=$1",[cid]);
-    for(const [n,key] of ["ben","claire"].entries()){
-      const convId=`20000000-0000-4000-a000-${String(n+900).padStart(12,"0")}`;
-      await db.query("insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key=$3",[convId,user,key]);
-      await db.query("insert into tess_state(conversation_id,user_id,comfort,trust,curiosity) values($1,$2,65,60,65)",[convId,user]);
+  it("a shared gathering yields participant-only autonomous follow-ups and normal deduplicated push attempts", async () => {
+    const { sharedCommand, runSharedWorldTick } = await import("@/lib/shared-world.server");
+    const { sharedRsvpDecision } = await import("@/lib/shared-world");
+    await db.query("update conversations set muted=true where id=$1", [cid]);
+    for (const [n, key] of ["ben", "claire"].entries()) {
+      const convId = `20000000-0000-4000-a000-${String(n + 900).padStart(12, "0")}`;
+      await db.query(
+        "insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key=$3",
+        [convId, user, key],
+      );
+      await db.query(
+        "insert into tess_state(conversation_id,user_id,comfort,trust,curiosity) values($1,$2,65,60,65)",
+        [convId, user],
+      );
     }
-    const startsAt="2026-10-25T18:00:00Z",endsAt="2026-10-25T20:00:00Z";
-    let planId="";
-    for(let n=1;n<100;n++){planId=`30000000-0000-4000-a000-${String(n).padStart(12,"0")}`;if(sharedRsvpDecision({id:planId,starts_at:startsAt,ends_at:endsAt},"claire","user_relay",now).response==="accepted")break;}
-    let plan=await sharedCommand(mocks.admin!,user,planId,"create",{organizer:"ben",place:"home:ben",title:"A small family gathering",startsAt,endsAt},now,0);
-    plan=await sharedCommand(mocks.admin!,user,planId,"invite",{actor:"ben",character:"claire",channel:"user_relay"},now,plan.version);
-    await runSharedWorldTick(mocks.admin!,user,now);
-    await runSharedWorldTick(mocks.admin!,user,new Date(endsAt));
-    const response=await mocks.text();mocks.text.mockClear();mocks.text.mockResolvedValue({...response,photo:null,messages:["That was a nice quiet afternoon. The gathering is over now."]});
-    vi.stubEnv("VAPID_PRIVATE_KEY","test-key-only");
-    await db.query("insert into push_subscriptions(user_id,endpoint,keys) values($1,'https://push.test/fixture',$2)",[user,JSON.stringify({p256dh:"test",auth:"test"})]);
-    const later=new Date("2026-10-25T21:00:00Z");vi.setSystemTime(later);
-    const report=await runWorldTickWithAdmin(mocks.admin!,later);
-    expect(report.errors).toEqual([]);expect(report.initiated).toHaveLength(2);
-    expect(mocks.text.mock.calls.every(([args])=>args.initiationReason.includes("completed gathering"))).toBe(true);
-    expect((await db.query("select * from character_knowledge where character_key='tess' and subject_type='shared_plan'")).rows).toHaveLength(0);
+    const startsAt = "2026-10-25T18:00:00Z",
+      endsAt = "2026-10-25T20:00:00Z";
+    let planId = "";
+    for (let n = 1; n < 100; n++) {
+      planId = `30000000-0000-4000-a000-${String(n).padStart(12, "0")}`;
+      if (
+        sharedRsvpDecision(
+          { id: planId, starts_at: startsAt, ends_at: endsAt },
+          "claire",
+          "user_relay",
+          now,
+        ).response === "accepted"
+      )
+        break;
+    }
+    let plan = await sharedCommand(
+      mocks.admin!,
+      user,
+      planId,
+      "create",
+      { organizer: "ben", place: "home:ben", title: "A small family gathering", startsAt, endsAt },
+      now,
+      0,
+    );
+    plan = await sharedCommand(
+      mocks.admin!,
+      user,
+      planId,
+      "invite",
+      { actor: "ben", character: "claire", channel: "user_relay" },
+      now,
+      plan.version,
+    );
+    await runSharedWorldTick(mocks.admin!, user, now);
+    await runSharedWorldTick(mocks.admin!, user, new Date(endsAt));
+    const response = await mocks.text();
+    mocks.text.mockClear();
+    mocks.text.mockResolvedValue({
+      ...response,
+      photo: null,
+      messages: ["That was a nice quiet afternoon. The gathering is over now."],
+    });
+    vi.stubEnv("VAPID_PRIVATE_KEY", "test-key-only");
+    await db.query(
+      "insert into push_subscriptions(user_id,endpoint,keys) values($1,'https://push.test/fixture',$2)",
+      [user, JSON.stringify({ p256dh: "test", auth: "test" })],
+    );
+    const later = new Date("2026-10-25T21:00:00Z");
+    vi.setSystemTime(later);
+    const report = await runWorldTickWithAdmin(mocks.admin!, later);
+    expect(report.errors).toEqual([]);
+    expect(report.initiated).toHaveLength(2);
+    expect(
+      mocks.text.mock.calls.every(([args]) =>
+        args.initiationReason.includes("completed gathering"),
+      ),
+    ).toBe(true);
+    expect(
+      (
+        await db.query(
+          "select * from character_knowledge where character_key='tess' and subject_type='shared_plan'",
+        )
+      ).rows,
+    ).toHaveLength(0);
     expect(await count("messages")).toBe(2);
-    vi.setSystemTime(new Date(later.getTime()+5_000));
-    await runWorldTickWithAdmin(mocks.admin!,new Date(later.getTime()+5_000));
-    await runWorldTickWithAdmin(mocks.admin!,new Date(later.getTime()+5_000));
+    vi.setSystemTime(new Date(later.getTime() + 5_000));
+    await runWorldTickWithAdmin(mocks.admin!, new Date(later.getTime() + 5_000));
+    await runWorldTickWithAdmin(mocks.admin!, new Date(later.getTime() + 5_000));
     expect(mocks.push).toHaveBeenCalledTimes(2); // One actual message's primary notification each; mock provider only.
-    expect(await count("messages")).toBe(2);expect(mocks.image).not.toHaveBeenCalled();
-  },30_000);
-
+    expect(await count("messages")).toBe(2);
+    expect(mocks.image).not.toHaveBeenCalled();
+  }, 30_000);
 });

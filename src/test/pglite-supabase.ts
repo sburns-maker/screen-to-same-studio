@@ -21,6 +21,7 @@ export async function worldDatabase() {
     "0008_atomic_photo_delivery",
     "0010_persistent_world",
     "0011_shared_world_plans",
+    "0012_town_exploration",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   return db;
@@ -155,7 +156,7 @@ export function postgresSupabase(db: PGlite) {
               const keysConflict = conflict
                 ? conflict.split(",")
                 : [
-                    table === "character_world_state"
+                    ["character_world_state", "tess_life"].includes(table)
                       ? "conversation_id"
                       : table === "world_control"
                         ? "key"
