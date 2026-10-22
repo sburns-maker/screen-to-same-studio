@@ -401,7 +401,7 @@ async function runTurnUnlocked(
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (lastPhotoError) throw new Error("Photo frequency history unavailable");
   const pacing = photoPacing({character:def.key,frequency:freq,now,lastPhotoAt:lastPhoto?.created_at??null,ownSinceLastPhoto,
-    userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",context:initiation?.reason??schedule.detail});
+    userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",context:initiation?.reason??schedule.detail,developerOverride:!!initiation?.developerPhoto});
   const cooldown = !pacing.allowed;
   const photoCompatible = schedule.availability !== "asleep" && schedule.availability !== "busy"
     && !/driv|surgery|emergency|patient|phone (?:down|away)/i.test(schedule.detail);
@@ -418,7 +418,7 @@ async function runTurnUnlocked(
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
     ownSinceLastPhoto, gapHours: initiation?.gapHours ?? 0,
     context: initiation?.reason || lifeEvent?.summary || schedule.detail,
-    preview: !!initiation?.developerPhoto, activeConversation: !initiation, userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",
+    preview: !!initiation?.developerPhoto, activeConversation: !initiation, developerOverride: !!initiation?.developerPhoto, userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",
   });
   if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
     opportunity.reason = imageBudget && !imageBudget.allowed ? "Image daily/monthly attempt limit reached. No image will be generated." : !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."

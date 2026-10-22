@@ -1,4 +1,4 @@
-import { photoPacing, visualCue } from "./photo-pacing";
+import { photoPacing, reactionPhotoCue, visualCue } from "./photo-pacing";
 import type { CharacterKey } from "./characters";
 import type { TessActivity } from "./tess-life";
 import type { TessState } from "./tess-logic";
@@ -64,6 +64,7 @@ export function photoOpportunity(args: {
   context?: string;
   preview?: boolean;
   activeConversation?: boolean;
+  developerOverride?: boolean;
   userText?: string;
 }): PhotoOpportunity {
   const profile = PHOTO_TENDENCIES[args.character];
@@ -93,7 +94,8 @@ export function photoOpportunity(args: {
   if (args.state.irritation >= 20 || args.state.perceived_pressure >= 30)
     return no("not independently inclined to share");
   const scale = args.frequency === "rare" ? 2 : args.frequency === "frequent" ? 0.75 : 1;
-  if (args.activeConversation) {
+  const contextualReaction = reactionPhotoCue(args.context ?? "") || reactionPhotoCue(args.userText ?? "");
+  if (args.activeConversation || args.developerOverride || contextualReaction) {
     const pacing = photoPacing({
       character: args.character,
       frequency: args.frequency,
@@ -102,6 +104,7 @@ export function photoOpportunity(args: {
       ownSinceLastPhoto: args.ownSinceLastPhoto,
       userText: args.userText ?? "",
       context: args.context ?? "",
+      developerOverride: args.developerOverride,
     });
     if (!pacing.allowed) return no(pacing.reason);
   } else {
