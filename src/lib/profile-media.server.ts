@@ -124,7 +124,7 @@ export async function saveProfileMedia(
       p_canonical: refPath,
       p_sha: reference ? await portraitHash(reference.bytes) : null,
       p_source: data.sourceMessageId ?? null,
-    });
+    } as never);
     if (r.error)
       throw new Error(
         "Profile update rejected. Identity references cannot be shared between characters.",
