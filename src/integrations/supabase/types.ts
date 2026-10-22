@@ -1,4 +1,3 @@
-import type { ExpansionTables, ExpansionFunctions } from "./expansion-types";
 export type Json =
   | string
   | number
@@ -14,7 +13,7 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
-    Tables: ExpansionTables & {
+    Tables: {
       character_knowledge: {
         Row: {
           acquired_at: string
@@ -955,6 +954,8 @@ export type Database = {
           contact: boolean
           contact_offered: boolean
           encountered_at: string
+          followups_enabled: boolean
+          last_followup_at: string | null
           npc_key: string
           read_at: string
           user_id: string
@@ -963,6 +964,8 @@ export type Database = {
           contact?: boolean
           contact_offered?: boolean
           encountered_at?: string
+          followups_enabled?: boolean
+          last_followup_at?: string | null
           npc_key: string
           read_at?: string
           user_id: string
@@ -971,11 +974,78 @@ export type Database = {
           contact?: boolean
           contact_offered?: boolean
           encountered_at?: string
+          followups_enabled?: boolean
+          last_followup_at?: string | null
           npc_key?: string
           read_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      town_intentions: {
+        Row: {
+          due_at: string
+          expires_at: string
+          id: string
+          npc_key: string
+          source_quote: string
+          status: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          due_at: string
+          expires_at: string
+          id: string
+          npc_key: string
+          source_quote: string
+          status?: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          due_at?: string
+          expires_at?: string
+          id?: string
+          npc_key?: string
+          source_quote?: string
+          status?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      town_introductions: {
+        Row: {
+          created_at: string
+          npc_key: string
+          source_character: string
+          source_message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          npc_key: string
+          source_character: string
+          source_message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          npc_key?: string
+          source_character?: string
+          source_message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "town_introductions_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       town_known_plans: {
         Row: {
@@ -999,6 +1069,33 @@ export type Database = {
             referencedColumns: ["user_id", "id"]
           },
         ]
+      }
+      town_memories: {
+        Row: {
+          action_id: string
+          created_at: string
+          npc_key: string
+          source_quote: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          npc_key: string
+          source_quote: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          npc_key?: string
+          source_quote?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       town_messages: {
         Row: {
@@ -1157,6 +1254,47 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visual_identity_registry: {
+        Row: {
+          active_message_id: string | null
+          active_reason: string
+          approval: string
+          canonical_asset: string | null
+          canonical_sha256: string | null
+          entity_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_message_id?: string | null
+          active_reason?: string
+          approval: string
+          canonical_asset?: string | null
+          canonical_sha256?: string | null
+          entity_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_message_id?: string | null
+          active_reason?: string
+          approval?: string
+          canonical_asset?: string | null
+          canonical_sha256?: string | null
+          entity_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visual_identity_registry_active_message_id_fkey"
+            columns: ["active_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]
@@ -1326,12 +1464,16 @@ export type Database = {
     Views: {
       [_ in never]: never
     }
-    Functions: ExpansionFunctions & {
+    Functions: {
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
       deliver_user_video: {
         Args: { p_id: string; p_user: string }
         Returns: Json
+      }
+      record_npc_introduction: {
+        Args: { p_message: string; p_npc: string; p_user: string }
+        Returns: boolean
       }
       reserve_image_attempt: {
         Args: {
@@ -1397,6 +1539,16 @@ export type Database = {
         Returns: Json
       }
       town_status: { Args: never; Returns: number }
+      update_active_portrait: {
+        Args: {
+          p_key: string
+          p_message: string
+          p_reason: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      world_expansion_status: { Args: never; Returns: number }
       world_runtime_status: { Args: never; Returns: Json }
     }
     Enums: {

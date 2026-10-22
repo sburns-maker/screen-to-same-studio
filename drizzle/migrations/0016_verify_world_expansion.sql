@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.town_memories IS 'Per-user NPC encounter memories (owner-read only).';
