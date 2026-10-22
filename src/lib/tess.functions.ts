@@ -507,6 +507,7 @@ async function runTurnUnlocked(
   // --- Photo: Tess curated first, then optional generation; other contacts generate only. Failures stay invisible.
   let photo: string | null = null;
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
+  let generationFailure: string | null = null;
   const p = reply.photo;
   if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
@@ -536,18 +537,32 @@ async function runTurnUnlocked(
         }
       } catch (e) {
         const { PhotoGenerationFailure } = await import("./tess-image.server");
-        if (e instanceof PhotoGenerationFailure && photoAdmin) {
-          await photoAdmin.from("world_events").insert({ user_id: userId, conversation_id: conv.id, character_key: def.key, kind: "photo_generation_failure", summary: `Photo withheld: ${e.diagnostics.failureReason}`, payload: { ...e.diagnostics, actionId: photoAction, source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation", delivery: "not_delivered" } });
+        // Do not expose raw provider errors, prompts or secrets in client-facing diagnostics.
+        const safeLocalReasons = ["repeated photo composition", "Image attempt budget exhausted",
+          "photo scene outside supported boundaries", "image provider not configured"];
+        generationFailure = e instanceof PhotoGenerationFailure
+          ? e.diagnostics.failureReason ?? "generation_or_quality_check_failed"
+          : e instanceof Error && safeLocalReasons.includes(e.message)
+            ? e.message
+            : "unexpected_photo_generation_failure";
+        if (photoAdmin) {
+          await photoAdmin.from("world_events").insert({ user_id: userId, conversation_id: conv.id,
+            character_key: def.key, kind: "photo_generation_failure",
+            summary: `Photo withheld: ${generationFailure}`,
+            payload: { reason: generationFailure,
+              ...(e instanceof PhotoGenerationFailure ? { ...e.diagnostics } : {}),
+              actionId: photoAction, source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation",
+              delivery: "not_delivered" } });
         }
         if (worldReady && photoAction) await photoAdmin!.from("media_attempts").update({ status: "failed" }).eq("action_id", photoAction).eq("status", "reserved");
-        console.warn("[character-photo] generation unavailable; no image will be regenerated for this action");
+        console.warn("[character-photo] generation withheld:", generationFailure);
       }
     }
   }
   if (photoAction && reply.photo && !photo && !generated) {
     const { failPhotoAction } = await import("./photo-delivery.server");
     await failPhotoAction(photoAdmin!, photoAction);
-    return { count: 0, lastVisibleAt: null, reason: "photo unavailable; action will not be recharged on retry" };
+    return { count: 0, lastVisibleAt: null, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry" };
   }
   const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
