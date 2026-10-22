@@ -83,3 +83,17 @@ describe("photo style variety", () => {
     expect(describeStyle({})).toBe("(unrecorded style)");
   });
 });
+
+import { photoMomentHint } from "@/lib/tess-photos";
+describe("photoMomentHint", () => {
+  it("is silent during cooldown", () => {
+    expect(photoMomentHint({ ownSinceLastPhoto: 3, freq: "normal", initiation: false, hasTypes: true })).toBe("");
+  });
+  it("is silent with no eligible types", () => {
+    expect(photoMomentHint({ ownSinceLastPhoto: 99, freq: "normal", initiation: true, hasTypes: false })).toBe("");
+  });
+  it("nudges after cooldown, with a starter variant on initiation", () => {
+    expect(photoMomentHint({ ownSinceLastPhoto: 12, freq: "normal", initiation: false, hasTypes: true })).toContain("PHOTO MOMENT");
+    expect(photoMomentHint({ ownSinceLastPhoto: 7, freq: "frequent", initiation: true, hasTypes: true })).toContain("open a text");
+  });
+});

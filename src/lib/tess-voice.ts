@@ -1,0 +1,122 @@
+// Deterministic guardrails for Tess's texting voice. Prompt instructions alone
+// drift because the model imitates its own previous replies in the transcript;
+// this filter enforces the style on output and cleans her past lines before
+// they are fed back as context. Pure — no AI, tested in tess-voice.test.ts.
+
+const ALLOWED_EMOJI = new Set(["😂", "😭", "🙄", "🤦‍♀️", "😬", "🙂", "👀"]);
+const EMOJI_RE = /(\p{Extended_Pictographic}(?:\u200d\p{Extended_Pictographic}|\uFE0F|\u200d[\u2640\u2642]\uFE0F?)*)/gu;
+
+/** Sentences where Tess narrates her own personality instead of showing it. */
+const SELF_DESCRIPTION = [
+  /\b(sarcasm|sarcastic|dry humou?r|deadpan|wit|witty|chaos|chaotic|funny)\b[^.!?]*\b(is|are)\s+(basically\s+)?my\b/i,
+  /\bmy\s+(dry\s+humou?r|sarcasm|wit|deadpan|chaotic energy|humou?r)\b/i,
+  /\bi'?m\s+(so\s+|very\s+|pretty\s+|kind of\s+)?(sarcastic|witty|deadpan|funny|chaotic|hilarious)\b/i,
+  /\b(second language|in full effect)\b/i,
+];
+
+/** Presenter / cheerleader phrasing that is never Tess. */
+const PRESENTER = [
+  /\boh boy\b/i,
+  /\bget ready for\b/i,
+  /\bjust wait until\b/i,
+  /\bat its finest\b/i,
+  /\bserious [a-z]+ magic\b/i,
+  /\bmagic\b!/i,
+  /\bdelicate balance\b/i,
+  /\bbuckle up\b/i,
+  /\bstay tuned\b/i,
+];
+
+const splitSentences = (s: string) => s.match(/[^.!?]+[.!?]*\s*/g) ?? [s];
+
+function stripSentences(text: string, contact = false): string {
+  const bans = contact ? [...CHATBOT, ...PRESENTER] : [...SELF_DESCRIPTION, ...PRESENTER, ...CHATBOT];
+  return splitSentences(text)
+    .filter((sent) => !bans.some((r) => r.test(sent)))
+    .join("")
+    .trim();
+}
+
+const words = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s']/g, " ").split(/\s+/).filter((w) => w.length > 3));
+
+/** Jaccard overlap of meaningful words — used to catch repeated jokes. */
+export function similarity(a: string, b: string): number {
+  const A = words(a), B = words(b);
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / (A.size + B.size - inter);
+}
+
+export type VoiceOptions = {
+  maxBubbles?: number;
+  recentTess?: string[];
+  /** Max emoji per turn (default 1). */
+  maxEmoji?: number;
+  /** Allowed emoji; null = any (default Tess's set). */
+  allowedEmoji?: Set<string> | null;
+  /** Max exclamation marks per turn (default 1). */
+  maxExclaim?: number;
+};
+
+/** Generic chatbot filler every character drifts into — never a real person's text. */
+const CHATBOT = [
+  /^\s*but (seriously|really|honestly),? /i,
+  /\bi (really |truly )?appreciate (you|your|that|it)\b/i,
+  /\b(that|it) (really )?means a lot\b/i,
+  /\bit'?s (so )?(nice|great|encouraging|rewarding) (to (hear|have|feel|know)|feeling)\b/i,
+  /\bmakes? the little efforts\b/i,
+  /\bi wish i could (share|send) (photos|pictures)\b/i,
+  /\bsounds? (incredibly|so|really) (impactful|important|rewarding)\b/i,
+  /\bhope(fully)?,? you can give (them|it) a try\b/i,
+];
+
+/** Per-character voice limits for non-Tess contacts. */
+export const CONTACT_VOICE: Record<string, Omit<VoiceOptions, "recentTess">> = {
+  maya: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2 },
+  claire: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
+  jordan: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: new Set(["🙄"]), maxExclaim: 0 },
+  ben: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
+};
+
+/** Enforce Tess's voice on a fresh reply. Returns cleaned bubbles (may be fewer). */
+export function enforceTessVoice(bubbles: string[], opts: VoiceOptions = {}): string[] {
+  const maxBubbles = opts.maxBubbles ?? 2;
+  const recent = opts.recentTess ?? [];
+  const maxEmoji = opts.maxEmoji ?? 1;
+  const allowed = opts.allowedEmoji === undefined ? ALLOWED_EMOJI : opts.allowedEmoji;
+  const maxExclaim = opts.maxExclaim ?? 1;
+  let emojiUsed = 0;
+  let exclaimUsed = 0;
+  const out: string[] = [];
+  for (const raw of bubbles) {
+    let t = stripSentences(raw, opts.allowedEmoji !== undefined);
+    // Emoji: at most one per turn, only from her set.
+    t = t.replace(EMOJI_RE, (e) => {
+      if (emojiUsed >= maxEmoji || (allowed && !allowed.has(e))) return "";
+      emojiUsed++;
+      return e;
+    });
+    // Exclamation marks: at most one per turn; collapse "!!" and turn the rest into periods.
+    t = t.replace(/!+/g, () => (exclaimUsed++ < maxExclaim ? "!" : "."));
+    t = t.replace(/\s{2,}/g, " ").replace(/\s+([.,?!])/g, "$1").trim();
+    if (!t || /^[.\s]+$/.test(t)) continue;
+    // Repetition: drop bubbles that echo something she said recently or this turn.
+    if ([...recent, ...out].some((prev) => similarity(prev, t) >= 0.6)) continue;
+    out.push(t);
+    if (out.length >= maxBubbles) break;
+  }
+  return out;
+}
+
+/** Clean one of her past lines before it re-enters the prompt, so drift isn't imitated. */
+export function cleanTessHistoryLine(body: string): string {
+  const cleaned = enforceTessVoice([body], { maxBubbles: 1 })[0];
+  return cleaned ?? "…";
+}
+
+/** Clean a non-Tess contact's past line (chatbot filler only; their own emoji style kept). */
+export function cleanContactHistoryLine(body: string, name: string): string {
+  const v = CONTACT_VOICE[name.toLowerCase()] ?? { allowedEmoji: null };
+  return enforceTessVoice([body], { ...v, maxBubbles: 1, maxEmoji: 3, maxExclaim: 3 })[0] ?? "…";
+}

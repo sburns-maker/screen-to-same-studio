@@ -22,6 +22,7 @@ import {
   varyStyle,
   type PhotoFrequency,
   type PhotoStyle,
+  photoMomentHint,
 } from "./tess-photos";
 import {
   activeLifeEvent,
@@ -167,7 +168,8 @@ async function createGeneratedPhoto(
   style: PhotoStyle | null,
   def?: CharacterDef,
 ) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
+  const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
   if (!safePhotoScene([scene, expression, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
@@ -211,6 +213,41 @@ async function createGeneratedPhoto(
 async function removeUserPhotos(supabase: Sb, userId: string) {
   const { data } = await supabase.storage.from("tess-photos").list(userId, { limit: 1000 });
   if (data?.length) await supabase.storage.from("tess-photos").remove(data.map((f) => `${userId}/${f.name}`));
+}
+
+type PhotoMsg = { id?: string; sender: string; body: string; created_at: string; metadata: unknown };
+
+/** User-sent photos: describe once with vision (cached in metadata), then show as text in the transcript. */
+async function describeUserPhotos<T extends PhotoMsg>(supabase: Sb, convId: string, list: T[]): Promise<T[]> {
+  const out: T[] = [];
+  let described = 0;
+  for (const m of list) {
+    const md = (m.metadata ?? {}) as { user_photo?: string; photo_desc?: string };
+    if (m.sender !== "user" || !md.user_photo) { out.push(m); continue; }
+    let desc = md.photo_desc;
+    if (!desc && described < 2) {
+      described++;
+      try {
+        const { data: blob } = await supabase.storage.from("tess-photos").download(md.user_photo);
+        if (blob) {
+          const { describeImage } = await import("./tess.server");
+          const buf = new Uint8Array(await blob.arrayBuffer());
+          let bin = "";
+          for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          desc = (await describeImage(`data:${blob.type || "image/jpeg"};base64,${btoa(bin)}`)) ?? undefined;
+          if (desc) {
+            await supabase.from("messages").update({ metadata: { ...md, photo_desc: desc } })
+              .eq("conversation_id", convId).eq("created_at", m.created_at).eq("sender", "user");
+          }
+        }
+      } catch (e) {
+        console.error("photo describe failed", e);
+      }
+    }
+    const tag = `[He sent a photo: ${desc || "couldn't make it out clearly"}]`;
+    out.push({ ...m, body: m.body ? `${m.body} ${tag}` : tag });
+  }
+  return out;
 }
 
 // Coalesce simultaneous foreground/background attempts within this server instance.
@@ -273,12 +310,12 @@ async function runTurnUnlocked(
     boundary: (["none", "selfies", "all_photos", "mature"].includes(conv.photo_boundary) ? conv.photo_boundary : "all_photos") as PhotoBoundary,
   };
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
-  const recent = msgs ?? [];
+  const recent = await describeUserPhotos(supabase, conv.id, msgs ?? []);
 
   // Fictional-world context: schedule, rotating life event, regional weather (all contacts live near ZIP 16602).
   const now = new Date();
   const { getWeatherContext } = await import("./tess-weather.server");
-  const weather = await getWeatherContext();
+  const weather = await getWeatherContext(def.zip);
 
   const messageList = [...recent].reverse().map((m) => ({
     ...m,
@@ -310,6 +347,13 @@ async function runTurnUnlocked(
   let generateTypes: string[] = [];
   let freq: PhotoFrequency = "normal";
   let lifeEvent: LifeEvent | null = story.event;
+  // Own messages since this character's last photo (recent is newest-first).
+  const ownMsgs = recent.filter((m) => m.sender === "tess");
+  const lastPhotoIdx = ownMsgs.findIndex((m) => {
+    const md = m.metadata as { photo?: string; generated_image_id?: string; generated_path?: string } | null;
+    return !!(md?.photo || md?.generated_image_id || md?.generated_path);
+  });
+  const ownSinceLastPhoto = lastPhotoIdx === -1 ? ownMsgs.length + 99 : lastPhotoIdx;
 
   if (isTess) {
     const sentPhotos = new Set(
@@ -352,6 +396,7 @@ async function runTurnUnlocked(
       lifeEvent,
       initiationReason: initiation?.reason ?? null,
       photoBoundary: photoContext.boundary,
+      photoHint: photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
       worldKnowledge,
       availabilityDetail: (() => { const b = scheduleFor(now, difficulty === "chaos" ? 2 : 1); return storySchedule(applyDisruption(b, disruptionFor("tess", now, b.activity.startsWith("at work"))), story.event).detail; })(),
     });
@@ -385,6 +430,7 @@ async function runTurnUnlocked(
       generateTypes,
       recentPhotoStyles: recentStyles.map(describeStyle),
       photoBoundary: photoContext.boundary,
+      photoHint: def.photosEnabled ? photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: generateTypes.length > 0 }) : "",
       worldKnowledge,
     });
     if (!def.photosEnabled) reply.photo = null;
@@ -417,6 +463,10 @@ async function runTurnUnlocked(
     next.romantic_intent = 0;
   }
   const stage = deriveStage(next);
+  {
+    const { normalizeEventTags } = await import("./event-tags");
+    reply.event_tags = normalizeEventTags(reply.event_tags ?? [], reply.tone ?? "", def.romanticCapable);
+  }
 
   // The contact hadn't actually "sent" pending replies yet — let them reconsider with the new context.
   if (!initiation) {
@@ -437,7 +487,9 @@ async function runTurnUnlocked(
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
     const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
-    if (Math.random() < rules.generateChance) {
+    // A requested on-demand photo the character chose to send is honored; the random roll only thins unprompted ones.
+    const askedForPhoto = /\b(photo|pic|picture|selfie|snap|show me|send me)\b/i.test(recentText);
+    if (askedForPhoto || Math.random() < rules.generateChance) {
       try {
         const rawStyle: PhotoStyle = {
           pose_type: p.pose_type,
@@ -547,8 +599,22 @@ async function runTurnUnlocked(
     }
   }
 
-  const memRows = reply.memory_candidates
+  const { data: existingMem } = await supabase
+    .from("memories")
+    .select("summary")
+    .eq("conversation_id", conv.id)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  const seen = new Set((existingMem ?? []).map((m: { summary: string }) => norm(m.summary)));
+  const memRows = (reply.memory_candidates ?? [])
     .filter((m) => m.summary?.trim())
+    .filter((m) => {
+      const k = norm(m.summary);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
     .slice(0, 3)
     .map((m) => ({
       conversation_id: conv.id,
@@ -557,7 +623,10 @@ async function runTurnUnlocked(
       summary: m.summary.slice(0, 300),
       importance: Math.min(5, Math.max(1, Math.round(m.importance || 3))),
     }));
-  if (memRows.length) await supabase.from("memories").insert(memRows);
+  if (memRows.length) {
+    const { error: memErr } = await supabase.from("memories").insert(memRows);
+    if (memErr) console.error("memory insert failed", memErr.message);
+  }
 
   return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null };
 }
@@ -831,7 +900,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     ]);
     const state = pickState(stateRow ?? {}, def.seedState);
     const { getWeatherContext } = await import("./tess-weather.server");
-    const weather = await getWeatherContext();
+    const weather = await getWeatherContext(def.zip);
     const lifeEvent = isTess
       ? activeLifeEvent(
           now,

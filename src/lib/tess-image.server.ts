@@ -4,7 +4,7 @@
  */
 import type { PhotoStyle } from "./tess-photos";
 
-const GATEWAY = "https://ai.gateway.lovable.dev";
+const GATEWAY_URL = "https://ai.gateway.lovable.dev";
 
 export type TessImageType = "object" | "casual_selfie" | "personal_selfie" | "intimate_selfie" | "tess_candid" | "mature_romantic";
 
@@ -76,8 +76,11 @@ export function buildImagePrompt(type: TessImageType, scene: string, expression:
   return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}`;
 }
 
-export function lovableGatewayProvider(apiKey: string): ImageProvider {
-  const model = "openai/gpt-image-2.5-sunburst";
+export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
+  const ownKey = process.env["OPENAI_API_KEY"];
+  const apiKey = ownKey || gatewayKey;
+  const GATEWAY = ownKey ? "https://api.openai.com" : GATEWAY_URL;
+  const model = ownKey ? "gpt-image-1-mini" : "openai/gpt-image-2.5-sunburst";
   return {
     name: "lovable-ai-gateway",
     model,

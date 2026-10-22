@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronLeft, MoreVertical } from "lucide-react";
+import { ArrowUp, Camera, ChevronLeft, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { markRead, tessRespond } from "@/lib/tess.functions";
@@ -143,6 +143,33 @@ function Chat() {
     },
     [respond, conversationId],
   );
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  async function sendPhoto(file: File) {
+    if (!convId || !file.type.startsWith("image/")) return;
+    if (file.size > 10_000_000) { toast.error("Photo is too large"); return; }
+    setUploading(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+      const path = `${u.user!.id}/user/${crypto.randomUUID()}.${ext}`;
+      const up = await supabase.storage.from("tess-photos").upload(path, file, { contentType: file.type });
+      if (up.error) throw up.error;
+      const body = text.trim();
+      setText("");
+      const { error } = await supabase.from("messages").insert({ conversation_id: convId, user_id: u.user!.id, sender: "user", body, metadata: { user_photo: path } });
+      if (error) throw error;
+      setNow(Date.now());
+      await refetch();
+      if (debounce.current) clearTimeout(debounce.current);
+      debounce.current = setTimeout(() => { debounce.current = null; void runRespond(); }, 2500);
+    } catch {
+      toast.error("Photo didn't send");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function send() {
     const body = text.trim();
@@ -323,7 +350,8 @@ function Chat() {
                 <div className={cn("flex", mine ? "justify-end" : "justify-start", groupedNext ? "mb-0.5" : "mb-2")}>
                   <div className={cn("flex max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
                   {(() => {
-                    const md = m.metadata as { photo?: string; generated_path?: string } | null;
+                    const md = m.metadata as { photo?: string; generated_path?: string; user_photo?: string } | null;
+                    if (md?.user_photo) return <GeneratedPhoto path={md.user_photo} name="you" />;
                     const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
                     if (src)
                       return <img src={src} alt={`Photo from ${def.preferredName}`} loading="lazy" width={640} height={853} className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover" />;
@@ -377,6 +405,10 @@ function Chat() {
         className="pb-safe border-t bg-background"
       >
         <div className="mx-auto flex max-w-xl items-end gap-2 px-3 pt-2">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void sendPhoto(f); }} />
+          <button type="button" aria-label="Send a photo" disabled={uploading || !online} onClick={() => fileRef.current?.click()} className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-opacity disabled:opacity-30">
+            <Camera className={cn("h-5 w-5", uploading && "animate-pulse")} />
+          </button>
           <textarea
             ref={taRef}
             rows={1}
