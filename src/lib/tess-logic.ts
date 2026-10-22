@@ -58,9 +58,34 @@ export function sanitizeDelta(raw: Partial<Record<StateKey, unknown>>, difficult
   return out;
 }
 
+/** Conversational states that cool off when a turn adds nothing new. */
+export const DYNAMIC_KEYS: StateKey[] = ["playfulness", "curiosity", "relationship_momentum"];
+/** Above this, a flat turn lets dynamic states drift down by 1. */
+export const DYNAMIC_REST = 75;
+/** Below this, positive gains apply in full; above, they taper toward 100. */
+export const DIMINISH_START = 50;
+
+/**
+ * Apply a sanitized delta. Gains on "good" dimensions taper as a score
+ * approaches 100 (a +3 from a meaningful turn still lands at least +1 below
+ * the cap). Losses and pressure/irritation changes apply in full. Dynamic
+ * states (playfulness, curiosity, momentum) gently cool when the turn adds
+ * nothing; durable scores (trust, attraction, intimacy) never decay on their own.
+ */
 export function applyDelta(state: TessState, delta: TessState): TessState {
   const out = {} as TessState;
-  for (const k of STATE_KEYS) out[k] = clamp(Math.round((state[k] ?? 0) + (delta[k] ?? 0)), 0, 100);
+  for (const k of STATE_KEYS) {
+    const cur = state[k] ?? 0;
+    let d = delta[k] ?? 0;
+    if (d > 0 && !NEGATIVE_KEYS.includes(k) && cur > DIMINISH_START) {
+      const factor = (100 - cur) / (100 - DIMINISH_START);
+      let g = Math.round(d * factor);
+      if (g < 1 && d >= 2 && cur < 100) g = 1;
+      d = g;
+    }
+    if (d === 0 && DYNAMIC_KEYS.includes(k) && cur > DYNAMIC_REST) d = -1;
+    out[k] = clamp(Math.round(cur + d), 0, 100);
+  }
   return out;
 }
 
@@ -82,9 +107,11 @@ export type Stage = (typeof STAGES)[number];
 export function deriveStage(s: TessState): Stage {
   if (s.irritation >= 70 || (s.relationship_momentum <= 5 && s.curiosity <= 20)) return "Connection faded";
   const romance = s.romantic_attraction;
-  if (romance >= 85 && s.trust >= 80 && s.emotional_intimacy >= 80) return "Established relationship";
-  if (romance >= 75 && s.trust >= 70 && s.emotional_intimacy >= 65) return "Dating";
-  if (romance >= 65 && s.trust >= 55 && s.emotional_intimacy >= 45) return "Early dating";
+  // Dating stages require an actual relationship decision (romantic_intent), not attraction alone.
+  const intent = s.romantic_intent ?? 0;
+  if (romance >= 85 && s.trust >= 80 && s.emotional_intimacy >= 80 && intent >= 60) return "Established relationship";
+  if (romance >= 75 && s.trust >= 70 && s.emotional_intimacy >= 65 && intent >= 45) return "Dating";
+  if (romance >= 65 && s.trust >= 55 && s.emotional_intimacy >= 45 && intent >= 25) return "Early dating";
   if (romance >= 50 && s.curiosity >= 45) return "Mutual romantic curiosity";
   if (romance >= 38 && s.playfulness >= 50) return "Flirty friendship";
   if (s.trust >= 55 && s.comfort >= 60 && romance < 30) return "Platonic friendship";
