@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { debugSnapshot, developerPhotoOpportunity } from "@/lib/tess.functions";
+import { debugSnapshot, developerPhotoOpportunity, developerResetPhotoBoundary } from "@/lib/tess.functions";
 import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
 
 export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
@@ -24,6 +24,7 @@ type Snapshot = {
   world?: Record<string, unknown>;
   photoIdentity?: { profileUrl: string; comparisonUrl: string | null; canonical: Record<string, string | number> | null; latest: Record<string, unknown> | null; source: string | null; delivery: string } | null;
   photoDeveloperTools: boolean;
+  photoBoundary: string;
   character: { key: string; name: string; fullName: string; photosEnabled: boolean };
   state: TessState;
   lastDelta: Record<string, number | string | string[]>;
@@ -84,6 +85,21 @@ function Debug() {
   }, [fn, conversationId]);
 
   const photoFn = useServerFn(developerPhotoOpportunity);
+  const resetBoundary = useServerFn(developerResetPhotoBoundary);
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetStatus, setResetStatus] = useState("");
+  const runReset = async () => {
+    if (!window.confirm(`Reset ${snap?.character.name ?? "this contact"}'s saved photo boundary? This is a developer-only override and will be audited.`)) return;
+    setResetBusy(true);
+    try {
+      await resetBoundary({ data: { conversationId, confirmation: "RESET PHOTO BOUNDARY" } });
+      setResetStatus("Photo boundary reset. This does not force the character to send an image.");
+      setPhotoResult(null);
+      const next = await fn({ data: { conversationId } });
+      setSnap(next as Snapshot);
+    } catch (e) { setResetStatus(e instanceof Error ? e.message : "Reset failed"); }
+    finally { setResetBusy(false); }
+  };
   const [photoContext, setPhotoContext] = useState("");
   const [photoRequestId, setPhotoRequestId] = useState(() => crypto.randomUUID());
   const [photoResult, setPhotoResult] = useState<Record<string, unknown> | null>(null);
@@ -109,6 +125,13 @@ function Debug() {
         <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
+        {snap?.photoDeveloperTools && (
+          <Section title="Photo boundaries (developer)">
+            <p className="text-xs text-muted-foreground">Current saved setting: <strong>{snap.photoBoundary === "selfies" ? "No selfies" : snap.photoBoundary === "all_photos" ? "No photos" : snap.photoBoundary === "mature" ? "No mature romantic photos" : "No restriction"}</strong>. This is a persisted conversation preference, not a cooldown.</p>
+            {snap.photoBoundary !== "none" && <button type="button" className="mt-3 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" disabled={resetBusy} onClick={() => void runReset()}>{resetBusy ? "Resetting…" : "Reset saved photo boundary"}</button>}
+            {resetStatus && <p role="status" className="mt-2 text-xs">{resetStatus}</p>}
+          </Section>
+        )}
         {snap?.photoDeveloperTools && (
           <Section title="Controlled photo opportunity">
             <p className="text-xs text-muted-foreground">Preview checks eligibility without generating or changing data. Deliver asks the character through the normal pipeline; she may decline. A delivered image uses your configured image provider and can incur charges. Current schedules, boundaries and cooldowns still apply.</p>
