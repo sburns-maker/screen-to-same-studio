@@ -17,7 +17,7 @@ const npcProfileSchema = z.object({
   interests: z.array(z.string()),
 });
 export async function townAvailable(db: Client) {
-  const r = await db.rpc("town_status");
+  const r = await db.rpc("town_status", {} as never);
   if (r.error && ["PGRST202", "42883"].includes(r.error.code)) return false;
   if (r.error) throw new Error("World exploration is unavailable");
   return r.data === 12;

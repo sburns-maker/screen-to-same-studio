@@ -12,7 +12,7 @@ import type { TessActivity } from "./tess-life";
 type Admin = SupabaseClient<Database>;
 
 export async function worldRuntimeAvailable(admin: Admin): Promise<boolean> {
-  const { data, error } = await admin.rpc("world_runtime_status");
+  const { data, error } = await admin.rpc("world_runtime_status", {} as never);
   if (error?.code === "PGRST202" || error?.code === "42883") return false;
   if (error) throw new Error("World runtime capability check failed");
   return !!(data as { version?: number } | null)?.version;
