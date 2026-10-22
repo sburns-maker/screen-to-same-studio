@@ -13,7 +13,7 @@ export async function photoSetupStatus(userId: string, checkModel = false) {
   if (servicePresent) {
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const rpc = await supabaseAdmin.rpc("deliver_photo_turn", { p_job_id: null });
+      const rpc = await supabaseAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string });
       migration = rpc.error
         ? rpc.error.code === "PGRST202" || rpc.error.code === "42883"
           ? "missing"

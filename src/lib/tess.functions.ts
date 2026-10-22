@@ -279,7 +279,7 @@ async function runTurnUnlocked(
   // Recover the durable outbox before any new paid generation.
   const configuredPhotoAdmin = process.env["SUPABASE_SERVICE_ROLE_KEY"]
     ? (await import("@/integrations/supabase/client.server")).supabaseAdmin : null;
-  const deliveryProbe = configuredPhotoAdmin ? await configuredPhotoAdmin.rpc("deliver_photo_turn", { p_job_id: null }) : null;
+  const deliveryProbe = configuredPhotoAdmin ? await configuredPhotoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
   const missingDeliveryFunction = deliveryProbe?.error && ["PGRST202", "42883"].includes(deliveryProbe.error.code);
   if (deliveryProbe?.error && !missingDeliveryFunction) throw new Error("Character delivery service is unavailable; please retry later");
   // A source merge cannot install a database function. Keep legacy text replies
@@ -403,7 +403,7 @@ async function runTurnUnlocked(
   });
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
   if (initiation?.developerPhoto === "preview") {
-    const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null }) : null;
+    const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
     return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes,
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
       textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
