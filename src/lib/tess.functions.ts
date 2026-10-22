@@ -167,7 +167,8 @@ async function createGeneratedPhoto(
   style: PhotoStyle | null,
   def?: CharacterDef,
 ) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
+  // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
+  const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
   if (!safePhotoScene([scene, expression, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
