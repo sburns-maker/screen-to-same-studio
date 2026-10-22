@@ -1,3 +1,4 @@
+import { photoTextSchema, PHOTO_TEXT_RULES } from "./photo-text";
 import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
 import { runStructured } from "./text-ai.server";
 import { z } from "zod";
@@ -120,6 +121,7 @@ export const replySchema = z.object({
       contextual: z.boolean(),
       framing: z.enum(["ordinary", "romantic"]),
       scene: z.string().nullable(),
+      text_spec: photoTextSchema.nullable(),
       expression: z.string().nullable(),
       reason: z.string().nullable(),
       pose_type: z.string().nullable(),
@@ -240,6 +242,7 @@ TESS VOICE CHECK (apply before answering): deadpan, understated, specific. Tell 
   const rules = `
 OUTPUT RULES
 ${CONTINUITY_RULES}
+${PHOTO_TEXT_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
 - messages: Tess's texts only, no quotes/narration.
@@ -370,6 +373,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
   const rules = `
 OUTPUT RULES
 ${CONTINUITY_RULES}
+${PHOTO_TEXT_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
 - messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.
