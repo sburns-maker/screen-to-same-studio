@@ -219,7 +219,7 @@ describe("every shared generation path anchors original portraits", () => {
     expect(generate).not.toHaveBeenCalled();
     expect(lovableGatewayProvider("gateway").referenceConditioning).toBe(false);
   });
-  it("withholds a mismatched generation with safe diagnostics and zero regeneration", async () => {
+  it("withholds a repeatedly mismatched generation after one identity-aware retry", async () => {
     vision({ ...good, visual_design: "mismatch", reason: "face_structure_drift" });
     const generate = vi.fn().mockResolvedValue({
       bytes: new Uint8Array([1]),
@@ -239,11 +239,37 @@ describe("every shared generation path anchors original portraits", () => {
       diagnostics: {
         validationStatus: "failed",
         failureReason: "face_structure_drift",
-        retryCount: 0,
+        retryCount: 1,
+        retryReasons: ["face_structure_drift", "face_structure_drift"],
         canonicalAsset: PROFILE_PORTRAITS.maya.asset,
       },
     });
-    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+  it("recovers an appearance-drift selfie once using the same original anchor", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-only");
+    const verdicts = [
+      { ...good, visual_design: "mismatch", reason: "appearance_drift" },
+      good,
+    ];
+    let index = 0;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () =>
+      Response.json({ choices: [{ message: { content: JSON.stringify(verdicts[index++] ?? good) } }] })));
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1, 2, 3]), mime: "image/png", provider: "test", model: "test",
+    });
+    const result = await generateTessImage({
+      provider: { name: "test", model: "test", referenceConditioning: true, generate },
+      type: "casual_selfie", scene: "deadpan selfie with messy bun", expression: "deadpan",
+      identity: { key: "tess", name: "Tess", age: 34, pronouns: "she/her", appearance: "" },
+    });
+    expect(result.diagnostics.retryCount).toBe(1);
+    expect(result.diagnostics.retryReasons).toEqual(["appearance_drift"]);
+    expect(result.diagnostics.validationStatus).toBe("screen_passed");
+    expect(generate).toHaveBeenCalledTimes(2);
+    expect(generate.mock.calls[1]![0]).toContain("IDENTITY CONTINUITY CORRECTION");
+    expect(await (generate.mock.calls[0]![1][0] as Blob).arrayBuffer())
+      .toEqual(await (generate.mock.calls[1]![1][0] as Blob).arrayBuffer());
   });
   it("rejects unsupported shared-event group portraits before buying an image", async () => {
     vision();
