@@ -142,4 +142,3 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.reserve_image_attempt(uuid,uuid,uuid,integer,integer) FROM PUBLIC,authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_image_attempt(uuid,uuid,uuid,integer,integer) TO service_role;
-
