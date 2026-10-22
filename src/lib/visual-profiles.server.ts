@@ -4,7 +4,7 @@ import { CHARACTERS, type CharacterKey } from "./characters";
 import { canonicalProfile } from "./canonical-profile.server";
 type Client = SupabaseClient<Database>;
 export async function expansionAvailable(db: Client) {
-  const r = await db.rpc("world_expansion_status", {});
+  const r = await db.rpc("world_expansion_status");
   if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
   if (r.error) throw new Error("World expansion status unavailable");
   return r.data === 15;
