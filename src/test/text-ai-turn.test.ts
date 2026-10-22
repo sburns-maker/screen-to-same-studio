@@ -41,6 +41,7 @@ describe("turn safety on provider failure", () => {
           "limit",
           "single",
           "maybeSingle",
+          "in",
         ])
           query[method] = () => query;
         for (const method of ["delete", "update", "insert"])
