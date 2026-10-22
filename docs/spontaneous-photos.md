@@ -37,6 +37,14 @@ Notifications use one primary bubble per turn and a shared atomic claim. Push at
 
 ## Required configuration before a live test
 
+### Browser-only checks (no SSH)
+
+In the app open **Settings → Advanced: photo setup and testing → Check setup**. The panel shows your own account UUID, whether required server bindings exist, whether the delivery function is installed, and whether Tess's canonical reference is available. It returns no key values and makes no paid generation request. Copy your account UUID into `DEVELOPER_PHOTO_USER_IDS` in Lovable Cloud secrets, alongside `ENABLE_DEV_PHOTO_ACTIONS=true`. Refresh the check to reveal the Tess preview link. The allowlisted **Check OpenAI model access** button makes a read-only model lookup; this verifies account access, not paid structured generation or image quality.
+
+If Cloud → Database only offers a table browser, it cannot install the function. Ask Lovable's database tooling or support to apply the existing `0008_atomic_photo_delivery.sql` migration. If the project instead uses a Supabase project you directly control, its SQL editor can apply the same reviewed file. Do not create an app endpoint accepting arbitrary SQL. Until the function is installed, the app retains legacy text replies and disables photo opportunities before any image charge; it does not claim transactional delivery is active. Other database/authentication failures remain errors rather than silently bypassing delivery safety.
+
+Suggested request to Lovable/support: “Please apply only the additive function migration in drizzle/migrations/0008_atomic_photo_delivery.sql from my connected GitHub repository. Do not replay earlier migrations, reset data, or change memories/relationship scores. I have table-browser access but no SQL editor or SSH.”
+
 Do this in a private development/staging environment after review; these changes have not been deployed and no production migration was run.
 
 1. Review and apply **only the new additive function migration**, `drizzle/migrations/0008_atomic_photo_delivery.sql`, through the established migration workflow. It adds no tables/columns and resets no data. Keep the existing applied-migration history; do not replay the initial migrations against an existing live database. The function is executable only by `service_role`. The code probes its availability before a paid image request.
