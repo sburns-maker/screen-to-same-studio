@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { debugSnapshot } from "@/lib/tess.functions";
+import { debugSnapshot, developerPhotoOpportunity } from "@/lib/tess.functions";
 import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
 
 export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
 });
 
 type Snapshot = {
+  photoDeveloperTools: boolean;
   character: { key: string; name: string; fullName: string; photosEnabled: boolean };
   state: TessState;
   lastDelta: Record<string, number | string | string[]>;
@@ -79,6 +80,22 @@ function Debug() {
     };
   }, [fn, conversationId]);
 
+  const photoFn = useServerFn(developerPhotoOpportunity);
+  const [photoContext, setPhotoContext] = useState("");
+  const [photoRequestId, setPhotoRequestId] = useState(() => crypto.randomUUID());
+  const [photoResult, setPhotoResult] = useState<Record<string, unknown> | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const testPhoto = async (mode: "preview" | "deliver") => {
+    setPhotoBusy(true);
+    try {
+      const result = await photoFn({ data: { conversationId, requestId: photoRequestId, mode, context: photoContext } });
+      setPhotoResult(result as unknown as Record<string, unknown>);
+    } catch (e) {
+      setPhotoResult({ error: e instanceof Error ? e.message : "Photo action failed" });
+    } finally { setPhotoBusy(false); }
+  };
+  const photoPreviewEligible = !!(photoResult?.["opportunity"] as { eligible?: boolean } | undefined)?.eligible
+    && photoResult?.["providerConfigured"] === true && photoResult?.["textProviderConfigured"] === true && photoResult?.["deliveryMigrationReady"] === true;
   const s = snap?.state;
   const delta = snap?.lastDelta ?? {};
   const tags = Array.isArray(delta["tags"]) ? (delta["tags"] as string[]) : [];
@@ -90,6 +107,18 @@ function Debug() {
         <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
+        {snap?.photoDeveloperTools && (
+          <Section title="Controlled photo opportunity">
+            <p className="text-xs text-muted-foreground">Preview checks eligibility without generating or changing data. Deliver asks the character through the normal pipeline; she may decline. A delivered image uses your configured image provider and can incur charges. Current schedules, boundaries and cooldowns still apply.</p>
+            <textarea aria-label="Photo opportunity context" className="mt-3 w-full rounded-lg border bg-background p-2" maxLength={1500} placeholder="A current visual moment grounded in this conversation's established memories…" value={photoContext}
+              onChange={(e) => { setPhotoContext(e.target.value); setPhotoRequestId(crypto.randomUUID()); setPhotoResult(null); }} />
+            <div className="mt-2 flex gap-3">
+              <button className="rounded-lg bg-surface px-3 py-2" disabled={photoBusy || !photoContext.trim()} onClick={() => void testPhoto("preview")}>Preview eligibility</button>
+              <button className="rounded-lg bg-primary px-3 py-2 text-primary-foreground" disabled={photoBusy || !photoPreviewEligible} onClick={() => void testPhoto("deliver")}>Ask character to share</button>
+            </div>
+            {photoResult && <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(photoResult, null, 2)}</pre>}
+          </Section>
+        )}
         {!snap && <p className="text-sm text-muted-foreground">Loading…</p>}
         {snap && s && (
           <>

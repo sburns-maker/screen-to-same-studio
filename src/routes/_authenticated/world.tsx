@@ -64,14 +64,14 @@ function WorldPage() {
           </div>
         )}
 
-        <button
+        {q.data?.developerActions && <button
           type="button"
           disabled={running}
           onClick={runTick}
           className="mt-4 w-full rounded-2xl bg-primary py-3 text-[15px] font-medium text-primary-foreground disabled:opacity-50"
         >
           {running ? "Running…" : "Run a world tick now"}
-        </button>
+        </button>}
 
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent events</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">

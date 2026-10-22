@@ -31,7 +31,7 @@ export function identityBlock(id?: CharacterIdentity): string {
   return `The supplied canonical ${id.name} reference defines the ${person}'s identity only. Preserve the exact same recognizable fictional ${person}, facial structure, age, eyes, hair and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. ${id.name} is a real-looking ${id.age}-year-old adult ${person} living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve this identity: ${id.appearance}. The same individual, not merely a similar-looking ${person}. Do not beautify them into a different person.`;
 }
 
-const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks.`;
+const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks. Never show patient or client identities, medical records, private screens, identifying paperwork or recognizable bystanders. At work, keep the background to ordinary blank or non-identifying surfaces.`;
 const MATURE_STYLE = `A non-explicit romantic personal portrait of one clearly adult fictional person aged 18 or older. Fully covered in opaque elegant sleepwear or ordinary dressy clothing, natural softly lit surroundings and realistic adult skin. No nudity, exposed breasts, genitals, transparent fabric, lingerie, boudoir, sexual activity, erotic posing, minors or age ambiguity. Do not sexualize the subject. Preserve the adult identity and natural phone-photo composition. No text overlays or watermarks. Follow the provider's content policy; do not evade moderation.`;
 
 const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-white wire-haired mutt with floppy ears. When a Mabel reference image is supplied, she is the exact same dog shown in it — same coat pattern, face, ears and approximate size, never a different breed.`;
@@ -82,7 +82,7 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   const GATEWAY = ownKey ? "https://api.openai.com" : GATEWAY_URL;
   const model = ownKey ? "gpt-image-1-mini" : "openai/gpt-image-2.5-sunburst";
   return {
-    name: "lovable-ai-gateway",
+    name: ownKey ? "openai" : "lovable-ai-gateway",
     model,
     async generate(prompt, references) {
       let res: Response;
@@ -92,27 +92,29 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
         form.set("prompt", prompt);
         form.set("size", "1024x1536");
         form.set("quality", "medium");
-        references.forEach((ref, i) => form.append("image", ref, i === 0 ? "tess-reference.jpg" : `mabel-reference-${i}.jpg`));
+        references.forEach((ref, i) => form.append(ownKey && references.length > 1 ? "image[]" : "image", ref, i === 0 ? "tess-reference.jpg" : `mabel-reference-${i}.jpg`));
         res = await fetch(`${GATEWAY}/v1/images/edits`, {
           method: "POST",
+          signal: AbortSignal.timeout(90_000),
           headers: { Authorization: `Bearer ${apiKey}` },
           body: form,
         });
       } else {
         res = await fetch(`${GATEWAY}/v1/images/generations`, {
           method: "POST",
+          signal: AbortSignal.timeout(90_000),
           headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model, prompt, size: "1024x1536", quality: "medium" }),
         });
       }
-      if (!res.ok) throw new Error(`image ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      if (!res.ok) throw new Error(`image provider unavailable (${res.status})`);
       const json = (await res.json()) as { data?: { b64_json?: string }[] };
       const b64 = json.data?.[0]?.b64_json;
       if (!b64) throw new Error("image: empty result");
       const bin = atob(b64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return { bytes, mime: "image/png", provider: "lovable-ai-gateway", model };
+      return { bytes, mime: "image/png", provider: ownKey ? "openai" : "lovable-ai-gateway", model };
     },
   };
 }

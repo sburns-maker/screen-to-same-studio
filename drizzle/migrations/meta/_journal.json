@@ -57,6 +57,13 @@
       "when": 1792554659621,
       "tag": "0007_photo_consent_and_mature_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792684800000,
+      "tag": "0008_atomic_photo_delivery",
+      "breakpoints": true
     }
   ]
 }

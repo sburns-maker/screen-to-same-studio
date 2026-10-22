@@ -1,3 +1,4 @@
+import { claimMessagePush, messagePushBody } from "./message-notifications.server";
 /**
  * Living-world engine: a bounded, idempotent server-side tick that advances
  * every character's simulated life while the app is closed. Runs from the
@@ -35,7 +36,7 @@ export const TICK_INTERVAL_MINUTES = 30;
 export const MAX_USERS_PER_RUN = 20;
 export const MAX_AI_CALLS_PER_RUN = 4;
 export const MAX_PUSH_SWEEP_PER_RUN = 10;
-const LEASE_MINUTES = 3;
+const LEASE_MINUTES = 15; // Four bounded text + image calls can exceed the former three-minute lease.
 
 function pickState(row: Record<string, unknown> | null | undefined): TessState {
   const s = {} as TessState;
@@ -184,6 +185,19 @@ export async function runWorldTick(): Promise<TickReport> {
     // probe lifts the pause, a failed one keeps it (background-jobs rules).
     const aiBudget = aiPause.paused ? 1 : MAX_AI_CALLS_PER_RUN;
 
+    // Resume prepared photo deliveries without another text/image call, even if a new initiation is not selected.
+    const { data: photoJobs, error: photoJobError } = await admin.from("job_runs").select("id, detail")
+      .like("job", "photo-turn:%").eq("status", "running").eq("detail->>phase", "prepared").limit(MAX_AI_CALLS_PER_RUN);
+    if (photoJobError) report.errors.push("Photo recovery queue unavailable");
+    for (const job of photoJobs ?? []) {
+      const detail = job.detail as { conversationId?: string; userId?: string };
+      if (!detail.conversationId || !detail.userId) continue;
+      try {
+        const { recoverPhotoDelivery } = await import("./photo-delivery.server");
+        await recoverPhotoDelivery(admin, detail.conversationId, detail.userId);
+      } catch { report.errors.push("A prepared photo remains queued for delivery"); }
+    }
+
     // --- Push sweep: delayed replies that became visible since the last tick.
     // Covers interactive-path messages (visible_at in the future when written).
     // Dedupe: metadata.pushed is set in the same step as the push attempt.
@@ -204,8 +218,8 @@ export async function runWorldTick(): Promise<TickReport> {
         character?: { key?: string; preferred_name?: string } | null;
       } | null;
       // Mark first so a retry never double-notifies, even if the push fails.
-      const md = { ...((msg.metadata as Record<string, unknown>) ?? {}), pushed: true };
-      await admin.from("messages").update({ metadata: md }).eq("id", msg.id);
+      if (!await claimMessagePush(admin, msg)) continue;
+      if ((msg.metadata as { push_primary?: boolean } | null)?.push_primary === false) continue;
       if (conv?.muted) continue;
       if (conv?.last_read_at && new Date(conv.last_read_at) >= new Date(msg.created_at)) continue; // already seen
       const { data: profile } = await admin
@@ -219,7 +233,7 @@ export async function runWorldTick(): Promise<TickReport> {
       const name = conv?.character?.preferred_name ?? "Chats";
       const push = await pushToUser(admin, msg.user_id, {
         title: name,
-        body: msg.body?.slice(0, 80) || "New message",
+        body: messagePushBody(msg),
         url: `/chat/${msg.conversation_id}`,
         tag: `conv-${msg.conversation_id}`,
       });
@@ -240,7 +254,7 @@ export async function runWorldTick(): Promise<TickReport> {
     // users' worlds keep moving; active users already get interactive turns.
     const { data: convRows } = await admin
       .from("conversations")
-      .select("id, user_id, character_id, difficulty, muted, last_read_at, real_time_mode, character:characters(key)")
+      .select("id, user_id, character_id, difficulty, muted, last_read_at, real_time_mode, photo_frequency, photo_boundary, mature_photography, character:characters(key)")
       .order("updated_at", { ascending: true })
       .limit(200);
     const byUser = new Map<string, typeof convRows>();
@@ -380,16 +394,19 @@ export async function runWorldTick(): Promise<TickReport> {
           updated_at: nowIso,
         });
 
-        if (!decision.initiate) continue;
+        const { evaluateSpontaneousPhoto } = await import("./spontaneous-photo.server");
+        const photoChance = await evaluateSpontaneousPhoto(admin, { def, conversation: conv, state, schedule, now,
+          gapHours, lastInitiatedAt: life?.last_initiated_at ?? null, context: lifeEvent?.summary ?? schedule.detail });
+        if (!decision.initiate && !photoChance.selected) continue;
 
         // Generate the initiated message through the SAME turn pipeline as the
         // interactive path, so tone/photos/latency rules stay identical.
-        const reason = lifeEvent?.summary ?? flavor ?? null;
+        const reason = photoChance.selected ? photoChance.hint : lifeEvent?.summary ?? flavor ?? null;
         try {
           report.aiCalls++;
           if (aiPause.paused) probeAttempted = true;
           const { runTurn } = await import("./tess.functions");
-          const result = await runTurn(admin, userId, conv.id, "America/New_York", { gapHours, reason });
+          const result = await runTurn(admin, userId, conv.id, "America/New_York", { gapHours, reason, ...(photoChance.selected ? { photoKey: photoChance.key } : {}) });
           if (aiPause.paused && probeAttempted) {
             // Probe succeeded — lift the durable pause.
             await writeAiPause(admin, false);
@@ -407,38 +424,23 @@ export async function runWorldTick(): Promise<TickReport> {
               payload: { score: decision.score, reasons: decision.reasons, gapHours: Math.round(gapHours * 10) / 10 },
             });
 
-            // Immediate push for the initiation (its visible_at is ~seconds out,
-            // so the next sweep would be up to a tick late). Mark messages pushed.
-            if (!conv.muted && !inQuietHours(now, quiet.start, quiet.end)) {
-              const push = await pushToUser(admin, userId, {
-                title: def.preferredName,
-                body: "New message",
-                url: `/chat/${conv.id}`,
-                tag: `conv-${conv.id}`,
-              });
-              report.pushed += push.sent;
-              // Mark the just-written messages pushed (merge, don't overwrite metadata).
-              const { data: newMsgs } = await admin
-                .from("messages")
-                .select("id, metadata")
-                .eq("conversation_id", conv.id)
-                .eq("sender", "tess")
-                .gte("created_at", nowIso)
-                .is("metadata->>pushed", null);
-              for (const m of newMsgs ?? []) {
-                await admin
-                  .from("messages")
-                  .update({ metadata: { ...((m.metadata as Record<string, unknown>) ?? {}), pushed: true } })
-                  .eq("id", m.id);
+            // Claim the primary bubble only after it is visible. The sweep uses the same atomic claim.
+            if ("notificationGroup" in result && typeof result.notificationGroup === "string") {
+              const { data: primary } = await admin.from("messages").select("id, body, metadata, visible_at")
+                .eq("conversation_id", conv.id).eq("metadata->>notification_group", result.notificationGroup)
+                .eq("metadata->>push_primary", "true").maybeSingle();
+              if (primary) {
+                const waitMs = Date.parse(primary.visible_at) - Date.now();
+                if (waitMs > 0 && waitMs <= 5000) await new Promise((resolve) => setTimeout(resolve, waitMs + 20));
+                if (Date.parse(primary.visible_at) <= Date.now() && await claimMessagePush(admin, primary)
+                  && !conv.muted && !inQuietHours(new Date(), quiet.start, quiet.end)) {
+                  const push = await pushToUser(admin, userId, { title: def.preferredName, body: messagePushBody(primary),
+                    url: `/chat/${conv.id}`, tag: `conv-${conv.id}` });
+                  report.pushed += push.sent;
+                  await admin.from("world_events").insert({ user_id: userId, conversation_id: conv.id,
+                    character_key: def.key, kind: "notification", summary: `Push delivered to ${push.sent} device(s)`, payload: { ...push, messageId: primary.id } });
+                }
               }
-              await admin.from("world_events").insert({
-                user_id: userId,
-                conversation_id: conv.id,
-                character_key: def.key,
-                kind: "notification",
-                summary: push.sent > 0 ? `Push sent to ${push.sent} device(s)` : `Push skipped (${push.skipped ?? "none delivered"})`,
-                payload: { ...push },
-              });
             }
           }
         } catch (e) {

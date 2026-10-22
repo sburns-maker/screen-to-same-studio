@@ -129,10 +129,12 @@ export const worldTimeline = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .order("occurs_at", { ascending: false })
       .limit(60);
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    const developerActions = developerPhotosAllowed(userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const [{ data: jobs }, { data: control }, { data: npcs }, { data: links }, { data: sharedEvents }, { data: participants }, { data: knowledge }] = await Promise.all([
-      supabaseAdmin.from("job_runs").select("id, job, status, detail, started_at, finished_at").order("started_at", { ascending: false }).limit(20),
-      supabaseAdmin.from("world_control").select("key, value, updated_at"),
+      developerActions ? supabaseAdmin.from("job_runs").select("id, job, status, detail, started_at, finished_at").eq("job", "world-tick").order("started_at", { ascending: false }).limit(20) : Promise.resolve({ data: [] }),
+      developerActions ? supabaseAdmin.from("world_control").select("key, value, updated_at") : Promise.resolve({ data: [] }),
       supabase.from("npcs").select("id, character_key, name, relation, category, blurb, canon").eq("user_id", userId).order("character_key"),
       supabase.from("social_links").select("id, character_key, other_type, other_key, level, opinion, reason, canon, updated_at").eq("user_id", userId).order("character_key"),
       supabase.from("shared_events").select("id, title, kind, location, occurs_at, facts, source").eq("user_id", userId).order("occurs_at", { ascending: false }).limit(40),
@@ -140,6 +142,7 @@ export const worldTimeline = createServerFn({ method: "POST" })
       supabase.from("character_knowledge").select("id, character_key, subject_type, subject_id, knowledge_type, summary, source, acquired_at").eq("user_id", userId).order("acquired_at", { ascending: false }).limit(60),
     ]);
     return {
+      developerActions,
       events: events ?? [],
       jobs: jobs ?? [],
       control: control ?? [],
@@ -156,7 +159,9 @@ export const worldTimeline = createServerFn({ method: "POST" })
 /** Manually run one world tick (developer debug action). */
 export const runWorldTickNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer world actions are disabled");
     const { runWorldTick } = await import("./world.server");
     return runWorldTick();
   });

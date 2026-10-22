@@ -1,5 +1,4 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { Output, streamText } from "ai";
+import { runStructured } from "./text-ai.server";
 import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
@@ -7,9 +6,6 @@ import { KNOWLEDGE_RULES } from "./social-logic";
 import { EVENT_TAG_RULES } from "./event-tags";
 export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1";
-const MODEL = "openai/gpt-6-astra";
-const OWN_MODEL = "gpt-4.1-mini";
 import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE } from "./tess-voice";
 
 export const CHARACTER_BIBLE = `
@@ -182,36 +178,6 @@ function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
       return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${body}`;
     })
     .join("\n");
-}
-
-async function runStructured<T>(schema: z.ZodType<T>, instructions: string, input: string): Promise<T> {
-  const ownKey = process.env["OPENAI_API_KEY"];
-  const apiKey = ownKey || process.env["LOVABLE_API_KEY"];
-  if (!apiKey) throw new Error("AI is not configured");
-  const provider = ownKey
-    ? createOpenAI({ apiKey: ownKey })
-    : createOpenAI({
-        baseURL: GATEWAY,
-        apiKey,
-        headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-      });
-  const result = streamText({
-    model: provider.responses(ownKey ? OWN_MODEL : MODEL),
-    instructions,
-    messages: [{ role: "user", content: input }],
-    output: Output.object({ schema }),
-    providerOptions: {
-      openai: ownKey
-        ? { store: false }
-        : {
-            store: false,
-            forceReasoning: true,
-            reasoningEffort: "low",
-            include: ["reasoning.encrypted_content"],
-          },
-    },
-  });
-  return (await result.output) as T;
 }
 
 export async function generateTessReply(args: {
@@ -433,7 +399,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const { topicGuidance, LIFE_BREADTH } = await import("./tess-topics");
   const ownLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
-  const topics = args.initiation ? "" : topicGuidance(ownLines, lastUserText, c.key);
+  const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
   const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.${breadth}`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`);
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
@@ -452,6 +418,7 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
   if (!key) return null;
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(20_000),
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: ownKey ? "gpt-4.1-mini" : "google/gemini-3.8-flash",
@@ -462,7 +429,7 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
       ],
     }),
   });
-  if (!res.ok) { console.error("describeImage", res.status, await res.text()); return null; }
+  if (!res.ok) { console.warn("describeImage unavailable", res.status); return null; }
   const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   return j.choices?.[0]?.message?.content?.trim().slice(0, 400) || null;
 }
