@@ -1,3 +1,4 @@
+import type { SharedWorldTables, SharedWorldFunctions } from "./shared-world-types";
 import type { Json } from "./types";
 type Table<R, K extends keyof R> = {
   Row: R;
@@ -43,7 +44,7 @@ export type MediaAttempt = {
   storage_path: string | null;
   created_at: string;
 };
-export type WorldTables = {
+export type WorldTables = SharedWorldTables & {
   character_world_state: Table<
     WorldState,
     | "conversation_id"
@@ -69,7 +70,7 @@ export type WorldTables = {
   >;
   media_attempts: Table<MediaAttempt, "action_id" | "conversation_id" | "user_id">;
 };
-export type WorldFunctions = {
+export type WorldFunctions = SharedWorldFunctions & {
   reserve_world_ai: { Args: { p_user_id: string; p_limit: number }; Returns: boolean };
   world_runtime_status: { Args: Record<string, never>; Returns: Json };
   reserve_image_attempt: {

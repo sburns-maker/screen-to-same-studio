@@ -78,6 +78,13 @@
       "when": 1792699200000,
       "tag": "0010_persistent_world",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792771200000,
+      "tag": "0011_shared_world_plans",
+      "breakpoints": true
     }
   ]
 }

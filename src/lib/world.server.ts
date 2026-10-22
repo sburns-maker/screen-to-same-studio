@@ -393,6 +393,10 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
         .maybeSingle();
       const quiet = parseQuietHours(profile?.value);
 
+      try {
+        const { runSharedWorldTick } = await import("./shared-world.server");
+        await runSharedWorldTick(admin, userId, now);
+      } catch { report.errors.push("Shared plan progression failed; existing state retained"); }
       // Social world: independent circles, shared events, knowledge
       // propagation. Structured simulation only — bounded, idempotent, no AI.
       try {
@@ -470,7 +474,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
                     : undefined,
                 )
               : null);
-          const schedule = storySchedule(
+          const { sharedPlanContext } = await import("./shared-world.server");
+          const shared = await sharedPlanContext(admin, userId, def.key, now);
+          const schedule = shared ?? storySchedule(
             currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1),
             story.event,
           );

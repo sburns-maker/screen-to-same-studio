@@ -16,6 +16,7 @@ export async function runStructured<T>(
   schema: z.ZodType<T>,
   instructions: string,
   input: string,
+  operation: "reply" | "autonomous" | "debrief" | "unspecified" = "unspecified",
 ): Promise<T> {
   const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey) throw new Error("Character AI is not configured");
@@ -53,6 +54,10 @@ export async function runStructured<T>(
       provider: "openai",
       model: TEXT_MODEL,
       status: "ok",
+      operation,
+      instructionCharacters: instructions.length,
+      contextCharacters: input.length,
+      cachedInputTokens: result.totalUsage.inputTokenDetails?.cacheReadTokens ?? null,
       durationMs: Date.now() - started,
       inputTokens: result.totalUsage.inputTokens,
       outputTokens: result.totalUsage.outputTokens,
@@ -65,6 +70,7 @@ export async function runStructured<T>(
       provider: "openai",
       model: TEXT_MODEL,
       status: "failed",
+      operation,
       durationMs: Date.now() - started,
     });
     // Preserve only safe billing/access status codes for the existing world-tick circuit breaker.

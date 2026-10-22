@@ -1,7 +1,12 @@
 import { canonicalProfile } from "./canonical-profile.server";
 import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
 import type { CharacterKey } from "./characters";
-import { photoTextPrompt, validatePhotoText, imageCapabilities, type PhotoText } from "./photo-text";
+import {
+  photoTextPrompt,
+  validatePhotoText,
+  imageCapabilities,
+  type PhotoText,
+} from "./photo-text";
 /**
  * Server-only image provider abstraction for Tess's dynamically generated photos.
  * Swap providers by adding another implementation of `ImageProvider`.
@@ -10,7 +15,13 @@ import type { PhotoStyle } from "./tess-photos";
 
 const GATEWAY_URL = "https://ai.gateway.lovable.dev";
 
-export type TessImageType = "object" | "casual_selfie" | "personal_selfie" | "intimate_selfie" | "tess_candid" | "mature_romantic";
+export type TessImageType =
+  | "object"
+  | "casual_selfie"
+  | "personal_selfie"
+  | "intimate_selfie"
+  | "tess_candid"
+  | "mature_romantic";
 
 export type GeneratedImage = { bytes: Uint8Array; mime: string; provider: string; model: string };
 
@@ -19,7 +30,11 @@ export interface ImageProvider {
   model: string;
   referenceConditioning?: boolean;
   /** With references: identity-conditioned edit (Tess first, Mabel second). Without: plain generation. */
-  generate(prompt: string, references: Blob[], options?: { highQuality: boolean }): Promise<GeneratedImage>;
+  generate(
+    prompt: string,
+    references: Blob[],
+    options?: { highQuality: boolean },
+  ): Promise<GeneratedImage>;
 }
 
 /**
@@ -29,7 +44,13 @@ export interface ImageProvider {
 const IDENTITY = `The supplied canonical Tess Morgan reference defines the woman's identity only. Preserve the exact same recognizable fictional woman, facial structure, age, eyes, hair-color family and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. Tess is a real-looking 34-year-old adult woman living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. Preserve the actual profile portrait's face proportions, eyes, nose, mouth, jaw, complexion, approximate age and recognizable features. The profile image overrides any conflicting written description; do not substitute a similar-looking generic woman. Do not beautify her into a different person.`;
 
 /** Profile pixels are authoritative; written appearance never replaces them. */
-export type CharacterIdentity = { key: string; name: string; age: number; pronouns: string; appearance: string };
+export type CharacterIdentity = {
+  key: string;
+  name: string;
+  age: number;
+  pronouns: string;
+  appearance: string;
+};
 export function identityBlock(id?: CharacterIdentity): string {
   if (!id || id.key === "tess") return IDENTITY;
   const person = id.pronouns === "he/him" ? "man" : "woman";
@@ -46,7 +67,8 @@ export const includesTess = (t: TessImageType) => t !== "object";
 export const sceneHasMabel = (scene: string) => /\bmabel\b/i.test(scene);
 
 const SELFIE_LINES: Record<string, string> = {
-  selfie: "It is a front-camera selfie she is holding at arm's length, with typical front-camera characteristics.",
+  selfie:
+    "It is a front-camera selfie she is holding at arm's length, with typical front-camera characteristics.",
   mirror: "It is a mirror photo she took of herself.",
   propped_phone: "The phone is propped on a table or counter (self-timer), so her hands are free.",
   friend_photo: "A friend who is present took the picture of her.",
@@ -60,15 +82,23 @@ function styleLines(style: PhotoStyle | null | undefined): string {
   if (style.crop_type) lines.push(`Framing: ${style.crop_type.replaceAll("_", " ")}.`);
   if (style.hairstyle) lines.push(`Hairstyle: ${style.hairstyle.replaceAll("_", " ")}.`);
   if (style.expression) lines.push(`Her expression: ${style.expression.replaceAll("_", " ")}.`);
-  if (style.clothing_category) lines.push(`Clothing: ${style.clothing_category.replaceAll("_", " ")}.`);
+  if (style.clothing_category)
+    lines.push(`Clothing: ${style.clothing_category.replaceAll("_", " ")}.`);
   if (style.setting) lines.push(`Setting: ${style.setting.replaceAll("_", " ")}.`);
   const selfieLine = style.selfie_type ? SELFIE_LINES[style.selfie_type as string] : undefined;
   if (selfieLine) lines.push(selfieLine);
   return lines.length ? `\n${lines.join(" ")}` : "";
 }
 
-export function buildImagePrompt(type: TessImageType, scene: string, expression: string | null, style?: PhotoStyle | null, identity?: CharacterIdentity) {
-  if (identity && (!Number.isInteger(identity.age) || identity.age < 18)) throw new Error("adult identity required");
+export function buildImagePrompt(
+  type: TessImageType,
+  scene: string,
+  expression: string | null,
+  style?: PhotoStyle | null,
+  identity?: CharacterIdentity,
+) {
+  if (identity && (!Number.isInteger(identity.age) || identity.age < 18))
+    throw new Error("adult identity required");
   const mabel = sceneHasMabel(scene) ? ` ${MABEL}` : "";
   const age = identity?.age ?? 34;
   const person = identity?.pronouns === "he/him" ? "man" : "woman";
@@ -91,7 +121,11 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
     model,
     referenceConditioning: !!ownKey,
     async generate(prompt, references, options) {
-      const quality = options?.highQuality && imageCapabilities(ownKey ? "openai" : "lovable-ai-gateway", model).highQuality ? "high" : "medium";
+      const quality =
+        options?.highQuality &&
+        imageCapabilities(ownKey ? "openai" : "lovable-ai-gateway", model).highQuality
+          ? "high"
+          : "medium";
       let res: Response;
       if (references.length) {
         const form = new FormData();
@@ -99,7 +133,13 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
         form.set("prompt", prompt);
         form.set("size", "1024x1536");
         form.set("quality", quality);
-        references.forEach((ref, i) => form.append(ownKey && references.length > 1 ? "image[]" : "image", ref, i === 0 ? "tess-reference.jpg" : `mabel-reference-${i}.jpg`));
+        references.forEach((ref, i) =>
+          form.append(
+            ownKey && references.length > 1 ? "image[]" : "image",
+            ref,
+            i === 0 ? "tess-reference.jpg" : `mabel-reference-${i}.jpg`,
+          ),
+        );
         res = await fetch(`${GATEWAY}/v1/images/edits`, {
           method: "POST",
           signal: AbortSignal.timeout(90_000),
@@ -121,7 +161,12 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
       const bin = atob(b64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return { bytes, mime: "image/png", provider: ownKey ? "openai" : "lovable-ai-gateway", model };
+      return {
+        bytes,
+        mime: "image/png",
+        provider: ownKey ? "openai" : "lovable-ai-gateway",
+        model,
+      };
     },
   };
 }
@@ -166,6 +211,12 @@ export async function generateTessImage(args: {
     retryCount: 0,
   };
   try {
+    if (
+      /\b(group (?:photo|selfie|portrait)|two (?:people|characters|women|men)|both (?:of )?us|(?:selfie|photo|portrait) (?:of |with )?(?:everyone|the whole group))\b/i.test(
+        args.scene,
+      )
+    )
+      throw new Error("unsupported_group_photo");
     let canonical: Awaited<ReturnType<typeof canonicalProfile>> | null = null;
     if (needsRef) {
       if (!args.identity) throw new Error("canonical_character_missing");
@@ -211,6 +262,7 @@ export async function generateTessImage(args: {
     };
   } catch (error) {
     const known = [
+      "unsupported_group_photo",
       "canonical_character_missing",
       "reference_conditioning_unverified",
       "visual_screen_unavailable",
