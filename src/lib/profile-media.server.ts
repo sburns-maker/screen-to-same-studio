@@ -4,7 +4,7 @@ import type { CharacterKey } from "./characters";
 import { canonicalProfile, jpegDimensions } from "./canonical-profile.server";
 type Client = SupabaseClient<Database>;
 export async function mediaProfilesAvailable(db: Client) {
-  const r = await db.rpc("media_profile_status", {});
+  const r = await db.rpc("media_profile_status", {} as never);
   if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
   if (r.error) throw new Error("Profile service unavailable");
   return r.data === 17;
