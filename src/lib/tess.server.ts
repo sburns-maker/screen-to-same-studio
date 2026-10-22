@@ -281,7 +281,11 @@ ${KNOWLEDGE_RULES}
 - tone: one word (playful, dry, warm, guarded, annoyed, flirty, distracted, neutral...).
 - event_tags: short tags for what happened this turn (e.g. "user_flirt", "flirt_rejected", "correction", "banter", "callback", "pressure", "apology") — see EVENT TAGS rules.`;
 
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.`, `${context}\n\n${task}`);
+  const { topicGuidance } = await import("./tess-topics");
+  const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
+  const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
+  const topics = topicGuidance(tessLines, lastUser);
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`);
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
