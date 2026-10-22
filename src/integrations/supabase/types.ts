@@ -50,6 +50,53 @@ export type Database = {
         }
         Relationships: []
       }
+      character_world_state: {
+        Row: {
+          activity: string
+          availability: string
+          character_key: string
+          conversation_id: string
+          current_event: Json
+          location: string
+          next_check_at: string
+          next_transition_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity: string
+          availability: string
+          character_key: string
+          conversation_id: string
+          current_event?: Json
+          location: string
+          next_check_at: string
+          next_transition_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity?: string
+          availability?: string
+          character_key?: string
+          conversation_id?: string
+          current_event?: Json
+          location?: string
+          next_check_at?: string
+          next_transition_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_world_state_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: true
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       characters: {
         Row: {
           age: number
@@ -339,6 +386,48 @@ export type Database = {
         }
         Relationships: []
       }
+      media_attempts: {
+        Row: {
+          action_id: string
+          conversation_id: string
+          created_at: string
+          status: string
+          storage_path: string | null
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          conversation_id: string
+          created_at?: string
+          status?: string
+          storage_path?: string | null
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          conversation_id?: string
+          created_at?: string
+          status?: string
+          storage_path?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_attempts_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: true
+            referencedRelation: "job_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_attempts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memories: {
         Row: {
           conversation_id: string
@@ -520,6 +609,41 @@ export type Database = {
         }
         Relationships: []
       }
+      social_exchanges: {
+        Row: {
+          id: string
+          occurred_at: string
+          participants: string[]
+          plan_id: string
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          id: string
+          occurred_at: string
+          participants: string[]
+          plan_id: string
+          summary: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          occurred_at?: string
+          participants?: string[]
+          plan_id?: string
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_exchanges_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: true
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       social_links: {
         Row: {
           canon: boolean
@@ -561,6 +685,133 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      social_plans: {
+        Row: {
+          created_at: string
+          ends_at: string
+          id: string
+          organizer: string
+          place_key: string
+          starts_at: string
+          status: string
+          title: string
+          user_attendance: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          id: string
+          organizer: string
+          place_key: string
+          starts_at: string
+          status?: string
+          title: string
+          user_attendance?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          id?: string
+          organizer?: string
+          place_key?: string
+          starts_at?: string
+          status?: string
+          title?: string
+          user_attendance?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_plans_user_id_place_key_fkey"
+            columns: ["user_id", "place_key"]
+            isOneToOne: false
+            referencedRelation: "world_places"
+            referencedColumns: ["user_id", "key"]
+          },
+        ]
+      }
+      social_presence: {
+        Row: {
+          character_key: string
+          place_key: string
+          plan_id: string
+          until_at: string
+          user_id: string
+        }
+        Insert: {
+          character_key: string
+          place_key: string
+          plan_id: string
+          until_at: string
+          user_id: string
+        }
+        Update: {
+          character_key?: string
+          place_key?: string
+          plan_id?: string
+          until_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_presence_user_id_place_key_fkey"
+            columns: ["user_id", "place_key"]
+            isOneToOne: false
+            referencedRelation: "world_places"
+            referencedColumns: ["user_id", "key"]
+          },
+          {
+            foreignKeyName: "social_presence_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      social_rsvps: {
+        Row: {
+          channel: string
+          character_key: string
+          plan_id: string
+          reason: string
+          response: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel: string
+          character_key: string
+          plan_id: string
+          reason?: string
+          response: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel?: string
+          character_key?: string
+          plan_id?: string
+          reason?: string
+          response?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_rsvps_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
       tess_life: {
         Row: {
@@ -668,6 +919,170 @@ export type Database = {
           },
         ]
       }
+      town_actions: {
+        Row: {
+          created_at: string
+          id: string
+          input: string
+          mode: string
+          npc_key: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          input: string
+          mode: string
+          npc_key: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input?: string
+          mode?: string
+          npc_key?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      town_connections: {
+        Row: {
+          contact: boolean
+          contact_offered: boolean
+          encountered_at: string
+          npc_key: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          contact?: boolean
+          contact_offered?: boolean
+          encountered_at?: string
+          npc_key: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          contact?: boolean
+          contact_offered?: boolean
+          encountered_at?: string
+          npc_key?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      town_known_plans: {
+        Row: {
+          plan_id: string
+          user_id: string
+        }
+        Insert: {
+          plan_id: string
+          user_id: string
+        }
+        Update: {
+          plan_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "town_known_plans_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: true
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      town_messages: {
+        Row: {
+          action_id: string
+          created_at: string
+          id: string
+          npc_key: string
+          role: string
+          text: string
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          id: string
+          npc_key: string
+          role: string
+          text: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          id?: string
+          npc_key?: string
+          role?: string
+          text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "town_messages_user_id_action_id_fkey"
+            columns: ["user_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "town_actions"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "town_messages_user_id_npc_key_fkey"
+            columns: ["user_id", "npc_key"]
+            isOneToOne: false
+            referencedRelation: "town_connections"
+            referencedColumns: ["user_id", "npc_key"]
+          },
+        ]
+      }
+      town_people: {
+        Row: {
+          key: string
+          profile: Json
+          user_id: string
+        }
+        Insert: {
+          key: string
+          profile: Json
+          user_id: string
+        }
+        Update: {
+          key?: string
+          profile?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      town_presence: {
+        Row: {
+          arrives_at: string
+          place_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          arrives_at?: string
+          place_key?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          arrives_at?: string
+          place_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profile: {
         Row: {
           key: string
@@ -694,6 +1109,56 @@ export type Database = {
           value?: string
         }
         Relationships: []
+      }
+      user_video_uploads: {
+        Row: {
+          bytes: number
+          caption: string
+          conversation_id: string
+          created_at: string
+          duration_seconds: number
+          id: string
+          mime: string
+          sent_at: string | null
+          status: string
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          bytes: number
+          caption: string
+          conversation_id: string
+          created_at?: string
+          duration_seconds: number
+          id: string
+          mime: string
+          sent_at?: string | null
+          status?: string
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          bytes?: number
+          caption?: string
+          conversation_id?: string
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          mime?: string
+          sent_at?: string | null
+          status?: string
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_video_uploads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       world_control: {
         Row: {
@@ -760,12 +1225,178 @@ export type Database = {
           },
         ]
       }
+      world_places: {
+        Row: {
+          key: string
+          kind: string
+          label: string
+          metadata: Json
+          user_id: string
+        }
+        Insert: {
+          key: string
+          kind: string
+          label: string
+          metadata?: Json
+          user_id: string
+        }
+        Update: {
+          key?: string
+          kind?: string
+          label?: string
+          metadata?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      world_records: {
+        Row: {
+          attempts: number
+          character_key: string
+          conversation_id: string
+          created_at: string
+          due_at: string | null
+          expires_at: string | null
+          id: string
+          key: string
+          kind: string
+          retry_at: string | null
+          source_message_id: string | null
+          source_quote: string
+          status: string
+          summary: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          character_key: string
+          conversation_id: string
+          created_at?: string
+          due_at?: string | null
+          expires_at?: string | null
+          id: string
+          key: string
+          kind: string
+          retry_at?: string | null
+          source_message_id?: string | null
+          source_quote: string
+          status: string
+          summary: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          character_key?: string
+          conversation_id?: string
+          created_at?: string
+          due_at?: string | null
+          expires_at?: string | null
+          id?: string
+          key?: string
+          kind?: string
+          retry_at?: string | null
+          source_message_id?: string | null
+          source_quote?: string
+          status?: string
+          summary?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_records_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "world_records_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
+      deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
+      deliver_user_video: {
+        Args: { p_id: string; p_user: string }
+        Returns: Json
+      }
+      reserve_image_attempt: {
+        Args: {
+          p_action_id: string
+          p_conversation_id: string
+          p_daily: number
+          p_monthly: number
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      reserve_user_video: {
+        Args: {
+          p_bytes: number
+          p_caption: string
+          p_conversation: string
+          p_duration: number
+          p_id: string
+          p_mime: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      reserve_world_ai: {
+        Args: { p_limit: number; p_user_id: string }
+        Returns: boolean
+      }
+      shared_plan_notice: {
+        Args: {
+          p_at: string
+          p_character: string
+          p_phase: string
+          p_plan: string
+          p_summary: string
+          p_user: string
+        }
+        Returns: undefined
+      }
+      shared_world_command: {
+        Args: {
+          p_command: string
+          p_expected_version: number
+          p_now: string
+          p_payload: Json
+          p_plan_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      shared_world_status: { Args: never; Returns: Json }
+      town_command: {
+        Args: {
+          p_command: string
+          p_id: string
+          p_now: string
+          p_payload: Json
+          p_user: string
+        }
+        Returns: Json
+      }
+      town_propose_plan: {
+        Args: { p_id: string; p_now: string; p_payload: Json; p_user: string }
+        Returns: Json
+      }
+      town_status: { Args: never; Returns: number }
+      world_runtime_status: { Args: never; Returns: Json }
     }
     Enums: {
       [_ in never]: never

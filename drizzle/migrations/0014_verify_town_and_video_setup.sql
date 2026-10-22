@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.user_video_uploads IS 'Private user video uploads (owner-read only; bucket user-videos is private).';
