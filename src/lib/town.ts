@@ -47,6 +47,42 @@ export const TOWN_PLACES = [
     opens: 10,
     closes: 18,
   },
+  {
+    key: "hope:drop-in",
+    label: "H.O.P.E. Drop-In · virtual scene",
+    kind: "community",
+    community: "Altoona",
+    latitude: 40.514,
+    longitude: -78.398,
+    description:
+      "A fictional drop-in social scene using a local name as geographic grounding. All people and activities are fictional; this is not a representation of real visitors or services. Pin and hours are illustrative, not service information.",
+    opens: 10,
+    closes: 18,
+  },
+  {
+    key: "park:canal",
+    label: "Canal Green",
+    kind: "park",
+    community: "Hollidaysburg",
+    latitude: 40.431,
+    longitude: -78.397,
+    description:
+      "A fictional canalside green with a walking path, benches and ordinary quiet afternoons.",
+    opens: 7,
+    closes: 20,
+  },
+  {
+    key: "coffee:porch",
+    label: "The Open Porch",
+    kind: "cafe",
+    community: "Altoona",
+    latitude: 40.51,
+    longitude: -78.402,
+    description:
+      "A fictional small bakery and casual hangout with a sheltered porch and a shared puzzle table.",
+    opens: 8,
+    closes: 19,
+  },
 ] as const;
 export type TownNpc = {
   key: string;
@@ -99,6 +135,45 @@ export const TOWN_NPCS = [
     personality:
       "Friendly in a quiet, practical way. Sorting donated tools for the next repair session. Enjoys exchanging ideas, can end a conversation when busy. Does not owe the user friendship or contact access.",
     interests: ["Repair", "Cooking", "Old radios"],
+  },
+  {
+    key: "mira-dalton",
+    name: "Mira Dalton",
+    age: 32,
+    place: "park:canal",
+    days: [0, 2, 4, 6],
+    start: 12,
+    end: 17,
+    blurb: "A ceramicist who enjoys unhurried walks and notices small details.",
+    personality:
+      "Curious and dryly funny, independent and protective of quiet time. Taking a break from a personal ceramics project. Open to friendship without assumed romance; compliments do not buy access.",
+    interests: ["Ceramics", "Walking", "Birds"],
+  },
+  {
+    key: "theo-finch",
+    name: "Theo Finch",
+    age: 35,
+    place: "coffee:porch",
+    days: [1, 2, 3, 5, 6],
+    start: 10,
+    end: 16,
+    blurb: "A baker and puzzle enthusiast grabbing a break between small projects.",
+    personality:
+      "Sociable in short bursts, playful and practical. Values reliability over flashy flirting. Has work and friends beyond the user. Can decline contact or end a conversation naturally.",
+    interests: ["Baking", "Puzzles", "Live music"],
+  },
+  {
+    key: "inez-carter",
+    name: "Inez Carter",
+    age: 41,
+    place: "hope:drop-in",
+    days: [1, 3, 4, 5],
+    start: 11,
+    end: 16,
+    blurb: "A fictional craft-session volunteer who likes community gardens and old films.",
+    personality:
+      "Thoughtful, grounded and gently humorous. An invented person in the fictional scene, never a real visitor or service worker. Shares ordinary hobby interests; never invents real attendees, private support histories or clinical advice. Likes connection without assuming romance.",
+    interests: ["Crafts", "Community gardens", "Old films"],
   },
 ] as const;
 export type TownNpcKey = (typeof TOWN_NPCS)[number]["key"];

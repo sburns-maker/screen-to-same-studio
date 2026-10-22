@@ -125,6 +125,34 @@ function Encounter() {
           </button>
         </div>
       )}
+      {contact && q.data?.expansion && (
+        <label className="mx-4 mb-3 flex items-start gap-2 rounded-xl border p-3 text-xs">
+          <input
+            type="checkbox"
+            checked={person?.connection?.followups_enabled ?? false}
+            disabled={busy}
+            onChange={async (e) => {
+              try {
+                await act({
+                  data: {
+                    action: "followups",
+                    id: crypto.randomUUID(),
+                    npc: npcKey,
+                    enabled: e.target.checked,
+                  },
+                });
+                await cache.invalidateQueries({ queryKey: ["town"] });
+              } catch (error) {
+                toast.error((error as Error).message);
+              }
+            }}
+          />
+          Allow occasional follow-ups grounded in this conversation.{" "}
+          {q.data.npcFollowupsConfigured
+            ? "Background follow-ups are configured."
+            : "Background follow-ups are currently disabled on this server."}
+        </label>
+      )}
       {!contact && !person?.present && (
         <p className="px-4 py-3 text-sm text-muted-foreground">
           They are not available in this scene.{" "}

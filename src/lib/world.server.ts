@@ -410,6 +410,24 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
         report.errors.push(`social: ${(e instanceof Error ? e.message : String(e)).slice(0, 140)}`);
       }
 
+      if (process.env["ENABLE_NPC_FOLLOWUPS"] === "true") {
+        try {
+          const { runTownFollowups } = await import("./town-followups.server");
+          const r = await runTownFollowups(
+            admin,
+            userId,
+            now,
+            !report.paused &&
+              !aiPause.paused &&
+              report.aiCalls < aiBudget &&
+              !inQuietHours(now, quiet.start, quiet.end),
+          );
+          report.aiCalls += r.calls;
+        } catch {
+          report.aiCalls = Math.min(aiBudget, report.aiCalls + 1);
+          report.errors.push("NPC follow-up failed; action will not be regenerated automatically");
+        }
+      }
       for (const conv of convs ?? []) {
         try {
           // AI budget never prevents structured world progression for the remaining characters.

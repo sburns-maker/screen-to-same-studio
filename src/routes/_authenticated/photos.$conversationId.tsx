@@ -1,3 +1,4 @@
+import { PhotoViewer } from "@/components/PhotoViewer";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -39,7 +40,7 @@ function SharedPhotos() {
           {photos.map((m) => {
             const md = m.metadata as { photo?: string; generated_path?: string } | null;
             const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
-            if (src) return <img key={m.id} src={src} alt="Shared photo" loading="lazy" width={640} height={853} className="w-full rounded-xl object-cover" />;
+            if (src) return <PhotoViewer key={m.id} src={src} alt="Shared photo"><img src={src} alt="Shared photo" loading="lazy" width={640} height={853} className="w-full rounded-xl object-cover" /></PhotoViewer>;
             if (md?.generated_path) return <GenImg key={m.id} path={md.generated_path} />;
             return null;
           })}
@@ -61,5 +62,5 @@ function GenImg({ path }: { path: string }) {
   });
   const [failed, setFailed] = useState(false);
   if (failed || q.isError || !q.data) return null;
-  return <img src={q.data} alt="Shared photo" loading="lazy" width={1024} height={1536} onError={() => setFailed(true)} className="w-full rounded-xl object-cover" />;
+  return <PhotoViewer src={q.data} alt="Shared photo"><img src={q.data} alt="Shared photo" loading="lazy" width={1024} height={1536} onError={() => setFailed(true)} className="w-full rounded-xl object-cover" /></PhotoViewer>;
 }

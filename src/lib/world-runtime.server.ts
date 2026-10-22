@@ -57,26 +57,24 @@ export async function persistWorldCheckpoint(
     const id = await photoActionId(
       `activity:${args.conversationId}:${Math.floor(args.now.getTime() / 900_000)}:${row.activity}`,
     );
-    const { error: eventError } = await admin
-      .from("world_events")
-      .upsert(
-        {
-          id,
-          user_id: args.userId,
-          conversation_id: args.conversationId,
-          character_key: args.def.key,
-          kind: "activity",
-          summary: `${args.def.preferredName}: ${row.activity}`,
-          occurs_at: args.now.toISOString(),
-          processed_at: args.now.toISOString(),
-          payload: {
-            location: row.location,
-            availability: row.availability,
-            nextAt: row.next_transition_at,
-          },
+    const { error: eventError } = await admin.from("world_events").upsert(
+      {
+        id,
+        user_id: args.userId,
+        conversation_id: args.conversationId,
+        character_key: args.def.key,
+        kind: "activity",
+        summary: `${args.def.preferredName}: ${row.activity}`,
+        occurs_at: args.now.toISOString(),
+        processed_at: args.now.toISOString(),
+        payload: {
+          location: row.location,
+          availability: row.availability,
+          nextAt: row.next_transition_at,
         },
-        { onConflict: "id", ignoreDuplicates: true },
-      );
+      },
+      { onConflict: "id", ignoreDuplicates: true },
+    );
     if (eventError) throw new Error("World activity history could not be saved");
   }
   return row;
@@ -146,24 +144,20 @@ export async function recordPhotoDecision(
     now: Date;
   },
 ) {
-  const { error } = await admin
-    .from("world_events")
-    .upsert(
-      {
-        id: await photoActionId(
-          `decision:${args.key}:${Math.floor(args.now.getTime() / 1_800_000)}`,
-        ),
-        user_id: args.userId,
-        conversation_id: args.conversationId,
-        character_key: args.character,
-        kind: "photo_decision",
-        summary: args.reason,
-        occurs_at: args.now.toISOString(),
-        processed_at: args.now.toISOString(),
-        payload: { eligible: args.eligible, selected: args.selected },
-      },
-      { onConflict: "id", ignoreDuplicates: true },
-    );
+  const { error } = await admin.from("world_events").upsert(
+    {
+      id: await photoActionId(`decision:${args.key}:${Math.floor(args.now.getTime() / 1_800_000)}`),
+      user_id: args.userId,
+      conversation_id: args.conversationId,
+      character_key: args.character,
+      kind: "photo_decision",
+      summary: args.reason,
+      occurs_at: args.now.toISOString(),
+      processed_at: args.now.toISOString(),
+      payload: { eligible: args.eligible, selected: args.selected },
+    },
+    { onConflict: "id", ignoreDuplicates: true },
+  );
   if (error) throw new Error("Photo decision history could not be saved");
 }
 
@@ -232,21 +226,30 @@ export async function imageBudgetStatus(
     .from("media_attempts")
     .select("conversation_id,created_at")
     .eq("user_id", userId)
-    .gte("created_at", monthStart)
+    .gte(
+      "created_at",
+      new Date(Math.min(Date.parse(monthStart), now.getTime() - 86400000)).toISOString(),
+    )
     .limit(3001);
   if (error) throw new Error("Image budget history unavailable");
   const rows = data ?? [],
     own = rows.filter((r) => r.conversation_id === conversationId);
+  const rollingStart = new Date(now.getTime() - 86400000).toISOString();
+  const monthlyRows = rows.filter((r) => r.created_at >= monthStart);
+  const usedRolling = own.filter((r) => r.created_at >= rollingStart).length;
   const usedDaily = own.filter((r) => r.created_at >= dayStart).length;
   return {
     daily,
     monthly,
     usedDaily,
-    usedMonthly: own.length,
+    usedRolling,
+    usedMonthly: own.filter((r) => r.created_at >= monthStart).length,
     allowed:
       usedDaily < daily &&
-      own.length < monthly &&
+      own.filter((r) => r.created_at >= monthStart).length < monthly &&
+      usedRolling < daily &&
+      rows.filter((r) => r.created_at >= rollingStart).length < daily * 3 &&
       rows.filter((r) => r.created_at >= dayStart).length < daily * 3 &&
-      rows.length < monthly * 3,
+      monthlyRows.length < monthly * 3,
   };
 }

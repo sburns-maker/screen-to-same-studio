@@ -1,3 +1,4 @@
+import { photoPacing } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
 import { continuityContext, reserveImageBudget, imageBudgetStatus, reserveWorldAi } from "./world-runtime.server";
@@ -18,7 +19,6 @@ import {
   type TessState,
 } from "./tess-logic";
 import {
-  FREQUENCY_RULES,
   describeStyle,
   eligiblePhotos,
   repeatsPhotoComposition,
@@ -367,6 +367,9 @@ async function runTurnUnlocked(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];
+  const {profileDisplayContext}=await import("./visual-profiles.server");
+  const ownProfile=await profileDisplayContext(supabase,userId,def.key);
+  if(ownProfile)worldKnowledge.unshift(ownProfile);
 
   const { sharedPlanContext } = await import("./shared-world.server");
   const shared = await sharedPlanContext(supabase, userId, def.key, now);
@@ -396,9 +399,9 @@ async function runTurnUnlocked(
     .or("metadata->>photo.not.is.null,metadata->>generated_path.not.is.null,metadata->>generated_image_id.not.is.null")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (lastPhotoError) throw new Error("Photo frequency history unavailable");
-  const timeSincePhoto = lastPhoto ? now.getTime() - Date.parse(lastPhoto.created_at) : Infinity;
-  const minMessages = initiation ? Math.min(FREQUENCY_RULES[freq].cooldown, PHOTO_TENDENCIES[def.key].messages) : FREQUENCY_RULES[freq].cooldown;
-  const cooldown = ownSinceLastPhoto < minMessages || timeSincePhoto < 3_600_000;
+  const pacing = photoPacing({character:def.key,frequency:freq,now,lastPhotoAt:lastPhoto?.created_at??null,ownSinceLastPhoto,
+    userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",context:initiation?.reason??schedule.detail});
+  const cooldown = !pacing.allowed;
   const photoCompatible = schedule.availability !== "asleep" && schedule.availability !== "busy"
     && !/driv|surgery|emergency|patient|phone (?:down|away)/i.test(schedule.detail);
   let generateTypes = cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
@@ -414,11 +417,11 @@ async function runTurnUnlocked(
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
     ownSinceLastPhoto, gapHours: initiation?.gapHours ?? 0,
     context: initiation?.reason || lifeEvent?.summary || schedule.detail,
-    preview: !!initiation?.developerPhoto, activeConversation: !initiation,
+    preview: !!initiation?.developerPhoto, activeConversation: !initiation, userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",
   });
   if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
     opportunity.reason = imageBudget && !imageBudget.allowed ? "Image daily/monthly attempt limit reached. No image will be generated." : !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
-      : cooldown ? "Photo cooldown is active. Wait before requesting another image."
+      : cooldown ? pacing.reason
       : "No photo type is currently allowed by her photo boundaries and relationship eligibility.";
   }
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
@@ -426,7 +429,7 @@ async function runTurnUnlocked(
     const { canonicalProfile } = await import("./canonical-profile.server");
     const reference = await canonicalProfile(def.key).then(r => ({ asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable" })).catch(() => null);
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
-    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
+    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, pacing, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
       textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
       deliveryMigrationReady: !!migration && !migration.error };
@@ -929,7 +932,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         .maybeSingle(),
       supabase
         .from("messages")
-        .select("sender, metadata")
+        .select("sender, metadata, created_at, body")
         .eq("conversation_id", conv.id)
         .lte("visible_at", nowIso)
         .order("created_at", { ascending: false })
@@ -972,15 +975,16 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       scoreMultiplier: def.initiation.scoreMultiplier,
     });
     const freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
-    const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
     const hasPhoto = (m: { metadata: unknown }) => {
       const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
       return !!(md?.photo || md?.generated_image_id);
     };
-    const recentlySentPhoto = list
-      .filter((m) => m.sender === "tess")
-      .slice(0, rules.cooldown)
-      .some(hasPhoto);
+    const debugOwn=list.filter(m=>m.sender==="tess");
+    const debugIndex=debugOwn.findIndex(hasPhoto);
+    const lastAttachment=await supabase.from("messages").select("created_at").eq("user_id",userId).eq("conversation_id",conv.id).eq("sender","tess").or("metadata->>photo.not.is.null,metadata->>generated_path.not.is.null,metadata->>generated_image_id.not.is.null").order("created_at",{ascending:false}).limit(1).maybeSingle();
+    if(lastAttachment.error)throw new Error("Photo pacing history unavailable");
+    const debugPacing=photoPacing({character:def.key,frequency:freq,now,lastPhotoAt:lastAttachment.data?.created_at??null,ownSinceLastPhoto:debugIndex<0?99:debugIndex,userText:list.find(m=>m.sender==="user")?.body??"",context:schedule.detail});
+    const recentlySentPhoto=!debugPacing.allowed;
     const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
     const genTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, {
       age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
@@ -1047,9 +1051,10 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         lastInitiatedAt: life?.last_initiated_at ?? null,
       },
       photo: {
+        pacing:debugPacing,
         eligible: !recentlySentPhoto && (curatedCount > 0 || genTypes.length > 0),
         reason: recentlySentPhoto
-            ? `cooldown — she sent a photo within her last ${rules.cooldown} messages`
+            ? debugPacing.reason
             : state.irritation >= 40
               ? `irritation ${state.irritation} — no photos while annoyed`
               : state.irritation >= 20
