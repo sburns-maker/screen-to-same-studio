@@ -175,8 +175,8 @@ export async function reserveImageBudget(
     p_action_id: actionId,
     p_conversation_id: conversationId,
     p_user_id: userId,
-    p_daily: limit("IMAGE_DAILY_LIMIT", 2, 50),
-    p_monthly: limit("IMAGE_MONTHLY_LIMIT", 20, 1000),
+    p_daily: limit("IMAGE_DAILY_LIMIT", 50, 50),
+    p_monthly: limit("IMAGE_MONTHLY_LIMIT", 1000, 1000),
   });
   if (error) throw new Error("Image usage limit could not be checked");
   return data === true;
@@ -216,8 +216,8 @@ export async function imageBudgetStatus(
   conversationId: string,
   now: Date,
 ) {
-  const daily = limit("IMAGE_DAILY_LIMIT", 2, 50),
-    monthly = limit("IMAGE_MONTHLY_LIMIT", 20, 1000);
+  const daily = limit("IMAGE_DAILY_LIMIT", 50, 50),
+    monthly = limit("IMAGE_MONTHLY_LIMIT", 1000, 1000);
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
   const dayStart = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
