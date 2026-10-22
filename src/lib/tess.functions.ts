@@ -446,6 +446,10 @@ export async function runTurn(
     next.romantic_intent = 0;
   }
   const stage = deriveStage(next);
+  {
+    const { normalizeEventTags } = await import("./event-tags");
+    reply.event_tags = normalizeEventTags(reply.event_tags ?? [], reply.tone ?? "", def.romanticCapable);
+  }
 
   await supabase
     .from("tess_state")
