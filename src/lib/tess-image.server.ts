@@ -181,6 +181,7 @@ export type PhotoDiagnostics = {
   validationStatus: "pending" | "screen_passed" | "failed";
   failureReason: string | null;
   retryCount: number;
+  retryReasons?: string[];
 };
 export class PhotoGenerationFailure extends Error {
   constructor(public diagnostics: PhotoDiagnostics) {
@@ -237,14 +238,35 @@ export async function generateTessImage(args: {
     if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)
       references.push(args.mabelReference);
     diagnostic.referenceConditioning = !!canonical;
-    const img = await args.provider.generate(prompt, references, {
-      highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
-    });
-    await screenPhotoVisuals(
-      canonical?.blob ?? null,
-      new Blob([new Uint8Array(img.bytes)], { type: img.mime }),
-      args.scene,
-    );
+    let img: GeneratedImage | null = null;
+    const retryReasons: string[] = [];
+    // A rejected candidate must never be delivered or replace the original identity anchor.
+    // Retry only a visual-design mismatch, once, with stronger face continuity instructions.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const retryPrompt = attempt === 0 ? prompt : `${prompt}\n\nSECOND ATTEMPT — IDENTITY CONTINUITY CORRECTION: The previous candidate did not match the approved fictional character portrait. Use the ORIGINAL supplied reference as the identity source, not the prior generation. Preserve facial geometry, eye shape, nose, lips, jawline, complexion and approximate age. The requested messy bun, expression, outfit and lighting are legitimate variations and must remain possible. Do not reproduce the portrait pose or setting.`;
+      const candidate = await args.provider.generate(retryPrompt, references, {
+        highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
+      });
+      try {
+        await screenPhotoVisuals(
+          canonical?.blob ?? null,
+          new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
+          args.scene,
+        );
+        img = candidate;
+        break;
+      } catch (screenError) {
+        const reason = screenError instanceof Error ? screenError.message : "visual_screen_uncertain";
+        retryReasons.push(reason);
+        diagnostic.retryReasons = [...retryReasons];
+        if (attempt === 0 && canonical && ["appearance_drift", "face_structure_drift"].includes(reason)) {
+          diagnostic.retryCount = 1;
+          continue;
+        }
+        throw screenError;
+      }
+    }
+    if (!img) throw new Error("visual_screen_uncertain");
     const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
     diagnostic.validationStatus = "screen_passed";
     const identityUsed = [
