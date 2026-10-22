@@ -7,7 +7,7 @@ export async function mediaProfilesAvailable(db: Client) {
   const r = await db.rpc("media_profile_status", {});
   if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
   if (r.error) throw new Error("Profile service unavailable");
-  return r.data === 16;
+  return r.data === 17;
 }
 export function decodePortrait(encoded: string) {
   if (encoded.length > 5_600_000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded))
@@ -69,7 +69,7 @@ export async function saveProfileMedia(
   },
 ) {
   if (!(await mediaProfilesAvailable(db)))
-    throw new Error("Profile media requires reviewed migration 0016");
+    throw new Error("Profile media requires reviewed migration 0017");
   const ch = await db.from("characters").select("id").eq("key", data.key).single();
   const conv = ch.data
     ? await db

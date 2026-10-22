@@ -1,6 +1,6 @@
 # Phase 4C: authoritative profile portraits
 
-> Updated by migration 0016: [Media viewer and explicit identity management](./mobile-media-and-identity.md). Bundled portraits remain the defaults and are never overwritten. A separate avatar-only edit preserves the current anchor; an explicit user-approved canonical replacement stores private per-user reference bytes used by all supported generation paths. The original-only descriptions below document the earlier implementation.
+> Updated by migration 0017: [Media viewer and explicit identity management](./mobile-media-and-identity.md). Bundled portraits remain the defaults and are never overwritten. A separate avatar-only edit preserves the current anchor; an explicit user-approved canonical replacement stores private per-user reference bytes used by all supported generation paths. The original-only descriptions below document the earlier implementation.
 
 ## Finding and fix
 

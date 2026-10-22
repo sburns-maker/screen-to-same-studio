@@ -113,7 +113,7 @@ export const chooseProfilePhoto = createServerFn({ method: "POST" })
     const r = await db.rpc("update_active_portrait", {
       p_user: context.userId,
       p_key: data.key,
-      p_message: data.messageId,
+      p_message: data.messageId as string,
       p_reason: data.reason,
     });
     if (r.error)

@@ -274,7 +274,7 @@ describe("display portraits preserve permanent anchors", () => {
     expect(row.active_message_id).toBe(c.mid);
     expect(await count("messages")).toBe(1);
     expect(
-      (await admin.rpc("update_active_portrait", { ...args, p_message: null })).error,
+      (await admin.rpc("update_active_portrait", { ...args, p_message: null as unknown as string })).error,
     ).toBeNull();
   });
   it("rejects another character, intimate/object images, missing approval and cross-tenant sources", async () => {

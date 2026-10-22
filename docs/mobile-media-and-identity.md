@@ -1,6 +1,6 @@
 # Mobile media viewer and deliberate identity management
 
-Built from `origin/main` **f828bac**, which already merged the contextual photo/encounter expansion (PR #10). Work is isolated on `codex/mobile-media-and-identity`. No deployment, live migration, paid generation, provider/model change, cooldown change or production-data edit was performed.
+Built from `origin/main` **f828bac**, which already merged the contextual photo/encounter expansion (PR #10). Latest Lovable `main` changes through **57aead3** are integrated without rewriting published history. Its verification migration keeps number 0016; the media/profile migration is now 0017. Work is isolated on `codex/mobile-media-and-identity`. No deployment, live migration, paid generation, provider/model change, cooldown change or production-data edit was performed.
 
 ## Reused architecture
 
@@ -26,9 +26,9 @@ The database prevents exact approved-reference hash reuse across characters in o
 
 ## Reviewed migration and security
 
-New migration: **`drizzle/migrations/0016_media_profiles.sql`**, after 0015; journal entry included. It adds `active_storage_path` to the existing registry, an owner-readable/service-writable `profile_identity_changes` audit table and service-only transactional profile functions. It wraps the old screened selection so it clears a custom display crop when explicitly selected/reset, preserving the approved anchor. No historical rows or media are deleted/replaced. No new provider key, paid service or feature activation is required.
+New migration: **`drizzle/migrations/0017_media_profiles.sql`**, after Lovable’s unchanged 0016 verification migration; journal entry included. It adds `active_storage_path` to the existing registry, an owner-readable/service-writable `profile_identity_changes` audit table and service-only transactional profile functions. It wraps the old screened selection so it clears a custom display crop when explicitly selected/reset, preserving the approved anchor. No historical rows or media are deleted/replaced. No new provider key, paid service or feature activation is required.
 
-Apply through the existing migration runner, once, in a transaction. Do not run the SQL repeatedly by hand: it renames the earlier screened function. An already-migrated deployment must use the migration journal. Missing 0016 produces an explicit profile-save setup error; existing viewing, sharing, messaging and old reviewed choices remain usable. Database rollback alone cannot undo a deliberately changed identity; retain private objects/audit records and review any reference reversal explicitly.
+Apply through the existing migration runner, once, in a transaction. Do not run the SQL repeatedly by hand: it renames the earlier screened function. An already-migrated deployment must use the migration journal. Missing 0017 produces an explicit profile-save setup error; existing viewing, sharing, messaging and old reviewed choices remain usable. Database rollback alone cannot undo a deliberately changed identity; retain private objects/audit records and review any reference reversal explicitly.
 
 Mutations authenticate the user and check their conversation before upload. Clients cannot call the service-only SQL functions or write the identity registry. Owner RLS still controls private photo/video reads. Opening, saving and sharing re-sign private originals; known signed profile URLs from this backend are refreshed too. No service-role key, unrestricted URL or provider secret reaches the viewer. Uncertain upload/commit failures do not delete possibly live objects. Abandoned immutable uploads may require a later reviewed cleanup job; no automatic retention/deletion is introduced.
 
@@ -42,7 +42,7 @@ Automated tests use disposable PostgreSQL, mocked Storage and mocked paid provid
 
 Ask Lovable:
 
-> Load the `codex/mobile-media-and-identity` review branch into preview. Confirm migrations through 0015. Review and apply only `0016_media_profiles.sql` through the migration runner in a transaction to the intended preview database. Preserve existing conversations, identities, media, memories and relationships. Confirm `tess-photos` and `user-videos` remain private. Do not publish, enable AI video generation or run paid generation. Report the migration/check results.
+> Load the `codex/mobile-media-and-identity` review branch into preview. Confirm migrations through 0016. Review and apply only `0017_media_profiles.sql` through the migration runner in a transaction to the intended preview database. Preserve existing conversations, identities, media, memories and relationships. Confirm `tess-photos` and `user-videos` remain private. Do not publish, enable AI video generation or run paid generation. Report the migration/check results.
 
 A preview can share a production database: verify the database target before migration or approval tests. If there is no isolated database, review the SQL first and arrange its application explicitly; no migration was applied by Codex.
 
@@ -67,4 +67,4 @@ Android Chrome generally downloads to Downloads; websites cannot guarantee a fil
 - `src/lib/profile-media.server.ts`, `profile-media.functions.ts`, `visual-profiles.*`: authenticated persistence and approved identity resolution.
 - `src/lib/tess-image.server.ts`, `tess.functions.ts`, `photo-setup.server.ts`: actual reference conditioning and current-reference diagnostics; no model/settings changes.
 - Chat/profile/shared-media routes: entry points, lazy paged gallery and live avatar updates.
-- Migration 0016, journal, Supabase supplemental types and new/updated media/profile/identity/setup tests.
+- Migration 0017, journal, Supabase supplemental types and new/updated media/profile/identity/setup tests.

@@ -14,7 +14,7 @@ ALTER TABLE public.profile_identity_changes ENABLE ROW LEVEL SECURITY;
 CREATE POLICY profile_identity_changes_owner_read ON public.profile_identity_changes FOR SELECT TO authenticated USING(user_id=auth.uid());
 GRANT SELECT ON public.profile_identity_changes TO authenticated;
 GRANT ALL ON public.profile_identity_changes TO service_role;
-CREATE OR REPLACE FUNCTION public.media_profile_status() RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT 16 $$;
+CREATE OR REPLACE FUNCTION public.media_profile_status() RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$ SELECT 17 $$;
 REVOKE ALL ON FUNCTION public.media_profile_status() FROM PUBLIC, authenticated;
 GRANT EXECUTE ON FUNCTION public.media_profile_status() TO service_role;
 CREATE OR REPLACE FUNCTION public.set_profile_media(p_user uuid,p_key text,p_avatar text,p_canonical text,p_sha text,p_source uuid)
