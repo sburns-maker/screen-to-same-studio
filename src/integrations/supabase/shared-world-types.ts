@@ -2,7 +2,13 @@ import type { Json } from "./types";
 import type { SharedPlan, SharedRsvp } from "@/lib/shared-world";
 type ReadTable<R> = { Row: R; Insert: Partial<R>; Update: Partial<R>; Relationships: [] };
 export type SharedWorldTables = {
-  world_places: ReadTable<{ user_id: string; key: string; label: string; kind: string }>;
+  world_places: ReadTable<{
+    user_id: string;
+    key: string;
+    label: string;
+    kind: string;
+    metadata?: Json;
+  }>;
   social_plans: ReadTable<SharedPlan>;
   social_rsvps: ReadTable<SharedRsvp>;
   social_presence: ReadTable<{

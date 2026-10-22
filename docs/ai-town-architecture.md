@@ -135,3 +135,7 @@ flowchart LR
 Validation completed locally: full automated suite, TypeScript and production build; external text/image/push outputs are mocked in the controlled end-to-end tests. Review branch testing does not confirm live deployment configuration or real visual likeness.
 
 Legacy user dates and promises that exist only in memory text are **not yet a complete reservation calendar**. They remain intact; this slice does not parse or move them. Check known commitments before creating a controlled plan. Full conflict detection against those old plans belongs to the evidence-backed dialogue/calendar bridge, not a guessed migration of prose.
+
+## Follow-on application slice
+
+The expansion from merged baseline `2ad6ff0` is documented in [Living-world Phase 2](living-world-phase-2.md): public navigation/geography, persistent virtual visits, three consent-gated discoverable contacts, universal primary-character public proposals, migration 0012, costs, validation and remaining scope. The proof and its production-activation caveats above remain applicable.
