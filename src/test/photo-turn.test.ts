@@ -181,7 +181,7 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(mutations).toHaveBeenCalledWith("messages", "insert");
   });
   it.each([false, true])(
-    "uses real opportunity timing and unchanged state math with real_time_mode=%s",
+    "uses controlled photo testing and unchanged state math with real_time_mode=%s",
     async (realTime) => {
       mocks.realTime = realTime;
       vi.stubGlobal(
@@ -190,7 +190,7 @@ describe("normal spontaneous photo turn pipeline", () => {
       );
       const { runTurn } = await import("@/lib/tess.functions");
       const started = Date.now();
-      await runTurn(client, uid, cid, "America/New_York", { gapHours: 3 });
+      await runTurn(client, uid, cid, "America/New_York", { gapHours: 3, ...(!realTime ? { developerPhoto: "deliver" as const } : {}) });
       const plan = mocks.prepare.mock.calls[0]![4];
       expect(plan.state.comfort).toBe(65);
       expect(plan.state.trust).toBe(60);

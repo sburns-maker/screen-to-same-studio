@@ -1,0 +1,35 @@
+name: Living world tick
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: living-world-tick
+  cancel-in-progress: false
+jobs:
+  tick:
+    # Opt-in only after migration, credentials and preview validation.
+    if: vars.LIVING_WORLD_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Call authenticated backend worker
+        env:
+          WORLD_TICK_URL: ${{ vars.WORLD_TICK_URL }}
+          CRON_TOKEN: ${{ secrets.LOVABLE_CRON_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$CRON_TOKEN"
+          case "$WORLD_TICK_URL" in https://*/api/public/jobs/world-tick) ;; *) echo 'Configure the HTTPS world-tick endpoint'; exit 1;; esac
+          # No automatic HTTP retries: the durable worker recovers on the next tick.
+          curl --silent --show-error --fail --max-time 660 \
+            -X POST -H "Authorization: Bearer $CRON_TOKEN" \
+            "$WORLD_TICK_URL" -o /tmp/world-tick.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/world-tick.json') as f: report=json.load(f)
+          print({k: report.get(k) for k in ['skipped','users','conversationsChecked','aiCalls','paused','pushed']})
+          if report.get('errors'): raise SystemExit('World tick reported errors; inspect the developer job history')
+          PY

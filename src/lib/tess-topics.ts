@@ -8,24 +8,30 @@ type MotifSet = Record<string, { re: RegExp; label: string }>;
 
 export const CHARACTER_MOTIFS: Record<string, MotifSet> = {
   tess: {
+    lasagna: { re: /\blasagn[ae]\b/i, label: "lasagna jokes" },
+    scheduling: { re: /\b(schedul\w*|reshuffle|magic button|survival.kit)\b/i, label: "staff scheduling and magic-button callbacks" },
     mabel_socks: { re: /\bsocks?\b/i, label: "Mabel stealing socks" },
     trivia: { re: /\btrivia\b/i, label: "trivia" },
     cheese: { re: /\bchees(e|y)\b/i, label: "cheese jokes" },
     mabel: { re: /\bmabel\b/i, label: "Mabel" },
   },
   maya: {
+    saturday: { re: /\b(saturday|our date|can.t wait.*see you)\b/i, label: "anticipation of the already-discussed date" },
     chase: { re: /\b(catch(ing)? me|the chase|keep up|the game)\b/i, label: "the 'catch me' chase line" },
     paintball: { re: /\bpaintball|\baim\b/i, label: "paintball" },
     coffee: { re: /\b(coffee|green bean|latte)\b/i, label: "coffee" },
     charm: { re: /\bcharm(ing)?\b/i, label: "teasing about his charm" },
   },
   claire: {
+    fries: { re: /\b(french.fries|fries|fry theft|steal.*fries)\b/i, label: "French-fry jokes" },
+    saturday: { re: /\b(saturday|our date)\b/i, label: "anticipation of the already-discussed date" },
     books: { re: /\b(books?|book club|novel|reading)\b/i, label: "books" },
     tea: { re: /\b(tea|chamomile)\b/i, label: "tea" },
     garden: { re: /\bgarden(ing)?\b/i, label: "her garden" },
     validation: { re: /\b(so valuable|invaluable|really important|meaningful|makes a difference)\b/i, label: "validating what he said" },
   },
   jordan: {
+    tests: { re: /\b(prove|earn it|impress me|we.ll see|challenge|test|guard down)\b/i, label: "emotional tests and guarded challenges" },
     climbing: { re: /\b(climb(ing)?|boulder(ing)?|crag)\b/i, label: "climbing" },
     drafting: { re: /\b(cad|blueprints?|drafting)\b/i, label: "drafting work" },
     fairytale: { re: /\b(fairy ?tale|cinderella|onion|layers)\b/i, label: "fairy-tale/onion metaphors" },
@@ -86,6 +92,12 @@ export function topicGuidance(lines: string[], lastUser: string, key = "tess"): 
   }
   if (isOpenInvitation(lastUser)) {
     out.push(`He's asking about YOUR life. Answer with one real, specific thing from what you know lately, active life events, current life threads or your memories (work, family, friends, a plan, a frustration, something you want). A small honest disclosure is fine if trust allows; guarded is fine too. Don't invent a new dramatic event, and don't deflect with a pet joke.`);
+  }
+  if (/\b(good ?night|talk (to you )?later|gotta go|have to go|see you (then|tomorrow)|sounds good|all set)\b/i.test(lastUser)) {
+    out.push("This may be a natural conversation ending. A brief acknowledgment or sign-off is enough; do not reopen settled plans, add a question, or invent a new obstacle.");
+  }
+  if (key === "jordan" && /\b(appreciate|thank you|proud of you|care about you|admire|beautiful|means a lot)\b/i.test(lastUser)) {
+    out.push("You may accept a sincere compliment or vulnerable statement plainly. Reserved does not require a challenge, test, deflection, or romantic escalation.");
   }
   if (!out.length) return "";
   return `TOPIC CHECK:\n- ${out.join("\n- ")}\n- Never swap one pet joke for another repeated catchphrase. You may introduce a new topic yourself when it fits.`;

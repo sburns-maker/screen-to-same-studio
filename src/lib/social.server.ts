@@ -28,12 +28,6 @@ export const SOCIAL_MAX_EVENTS_PER_USER = 12;
 
 /** Insert canon NPCs and links once per user (on conflict = already seeded). */
 export async function ensureSocialSeed(admin: Admin, userId: string): Promise<{ npcs: number; links: number }> {
-  const { count } = await admin
-    .from("npcs")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-  if ((count ?? 0) > 0) return { npcs: 0, links: 0 };
-
   const npcRows = CANON_NPCS.map((n) => ({
     user_id: userId,
     character_key: n.characterKey,
@@ -96,7 +90,8 @@ export async function runSocialTick(admin: Admin, userId: string, now: Date): Pr
 
   const week = weekId(now);
   const characterKeys = ["tess", "maya", "claire", "jordan", "ben"];
-  const planned = characterKeys.flatMap((k) => planWeekEvents(k, week)).slice(0, SOCIAL_MAX_EVENTS_PER_USER);
+  const perCharacter = characterKeys.map((k) => planWeekEvents(k, week));
+  const planned = Array.from({ length: Math.max(...perCharacter.map((events) => events.length)) }, (_, i) => perCharacter.flatMap((events) => events[i] ? [events[i]!] : [])).flat().slice(0, SOCIAL_MAX_EVENTS_PER_USER);
   report.eventsPlanned = planned.length;
 
   for (const ev of planned) {

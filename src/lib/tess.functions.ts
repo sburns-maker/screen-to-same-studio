@@ -1,5 +1,6 @@
+import { evidenceContinuity, currentActivity } from "./world-continuity";
+import { continuityContext, reserveImageBudget, imageBudgetStatus, reserveWorldAi } from "./world-runtime.server";
 import { attachmentPresent, photoOpportunity, PHOTO_TENDENCIES } from "./photo-opportunities";
-import { applyDisruption, disruptionFor } from "./daily-disruptions";
 import { recallMemories, type MemoryRow } from "./memory-recall";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
@@ -28,11 +29,10 @@ import {
   activeLifeEvent,
   decideInitiation,
   decideLatency,
-  scheduleFor,
   weatherFlavor,
   type LifeEvent,
 } from "./tess-life";
-import { characterAvailability, characterFor, type CharacterDef } from "./characters";
+import { characterFor, type CharacterDef } from "./characters";
 import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, willingPhotoAllowed, safePhotoScene, type PhotoContext, type PhotoBoundary } from "./photo-policy";
 import { storySchedule } from "./storyline-logic";
 
@@ -268,7 +268,7 @@ async function runTurnUnlocked(
   userId: string,
   conversationId: string,
   tz: string,
-  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; developerPhoto?: "preview" | "deliver" },
+  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver" },
 ) {
   const { generateTessReply, generateContactReply } = await import("./tess.server");
   const conv = await loadConversation(supabase, userId, conversationId);
@@ -285,6 +285,7 @@ async function runTurnUnlocked(
   // A source merge cannot install a database function. Keep legacy text replies
   // working during setup, but never charge for photos without durable delivery.
   const photoAdmin = deliveryProbe && !deliveryProbe.error ? configuredPhotoAdmin : null;
+  const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
   if (photoAdmin && initiation?.developerPhoto !== "preview") {
     const { recoverPhotoDelivery } = await import("./photo-delivery.server");
     const recovered = await recoverPhotoDelivery(photoAdmin, conv.id, userId);
@@ -360,18 +361,26 @@ async function runTurnUnlocked(
   const { storylineContext } = await import("./storyline.server");
   const story = await storylineContext(supabase, userId, def.key, now);
   const { knowledgePromptLines } = await import("./social-logic");
-  const worldKnowledge = [...story.lines, ...knowledgePromptLines(
+  const continuity = worldReady && photoAdmin ? await continuityContext(photoAdmin, userId, conv.id, now) : { lines: [] };
+  const worldKnowledge = [...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];
 
-  const schedule = storySchedule(isTess
-    ? (() => { const base = scheduleFor(now, difficulty === "chaos" ? 2 : 1); return applyDisruption(base, disruptionFor("tess", now, base.activity.startsWith("at work"))); })()
-    : (() => { const a = characterAvailability(def, now); return { activity: a.detail, availability: a.availability, detail: a.detail }; })(), story.event);
+  const schedule = storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
   const realTime = !!conv.real_time_mode;
   // Never charge for an image or mutate relationship state before the sleep boundary.
   if (schedule.availability === "asleep" && (realTime || initiation)) {
     return { count: 0, lastVisibleAt: null, reason: "asleep" };
+  }
+  if (initiation && !initiation.developerPhoto) {
+    if (!conv.real_time_mode || conv.muted) return { count: 0, lastVisibleAt: null, reason: "background initiation disabled for this conversation" };
+    if (schedule.availability === "busy") return { count: 0, lastVisibleAt: null, reason: "busy" };
+    const { data: quiet, error } = await supabase.from("user_profile").select("value").eq("user_id", userId).eq("key", "quiet_hours").maybeSingle();
+    if (error) throw new Error("Quiet-hour preferences unavailable");
+    const { parseQuietHours, inQuietHours } = await import("./world.server");
+    const hours = parseQuietHours(quiet?.value);
+    if (inQuietHours(now, hours.start, hours.end)) return { count: 0, lastVisibleAt: null, reason: "quiet hours" };
   }
   const freq = (conv.photo_frequency ?? "normal") as PhotoFrequency;
   const ownMsgs = recent.filter((m) => m.sender === "tess");
@@ -392,6 +401,8 @@ async function runTurnUnlocked(
   const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
   let photos = isTess && !cooldown && photoCompatible
     ? eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object")) : [];
+  const imageBudget = worldReady && photoAdmin ? await imageBudgetStatus(photoAdmin, userId, conv.id, now) : null;
+  if (imageBudget && !imageBudget.allowed) generateTypes = [];
   if (!photoAdmin) { generateTypes = []; photos = []; }
   const lifeEvent = story.event ?? (isTess ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined) : null);
   const opportunity = photoOpportunity({
@@ -402,14 +413,14 @@ async function runTurnUnlocked(
     preview: !!initiation?.developerPhoto, activeConversation: !initiation,
   });
   if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
-    opportunity.reason = !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
+    opportunity.reason = imageBudget && !imageBudget.allowed ? "Image daily/monthly attempt limit reached. No image will be generated." : !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
       : cooldown ? "Photo cooldown is active. Wait before requesting another image."
       : "No photo type is currently allowed by her photo boundaries and relationship eligibility.";
   }
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
   if (initiation?.developerPhoto === "preview") {
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
-    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes,
+    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget,
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
       textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
       deliveryMigrationReady: !!migration && !migration.error };
@@ -417,6 +428,7 @@ async function runTurnUnlocked(
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
   const photoHint = opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 });
+  if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
   let reply: import("./tess.server").TessReply;
   if (isTess) {
     reply = await generateTessReply({
@@ -501,8 +513,14 @@ async function runTurnUnlocked(
           throw new Error("repeated photo composition");
         }
         const style = rawStyle;
+        if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
         generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!);
+        if (worldReady) {
+          const { error } = await photoAdmin!.from("media_attempts").update({ status: "generated", storage_path: generated.path }).eq("action_id", photoAction!);
+          if (error) console.warn("[character-photo] usage status pending; reserved attempt remains counted");
+        }
       } catch (e) {
+        if (worldReady && photoAction) await photoAdmin!.from("media_attempts").update({ status: "failed" }).eq("action_id", photoAction).eq("status", "reserved");
         console.warn("[character-photo] generation unavailable; no image will be regenerated for this action");
       }
     }
@@ -596,12 +614,15 @@ async function runTurnUnlocked(
       setting: generated.style?.setting ?? null, selfie_type: generated.style?.selfie_type ?? null,
       identity_reference_used: generated.identityReferenceUsed,
     } : null;
+    const extractedContinuity = worldReady ? evidenceContinuity(reply.continuity, recent.find((m) => m.sender === "user")?.body ?? "", bubbles.join("\n"), now) : null;
     return preparePhotoDelivery(photoAdmin, photoAction, userId, conv.id, {
       expectedStateUpdatedAt: stateRow?.updated_at ?? null,
       lastUserId: recent.find((m) => m.sender === "user")?.id ?? null,
       initiation: !!initiation, pendingBefore: nowIso, rows, generated: generatedRow,
       state: { ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone },
       stage, boundary, memories: memRows,
+      continuity: extractedContinuity,
+      intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
     } as unknown as import("@/integrations/supabase/types").Json);
   }
   // Text-only turns retain the existing persistence path. Never delete a paid pending photo.
@@ -675,12 +696,7 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
             weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
           )
         : null);
-      const schedule = storySchedule(isTess
-        ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
-        : (() => {
-            const a = characterAvailability(def, now);
-            return { activity: a.detail, availability: a.availability, detail: a.detail };
-          })(), story.event);
+      const schedule = storySchedule(currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1), story.event);
 
       // Who's been carrying the conversation lately?
       const list = (recentMsgs ?? []).filter((m) => m.sender === "user" || m.sender === "tess");
@@ -923,12 +939,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
           weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
         )
       : null;
-    const schedule = isTess
-      ? scheduleFor(now, conv.difficulty === "chaos" ? 2 : 1)
-      : (() => {
-          const a = characterAvailability(def, now);
-          return { activity: a.detail, availability: a.availability, detail: a.detail };
-        })();
+    const schedule = currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1);
     const gapHours = last ? (Date.now() - new Date(last.created_at).getTime()) / 3_600_000 : 0;
     const list = recentMsgs ?? [];
     const userCount = list.filter((m) => m.sender === "user").length;
@@ -965,8 +976,26 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       boundary: conv.photo_boundary as PhotoBoundary,
     });
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
+    const [{ data: checkpoint }, { data: records }, { data: events }, { data: attempts }] = await Promise.all([
+      supabase.from("character_world_state").select("*").eq("conversation_id", conv.id).eq("user_id", userId).maybeSingle(),
+      supabase.from("world_records").select("kind,key,summary,status,due_at,retry_at,expires_at,attempts").eq("conversation_id", conv.id).eq("user_id", userId).order("created_at", { ascending: false }).limit(30),
+      supabase.from("world_events").select("kind,summary,occurs_at,payload").eq("conversation_id", conv.id).eq("user_id", userId).order("occurs_at", { ascending: false }).limit(20),
+      supabase.from("media_attempts").select("status,created_at").eq("conversation_id", conv.id).eq("user_id", userId).gte("created_at", new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1)).toISOString()),
+    ]);
+    const developerTools = (await import("./spontaneous-photo.server")).developerPhotosAllowed(userId);
+    let workerHealth: { lastTick: { status: string; started_at: string; finished_at: string | null } | null; recentActions: { id: string; status: string; started_at: string; finished_at: string | null }[] } | null = null;
+    if (developerTools && process.env["SUPABASE_SERVICE_ROLE_KEY"]) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const [{ data: lastTick }, { data: actions }] = await Promise.all([
+        supabaseAdmin.from("job_runs").select("status,started_at,finished_at").eq("job", "world-tick").order("started_at", { ascending: false }).limit(1).maybeSingle(),
+        supabaseAdmin.from("job_runs").select("id,status,started_at,finished_at").eq("job", `photo-turn:${conv.id}`).eq("detail->>userId", userId).order("started_at", { ascending: false }).limit(8),
+      ]);
+      workerHealth = { lastTick, recentActions: actions ?? [] };
+    }
     return {
-      photoDeveloperTools: (await import("./spontaneous-photo.server")).developerPhotosAllowed(userId),
+      world: { checkpoint, records: records ?? [], events: events ?? [], imageAttemptsThisMonth: attempts?.length ?? 0, imageAttempts: attempts ?? [],
+        workerHealth, imageBudget: await imageBudgetStatus(supabase, userId, conv.id, now).catch(() => null), schedulePreview: (await import("./world-runtime.server")).previewWorld(def, now), checkpointPresent: !!checkpoint },
+      photoDeveloperTools: developerTools,
       character: { key: def.key, name: def.preferredName, fullName: def.fullName, photosEnabled: def.photosEnabled },
       state,
       lastDelta: JSON.parse(JSON.stringify(stateRow?.last_delta ?? {})) as Record<string, number | string | string[]>,

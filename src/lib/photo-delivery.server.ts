@@ -59,13 +59,10 @@ export async function recoverPhotoDelivery(
     .eq("user_id", userId)
     .maybeSingle();
   if (convError || !conversation) throw new Error("Photo recovery conversation unavailable");
-  const { characterFor, characterAvailability } = await import("./characters");
-  const { scheduleFor } = await import("./tess-life");
+  const { characterFor } = await import("./characters");
+  const { currentActivity } = await import("./world-continuity");
   const def = characterFor(conversation.character?.key);
-  const schedule =
-    def.key === "tess"
-      ? scheduleFor(new Date(), conversation.difficulty === "chaos" ? 2 : 1)
-      : characterAvailability(def, new Date());
+  const schedule = currentActivity(def, new Date(), conversation.difficulty === "chaos" ? 2 : 1);
   if (schedule.availability === "asleep" || schedule.availability === "busy")
     return { count: 0, lastVisibleAt: null, reason: "photo recovery waits for availability" };
   return deliverPhotoTurn(admin, data.id);

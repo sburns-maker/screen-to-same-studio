@@ -21,6 +21,7 @@ export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
 });
 
 type Snapshot = {
+  world?: Record<string, unknown>;
   photoDeveloperTools: boolean;
   character: { key: string; name: string; fullName: string; photosEnabled: boolean };
   state: TessState;
@@ -124,6 +125,10 @@ function Debug() {
         {!snap && <p className="text-sm text-muted-foreground">Loading…</p>}
         {snap && s && (
           <>
+            {snap.photoDeveloperTools && <Section title="Persistent world diagnostics">
+              <p className="text-xs text-muted-foreground">Current backend checkpoint, pending intentions, photo decisions, delivery events and monthly image attempts. Schedule preview advances no data or relationship scores. Global worker history is on Living world timeline.</p>
+              <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.world, null, 2)}</pre>
+            </Section>}
             <div className="rounded-2xl bg-surface p-4">
               <div className="text-xs text-muted-foreground">Stage</div>
               <div className="font-display text-2xl">{snap.stage}</div>
