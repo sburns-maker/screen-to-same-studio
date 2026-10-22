@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   admin: null as SupabaseClient<Database> | null,
   text: vi.fn(),
   image: vi.fn(),
+  push: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/client.server", () => ({
   get supabaseAdmin() {
@@ -27,6 +28,7 @@ vi.mock("@tanstack/react-start", () => ({
     return chain;
   },
 }));
+vi.mock("@/lib/webpush.server", () => ({ sendWebPush: mocks.push }));
 vi.mock("@/lib/tess-weather.server", () => ({ getWeatherContext: async () => null }));
 vi.mock("@/lib/tess.server", () => ({
   generateTessReply: mocks.text,
@@ -58,13 +60,14 @@ beforeEach(async () => {
   vi.stubEnv("OPENAI_API_KEY", "test-only-not-a-real-key");
   vi.stubEnv("VAPID_PRIVATE_KEY", "");
   await db.exec(
-    "TRUNCATE conversations CASCADE; TRUNCATE job_runs CASCADE; TRUNCATE world_control; TRUNCATE npcs,social_links,shared_events,event_participants,character_knowledge;",
+    "TRUNCATE conversations CASCADE; TRUNCATE job_runs CASCADE; TRUNCATE world_control; TRUNCATE social_plans CASCADE; TRUNCATE npcs,social_links,shared_events,event_participants,character_knowledge;",
   );
   const adapter = postgresSupabase(db);
   mocks.admin = adapter.admin;
   files = adapter.files;
   mocks.text.mockReset();
   mocks.image.mockReset();
+  mocks.push.mockReset().mockResolvedValue({ok:true,gone:false});
   mocks.image.mockResolvedValue({
     bytes: new Uint8Array([1, 2, 3]),
     mime: "image/png",
@@ -243,4 +246,36 @@ describe("offline living world through the normal character pipeline (fake paid 
         .rows[0]!.metadata["pushed"],
     ).toBeUndefined();
   });
+  it("a shared gathering yields participant-only autonomous follow-ups and normal deduplicated push attempts",async()=>{
+    const {sharedCommand,runSharedWorldTick}=await import("@/lib/shared-world.server");
+    const {sharedRsvpDecision}=await import("@/lib/shared-world");
+    await db.query("update conversations set muted=true where id=$1",[cid]);
+    for(const [n,key] of ["ben","claire"].entries()){
+      const convId=`20000000-0000-4000-a000-${String(n+900).padStart(12,"0")}`;
+      await db.query("insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key=$3",[convId,user,key]);
+      await db.query("insert into tess_state(conversation_id,user_id,comfort,trust,curiosity) values($1,$2,65,60,65)",[convId,user]);
+    }
+    const startsAt="2026-10-25T18:00:00Z",endsAt="2026-10-25T20:00:00Z";
+    let planId="";
+    for(let n=1;n<100;n++){planId=`30000000-0000-4000-a000-${String(n).padStart(12,"0")}`;if(sharedRsvpDecision({id:planId,starts_at:startsAt,ends_at:endsAt},"claire","user_relay",now).response==="accepted")break;}
+    let plan=await sharedCommand(mocks.admin!,user,planId,"create",{organizer:"ben",place:"home:ben",title:"A small family gathering",startsAt,endsAt},now,0);
+    plan=await sharedCommand(mocks.admin!,user,planId,"invite",{actor:"ben",character:"claire",channel:"user_relay"},now,plan.version);
+    await runSharedWorldTick(mocks.admin!,user,now);
+    await runSharedWorldTick(mocks.admin!,user,new Date(endsAt));
+    const response=await mocks.text();mocks.text.mockClear();mocks.text.mockResolvedValue({...response,photo:null,messages:["That was a nice quiet afternoon. The gathering is over now."]});
+    vi.stubEnv("VAPID_PRIVATE_KEY","test-key-only");
+    await db.query("insert into push_subscriptions(user_id,endpoint,keys) values($1,'https://push.test/fixture',$2)",[user,JSON.stringify({p256dh:"test",auth:"test"})]);
+    const later=new Date("2026-10-25T21:00:00Z");vi.setSystemTime(later);
+    const report=await runWorldTickWithAdmin(mocks.admin!,later);
+    expect(report.errors).toEqual([]);expect(report.initiated).toHaveLength(2);
+    expect(mocks.text.mock.calls.every(([args])=>args.initiationReason.includes("completed gathering"))).toBe(true);
+    expect((await db.query("select * from character_knowledge where character_key='tess' and subject_type='shared_plan'")).rows).toHaveLength(0);
+    expect(await count("messages")).toBe(2);
+    vi.setSystemTime(new Date(later.getTime()+5_000));
+    await runWorldTickWithAdmin(mocks.admin!,new Date(later.getTime()+5_000));
+    await runWorldTickWithAdmin(mocks.admin!,new Date(later.getTime()+5_000));
+    expect(mocks.push).toHaveBeenCalledTimes(2); // One actual message's primary notification each; mock provider only.
+    expect(await count("messages")).toBe(2);expect(mocks.image).not.toHaveBeenCalled();
+  },30_000);
+
 });

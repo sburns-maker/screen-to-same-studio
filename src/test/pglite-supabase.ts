@@ -20,6 +20,7 @@ export async function worldDatabase() {
     "0007_photo_consent_and_mature_preferences",
     "0008_atomic_photo_delivery",
     "0010_persistent_world",
+    "0011_shared_world_plans",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   return db;

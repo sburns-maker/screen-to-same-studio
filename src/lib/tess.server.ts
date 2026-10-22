@@ -261,7 +261,7 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(tessLines, lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`);
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
@@ -313,7 +313,7 @@ Fill every field:
 - interest_direction: is ${name}'s interest increasing, stable, decreasing, or ambiguous — and why.
 - momentum: did the conversation have genuine momentum?
 - try_next: one concrete suggestion.`;
-  return runStructured(debriefSchema, instructions, input);
+  return runStructured(debriefSchema, instructions, input, "debrief");
 }
 
 // ---------------------------------------------------------------------------
@@ -411,7 +411,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.${breadth}`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`);
+  const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.${breadth}`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });

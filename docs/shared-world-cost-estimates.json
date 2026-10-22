@@ -1,0 +1,173 @@
+{
+  "pricingSource": "User-verified official rates, 2026-10-22; https://developers.openai.com/api/docs/pricing",
+  "assumedTokens": {
+    "text": {
+      "input": 4500,
+      "output": 350
+    },
+    "visual": {
+      "input": 4500,
+      "output": 100
+    },
+    "lettering": {
+      "input": 2500,
+      "output": 80
+    }
+  },
+  "perText": 0.000625,
+  "perVisual": 0.00196,
+  "perLettering": 0.001128,
+  "cachedTextAt60Percent": 0.000382,
+  "textScenarios": [
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 10,
+      "activity": "low",
+      "uncappedCallsDaily": 5.2,
+      "textDailyUSD": 0.00325,
+      "textMonthlyUSD": 0.0975,
+      "withinCurrent12CallDailyQuota": true,
+      "cappedMonthlyUSD": 0.0975
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 10,
+      "activity": "moderate",
+      "uncappedCallsDaily": 11,
+      "textDailyUSD": 0.006875,
+      "textMonthlyUSD": 0.20625,
+      "withinCurrent12CallDailyQuota": true,
+      "cappedMonthlyUSD": 0.20625
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 10,
+      "activity": "active",
+      "uncappedCallsDaily": 35,
+      "textDailyUSD": 0.021875,
+      "textMonthlyUSD": 0.65625,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 25,
+      "activity": "low",
+      "uncappedCallsDaily": 5.5,
+      "textDailyUSD": 0.003438,
+      "textMonthlyUSD": 0.103125,
+      "withinCurrent12CallDailyQuota": true,
+      "cappedMonthlyUSD": 0.103125
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 25,
+      "activity": "moderate",
+      "uncappedCallsDaily": 12.5,
+      "textDailyUSD": 0.007813,
+      "textMonthlyUSD": 0.234375,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 25,
+      "activity": "active",
+      "uncappedCallsDaily": 42.5,
+      "textDailyUSD": 0.026562,
+      "textMonthlyUSD": 0.796875,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 50,
+      "activity": "low",
+      "uncappedCallsDaily": 6,
+      "textDailyUSD": 0.00375,
+      "textMonthlyUSD": 0.1125,
+      "withinCurrent12CallDailyQuota": true,
+      "cappedMonthlyUSD": 0.1125
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 50,
+      "activity": "moderate",
+      "uncappedCallsDaily": 15,
+      "textDailyUSD": 0.009375,
+      "textMonthlyUSD": 0.28125,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 50,
+      "activity": "active",
+      "uncappedCallsDaily": 55,
+      "textDailyUSD": 0.034375,
+      "textMonthlyUSD": 1.03125,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 100,
+      "activity": "low",
+      "uncappedCallsDaily": 7,
+      "textDailyUSD": 0.004375,
+      "textMonthlyUSD": 0.13125,
+      "withinCurrent12CallDailyQuota": true,
+      "cappedMonthlyUSD": 0.13125
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 100,
+      "activity": "moderate",
+      "uncappedCallsDaily": 20,
+      "textDailyUSD": 0.0125,
+      "textMonthlyUSD": 0.375,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    },
+    {
+      "primaryCharacters": 5,
+      "supportingNpcs": 100,
+      "activity": "active",
+      "uncappedCallsDaily": 80,
+      "textDailyUSD": 0.05,
+      "textMonthlyUSD": 1.5,
+      "withinCurrent12CallDailyQuota": false,
+      "cappedMonthlyUSD": 0.225
+    }
+  ],
+  "imageScenarios": [
+    {
+      "monthlyImages": 0,
+      "mediumBaseUSD": 0,
+      "withVisualAnd25PercentLetteringUSD": 0,
+      "highWithSameChecksUSD": 0,
+      "referenceInputUSD": "additional, not supplied"
+    },
+    {
+      "monthlyImages": 15,
+      "mediumBaseUSD": 0.22499999999999998,
+      "withVisualAnd25PercentLetteringUSD": 0.25863,
+      "highWithSameChecksUSD": 0.81363,
+      "referenceInputUSD": "additional, not supplied"
+    },
+    {
+      "monthlyImages": 30,
+      "mediumBaseUSD": 0.44999999999999996,
+      "withVisualAnd25PercentLetteringUSD": 0.51726,
+      "highWithSameChecksUSD": 1.62726,
+      "referenceInputUSD": "additional, not supplied"
+    },
+    {
+      "monthlyImages": 60,
+      "mediumBaseUSD": 0.8999999999999999,
+      "withVisualAnd25PercentLetteringUSD": 1.03452,
+      "highWithSameChecksUSD": 3.25452,
+      "referenceInputUSD": "additional, not supplied"
+    }
+  ]
+}

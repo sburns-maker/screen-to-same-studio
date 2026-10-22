@@ -105,14 +105,12 @@ describe("every shared generation path anchors original portraits", () => {
       ...good,
       visual_design: type === "object" ? "not_applicable" : "consistent",
     });
-    const generate = vi
-      .fn()
-      .mockResolvedValue({
-        bytes: new Uint8Array([1, 2, 3]),
-        mime: "image/png",
-        provider: "test",
-        model: "test-image",
-      });
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1, 2, 3]),
+      mime: "image/png",
+      provider: "test",
+      model: "test-image",
+    });
     const def = characterFor(key);
     const result = await generateTessImage({
       provider: { name: "test", model: "test-image", referenceConditioning: true, generate },
@@ -141,14 +139,12 @@ describe("every shared generation path anchors original portraits", () => {
   });
   it("cannot turn a generated photograph or caller-supplied blob into the anchor", async () => {
     vision();
-    const generate = vi
-      .fn()
-      .mockResolvedValue({
-        bytes: new Uint8Array([1]),
-        mime: "image/png",
-        provider: "test",
-        model: "test",
-      });
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1]),
+      mime: "image/png",
+      provider: "test",
+      model: "test",
+    });
     for (let n = 0; n < 2; n++)
       await generateTessImage({
         provider: { name: "test", model: "test", referenceConditioning: true, generate },
@@ -195,14 +191,12 @@ describe("every shared generation path anchors original portraits", () => {
   });
   it("withholds a mismatched generation with safe diagnostics and zero regeneration", async () => {
     vision({ ...good, visual_design: "mismatch", reason: "face_structure_drift" });
-    const generate = vi
-      .fn()
-      .mockResolvedValue({
-        bytes: new Uint8Array([1]),
-        mime: "image/png",
-        provider: "test",
-        model: "test",
-      });
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1]),
+      mime: "image/png",
+      provider: "test",
+      model: "test",
+    });
     await expect(
       generateTessImage({
         provider: { name: "test", model: "test", referenceConditioning: true, generate },
@@ -220,5 +214,19 @@ describe("every shared generation path anchors original portraits", () => {
       },
     });
     expect(generate).toHaveBeenCalledTimes(1);
+  });
+  it("rejects unsupported shared-event group portraits before buying an image", async () => {
+    vision();
+    const generate = vi.fn();
+    await expect(
+      generateTessImage({
+        provider: { name: "test", model: "test", referenceConditioning: true, generate },
+        type: "casual_selfie",
+        scene: "a group selfie of Ben and Claire at the gathering",
+        expression: null,
+        identity: { key: "ben", name: "Ben", age: 36, pronouns: "he/him", appearance: "" },
+      }),
+    ).rejects.toMatchObject({ diagnostics: { failureReason: "unsupported_group_photo" } });
+    expect(generate).not.toHaveBeenCalled();
   });
 });

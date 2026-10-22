@@ -363,7 +363,10 @@ async function runTurnUnlocked(
     def.preferredName,
   )];
 
-  const schedule = storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
+  const { sharedPlanContext } = await import("./shared-world.server");
+  const shared = await sharedPlanContext(supabase, userId, def.key, now);
+  if (shared) worldKnowledge.unshift(`ACTIVE SHARED PLAN: ${shared.summary} Photos may show only you, objects or the environment; group portraits are not supported.`);
+  const schedule = shared ?? storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
   const realTime = !!conv.real_time_mode;
   // Never charge for an image or mutate relationship state before the sleep boundary.
   if (schedule.availability === "asleep" && (realTime || initiation)) {
@@ -698,7 +701,8 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
             weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
           )
         : null);
-      const schedule = storySchedule(currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1), story.event);
+      const { sharedPlanContext } = await import("./shared-world.server");
+      const schedule = await sharedPlanContext(supabase, userId, def.key, now) ?? storySchedule(currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1), story.event);
 
       // Who's been carrying the conversation lately?
       const list = (recentMsgs ?? []).filter((m) => m.sender === "user" || m.sender === "tess");
@@ -941,7 +945,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
           weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
         )
       : null;
-    const schedule = currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1);
+    const { sharedPlanContext } = await import("./shared-world.server");
+    const schedule = await sharedPlanContext(supabase, userId, def.key, now) ?? currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1);
     const gapHours = last ? (Date.now() - new Date(last.created_at).getTime()) / 3_600_000 : 0;
     const list = recentMsgs ?? [];
     const userCount = list.filter((m) => m.sender === "user").length;

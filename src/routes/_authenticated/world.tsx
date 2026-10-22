@@ -1,3 +1,4 @@
+import { SharedWorldProof } from "@/components/SharedWorldProof";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -57,6 +58,7 @@ function WorldPage() {
     <>
       <ScreenHeader title="Living world" backTo="/settings" />
       <Screen>
+        {q.data?.developerActions && <SharedWorldProof />}
         {aiPause?.paused && (
           <div className="rounded-2xl border border-destructive/40 bg-destructive/10 p-4 text-sm">
             <div className="font-medium text-destructive">AI generation is paused</div>
