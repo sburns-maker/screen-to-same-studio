@@ -35,7 +35,7 @@ export function scheduleFor(now: Date, chaos = 1): TessActivity {
   const daySeed = Math.floor(now.getTime() / 86_400_000);
   const chaoticDay = (daySeed * 31 + 7) % 5 < 2 * chaos; // ~2 in 5 workdays
 
-  if (hour < 6 || (hour === 6 && !weekend)) return { activity: "asleep", availability: "asleep", detail: "asleep — it's before her alarm" };
+  if (hour >= 23 || hour < 6 || (hour === 6 && !weekend)) return { activity: "asleep", availability: "asleep", detail: "asleep — it's before her alarm" };
   if (hour < 7) return { activity: "waking up", availability: "limited", detail: "just waking up, coffee, Mabel wants out" };
   if (hour < 8) return { activity: "walking Mabel", availability: "limited", detail: "morning Mabel walk / getting ready for the day" };
 

@@ -33,6 +33,7 @@ describe("turn safety on provider failure", () => {
         const query: Record<string, unknown> = {};
         for (const method of [
           "select",
+          "or",
           "eq",
           "lte",
           "gt",

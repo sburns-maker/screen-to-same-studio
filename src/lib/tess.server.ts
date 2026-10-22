@@ -399,7 +399,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const { topicGuidance, LIFE_BREADTH } = await import("./tess-topics");
   const ownLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
-  const topics = args.initiation ? "" : topicGuidance(ownLines, lastUserText, c.key);
+  const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
   const reply = await runStructured(replySchema, `${system}\n${rules}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.${breadth}`, `${context}\n\n${task}${topics ? `\n${topics}` : ""}`);
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
@@ -418,6 +418,7 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
   if (!key) return null;
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(20_000),
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: ownKey ? "gpt-4.1-mini" : "google/gemini-3.8-flash",
@@ -428,7 +429,7 @@ export async function describeImage(dataUrl: string): Promise<string | null> {
       ],
     }),
   });
-  if (!res.ok) { console.error("describeImage", res.status, await res.text()); return null; }
+  if (!res.ok) { console.warn("describeImage unavailable", res.status); return null; }
   const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   return j.choices?.[0]?.message?.content?.trim().slice(0, 400) || null;
 }

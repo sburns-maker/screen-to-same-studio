@@ -1,3 +1,4 @@
+import { attachmentPresent, photoOpportunity, PHOTO_TENDENCIES } from "./photo-opportunities";
 import { applyDisruption, disruptionFor } from "./daily-disruptions";
 import { recallMemories, type MemoryRow } from "./memory-recall";
 import { createServerFn } from "@tanstack/react-start";
@@ -16,10 +17,9 @@ import {
 } from "./tess-logic";
 import {
   FREQUENCY_RULES,
-  curatedFallback,
   describeStyle,
   eligiblePhotos,
-  varyStyle,
+  repeatsPhotoComposition,
   type PhotoFrequency,
   type PhotoStyle,
   photoMomentHint,
@@ -113,7 +113,7 @@ export const inboxOverview = createServerFn({ method: "POST" })
         const [{ data: last }, { count }] = await Promise.all([
           supabase
             .from("messages")
-            .select("sender, body, created_at, metadata")
+            .select("id, sender, body, created_at, metadata")
             .eq("conversation_id", conv.id)
             .lte("visible_at", nowIso)
             .order("created_at", { ascending: false })
@@ -167,6 +167,7 @@ async function createGeneratedPhoto(
   expression: string | null,
   style: PhotoStyle | null,
   def?: CharacterDef,
+  actionId?: string,
 ) {
   // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
   const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
@@ -194,7 +195,7 @@ async function createGeneratedPhoto(
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
   const img = await generateTessImage({ provider, tessReference, mabelReference, type: t, scene, expression, style, identity });
-  const path = `${userId}/${crypto.randomUUID()}.png`;
+  const path = `${userId}/${actionId ?? crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
   return {
@@ -241,7 +242,7 @@ async function describeUserPhotos<T extends PhotoMsg>(supabase: Sb, convId: stri
           }
         }
       } catch (e) {
-        console.error("photo describe failed", e);
+        console.warn("User photo description unavailable");
       }
     }
     const tag = `[He sent a photo: ${desc || "couldn't make it out clearly"}]`;
@@ -254,7 +255,7 @@ async function describeUserPhotos<T extends PhotoMsg>(supabase: Sb, convId: stri
 // Failed provider calls are never retried here and make no simulation writes.
 const activeTurns = new Map<string, Promise<Awaited<ReturnType<typeof runTurnUnlocked>>>>();
 export function runTurn(...args: Parameters<typeof runTurnUnlocked>) {
-  const key = `${args[1]}:${args[2]}`;
+  const key = `${args[1]}:${args[2]}${args[4]?.developerPhoto === "preview" ? ":preview" : ""}`;
   const active = activeTurns.get(key);
   if (active) return active;
   const turn = runTurnUnlocked(...args).finally(() => activeTurns.delete(key));
@@ -267,7 +268,7 @@ async function runTurnUnlocked(
   userId: string,
   conversationId: string,
   tz: string,
-  initiation?: { gapHours: number; reason?: string | null },
+  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; developerPhoto?: "preview" | "deliver" },
 ) {
   const { generateTessReply, generateContactReply } = await import("./tess.server");
   const conv = await loadConversation(supabase, userId, conversationId);
@@ -275,15 +276,24 @@ async function runTurnUnlocked(
   const def = characterFor(conv.character?.key);
   const isTess = def.key === "tess";
   const nowIso = new Date().toISOString();
+  // Recover the durable outbox before any new paid generation.
+  const photoAdmin = process.env["SUPABASE_SERVICE_ROLE_KEY"]
+    ? (await import("@/integrations/supabase/client.server")).supabaseAdmin : null;
+  if (photoAdmin && initiation?.developerPhoto !== "preview") {
+    const { recoverPhotoDelivery } = await import("./photo-delivery.server");
+    const recovered = await recoverPhotoDelivery(photoAdmin, conv.id, userId);
+    if (recovered) return recovered;
+  }
 
   const [{ data: stateRow }, { data: msgs }, { data: mems }, { data: recentGen }] = await Promise.all([
     supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
     supabase
       .from("messages")
-      .select("sender, body, created_at, metadata")
+      .select("id, sender, body, created_at, metadata")
       .eq("conversation_id", conv.id)
       .lte("visible_at", nowIso)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(40),
     supabase
       .from("memories")
@@ -294,13 +304,20 @@ async function runTurnUnlocked(
     def.photosEnabled
       ? supabase
           .from("generated_images")
-          .select("pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
+          .select("scene, pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
           .eq("conversation_id", conv.id)
-          .eq("includes_tess", true)
           .order("created_at", { ascending: false })
           .limit(5)
       : Promise.resolve({ data: null }),
   ]);
+  const actionAnchor = initiation
+    ? (initiation.photoKey ?? `${conv.id}:${def.key}:${Math.floor(Date.now() / (PHOTO_TENDENCIES[def.key].hours * 3_600_000))}`)
+    : `reply:${(msgs ?? []).find((m) => m.sender === "user")?.id ?? "initial"}`;
+  const actionKey = `${userId}:${conv.id}:${actionAnchor}`;
+  if (photoAdmin && initiation?.developerPhoto !== "preview") {
+    const { existingPhotoAction } = await import("./photo-delivery.server");
+    if (await existingPhotoAction(photoAdmin, actionKey)) return { count: 0, lastVisibleAt: null, replayed: true };
+  }
   const recentStyles = (recentGen ?? []) as PhotoStyle[];
 
   const state = pickState(stateRow ?? {}, def.seedState);
@@ -310,7 +327,7 @@ async function runTurnUnlocked(
     boundary: (["none", "selfies", "all_photos", "mature"].includes(conv.photo_boundary) ? conv.photo_boundary : "all_photos") as PhotoBoundary,
   };
   const difficulty = (conv.difficulty as Difficulty) ?? "realistic";
-  const recent = await describeUserPhotos(supabase, conv.id, msgs ?? []);
+  const recent = initiation?.developerPhoto === "preview" ? (msgs ?? []) : await describeUserPhotos(supabase, conv.id, msgs ?? []);
 
   // Fictional-world context: schedule, rotating life event, regional weather (all contacts live near ZIP 16602).
   const now = new Date();
@@ -326,7 +343,7 @@ async function runTurnUnlocked(
       return m.body;
     })(),
   }));
-  const recentText = recent.slice(0, 6).map((m) => m.body ?? "").join(" ");
+  const recentText = [initiation?.reason ?? "", ...recent.slice(0, 6).map((m) => m.body ?? "")].join(" ");
   const memoryList = recallMemories((mems ?? []) as MemoryRow[], recentText, new Date())
     .map((m) => `${m.memory_type}: ${m.summary}`);
 
@@ -342,102 +359,73 @@ async function runTurnUnlocked(
     def.preferredName,
   )];
 
-  let reply: import("./tess.server").TessReply;
-  let photos: ReturnType<typeof eligiblePhotos> = [];
-  let generateTypes: string[] = [];
-  let freq: PhotoFrequency = "normal";
-  let lifeEvent: LifeEvent | null = story.event;
-  // Own messages since this character's last photo (recent is newest-first).
+  const schedule = storySchedule(isTess
+    ? (() => { const base = scheduleFor(now, difficulty === "chaos" ? 2 : 1); return applyDisruption(base, disruptionFor("tess", now, base.activity.startsWith("at work"))); })()
+    : (() => { const a = characterAvailability(def, now); return { activity: a.detail, availability: a.availability, detail: a.detail }; })(), story.event);
+  const realTime = !!conv.real_time_mode;
+  // Never charge for an image or mutate relationship state before the sleep boundary.
+  if (schedule.availability === "asleep" && (realTime || initiation)) {
+    return { count: 0, lastVisibleAt: null, reason: "asleep" };
+  }
+  const freq = (conv.photo_frequency ?? "normal") as PhotoFrequency;
   const ownMsgs = recent.filter((m) => m.sender === "tess");
-  const lastPhotoIdx = ownMsgs.findIndex((m) => {
-    const md = m.metadata as { photo?: string; generated_image_id?: string; generated_path?: string } | null;
-    return !!(md?.photo || md?.generated_image_id || md?.generated_path);
+  const photoIdx = ownMsgs.findIndex((m) => attachmentPresent(m.metadata));
+  const ownSinceLastPhoto = photoIdx < 0 ? ownMsgs.length + 99 : photoIdx;
+  // Query the last attachment independently: 40-message context is not a time limit.
+  const { data: lastPhoto, error: lastPhotoError } = await supabase.from("messages").select("created_at")
+    .eq("conversation_id", conv.id).eq("sender", "tess")
+    .or("metadata->>photo.not.is.null,metadata->>generated_path.not.is.null,metadata->>generated_image_id.not.is.null")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (lastPhotoError) throw new Error("Photo frequency history unavailable");
+  const timeSincePhoto = lastPhoto ? now.getTime() - Date.parse(lastPhoto.created_at) : Infinity;
+  const minMessages = initiation ? Math.min(FREQUENCY_RULES[freq].cooldown, PHOTO_TENDENCIES[def.key].messages) : FREQUENCY_RULES[freq].cooldown;
+  const cooldown = ownSinceLastPhoto < minMessages || timeSincePhoto < 3_600_000;
+  const photoCompatible = schedule.availability !== "asleep" && schedule.availability !== "busy"
+    && !/driv|surgery|emergency|patient|phone (?:down|away)/i.test(schedule.detail);
+  let generateTypes = cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
+  const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
+  let photos = isTess && !cooldown && photoCompatible
+    ? eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object")) : [];
+  const lifeEvent = story.event ?? (isTess ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined) : null);
+  const opportunity = photoOpportunity({
+    character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
+    eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
+    ownSinceLastPhoto, gapHours: initiation?.gapHours ?? 0,
+    context: initiation?.reason || lifeEvent?.summary || schedule.detail,
+    preview: !!initiation?.developerPhoto, activeConversation: !initiation,
   });
-  const ownSinceLastPhoto = lastPhotoIdx === -1 ? ownMsgs.length + 99 : lastPhotoIdx;
-
+  if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
+  if (initiation?.developerPhoto === "preview") {
+    const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null }) : null;
+    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes,
+      providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
+      textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
+      deliveryMigrationReady: !!migration && !migration.error };
+  }
+  if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason };
+  if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
+  const photoHint = opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 });
+  let reply: import("./tess.server").TessReply;
   if (isTess) {
-    const sentPhotos = new Set(
-      recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean) as string[],
-    );
-    freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
-    const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
-    const hasPhoto = (m: { metadata: unknown }) => {
-      const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
-      return !!(md?.photo || md?.generated_image_id);
-    };
-    // Cooldown counts Tess's own messages since her last photo (no fixed "every N" pattern: model + chance decide).
-    const tessRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
-    const recentlySentPhoto = tessRecent.some(hasPhoto);
-    photos = recentlySentPhoto
-      ? []
-      : eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object"));
-    generateTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, photoContext);
-
-    lifeEvent = story.event ?? activeLifeEvent(
-      now,
-      weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined,
-    );
-    const flavor = weather ? weatherFlavor(weather) : null;
-
     reply = await generateTessReply({
-      state,
-      stage: deriveStage(state),
-      difficulty,
-      messages: messageList,
-      photos,
-      generateTypes,
-      photoFrequency: freq,
-      recentPhotoStyles: recentStyles.map(describeStyle),
-      memories: memoryList,
-      tz,
-      initiation,
-      weather,
-      weatherFlavor: flavor,
-      lifeEvent,
-      initiationReason: initiation?.reason ?? null,
-      photoBoundary: photoContext.boundary,
-      photoHint: photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
-      worldKnowledge,
-      availabilityDetail: (() => { const b = scheduleFor(now, difficulty === "chaos" ? 2 : 1); return storySchedule(applyDisruption(b, disruptionFor("tess", now, b.activity.startsWith("at work"))), story.event).detail; })(),
+      state, stage: deriveStage(state), difficulty, messages: messageList, photos, generateTypes,
+      photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
+      tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
+      initiationReason: initiation?.reason ?? null, photoBoundary: photoContext.boundary,
+      photoHint, worldKnowledge, availabilityDetail: schedule.detail,
     });
   } else {
-    const avail = characterAvailability(def, now);
-    if (def.photosEnabled) {
-      freq = ((conv as { photo_frequency?: string }).photo_frequency ?? "normal") as PhotoFrequency;
-      const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
-      const hasPhoto = (m: { metadata: unknown }) => {
-        const md = m.metadata as { photo?: string; generated_image_id?: string } | null;
-        return !!(md?.photo || md?.generated_image_id);
-      };
-      const ownRecent = recent.filter((m) => m.sender === "tess").slice(0, rules.cooldown);
-      const recentlySentPhoto = ownRecent.some(hasPhoto);
-      generateTypes = recentlySentPhoto
-        ? []
-        : eligiblePhotoCategories(state, photoContext);
-    }
     reply = await generateContactReply({
-      character: def,
-      state,
-      stage: deriveStage(state),
-      difficulty,
-      messages: messageList,
-      memories: memoryList,
-      tz,
-      initiation,
-      initiationReason: initiation?.reason ?? null,
-      availabilityDetail: storySchedule({ activity: avail.detail, availability: avail.availability, detail: avail.detail }, story.event).detail,
-      weather,
-      generateTypes,
-      recentPhotoStyles: recentStyles.map(describeStyle),
-      photoBoundary: photoContext.boundary,
-      photoHint: def.photosEnabled ? photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: generateTypes.length > 0 }) : "",
-      worldKnowledge,
+      character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
+      memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
+      availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
+      photoBoundary: photoContext.boundary, photoHint, worldKnowledge,
     });
-    if (!def.photosEnabled) reply.photo = null;
-    else if (reply.photo?.action === "generate" && !generateTypes.includes(reply.photo.type ?? "")) reply.photo = null;
-    else if (reply.photo && reply.photo.action !== "generate") reply.photo = null; // no curated library for contacts
+    if (!def.photosEnabled || (reply.photo && reply.photo.action !== "generate")) reply.photo = null;
   }
+  if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character declined the opportunity" };
 
+  const proposedPhoto = !!reply.photo;
   const boundary = nextPhotoBoundary(photoContext.boundary, reply.photo_boundary_decision, !!reply.photo);
   if (reply.photo_boundary_decision === "reopen") reply.photo = null;
   if (reply.photo) {
@@ -446,10 +434,11 @@ async function runTurnUnlocked(
     const eligible = reply.photo.action === "fixed" && fixed ? [category] : generateTypes;
     if (!category || !willingPhotoAllowed({ type: category as import("./photo-policy").PhotoCategory,
       willing: reply.photo.willing, contextual: reply.photo.contextual, framing: reply.photo.framing,
-      eligible: eligible.filter((t): t is string => !!t), state,
+      eligible: eligible.filter((t) => t !== null), state,
       context: { ...photoContext, boundary },
     })) reply.photo = null;
   }
+  if (proposedPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "photo decision did not pass policy checks" };
   const delta = sanitizeDelta(reply.state_delta, difficulty);
   if (!def.romanticCapable) {
     delta.romantic_attraction = 0;
@@ -468,16 +457,13 @@ async function runTurnUnlocked(
     reply.event_tags = normalizeEventTags(reply.event_tags ?? [], reply.tone ?? "", def.romanticCapable);
   }
 
-  // The contact hadn't actually "sent" pending replies yet — let them reconsider with the new context.
-  if (!initiation) {
-    await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso);
+  let photoAction: string | null = null;
+  if (reply.photo || photoAdmin) {
+    if (!photoAdmin) return { count: 0, lastVisibleAt: null, reason: "server photo delivery is not configured" };
+    const { reservePhotoAction } = await import("./photo-delivery.server");
+    photoAction = await reservePhotoAction(photoAdmin, { key: actionKey, conversationId: conv.id, userId });
+    if (!photoAction) return { count: 0, lastVisibleAt: null, replayed: true };
   }
-
-  await supabase
-    .from("tess_state")
-    .update({ ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone, updated_at: nowIso })
-    .eq("conversation_id", conv.id);
-  await supabase.from("conversations").update({ relationship_stage: stage, photo_boundary: boundary, updated_at: nowIso }).eq("id", conv.id);
 
   // --- Photo: Tess curated first, then optional generation; other contacts generate only. Failures stay invisible.
   let photo: string | null = null;
@@ -486,10 +472,7 @@ async function runTurnUnlocked(
   if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
-    const rules = FREQUENCY_RULES[freq] ?? FREQUENCY_RULES.normal;
-    // A requested on-demand photo the character chose to send is honored; the random roll only thins unprompted ones.
-    const askedForPhoto = /\b(photo|pic|picture|selfie|snap|show me|send me)\b/i.test(recentText);
-    if (askedForPhoto || Math.random() < rules.generateChance) {
+    {
       try {
         const rawStyle: PhotoStyle = {
           pose_type: p.pose_type,
@@ -502,27 +485,28 @@ async function runTurnUnlocked(
           selfie_type: p.selfie_type,
         };
         // Context first, variety second: only nudge an exact repeat of a recent photo.
-        const style = varyStyle(rawStyle, recentStyles);
-        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def);
+        if (repeatsPhotoComposition(rawStyle, recentStyles) || (recentGen ?? []).some((old) => old.scene.trim().toLowerCase() === p.scene!.trim().toLowerCase())) {
+          throw new Error("repeated photo composition");
+        }
+        const style = rawStyle;
+        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!);
       } catch (e) {
-        console.error("photo generation failed", e);
-        if (isTess) photo = curatedFallback(p.scene, photos);
+        console.warn("[character-photo] generation unavailable; no image will be regenerated for this action");
       }
     }
   }
+  if (photoAction && reply.photo && !photo && !generated) {
+    const { failPhotoAction } = await import("./photo-delivery.server");
+    await failPhotoAction(photoAdmin!, photoAction);
+    return { count: 0, lastVisibleAt: null, reason: "photo unavailable; action will not be recharged on retry" };
+  }
+  const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
   if ((photo || generated) && !bubbles.length) bubbles.push("");
 
   // Latency: practice mode keeps the 3s–4min delay; Real-Time Mode follows the contact's schedule.
-  const realTime = !!(conv as { real_time_mode?: boolean }).real_time_mode;
   const lastUserMsg = recent.find((m) => m.sender === "user");
   const activelyChatting = !!lastUserMsg && Date.now() - new Date(lastUserMsg.created_at).getTime() < 5 * 60_000;
-  const schedule = storySchedule(isTess
-    ? scheduleFor(now, difficulty === "chaos" ? 2 : 1)
-    : (() => {
-        const a = characterAvailability(def, now);
-        return { activity: a.detail, availability: a.availability, detail: a.detail };
-      })(), story.event);
   const latency = initiation
     ? { seconds: 3 as number | null, reason: "initiation — no reply delay" }
     : decideLatency({
@@ -540,9 +524,11 @@ async function runTurnUnlocked(
   // Practice delays stay 3s–4min; real-time delays may run longer (work, events).
   const delaySec = realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
   let at = Date.now() + delaySec * 1000;
+  const notificationGroup = photoAction ?? crypto.randomUUID();
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
     return {
+      id: crypto.randomUUID(),
       conversation_id: conv.id,
       user_id: userId,
       sender: "tess",
@@ -553,52 +539,14 @@ async function runTurnUnlocked(
         tone: reply.tone,
         tags: reply.event_tags,
         initiated: !!initiation,
+        notification_group: notificationGroup,
+        push_primary: i === 0,
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
-        ...(generated && i === 0 ? { generated_path: generated.path, photo_type: generated.type } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type } : {}),
       },
     };
   });
-  if (rows.length) {
-    const { data: inserted } = await supabase.from("messages").insert(rows).select("id");
-    if (generated && inserted?.[0]) {
-      const { data: img } = await supabase
-        .from("generated_images")
-        .insert({
-          conversation_id: conv.id,
-          message_id: inserted[0].id,
-          user_id: userId,
-          photo_type: generated.type,
-          scene: generated.scene,
-          includes_tess: generated.tess,
-          is_selfie: generated.selfie,
-          relationship_stage: stage,
-          state_snapshot: next,
-          provider: generated.provider,
-          model: generated.model,
-          storage_path: generated.path,
-          pose_type: generated.style?.pose_type ?? null,
-          camera_angle: generated.style?.camera_angle ?? null,
-          crop_type: generated.style?.crop_type ?? null,
-          hairstyle: generated.style?.hairstyle ?? null,
-          expression: generated.style?.expression ?? null,
-          clothing_category: generated.style?.clothing_category ?? null,
-          setting: generated.style?.setting ?? null,
-          selfie_type: generated.style?.selfie_type ?? null,
-          identity_reference_used: generated.identityReferenceUsed,
-        })
-        .select("id")
-        .single();
-      const firstRow = rows[0];
-      if (img && firstRow) {
-        await supabase
-          .from("messages")
-          .update({ metadata: { ...firstRow.metadata, generated_image_id: img.id } })
-          .eq("id", inserted[0].id);
-      }
-    }
-  }
-
   const { data: existingMem } = await supabase
     .from("memories")
     .select("summary")
@@ -623,12 +571,47 @@ async function runTurnUnlocked(
       summary: m.summary.slice(0, 300),
       importance: Math.min(5, Math.max(1, Math.round(m.importance || 3))),
     }));
+  if (photoAction && photoAdmin) {
+    const { preparePhotoDelivery } = await import("./photo-delivery.server");
+    const generatedRow = generated ? {
+      id: generatedId, created_at: new Date().toISOString(), conversation_id: conv.id,
+      message_id: rows[0]!.id, user_id: userId, photo_type: generated.type, scene: generated.scene,
+      includes_tess: generated.tess, is_selfie: generated.selfie, relationship_stage: stage, state_snapshot: next,
+      provider: generated.provider, model: generated.model, storage_path: generated.path,
+      pose_type: generated.style?.pose_type ?? null, camera_angle: generated.style?.camera_angle ?? null,
+      crop_type: generated.style?.crop_type ?? null, hairstyle: generated.style?.hairstyle ?? null,
+      expression: generated.style?.expression ?? null, clothing_category: generated.style?.clothing_category ?? null,
+      setting: generated.style?.setting ?? null, selfie_type: generated.style?.selfie_type ?? null,
+      identity_reference_used: generated.identityReferenceUsed,
+    } : null;
+    return preparePhotoDelivery(photoAdmin, photoAction, userId, conv.id, {
+      expectedStateUpdatedAt: stateRow?.updated_at ?? null,
+      lastUserId: recent.find((m) => m.sender === "user")?.id ?? null,
+      initiation: !!initiation, pendingBefore: nowIso, rows, generated: generatedRow,
+      state: { ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone },
+      stage, boundary, memories: memRows,
+    } as unknown as import("@/integrations/supabase/types").Json);
+  }
+  // Text-only turns retain the existing persistence path. Never delete a paid pending photo.
+  if (!initiation) {
+    const { error } = await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso)
+      .is("metadata->>generated_path", null).is("metadata->>photo", null);
+    if (error) throw new Error("Could not replace pending text replies");
+  }
+  const { error: stateError } = await supabase.from("tess_state").update({ ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone, updated_at: nowIso }).eq("conversation_id", conv.id);
+  if (stateError) throw new Error("Could not save relationship state");
+  const { error: convError } = await supabase.from("conversations").update({ relationship_stage: stage, photo_boundary: boundary, updated_at: nowIso }).eq("id", conv.id);
+  if (convError) throw new Error("Could not save conversation");
+  if (rows.length) {
+    const { error } = await supabase.from("messages").insert(rows);
+    if (error) throw new Error("Could not save reply");
+  }
   if (memRows.length) {
-    const { error: memErr } = await supabase.from("memories").insert(memRows);
-    if (memErr) console.error("memory insert failed", memErr.message);
+    const { error } = await supabase.from("memories").insert(memRows);
+    if (error) throw new Error("Could not save memories");
   }
 
-  return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null };
+  return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null, notificationGroup };
 }
 
 export const tessRespond = createServerFn({ method: "POST" })
@@ -727,13 +710,16 @@ export const tessMaybeInitiate = createServerFn({ method: "POST" })
         },
         updated_at: now.toISOString(),
       });
-      if (!decision.initiate) {
+      const { evaluateSpontaneousPhoto } = await import("./spontaneous-photo.server");
+      const photoChance = await evaluateSpontaneousPhoto(supabase, { def, conversation: conv, state, schedule, now,
+        gapHours, lastInitiatedAt: life?.last_initiated_at ?? null, context: lifeEvent?.summary ?? schedule.detail });
+      if (!decision.initiate && !photoChance.selected) {
         results.push({ conversationId: conv.id, count: 0 });
         continue;
       }
 
-      const reason = lifeEvent?.summary ?? flavor ?? null;
-      const result = await runTurn(supabase, userId, conv.id, data.tz, { gapHours, reason });
+      const reason = photoChance.selected ? photoChance.hint : lifeEvent?.summary ?? flavor ?? null;
+      const result = await runTurn(supabase, userId, conv.id, data.tz, { gapHours, reason, ...(photoChance.selected ? { photoKey: photoChance.key } : {}) });
       if (result.count > 0) {
         await supabase
           .from("tess_life")
@@ -862,6 +848,24 @@ export const updateSettings = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Allowlisted developer opportunity: preview is read-only; delivery uses the normal character turn. */
+export const developerPhotoOpportunity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid(), requestId: z.string().uuid(),
+    mode: z.enum(["preview", "deliver"]), context: z.string().trim().min(1).max(1500) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer photo actions are disabled");
+    const conv = await loadConversation(context.supabase, context.userId, data.conversationId);
+    if (!conv) throw new Error("No conversation");
+    const { data: last } = await context.supabase.from("messages").select("created_at")
+      .eq("conversation_id", conv.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const gapHours = last ? (Date.now() - Date.parse(last.created_at)) / 3_600_000 : 999;
+    return runTurn(context.supabase, context.userId, conv.id, "America/New_York", {
+      gapHours, reason: data.context, photoKey: `developer:${data.requestId}`, developerPhoto: data.mode,
+    });
+  });
+
 /** Everything the hidden debug screen needs, computed server-side. */
 export const debugSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -950,6 +954,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     });
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
     return {
+      photoDeveloperTools: (await import("./spontaneous-photo.server")).developerPhotosAllowed(userId),
       character: { key: def.key, name: def.preferredName, fullName: def.fullName, photosEnabled: def.photosEnabled },
       state,
       lastDelta: JSON.parse(JSON.stringify(stateRow?.last_delta ?? {})) as Record<string, number | string | string[]>,
