@@ -41,15 +41,27 @@ export function eligiblePhotoCategories(s: TessState, c: PhotoContext): PhotoCat
       : ordinary.includes(t)));
 }
 
-export function willingPhotoAllowed(args: {
+export function photoDecisionReason(args: {
   type: PhotoCategory; willing: boolean; contextual: boolean;
   framing: "ordinary" | "romantic"; eligible: readonly string[];
   state: TessState; context: PhotoContext;
-}): boolean {
-  if (!args.willing || !args.contextual || !args.eligible.includes(args.type)) return false;
-  if (!boundaryAllows(args.context.boundary, args.type)) return false;
-  if (args.type === "mature_romantic" && (!args.context.matureEnabled || args.framing !== "romantic")) return false;
-  return args.framing !== "romantic" || romanticPhotoEligible(args.state, args.context);
+}): string | null {
+  if (!args.willing) return "character did not consent to share this photo";
+  if (!args.contextual) return "character did not identify a contextual reason to share";
+  if (!boundaryAllows(args.context.boundary, args.type))
+    return `photo boundary blocks ${args.type} (boundary: ${args.context.boundary})`;
+  if (!args.eligible.includes(args.type))
+    return `photo category ${args.type} not eligible (allowed: ${args.eligible.join(", ") || "none"})`;
+  if (args.type === "mature_romantic" &&
+      (!args.context.matureEnabled || args.framing !== "romantic"))
+    return "mature romantic category requires enabled preference and romantic framing";
+  if (args.framing === "romantic" && !romanticPhotoEligible(args.state, args.context))
+    return "romantic framing blocked by relationship readiness";
+  return null;
+}
+
+export function willingPhotoAllowed(args: Parameters<typeof photoDecisionReason>[0]): boolean {
+  return photoDecisionReason(args) === null;
 }
 
 /** Refusals persist until the character independently reopens, without sending in that turn. */
