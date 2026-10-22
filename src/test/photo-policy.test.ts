@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CHARACTERS } from "@/lib/characters";
 import { SEED_STATE } from "@/lib/tess-logic";
 import { eligiblePhotos } from "@/lib/tess-photos";
-import { photoCapabilities, eligiblePhotoCategories, willingPhotoAllowed, nextPhotoBoundary, safePhotoScene, type PhotoContext } from "@/lib/photo-policy";
+import { photoCapabilities, eligiblePhotoCategories, willingPhotoAllowed, photoDecisionReason, nextPhotoBoundary, safePhotoScene, type PhotoContext } from "@/lib/photo-policy";
 
 const context: PhotoContext = { age: 35, enabled: true, romanticCapable: true,
   supported: CHARACTERS.claire.photoTypes, matureEnabled: false, boundary: "none" };
@@ -30,6 +30,16 @@ describe("photo autonomy and boundaries", () => {
   });
   it("attraction alone does not establish romantic intent", () => {
     expect(eligiblePhotoCategories({ ...romantic, romantic_intent: 0 }, { ...context, matureEnabled: true })).not.toContain("mature_romantic");
+  });
+  it("diagnoses ordinary messy-hair selfies without treating them as romantic", () => {
+    const args = { type: "casual_selfie" as const, willing: true, contextual: true,
+      framing: "ordinary" as const, eligible: ["casual_selfie"], state: close, context };
+    expect(photoDecisionReason(args)).toBeNull();
+    expect(photoDecisionReason({ ...args, eligible: ["object"] })).toContain("not eligible");
+    expect(photoDecisionReason({ ...args, willing: false })).toContain("did not consent");
+    expect(photoDecisionReason({ ...args, contextual: false })).toContain("contextual");
+    expect(photoDecisionReason({ ...args, context: { ...context, boundary: "selfies" as const } })).toContain("boundary");
+    expect(photoDecisionReason({ ...args, framing: "romantic" })).toContain("romantic framing");
   });
   it("eligibility never guarantees willingness", () => {
     expect(willingPhotoAllowed({ type: "personal_selfie", willing: false, contextual: true, framing: "ordinary",
