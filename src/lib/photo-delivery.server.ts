@@ -76,7 +76,7 @@ export async function reservePhotoAction(
   args: { key: string; conversationId: string; userId: string },
 ): Promise<string | null> {
   // Probe the migration before any paid image request. Missing RPC fails closed.
-  const { error: unsupported } = await admin.rpc("deliver_photo_turn", { p_job_id: null });
+  const { error: unsupported } = await admin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string });
   if (unsupported) throw new Error("Photo delivery migration is not installed");
   const id = await photoActionId(args.key);
   const { error } = await admin.from("job_runs").insert({
