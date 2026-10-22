@@ -7,7 +7,7 @@ export async function worldDatabase() {
   const db = new PGlite();
   await db.exec(`CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
     CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$;
-    CREATE SCHEMA storage; CREATE TABLE storage.objects (id uuid,bucket_id text,name text);
+    CREATE SCHEMA storage; CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); CREATE TABLE storage.objects (id uuid,bucket_id text,name text);
     CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$ SELECT string_to_array($1,'/') $$;`);
   for (const file of [
     "0000_migration",
@@ -22,6 +22,7 @@ export async function worldDatabase() {
     "0010_persistent_world",
     "0011_shared_world_plans",
     "0012_town_exploration",
+    "0013_user_video_uploads",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   return db;

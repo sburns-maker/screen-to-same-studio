@@ -1,3 +1,4 @@
+import type { VideoTables, VideoFunctions } from "./video-types";
 import type { TownTables, TownFunctions } from "./town-types";
 import type { SharedWorldTables, SharedWorldFunctions } from "./shared-world-types";
 import type { Json } from "./types";
@@ -45,7 +46,8 @@ export type MediaAttempt = {
   storage_path: string | null;
   created_at: string;
 };
-export type WorldTables = TownTables &
+export type WorldTables = VideoTables &
+  TownTables &
   SharedWorldTables & {
     character_world_state: Table<
       WorldState,
@@ -72,7 +74,8 @@ export type WorldTables = TownTables &
     >;
     media_attempts: Table<MediaAttempt, "action_id" | "conversation_id" | "user_id">;
   };
-export type WorldFunctions = TownFunctions &
+export type WorldFunctions = VideoFunctions &
+  TownFunctions &
   SharedWorldFunctions & {
     reserve_world_ai: { Args: { p_user_id: string; p_limit: number }; Returns: boolean };
     world_runtime_status: { Args: Record<string, never>; Returns: Json };

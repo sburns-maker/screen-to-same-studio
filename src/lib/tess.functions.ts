@@ -1,3 +1,4 @@
+import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
 import { continuityContext, reserveImageBudget, imageBudgetStatus, reserveWorldAi } from "./world-runtime.server";
 import { attachmentPresent, photoOpportunity, PHOTO_TENDENCIES } from "./photo-opportunities";
@@ -130,7 +131,7 @@ export const inboxOverview = createServerFn({ method: "POST" })
         const def = characterFor(conv.character?.key);
         const md = (last?.metadata ?? null) as { photo?: string; generated_path?: string } | null;
         const preview = last
-          ? last.body?.trim() || (md?.photo || md?.generated_path ? "Sent a photo" : "")
+          ? last.body?.trim() || (userVideoMetadata(last.metadata) ? "Sent a video" : md?.photo || md?.generated_path ? "Sent a photo" : "")
           : "";
         return {
           id: conv.id as string,
@@ -220,6 +221,10 @@ async function describeUserPhotos<T extends PhotoMsg>(supabase: Sb, convId: stri
   let described = 0;
   for (const m of list) {
     const md = (m.metadata ?? {}) as { user_photo?: string; photo_desc?: string };
+    if (m.sender === "user" && userVideoMetadata(m.metadata)) {
+      out.push({ ...m, body: videoTranscriptText(m.body, m.metadata) });
+      continue;
+    }
     if (m.sender !== "user" || !md.user_photo) { out.push(m); continue; }
     let desc = md.photo_desc;
     if (!desc && described < 2) {

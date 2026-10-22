@@ -1,3 +1,6 @@
+import { VideoAttachment } from "@/components/VideoAttachment";
+import { VideoUploadButton } from "@/components/VideoUploadButton";
+import { userVideoMetadata } from "@/lib/user-video";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -350,6 +353,8 @@ function Chat() {
                 <div className={cn("flex", mine ? "justify-end" : "justify-start", groupedNext ? "mb-0.5" : "mb-2")}>
                   <div className={cn("flex max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
                   {(() => {
+                    const video = userVideoMetadata(m.metadata);
+                    if (video) return <VideoAttachment video={video} />;
                     const md = m.metadata as { photo?: string; generated_path?: string; user_photo?: string } | null;
                     if (md?.user_photo) return <GeneratedPhoto path={md.user_photo} name="you" />;
                     const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
@@ -409,6 +414,10 @@ function Chat() {
           <button type="button" aria-label="Send a photo" disabled={uploading || !online} onClick={() => fileRef.current?.click()} className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-opacity disabled:opacity-30">
             <Camera className={cn("h-5 w-5", uploading && "animate-pulse")} />
           </button>
+          {convId&&<VideoUploadButton conversationId={convId} caption={text.trim()} disabled={uploading||!online} onSent={async(caption,newlySent)=>{
+            setText(current=>current.trim()===caption?"":current);setNow(Date.now());await refetch();
+            if(newlySent){if(debounce.current)clearTimeout(debounce.current);debounce.current=setTimeout(()=>{debounce.current=null;void runRespond();},2500);}
+          }}/>}
           <textarea
             ref={taRef}
             rows={1}
@@ -421,7 +430,7 @@ function Chat() {
               }
             }}
             placeholder={`Message ${def.preferredName}…`}
-            className="max-h-36 min-h-10 flex-1 resize-none rounded-3xl border bg-surface px-4 py-2.5 text-[15px] outline-none placeholder:text-muted-foreground focus:border-ring"
+            className="max-h-36 min-h-10 min-w-0 flex-1 resize-none rounded-3xl border bg-surface px-4 py-2.5 text-[15px] outline-none placeholder:text-muted-foreground focus:border-ring"
           />
           <button
             type="submit"
