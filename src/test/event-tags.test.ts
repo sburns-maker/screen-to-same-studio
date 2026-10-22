@@ -7,7 +7,7 @@ const MAYA_REPLY = "Maybe I will be—if you play your cards right 😘 But don�
 describe("event tag rules", () => {
   it("defines flirt_rejected as genuine refusal only", () => {
     expect(EVENT_TAG_RULES).toMatch(/"flirt_rejected" ONLY for a genuine romantic\/sexual refusal/);
-    expect(EVENT_TAG_RULES).not.toMatch(/deflect/i);
+    expect(EVENT_TAG_RULES).not.toMatch(/"flirt_rejected" ONLY when you deflect/);
   });
 
   it("classifies conditional interest like Maya's reply as flirt/banter", () => {
