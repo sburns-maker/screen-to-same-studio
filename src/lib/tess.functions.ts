@@ -406,7 +406,7 @@ async function runTurnUnlocked(
     userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",context:initiation?.reason??schedule.detail,developerOverride:!!initiation?.developerPhoto});
   const cooldown = !pacing.allowed;
   const photoCompatible = schedule.availability !== "asleep" && schedule.availability !== "busy"
-    && !/driv|surgery|emergency|patient|phone (?:down|away)/i.test(schedule.detail);
+    && !/\b(?:driv(?:e|es|ing)|surgery|emergency|patients?|phone (?:down|away))\b/i.test(schedule.detail);
   let generateTypes = cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
   const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
   let photos = isTess && !cooldown && photoCompatible

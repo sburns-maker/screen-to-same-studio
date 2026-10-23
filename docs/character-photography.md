@@ -1,6 +1,6 @@
 # Character-aware photography
 
-Baseline: `origin/main` **61a237b**, including the media viewer/profile management and merged Flare identity-flexibility work. Branch: `codex/character-photo-personality`. No deployment, production migration, paid generation or live-data edit was performed.
+Baseline: `origin/main` **61a237b**, including the media viewer/profile management and merged Flare identity-flexibility work. Latest `main` through **c1f7fdb**, including the Jordan “patiently” word-boundary fix, is integrated. Branch: `codex/character-photo-personality`. No deployment, production migration, paid generation or live-data edit was performed.
 
 ## Changes
 
@@ -41,6 +41,6 @@ Simulation Debug adds **Character photography** behind the existing developer au
 
 Automated tests use mocked paid image/vision/text boundaries. Tests cover distinct profiles, unchanged sharing probabilities, grounded/ambiguous/busy scenarios, weighted determinism, future-profile fallback, explicit scene priority, continuity expiry/location isolation/visibility, legitimate hair and expression variation, object-only composition, separate caption guidance, diagnostic redaction and the normal developer/foreground turn path. Existing identity, retry, budget, delivery, world, memory, media-viewer and video tests run with the full suite. Older test assertions were updated to match Flare and the already-merged bounded identity retry; no provider behavior was changed to satisfy them.
 
-**Results:** all **426 tests in 45 files** passed, as did `tsc --noEmit`, the production `vite build`, focused ESLint and whitespace checks. Existing build warnings remain.
+**Results:** all **429 tests in 45 files** passed, as did `tsc --noEmit`, the production `vite build`, focused ESLint and whitespace checks. Existing build warnings remain.
 
 Manual visual acceptance remains required: on an authorized preview, use the existing developer **Preview** first (free), then separately approve a paid opportunity at a compatible time. Compare a Tess clinic-break photo and Maya venue/home moments against their actual current approved references; test a short same-location follow-up, an explicitly changed hairstyle, a mood-appropriate tired expression and an environment-only photo. Inspect separate captions and the debug scenario/style/retry record. The character can still decline. No live image was generated during this task and automated tests do not establish actual rendered likeness, wardrobe fidelity or caption accuracy.

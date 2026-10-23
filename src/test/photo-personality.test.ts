@@ -81,6 +81,25 @@ describe("typed character photography", () => {
       }).scenario,
     ).toBeNull();
   });
+  it("does not confuse patiently with protected patient activity", () => {
+    const p = plan("jordan", {
+      schedule: {
+        activity: "at home",
+        detail: "at home waiting patiently for the kettle",
+        availability: "limited",
+      },
+    });
+    expect(p.candidates).toContain("at_home");
+    expect(
+      plan("tess", {
+        schedule: {
+          activity: "at the clinic",
+          detail: "with a patient at the clinic",
+          availability: "limited",
+        },
+      }).candidates,
+    ).toEqual([]);
+  });
   it("permits a grounded Mabel walk and a visual reaction without changing her availability", () => {
     const p = plan("tess", {
       schedule: {

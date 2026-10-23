@@ -233,7 +233,7 @@ export function planPhotography(args: {
   const available =
     args.schedule.availability !== "asleep" &&
     args.schedule.availability !== "busy" &&
-    !/driv|surgery|emergency|patient|phone (?:down|away)/i.test(text);
+    !/\b(?:driv(?:e|es|ing)|surgery|emergency|patients?|phone (?:down|away))\b/i.test(text);
   if (available) {
     if (location === "home") candidates.push("at_home");
     if (location === "home" && /after work|after (?:an? |the )?event|post.work/i.test(text))
