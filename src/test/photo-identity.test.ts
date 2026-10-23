@@ -90,6 +90,21 @@ describe("bounded visual-design and scene screening", () => {
     );
   });
 });
+describe("image model selection", () => {
+  it("defaults OpenAI reference-conditioned images to Flare", () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-only");
+    vi.stubEnv("OPENAI_IMAGE_MODEL", "");
+    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-flare");
+    expect(lovableGatewayProvider("unused").referenceConditioning).toBe(true);
+  });
+  it("permits a deliberate model override without arbitrary model injection", () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-only");
+    vi.stubEnv("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst");
+    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-sunburst");
+    vi.stubEnv("OPENAI_IMAGE_MODEL", "unknown-model");
+    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-flare");
+  });
+});
 describe("every shared generation path anchors original portraits", () => {
   it.each([
     ["maya", "casual_selfie", "Maya at her event venue"],
