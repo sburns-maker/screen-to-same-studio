@@ -555,6 +555,7 @@ function VoiceStudio() {
                   <textarea
                     className="mt-1 min-h-48 w-full rounded-lg border bg-background p-3 text-sm"
                     value={conversationalOptions.performanceInstructions}
+                    aria-label="Performance instructions"
                     maxLength={PERFORMANCE_MAX}
                     disabled={playing || busy !== null || !status}
                     onChange={(e) => saveConversationalOptions({ ...conversationalOptions, performanceInstructions: e.target.value })}
@@ -565,6 +566,7 @@ function VoiceStudio() {
                   <textarea
                     className="mt-1 min-h-28 w-full rounded-lg border bg-background p-3 text-sm"
                     value={conversationalOptions.conversationalCue}
+                    aria-label="Conversational audition cue"
                     maxLength={CUE_MAX}
                     disabled={playing || busy !== null || !status}
                     onChange={(e) => saveConversationalOptions({ ...conversationalOptions, conversationalCue: e.target.value })}
