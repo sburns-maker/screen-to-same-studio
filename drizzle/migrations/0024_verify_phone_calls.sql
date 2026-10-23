@@ -1,0 +1,1 @@
+DO $$ BEGIN IF to_regclass('public.phone_calls') IS NULL THEN RAISE EXCEPTION 'phone calls schema missing'; END IF; END $$;
