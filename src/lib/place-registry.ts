@@ -39,7 +39,7 @@ export const ACTION_LABELS: Record<VenueAction, string> = {
 export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   ...p,
   designation:
-    p.key === "hope:drop-in"
+    p.key === "hope:drop-in" || p.key === "dinner:fanellis"
       ? ("unverified_real_name_fictional_scene" as const)
       : ("fictional" as const),
   address: null as string | null,
