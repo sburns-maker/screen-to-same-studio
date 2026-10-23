@@ -206,6 +206,19 @@ function Debug() {
               })}
             </div>
 
+            {snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
+              <p className="text-xs text-muted-foreground">Developer diagnostic, not hidden thoughts. These are the engine's saved relationship variables and observed response tags, not a private monologue or proof of why a gesture happened.</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div><div className="text-muted-foreground">Relationship stage</div><strong>{snap.stage}</strong></div>
+                <div><div className="text-muted-foreground">Recent tone</div><strong>{snap.lastTone ?? "not recorded"}</strong></div>
+                <div><div className="text-muted-foreground">Romantic intent</div><strong>{s.romantic_intent}/100</strong></div>
+                <div><div className="text-muted-foreground">Perceived pressure</div><strong>{s.perceived_pressure}/100</strong></div>
+                <div><div className="text-muted-foreground">Comfort</div><strong>{s.comfort}/100</strong></div>
+                <div><div className="text-muted-foreground">Emotional intimacy</div><strong>{s.emotional_intimacy}/100</strong></div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">Latest recorded change tags: {tags.length ? tags.join(", ") : "none"}. An action such as putting hands in pockets can have multiple explanations; never infer its cause from these scores alone.</p>
+            </Section>}
+
             <Section title="Their world right now">
               <KV k="activity" v={snap.schedule.activity} />
               <KV k="availability" v={snap.schedule.availability} />
