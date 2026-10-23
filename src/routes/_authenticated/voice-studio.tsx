@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { VOICE_DESIGNS, type VoiceDesignKey } from "@/lib/live-voice-design";
 import {
   createCharacterVoiceCandidate,
   voiceStudioStatus,
+  startVoiceStudioAudition,
 } from "@/lib/live-voice-design.functions";
 
 export const Route = createFileRoute("/_authenticated/voice-studio")({
@@ -55,6 +56,9 @@ function Step({ n, title: t, children }: { n: number; title: string; children: R
 function VoiceStudio() {
   const create = useServerFn(createCharacterVoiceCandidate);
   const statusFn = useServerFn(voiceStudioStatus);
+  const auditionFn = useServerFn(startVoiceStudioAudition);
+  const peer = useRef<RTCPeerConnection | null>(null);
+  const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState<Awaited<ReturnType<typeof voiceStudioStatus>> | null>(null);
   const [error, setError] = useState("");
   const [character, setCharacter] = useState<VoiceDesignKey>("tess");
@@ -127,6 +131,34 @@ function VoiceStudio() {
     }
   }
 
+  function stopAudition() {
+    peer.current?.close();
+    peer.current = null;
+    setPlaying(false);
+  }
+  useEffect(() => () => { peer.current?.close(); }, []);
+  async function audition() {
+    if (!selected || !window.confirm("Start a short paid GPT-Live voice audition? It won't affect character memories or calls.")) return;
+    stopAudition();
+    setError("");
+    try {
+      const pc = new RTCPeerConnection();
+      peer.current = pc;
+      const audio = document.createElement("audio");
+      audio.autoplay = true;
+      pc.addTransceiver("audio", { direction: "recvonly" });
+      pc.ontrack = (e) => { audio.srcObject = e.streams[0]; void audio.play().catch(() => setError("Audio playback was blocked by the browser.")); };
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      const answer = await auditionFn({ data: { character, voiceId: selected, sdp: pc.localDescription?.sdp ?? "", confirmation: "START PAID VOICE AUDITION" } });
+      if (peer.current !== pc) { pc.close(); return; }
+      await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
+      setPlaying(true);
+      pc.onconnectionstatechange = () => {
+        if (["failed", "closed", "disconnected"].includes(pc.connectionState)) stopAudition();
+      };
+    } catch (e) { stopAudition(); setError((e as Error).message); }
+  }
   const current = candidates.filter((c) => c.character === character);
   const canCreate = !!status?.creationEnabled && !!status.apiConfigured && busy === null;
 
@@ -141,8 +173,7 @@ function VoiceStudio() {
             </p>
             <h1 className="mt-1 font-display text-2xl">Find their voice</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Candidates are saved voice IDs, not recordings. Audio can't be played inside AI Town
-              yet — listening happens in OpenAI's Playground.
+              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions, not character calls.
             </p>
             {status ? (
               <ul className="mt-3 space-y-1 text-sm">
@@ -214,9 +245,9 @@ function VoiceStudio() {
             </div>
           </Step>
 
-          <Step n={2} title="Audition in OpenAI Playground">
+          <Step n={2} title="Hear the selected voice">
             <p className="text-sm">
-              Paste a candidate ID into the Playground and read this same script with each one:
+              Select a candidate below and listen to the same script with each voice:
             </p>
             <p className="mt-2 rounded-lg bg-background p-3 text-sm">{script}</p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -227,6 +258,8 @@ function VoiceStudio() {
               >
                 {copied === "script" ? "Copied" : "Copy script"}
               </button>
+              <button type="button" disabled={!selected || playing} className="min-h-11 rounded-lg bg-primary px-3 text-sm text-primary-foreground disabled:opacity-40" onClick={() => void audition()}>{playing ? "Auditioning…" : "▶ Hear selected voice"}</button>
+              {playing && <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={stopAudition}>■ Stop</button>}
               <a
                 href="https://platform.openai.com/playground"
                 target="_blank"
@@ -237,7 +270,7 @@ function VoiceStudio() {
               </a>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Playground auditions are billed by OpenAI.
+              In-app and Playground auditions are billable. Server setting ENABLE_VOICE_STUDIO_AUDITIONS must be enabled separately.
             </p>
           </Step>
 
