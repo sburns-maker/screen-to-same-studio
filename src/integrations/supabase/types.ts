@@ -14,6 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_evidence: {
+        Row: {
+          action: string
+          created_at: string
+          message_id: string
+          payload: Json
+          plan_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          message_id: string
+          payload?: Json
+          plan_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          message_id?: string
+          payload?: Json
+          plan_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_evidence_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_evidence_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      calendar_transitions: {
+        Row: {
+          created_at: string
+          from_status: string | null
+          id: string
+          plan_id: string
+          reason: string
+          to_status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_status?: string | null
+          id: string
+          plan_id: string
+          reason: string
+          to_status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          plan_id?: string
+          reason?: string
+          to_status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_transitions_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       character_knowledge: {
         Row: {
           acquired_at: string
@@ -358,6 +438,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      interactive_world_installation: {
+        Row: {
+          id: boolean
+          installed_at: string
+        }
+        Insert: {
+          id?: boolean
+          installed_at?: string
+        }
+        Update: {
+          id?: boolean
+          installed_at?: string
+        }
+        Relationships: []
       }
       job_runs: {
         Row: {
@@ -729,45 +824,108 @@ export type Database = {
       }
       social_plans: {
         Row: {
+          category: string
+          character_response: string
+          conflicts: Json
+          conversation_id: string | null
           created_at: string
-          ends_at: string
+          date_local: string | null
+          duration_minutes: number
+          ends_at: string | null
+          followthrough: Json
           id: string
+          last_message_id: string | null
+          missing_details: string[]
           organizer: string
-          place_key: string
-          starts_at: string
+          origin: string
+          place_key: string | null
+          proposer: string | null
+          source_message_id: string | null
+          starts_at: string | null
           status: string
+          time_local: string | null
           title: string
           user_attendance: string
           user_id: string
+          user_response: string
           version: number
         }
         Insert: {
+          category?: string
+          character_response?: string
+          conflicts?: Json
+          conversation_id?: string | null
           created_at?: string
-          ends_at: string
+          date_local?: string | null
+          duration_minutes?: number
+          ends_at?: string | null
+          followthrough?: Json
           id: string
+          last_message_id?: string | null
+          missing_details?: string[]
           organizer: string
-          place_key: string
-          starts_at: string
+          origin?: string
+          place_key?: string | null
+          proposer?: string | null
+          source_message_id?: string | null
+          starts_at?: string | null
           status?: string
+          time_local?: string | null
           title: string
           user_attendance?: string
           user_id: string
+          user_response?: string
           version?: number
         }
         Update: {
+          category?: string
+          character_response?: string
+          conflicts?: Json
+          conversation_id?: string | null
           created_at?: string
-          ends_at?: string
+          date_local?: string | null
+          duration_minutes?: number
+          ends_at?: string | null
+          followthrough?: Json
           id?: string
+          last_message_id?: string | null
+          missing_details?: string[]
           organizer?: string
-          place_key?: string
-          starts_at?: string
+          origin?: string
+          place_key?: string | null
+          proposer?: string | null
+          source_message_id?: string | null
+          starts_at?: string | null
           status?: string
+          time_local?: string | null
           title?: string
           user_attendance?: string
           user_id?: string
+          user_response?: string
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "social_plans_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_plans_last_message_id_fkey"
+            columns: ["last_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_plans_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "social_plans_user_id_place_key_fkey"
             columns: ["user_id", "place_key"]
@@ -1299,6 +1457,89 @@ export type Database = {
           },
         ]
       }
+      venue_actions: {
+        Row: {
+          action: string
+          created_at: string
+          detail: string
+          id: string
+          plan_id: string | null
+          result: Json
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail?: string
+          id: string
+          plan_id?: string | null
+          result: Json
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail?: string
+          id?: string
+          plan_id?: string | null
+          result?: Json
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_actions_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "venue_actions_user_id_session_id_fkey"
+            columns: ["user_id", "session_id"]
+            isOneToOne: false
+            referencedRelation: "venue_sessions"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      venue_sessions: {
+        Row: {
+          arrived_at: string
+          departed_at: string | null
+          id: string
+          place_key: string
+          state: Json
+          user_id: string
+        }
+        Insert: {
+          arrived_at: string
+          departed_at?: string | null
+          id: string
+          place_key: string
+          state?: Json
+          user_id: string
+        }
+        Update: {
+          arrived_at?: string
+          departed_at?: string | null
+          id?: string
+          place_key?: string
+          state?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_sessions_user_id_place_key_fkey"
+            columns: ["user_id", "place_key"]
+            isOneToOne: false
+            referencedRelation: "world_places"
+            referencedColumns: ["user_id", "key"]
+          },
+        ]
+      }
       visual_identity_registry: {
         Row: {
           active_message_id: string | null
@@ -1509,12 +1750,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calendar_advance: {
+        Args: { p_blocked?: Json; p_now: string; p_user: string }
+        Returns: number
+      }
+      calendar_apply: {
+        Args: {
+          p_message: string
+          p_now: string
+          p_payload: Json
+          p_user: string
+        }
+        Returns: Json
+      }
+      calendar_pending: {
+        Args: { p_now: string; p_user: string }
+        Returns: Json
+      }
+      calendar_travel_buffer: {
+        Args: { p_from: string; p_to: string; p_user: string }
+        Returns: number
+      }
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
       deliver_user_video: {
         Args: { p_id: string; p_user: string }
         Returns: Json
       }
+      interactive_world_status: { Args: never; Returns: number }
       media_profile_status: { Args: never; Returns: number }
       record_npc_introduction: {
         Args: { p_message: string; p_npc: string; p_user: string }
@@ -1579,6 +1842,17 @@ export type Database = {
         }
         Returns: Json
       }
+      shared_world_legacy_command: {
+        Args: {
+          p_command: string
+          p_expected_version: number
+          p_now: string
+          p_payload: Json
+          p_plan_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       shared_world_status: { Args: never; Returns: Json }
       town_command: {
         Args: {
@@ -1613,6 +1887,21 @@ export type Database = {
         }
         Returns: Json
       }
+      venue_act: {
+        Args: {
+          p_action: string
+          p_character?: string
+          p_detail: string
+          p_id: string
+          p_now: string
+          p_place: string
+          p_plan?: string
+          p_quantity?: number
+          p_user: string
+        }
+        Returns: Json
+      }
+      venue_session: { Args: { p_now: string; p_user: string }; Returns: Json }
       world_expansion_status: { Args: never; Returns: number }
       world_runtime_status: { Args: never; Returns: Json }
     }
