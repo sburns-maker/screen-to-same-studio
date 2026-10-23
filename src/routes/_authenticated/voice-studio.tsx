@@ -76,9 +76,9 @@ const characters = Object.keys(VOICE_DESIGNS) as VoiceDesignKey[];
 const STORE = "voice-studio-candidates-v1";
 const title = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
 
-function Step({ n, title: t, children }: { n: number; title: string; children: React.ReactNode }) {
+function Step({ n, title: t, children, anchor }: { n: number; title: string; children: React.ReactNode; anchor?: string }) {
   return (
-    <section className="rounded-2xl bg-surface p-4">
+    <section id={anchor} className="scroll-mt-24 rounded-2xl bg-surface p-4">
       <h2 className="flex items-center gap-2 font-semibold">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
           {n}
@@ -240,6 +240,15 @@ function VoiceStudio() {
     }
   }
 
+  function refineSelectedCandidate() {
+    const candidate = candidates.find((c) => c.id === selected && c.character === character);
+    if (!candidate) return;
+    const key = `${character}:custom`;
+    const prompt = candidate.variant === "custom" ? (drafts[key]?.prompt ?? "") : presetVoicePrompt(character, candidate.variant);
+    saveDrafts({ ...drafts, [key]: { name: `${candidate.name.slice(0, 43)} revised`, prompt } });
+    setVariant("custom");
+    document.getElementById("voice-create")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
   function stopAudition() {
     player.current?.stop();
   }
@@ -404,14 +413,18 @@ function VoiceStudio() {
       <ScreenHeader title="Voice Studio" backTo="/calls" />
       <Screen>
         <div className="space-y-4 pb-10">
+          <nav aria-label="Voice Studio shortcuts" className="sticky top-0 z-10 -mx-4 flex gap-2 overflow-x-auto border-b bg-background px-4 py-3">
+            {([["voice-saved", "My voices"], ["voice-listen", "Listen"], ["voice-create", "Edit & create"]] as const).map(([id, label]) => (
+              <a key={id} href={`#${id}`} className="shrink-0 rounded-full border bg-surface px-4 py-2 text-sm font-medium">{label}</a>
+            ))}
+          </nav>
           <section className="rounded-2xl bg-surface p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Developer studio
             </p>
             <h1 className="mt-1 font-display text-2xl">Find their voice</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions,
-              not character calls.
+              Edit descriptions and replay saved recordings for free. Creating a new voice or starting a live audition uses paid OpenAI services. Auditions are not character calls.
             </p>
             {status ? (
               <ul className="mt-3 space-y-1 text-sm">
@@ -466,9 +479,9 @@ function VoiceStudio() {
             </p>
           </section>
 
-          <Step n={1} title="Create a candidate">
+          <Step n={1} title="Edit description & create new voice" anchor="voice-create">
             <p className="text-xs text-muted-foreground">
-              Pick a preset or Custom, edit the description, then tap Create. Editing never creates a voice.
+              Free: revise this description as often as you like; drafts save on this phone. Paid: create a new voice only when ready. Existing OpenAI voice IDs are not editable in place.
             </p>
             <div className="mt-3 grid grid-cols-4 gap-2">
               {[...variants, "custom" as const].map((v) => (
@@ -530,7 +543,7 @@ function VoiceStudio() {
             </div>
           </Step>
 
-          <Step n={2} title="Hear the selected voice">
+          <Step n={2} title="Hear the selected voice" anchor="voice-listen">
             <div role="group" aria-label="Audition mode" className="grid grid-cols-2 gap-2">
               {(["scripted", "conversational"] as const).map((mode) => (
                 <Button
@@ -690,7 +703,7 @@ function VoiceStudio() {
             </section>
           )}
           <section className="rounded-2xl bg-surface p-4">
-            <h2 className="font-semibold">Recorded sample</h2>
+            <h2 className="font-semibold">Recorded sample · free replay</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Each audition is recorded on this device only. Replaying is free; nothing is uploaded
               unless you share or download it.
@@ -735,10 +748,15 @@ function VoiceStudio() {
             <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>
           )}
 
-          <Step n={3} title="Pick your favorite">
+          <Step n={3} title="My saved voices · free selection" anchor="voice-saved">
             <p className="text-xs text-muted-foreground">
               Saved on this device. Picking here doesn't change anything in the app.
             </p>
+            {selected && <div className="mt-3 rounded-xl border p-3">
+              <p className="text-sm">Like this voice but want a different accent or delivery? Start from its original preset and edit a new version. Your selected voice stays saved.</p>
+              <button type="button" className="mt-2 min-h-11 rounded-lg bg-primary px-3 text-sm text-primary-foreground" disabled={playing || busy !== null} onClick={refineSelectedCandidate}>Refine selected voice</button>
+              <p className="mt-2 text-xs text-muted-foreground">New versions require paid creation. The original recording cannot be edited in place. Custom candidates use your latest saved Custom description, because the original text was not stored per candidate.</p>
+            </div>}
             {current.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">
                 No {title(character)} candidates yet.
@@ -759,7 +777,7 @@ function VoiceStudio() {
                       onChange={() => setSelected(c.id)}
                     />
                     <span className="min-w-0 flex-1">
-                      <strong className="capitalize">{c.variant}</strong>
+                      <strong className="break-words">{c.name || `${title(character)} — ${c.variant}`}</strong>\n                      <span className="block text-xs capitalize text-muted-foreground">{c.variant} · Saved candidate</span>
                       <code className="mt-1 block select-all break-all text-xs">{c.id}</code>
                     </span>
                     <button

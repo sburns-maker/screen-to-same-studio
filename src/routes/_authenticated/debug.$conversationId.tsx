@@ -78,6 +78,8 @@ function Debug() {
   const { conversationId } = Route.useParams();
   const fn = useServerFn(debugSnapshot);
   const [snap, setSnap] = useState<Snapshot | null>(null);
+  const [activeTab, setActiveTab] = useState<"mind" | "world" | "social" | "photos" | "technical">("mind");
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     let stop = false;
     const load = () => fn({ data: { conversationId } }).then((d) => !stop && setSnap(d as Snapshot)).catch(() => {});
@@ -127,23 +129,38 @@ function Debug() {
     <>
       <ScreenHeader title={`Simulation debug · ${snap?.character.name ?? ""}`} backTo="/chat/$conversationId" backParams={{ conversationId }} />
       <Screen>
-        <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border bg-surface p-3">
+          <div className="min-w-0"><strong className="block truncate text-sm">{snap?.character.name ?? "Character"}</strong><span className="text-xs text-muted-foreground">{snap?.stage ?? "Loading"} · {snap?.schedule.availability ?? "—"}</span></div>
+          <button type="button" disabled={refreshing} className="shrink-0 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => {
+            setRefreshing(true);
+            void fn({ data: { conversationId } }).then((next) => setSnap(next as Snapshot)).catch(() => {}).finally(() => setRefreshing(false));
+          }}>{refreshing ? "Refreshing…" : "Refresh"}</button>
+        </div>
+        <nav aria-label="Debug sections" className="sticky top-0 z-10 -mx-4 mb-3 flex gap-2 overflow-x-auto border-b bg-background px-4 py-3">
+          {([
+            ["mind", "Mind"], ["world", "World"], ["social", "Messages"], ["photos", "Photos"], ["technical", "Technical"],
+          ] as const).map(([key, name]) => (
+            <button key={key} type="button" aria-pressed={activeTab === key} onClick={() => setActiveTab(key)}
+              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-medium ${activeTab === key ? "bg-primary text-primary-foreground" : "bg-surface"}`}>{name}</button>
+          ))}
+        </nav>
+        {activeTab === "world" && <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
-        {snap && <section className="rounded-2xl bg-surface p-4" aria-label="Simulation overview"><div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">At a glance</div><div className="mt-2 text-lg font-semibold">{snap.stage}</div><p className="text-sm text-muted-foreground mt-1">Currently {snap.schedule.activity} · {snap.schedule.availability} · Real-Time {snap.realTimeMode ? "on" : "off"}</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Messages</span><div className="font-medium">{snap.initiation.eligible ? "Can initiate" : "Waiting"}</div></div><div><span className="text-muted-foreground">Photos</span><div className="font-medium">{snap.photo.eligible ? "Eligible" : "Not eligible"}</div></div></div>{!snap.photo.eligible && <p className="mt-2 text-xs text-muted-foreground">Photo: {snap.photo.reason}</p>}</section>}
-        {snap?.photoDeveloperTools&&<Section title="Living Experiences" collapsible><LivingExperiencesDebug conversationId={conversationId}/></Section>}
-        {snap?.photoDeveloperTools&&<Section title="Calls" collapsible><CallsDebug conversationId={conversationId}/></Section>}
-        {snap?.photoDeveloperTools && <Link to="/voice-studio" className="mb-3 block rounded-2xl border bg-surface p-4 text-sm font-medium">🎙️ Open Voice Studio <span className="block text-xs font-normal text-muted-foreground">Create and compare private fictional character voices</span></Link>}
-        {snap?.photoDeveloperTools&&<Section title="Interactive world & calendar" collapsible><InteractiveWorldDebug/></Section>}
-        {snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography" collapsible><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
-        {snap?.photoDeveloperTools && (
+        {activeTab === "mind" && snap && <section className="rounded-2xl bg-surface p-4" aria-label="Simulation overview"><div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">At a glance</div><div className="mt-2 text-lg font-semibold">{snap.stage}</div><p className="text-sm text-muted-foreground mt-1">Currently {snap.schedule.activity} · {snap.schedule.availability} · Real-Time {snap.realTimeMode ? "on" : "off"}</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Messages</span><div className="font-medium">{snap.initiation.eligible ? "Can initiate" : "Waiting"}</div></div><div><span className="text-muted-foreground">Photos</span><div className="font-medium">{snap.photo.eligible ? "Eligible" : "Not eligible"}</div></div></div>{!snap.photo.eligible && <p className="mt-2 text-xs text-muted-foreground">Photo: {snap.photo.reason}</p>}</section>}
+        {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Living Experiences" collapsible><LivingExperiencesDebug conversationId={conversationId}/></Section>}
+        {activeTab === "social" && snap?.photoDeveloperTools&&<Section title="Calls" collapsible><CallsDebug conversationId={conversationId}/></Section>}
+        {activeTab === "technical" && snap?.photoDeveloperTools && <Link to="/voice-studio" className="mb-3 block rounded-2xl border bg-surface p-4 text-sm font-medium">🎙️ Open Voice Studio <span className="block text-xs font-normal text-muted-foreground">Create and compare private fictional character voices</span></Link>}
+        {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Interactive world & calendar" collapsible><InteractiveWorldDebug/></Section>}
+        {activeTab === "photos" && snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography" collapsible><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
+        {activeTab === "photos" && snap?.photoDeveloperTools && (
           <Section title="Photo boundaries (developer)">
             <p className="text-xs text-muted-foreground">Current saved setting: <strong>{snap.photoBoundary === "selfies" ? "No selfies" : snap.photoBoundary === "all_photos" ? "No photos" : snap.photoBoundary === "mature" ? "No mature romantic photos" : "No restriction"}</strong>. This is a persisted conversation preference, not a cooldown.</p>
             {snap.photoBoundary !== "none" && <button type="button" className="mt-3 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" disabled={resetBusy} onClick={() => void runReset()}>{resetBusy ? "Resetting…" : "Reset saved photo boundary"}</button>}
             {resetStatus && <p role="status" className="mt-2 text-xs">{resetStatus}</p>}
           </Section>
         )}
-        {snap?.photoDeveloperTools && (
+        {activeTab === "photos" && snap?.photoDeveloperTools && (
           <Section title="Controlled photo opportunity">
             <p className="text-xs text-muted-foreground">Preview checks eligibility without generating or changing data. Deliver asks the character through the normal pipeline; she may decline. A delivered image uses your configured image provider and can incur charges. Current schedules, boundaries and cooldowns still apply.</p>
             <textarea aria-label="Photo opportunity context" className="mt-3 w-full rounded-lg border bg-background p-2" maxLength={1500} placeholder="A current visual moment grounded in this conversation's established memories…" value={photoContext}
@@ -160,7 +177,7 @@ function Debug() {
         {!snap && <p className="text-sm text-muted-foreground">Loading…</p>}
         {snap && s && (
           <>
-            {snap.photoDeveloperTools && snap.photoIdentity && <Section title="Canonical photo identity" collapsible>
+            {activeTab === "photos" && snap.photoDeveloperTools && snap.photoIdentity && <Section title="Canonical photo identity" collapsible>
               <p className="text-xs text-muted-foreground">The existing profile portrait is the generation anchor. Visual screening can miss drift; compare the actual images. Historic images may have no validation record.</p>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <figure><img src={snap.photoIdentity.profileUrl} alt="Authoritative existing profile portrait" className="w-full rounded-lg" /><figcaption className="text-xs">Canonical profile</figcaption></figure>
@@ -168,11 +185,11 @@ function Debug() {
               </div>
               <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({canonical:snap.photoIdentity.canonical,latest:snap.photoIdentity.latest,source:snap.photoIdentity.source,delivery:snap.photoIdentity.delivery},null,2)}</pre>
             </Section>}
-            {snap.photoDeveloperTools && <Section title="Persistent world diagnostics" collapsible>
+            {activeTab === "technical" && snap.photoDeveloperTools && <Section title="Persistent world diagnostics" collapsible>
               <p className="text-xs text-muted-foreground">Current backend checkpoint, pending intentions, photo decisions, delivery events and monthly image attempts. Schedule preview advances no data or relationship scores. Global worker history is on Living world timeline.</p>
               <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.world, null, 2)}</pre>
             </Section>}
-            <div className="rounded-2xl bg-surface p-4">
+            {activeTab === "mind" && <div className="rounded-2xl bg-surface p-4">
               <div className="text-xs text-muted-foreground">Stage</div>
               <div className="font-display text-2xl">{snap.stage}</div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -187,7 +204,7 @@ function Debug() {
               )}
             </div>
 
-            <div className="mt-4 space-y-2.5 rounded-2xl bg-surface p-4">
+            {activeTab === "mind" && <div className="mt-4 space-y-2.5 rounded-2xl bg-surface p-4">
               {STATE_KEYS.map((k) => {
                 const d = Number(delta[k] ?? 0);
                 return (
@@ -206,7 +223,7 @@ function Debug() {
               })}
             </div>
 
-            {snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
+            {activeTab === "mind" && snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
               <p className="text-xs text-muted-foreground">Developer diagnostic, not hidden thoughts. These are the engine's saved relationship variables and observed response tags, not a private monologue or proof of why a gesture happened.</p>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <div><div className="text-muted-foreground">Relationship stage</div><strong>{snap.stage}</strong></div>
@@ -230,7 +247,7 @@ function Debug() {
               </div>
             </Section>}
 
-            <Section title="Their world right now">
+            {activeTab === "world" && <Section title="Their world right now">
               <KV k="activity" v={snap.schedule.activity} />
               <KV k="availability" v={snap.schedule.availability} />
               <KV k="detail" v={snap.schedule.detail} />
@@ -242,7 +259,7 @@ function Debug() {
               {snap.weatherFlavor && <KV k="weather flavor" v={snap.weatherFlavor} />}
             </Section>
 
-            <Section title="Initiation">
+            {activeTab === "social" && <Section title="Initiation">
               <KV k="gap since last msg" v={`${snap.gapHours}h`} />
               <KV k="eligible now" v={snap.initiation.eligible ? "yes" : "no"} />
               <KV k="inclination score" v={`${snap.initiation.score}/100`} />
@@ -265,26 +282,29 @@ function Debug() {
               )}
             </Section>
 
-            <Section title="Photo eligibility">
+            {activeTab === "photos" && <Section title="Photo eligibility">
               <KV k="eligible" v={snap.photo.eligible ? "yes" : "no"} />
               <KV k="why" v={snap.photo.reason} />
               <KV k="curated available" v={snap.photo.curatedCount} />
               <KV k="generated types" v={snap.photo.generatedTypes.join(", ") || "none"} />
             </Section>
 
-            <Section title="Last response delay">
+            {activeTab === "technical" && <Section title="Last response delay">
               <p className="font-mono text-xs text-muted-foreground">{snap.latencyReason ?? "—"}</p>
             </Section>
 
-            <Section title="Recent memories" collapsible>
+            {activeTab === "mind" && <Section title="Recent memories" collapsible>
               {(snap.recentMemories ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
               <ul className="space-y-1.5">
                 {(snap.recentMemories ?? []).map((m, i) => (
                   <li key={i} className="text-sm">
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {m.memory_type} · {m.importance} · {new Date(m.created_at).toLocaleDateString()}
-                    </span>
-                    <div>{m.summary}</div>
+                    <details open={i === 0 ? true : undefined} className="rounded-lg border p-2">
+                      <summary className="cursor-pointer text-sm">
+                        <span className="font-medium">{m.memory_type} · {new Date(m.created_at).toLocaleDateString()}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">Importance {m.importance}</span>
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap">{m.summary}</p>
+                    </details>
                   </li>
                 ))}
               </ul>
