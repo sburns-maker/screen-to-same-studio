@@ -24,3 +24,8 @@ A plan can be experienced as a natural interactive shared outing or allowed to p
 - A claimed interactive scene never becomes auto-eligible just because the tab closed or midnight passed.
 - An explicit "Finish automatically" is the *only* opt-in to complete an already claimed interactive experience off-screen.
 - Do not duplicate existing Plan invitations; connect uniquely to current plan IDs.
+
+## Additional implementation — October 23
+- Migration 0025 now includes a transactional, idempotent user-contribution ledger. Contributions require a currently interactive claim and fail closed for paused/completed scenes. The endpoint is authenticated and scopes every query to user ownership.
+- New server endpoints read the moment history and record a user's explicitly entered moment.
+- **Still not release-ready:** the UI has not yet been expanded to display interactive moments; the character engine is not integrated; there is no background claim/finish worker; the system has no proven atomic calendar/memory completion semantics. Do not apply migration 0025 or merge the draft on this basis alone.
