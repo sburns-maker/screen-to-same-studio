@@ -145,38 +145,32 @@ export function ExplorePlaces() {
           events = plans.filter((x) => x.place_key === p.key);
         return (
           <article key={p.key} className={`${card} !p-3`}>
-            <Link to="/place/$placeKey" params={{ placeKey: p.key }}>
-              <PlaceArtwork kind={p.kind} label={p.label} compact />
-              <div className="px-2 pt-3">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-primary">
-                  {p.community} · {p.kind}
+            <div className="flex items-start gap-3">
+              <Link to="/place/$placeKey" params={{ placeKey: p.key }} className="w-24 shrink-0 sm:w-32" aria-label={`Explore ${p.label}`}>
+                <PlaceArtwork kind={p.kind} label={p.label} compact />
+              </Link>
+              <div className="min-w-0 flex-1">
+                <Link to="/place/$placeKey" params={{ placeKey: p.key }} className="block">
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-primary">{p.community} · {p.kind}</p>
+                  <h2 className="mt-0.5 font-display text-xl leading-tight">{p.label}</h2>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.description}</p>
+                </Link>
+                <p className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                  <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                  {at ? "You’re here" : minutes !== null ? `~${minutes} min travel` : "Virtual destination"}
+                  <span aria-hidden="true">·</span>
+                  {p.open ? "Open now" : "Closed now"}
                 </p>
-                <h2 className="mt-1 font-display text-2xl">{p.label}</h2>
-                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.description}</p>
+                {events.length > 0 && <p className="mt-1 text-xs font-medium text-primary">{events.length} upcoming {events.length === 1 ? "plan" : "plans"}</p>}
               </div>
-            </Link>
-            <div className="mt-3 flex items-center justify-between gap-2 px-2">
-              <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                <Clock3 className="h-3.5 w-3.5" />
-                {at
-                  ? "You’re here"
-                  : minutes !== null
-                    ? `About ${minutes} min virtually`
-                    : "Virtual destination"}{" "}
-                · {p.open ? "Open" : "Closed"}
-                {events.length ? ` · ${events.length} of your plans` : ""}
-              </p>
               <button
                 aria-label={`${favorites.includes(p.key) ? "Unsave" : "Save"} ${p.label}`}
                 aria-pressed={favorites.includes(p.key)}
                 disabled={busy === p.key || !world.data?.experiencesEnabled}
                 onClick={() => void favorite(p.key)}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border disabled:opacity-40"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border disabled:opacity-40"
               >
-                <Heart
-                  className="h-4 w-4"
-                  fill={favorites.includes(p.key) ? "currentColor" : "none"}
-                />
+                <Heart className="h-4 w-4" fill={favorites.includes(p.key) ? "currentColor" : "none"} />
               </button>
             </div>
           </article>
