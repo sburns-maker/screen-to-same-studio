@@ -8,7 +8,15 @@ import { characterFor } from "@/lib/characters";
 import { fictionalNumber, CALL_LABELS, ACTIVE_CALL_STATES, callDuration } from "@/lib/phone-calls";
 import { usePortraits } from "@/lib/use-portrait";
 import { PhoneAudio } from "@/lib/phone-browser";
-export const Route = createFileRoute("/_authenticated/call/$callId")({ component: CallScreen });
+export const Route = createFileRoute("/_authenticated/call/$callId")({
+  head: () => ({ meta: [
+    { title: "Call \u00b7 AI Town" },
+    { name: "description", content: "Private fictional character call in AI Town." },
+    { property: "og:title", content: "Call \u00b7 AI Town" },
+    { property: "og:description", content: "Private fictional character call in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: CallScreen });
 function CallScreen() {
   const { callId } = Route.useParams(),
     q = usePhone(),

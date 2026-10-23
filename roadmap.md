@@ -1,5 +1,10 @@
 # Tess roadmap
 
+## Conversational Voice Studio comparison
+- Done: developer-only Tess conversational mode reusing the selected voice; original scripted mode, 30-second server deadline, durable caps and recording preserved. Recordings are labeled by audition mode.
+- Done: 48 focused regression tests passed; automatic preview compilation passed; signed-in developer mode switching and narrow-screen controls verified with no page errors. Live calls reported Off.
+- Unverified: actual selected Refined playback and recording on the user's device; saved candidates are device-local and absent in the fresh test browser. Requires an explicitly started paid audition; none started and no replacement voices generated.
+
 ## Voice Studio audition validation
 - Done: repaired mounted audio, one-shot script trigger, playback detection, blocked-audio recovery, startup/Stop/disconnection cleanup; verified direct-OpenAI documented events with mocked transport, without paid requests.
 - Blocked: auditions remain disabled until durable concurrency/spending reservations and a server-owned OpenAI sideband deadline are implemented and reviewed; no schema changes authorized here. Normal calls remain disabled.

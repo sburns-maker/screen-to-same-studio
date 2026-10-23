@@ -11,6 +11,14 @@ import { usePortraits } from "@/lib/use-portrait";
 import { canTransition } from "@/lib/experience-lifecycle";
 import type { ExperienceRow } from "@/lib/living-experiences";
 export const Route = createFileRoute("/_authenticated/experiences")({
+  head: () => ({ meta: [
+    { title: "Living Experiences \u00b7 AI Town" },
+    { name: "description", content: "Your scheduled and recorded fictional outings in AI Town." },
+    { property: "og:title", content: "Living Experiences \u00b7 AI Town" },
+    { property: "og:description", content: "Your scheduled and recorded fictional outings in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   validateSearch: (s: Record<string, unknown>) => ({
     plan: typeof s["plan"] === "string" ? s["plan"] : "",
   }),

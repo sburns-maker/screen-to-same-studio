@@ -10,6 +10,14 @@ import { resolveMedia } from "@/lib/media-url";
 import { conversationQuery } from "@/lib/tess-queries";
 import { characterFor } from "@/lib/characters";
 export const Route = createFileRoute("/_authenticated/photos/$conversationId")({
+  head: () => ({ meta: [
+    { title: "Shared Media \u00b7 AI Town" },
+    { name: "description", content: "Your private conversation photos and videos in AI Town." },
+    { property: "og:title", content: "Shared Media \u00b7 AI Town" },
+    { property: "og:description", content: "Your private conversation photos and videos in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: SharedMedia,
 });
 function SharedMedia() {

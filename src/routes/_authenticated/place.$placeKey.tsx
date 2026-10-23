@@ -9,7 +9,15 @@ import { useTown } from "@/lib/town-queries";
 import { actInTown } from "@/lib/town.functions";
 import { travelMinutes, TOWN_PLACES } from "@/lib/town";
 import { TownLayout, card } from "@/components/TownLayout";
-export const Route = createFileRoute("/_authenticated/place/$placeKey")({ component: Place });
+export const Route = createFileRoute("/_authenticated/place/$placeKey")({
+  head: () => ({ meta: [
+    { title: "Place \u00b7 AI Town" },
+    { name: "description", content: "Visit a fictional AI Town venue and its local scene." },
+    { property: "og:title", content: "Place \u00b7 AI Town" },
+    { property: "og:description", content: "Visit a fictional AI Town venue and its local scene." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: Place });
 function Place() {
   const { placeKey } = Route.useParams(),
     q = useTown(),

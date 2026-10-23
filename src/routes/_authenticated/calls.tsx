@@ -12,7 +12,15 @@ import {
 import { TownLayout, card } from "@/components/TownLayout";
 import { CallButton } from "@/components/CallButton";
 import { toast } from "sonner";
-export const Route = createFileRoute("/_authenticated/calls")({ component: Calls });
+export const Route = createFileRoute("/_authenticated/calls")({
+  head: () => ({ meta: [
+    { title: "Calls \u00b7 AI Town" },
+    { name: "description", content: "Your fictional call history and voice preferences in AI Town." },
+    { property: "og:title", content: "Calls \u00b7 AI Town" },
+    { property: "og:description", content: "Your fictional call history and voice preferences in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: Calls });
 function Calls() {
   const q = usePhone(),
     act = useServerFn(phoneAction);
