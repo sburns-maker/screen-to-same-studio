@@ -186,7 +186,7 @@ export async function processVoiceTurn(
     )?.plan;
     if (job.error || !plan?.rows.length) throw new Error("Voice reply unavailable");
     const text = plan.rows.map((r) => r.body).join(" "),
-      audio = await synthesizeSpeech(text, c.character_key as CharacterKey);
+      audio = await synthesizeSpeech(text, c.character_key as never);
     await ownedCall(db, user, callId).then((c) => {
       if (c.state !== "connected" || Date.parse(c.expires_at) <= Date.now())
         throw new Error("Call ended");
