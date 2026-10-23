@@ -267,14 +267,18 @@ function Debug() {
             </Section>
 
             {activeTab === "mind" && <Section title="Recent memories" collapsible>
+              <p className="mb-2 text-xs text-muted-foreground">Newest first. Tap an older memory to read its details.</p>
               {(snap.recentMemories ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
               <ul className="space-y-1.5">
                 {(snap.recentMemories ?? []).map((m, i) => (
                   <li key={i} className="text-sm">
-                    <span className="font-mono text-[11px] text-muted-foreground">
-                      {m.memory_type} · {m.importance} · {new Date(m.created_at).toLocaleDateString()}
-                    </span>
-                    <div>{m.summary}</div>
+                    <details open={i === 0 ? true : undefined} className="rounded-lg border p-2">
+                      <summary className="cursor-pointer text-sm">
+                        <span className="font-medium">{m.memory_type} · {new Date(m.created_at).toLocaleDateString()}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">Importance {m.importance}</span>
+                      </summary>
+                      <p className="mt-2 whitespace-pre-wrap">{m.summary}</p>
+                    </details>
                   </li>
                 ))}
               </ul>
