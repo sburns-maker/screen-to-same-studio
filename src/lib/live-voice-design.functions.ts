@@ -7,6 +7,7 @@ import {
   AUDITION_LIMIT_MS,
   AUDITION_RESERVED_SECONDS,
   AUDITION_SCRIPT,
+  AUDITION_SPEAK_PROMPT,
   AUDITION_SERVER_SAFEGUARDS_READY,
   assertAuditionAllowed,
   auditionLimits,
@@ -147,7 +148,15 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
           session: {
             model: "gpt-live-1",
             delegation: { type: "client" },
-            instructions: `This is an isolated synthetic voice audition for a fictional adult, not an AI Town conversation. ${VOICE_DESIGNS[data.character].description} Wait for the supplied commentary, then speak this exact sample once and remain quiet: ${AUDITION_SCRIPT} Do not ask questions, start a dialogue, or delegate tasks.`,
+            instructions: `This is an isolated synthetic voice audition for a fictional adult, not an AI Town conversation. ${VOICE_DESIGNS[data.character].description} As soon as the session starts, speak this exact sample aloud once, word for word, then remain silent: ${AUDITION_SCRIPT} Never repeat it. Do not ask questions, start a dialogue, backchannel, or delegate tasks.`,
+            // Documented speak-first pattern: developer message available from frame one.
+            input: [
+              {
+                type: "message",
+                role: "developer",
+                content: [{ type: "input_text", text: AUDITION_SPEAK_PROMPT }],
+              },
+            ],
             audio: { output: { voice: { id: data.voiceId } } },
           },
         }),
