@@ -19,6 +19,7 @@ import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
 import { Route as AuthenticatedPlansRouteImport } from './routes/_authenticated/plans'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedVoiceStudioRouteImport } from './routes/_authenticated/voice-studio'
 import { Route as AuthenticatedWorldRouteImport } from './routes/_authenticated/world'
 import { Route as AuthenticatedCallCallIdRouteImport } from './routes/_authenticated/call.$callId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
@@ -81,6 +82,12 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVoiceStudioRoute =
+  AuthenticatedVoiceStudioRouteImport.update({
+    id: '/voice-studio',
+    path: '/voice-studio',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedWorldRoute = AuthenticatedWorldRouteImport.update({
   id: '/world',
   path: '/world',
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/people': typeof AuthenticatedPeopleRoute
   '/plans': typeof AuthenticatedPlansRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/voice-studio': typeof AuthenticatedVoiceStudioRoute
   '/world': typeof AuthenticatedWorldRoute
   '/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -183,6 +191,7 @@ export interface FileRoutesByTo {
   '/people': typeof AuthenticatedPeopleRoute
   '/plans': typeof AuthenticatedPlansRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/voice-studio': typeof AuthenticatedVoiceStudioRoute
   '/world': typeof AuthenticatedWorldRoute
   '/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -208,6 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/people': typeof AuthenticatedPeopleRoute
   '/_authenticated/plans': typeof AuthenticatedPlansRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/voice-studio': typeof AuthenticatedVoiceStudioRoute
   '/_authenticated/world': typeof AuthenticatedWorldRoute
   '/_authenticated/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/people'
     | '/plans'
     | '/settings'
+    | '/voice-studio'
     | '/world'
     | '/call/$callId'
     | '/chat/$conversationId'
@@ -256,6 +267,7 @@ export interface FileRouteTypes {
     | '/people'
     | '/plans'
     | '/settings'
+    | '/voice-studio'
     | '/world'
     | '/call/$callId'
     | '/chat/$conversationId'
@@ -280,6 +292,7 @@ export interface FileRouteTypes {
     | '/_authenticated/people'
     | '/_authenticated/plans'
     | '/_authenticated/settings'
+    | '/_authenticated/voice-studio'
     | '/_authenticated/world'
     | '/_authenticated/call/$callId'
     | '/_authenticated/chat/$conversationId'
@@ -372,6 +385,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/voice-studio': {
+      id: '/_authenticated/voice-studio'
+      path: '/voice-studio'
+      fullPath: '/voice-studio'
+      preLoaderRoute: typeof AuthenticatedVoiceStudioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/world': {
@@ -469,6 +489,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
   AuthenticatedPlansRoute: typeof AuthenticatedPlansRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedVoiceStudioRoute: typeof AuthenticatedVoiceStudioRoute
   AuthenticatedWorldRoute: typeof AuthenticatedWorldRoute
   AuthenticatedCallCallIdRoute: typeof AuthenticatedCallCallIdRoute
   AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
@@ -489,6 +510,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
   AuthenticatedPlansRoute: AuthenticatedPlansRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedVoiceStudioRoute: AuthenticatedVoiceStudioRoute,
   AuthenticatedWorldRoute: AuthenticatedWorldRoute,
   AuthenticatedCallCallIdRoute: AuthenticatedCallCallIdRoute,
   AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
