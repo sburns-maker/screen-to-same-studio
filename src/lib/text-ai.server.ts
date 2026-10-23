@@ -30,6 +30,11 @@ export async function runStructured<T>(
   // One token per character is deliberately conservative for these English prompts.
   const reservation = characters + MAX_OUTPUT_TOKENS;
   if (inFlight >= 4 || reservedTokens + reservation > HOURLY_RESERVED_TOKENS) {
+    console.warn("[character-ai]", {
+      provider: "openai", model: TEXT_MODEL, status: "blocked", operation,
+      failureKind: inFlight >= 4 ? "concurrency_limit" : "capacity_limit",
+      reservedTokens, requestedReservation: reservation,
+    });
     throw new Error("Character AI capacity limit reached; try later");
   }
   reservedTokens += reservation; // Keep reservations on failures: failed calls can still cost money.
