@@ -20,7 +20,7 @@ export function photoTextPrompt(text: PhotoText | null): string {
   return `REQUIRED PHYSICAL TEXT: On this single surface (${JSON.stringify(text.surface)}), render exactly ${JSON.stringify(text.exact)}. Preserve every character, spelling, capitalization and punctuation; no extra words or invented lettering. Use simple readable lettering, sufficient space and an unobstructed view. The lettering belongs physically on that surface: follow its perspective, curvature, texture, shadows, ambient lighting and focus. No floating captions, pasted-on overlays or watermarks. Keep all other incidental text absent or naturally too distant to read. Preserve casual phone-photo lighting and composition; do not make the entire photograph unnaturally sharp. Privacy restrictions take priority.`;
 }
 export function imageCapabilities(name: string, model: string) {
-  const direct = name === "openai" && model === "gpt-image-1-mini";
+  const direct = name === "openai" && ["gpt-image-1-mini", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"].includes(model);
   return {
     explicitTextPrompt: true,
     referenceConditioning: direct ? "supported" : "existing-route-unverified",
