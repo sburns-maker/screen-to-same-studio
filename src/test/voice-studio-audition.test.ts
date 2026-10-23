@@ -168,3 +168,49 @@ describe("direct OpenAI audition lifecycle (mocked transport)", () => {
     f.event("session.closed");
   });
 });
+
+import { readFileSync } from "node:fs";
+import { PGlite } from "@electric-sql/pglite";
+import { AUDITION_LIMIT_MS, auditionLimits, reservationError } from "@/lib/voice-studio-audition";
+
+describe("audition spend limits", () => {
+  it("hard deadline is 30 seconds", () => expect(AUDITION_LIMIT_MS).toBe(30_000));
+  it("defaults to 10 per day and 3000 seconds per 30 days, with clamped overrides", () => {
+    expect(auditionLimits({})).toEqual({ daily: 10, monthlySeconds: 3000 });
+    expect(auditionLimits({ VOICE_AUDITION_DAILY_LIMIT: "999" }).daily).toBe(50);
+    expect(auditionLimits({ VOICE_AUDITION_DAILY_LIMIT: "-1" }).daily).toBe(10);
+  });
+  it("explains each refusal", () => {
+    expect(reservationError("active")).toContain("already running");
+    expect(reservationError("daily")).toContain("Daily");
+  });
+});
+
+describe("durable audition lease (SQL)", () => {
+  const user = "11111111-1111-4111-8111-111111111111";
+  async function db() {
+    const pg = new PGlite();
+    await pg.exec("create role anon; create role authenticated; create role service_role;");
+    await pg.exec(readFileSync("drizzle/migrations/0028_voice_studio_auditions.sql", "utf8"));
+    return pg;
+  }
+  const reserve = (pg: PGlite, now: string, daily = 10, month = 3000) =>
+    pg
+      .query<{ r: { ok: boolean; reason?: string } }>(
+        "select public.reserve_voice_audition($1,'tess','voice_abc',$2,30000,150000,150,$3,$4) r",
+        [user, now, daily, month],
+      )
+      .then((x) => x.rows[0]!.r);
+  it("allows only one active audition per developer until the lease expires", async () => {
+    const pg = await db();
+    expect((await reserve(pg, "2026-10-23T18:00:00Z")).ok).toBe(true);
+    expect(await reserve(pg, "2026-10-23T18:01:00Z")).toMatchObject({ ok: false, reason: "active" });
+    expect((await reserve(pg, "2026-10-23T18:02:31Z")).ok).toBe(true);
+  });
+  it("enforces the daily count and 30-day seconds cap", async () => {
+    const pg = await db();
+    await reserve(pg, "2026-10-23T18:00:00Z", 1);
+    expect(await reserve(pg, "2026-10-23T19:00:00Z", 1)).toMatchObject({ reason: "daily" });
+    expect(await reserve(pg, "2026-10-25T19:00:00Z", 10, 200)).toMatchObject({ reason: "monthly" });
+  });
+});
