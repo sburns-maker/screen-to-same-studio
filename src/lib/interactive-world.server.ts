@@ -18,7 +18,7 @@ import {
 } from "./calendar-logic";
 type Client = SupabaseClient<Database>;
 export async function interactiveAvailable(db: Client) {
-  const r = await db.rpc("interactive_world_status", {});
+  const r = await db.rpc("interactive_world_status", {} as never);
   if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
   if (r.error) throw new Error("Interactive world unavailable");
   return r.data === 19;
