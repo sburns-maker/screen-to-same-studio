@@ -1,5 +1,6 @@
 /** Direct OpenAI GPT-Live data-channel protocol, not the Realtime protocol. */
-export const AUDITION_SCRIPT = "I have a complaint. About you, obviously. I haven't decided what you've done wrong yet, but I'm confident I'll find something. Have a lovely day.";
+export const AUDITION_SCRIPT =
+  "I have a complaint. About you, obviously. I haven't decided what you've done wrong yet, but I'm confident I'll find something. Have a lovely day.";
 export const AUDITION_LIMIT_MS = 45_000;
 // Fail closed: the current one-shot SDP endpoint has no durable concurrency
 // reservation or server-owned connection enforcing a paid-session deadline.
@@ -11,7 +12,9 @@ export function assertAuditionAllowed(developer: boolean, env: Record<string, st
     throw new Error("Studio auditions are disabled");
   }
   if (!AUDITION_SERVER_SAFEGUARDS_READY) {
-    throw new Error("Paid auditions are blocked until server-side duration, concurrency and spending safeguards are installed.");
+    throw new Error(
+      "Paid auditions are blocked until server-side duration, concurrency and spending safeguards are installed.",
+    );
   }
   if (!env["OPENAI_API_KEY"]) throw new Error("OpenAI is not configured");
 }
@@ -39,7 +42,9 @@ export function createStudioAudition(options: {
     state = next;
     options.onState(next);
   }
-  function active() { return state !== "stopping" && state !== "closed"; }
+  function active() {
+    return state !== "stopping" && state !== "closed";
+  }
   function silence() {
     options.audio.pause();
     options.audio.srcObject = null;
@@ -64,8 +69,11 @@ export function createStudioAudition(options: {
     clearInterval(poll);
     silence();
     if (channel.readyState !== "open") return release();
-    try { channel.send(JSON.stringify({ type: "session.close" })); }
-    catch { return release(); }
+    try {
+      channel.send(JSON.stringify({ type: "session.close" }));
+    } catch {
+      return release();
+    }
     // Receive final session.closed while the speaker is already silent.
     drain = setTimeout(() => {
       options.onError("Stopped locally; OpenAI did not confirm final session closure.");
@@ -79,8 +87,9 @@ export function createStudioAudition(options: {
   }
   async function resume() {
     if (!active() || !options.audio.srcObject) return;
-    try { await options.audio.play(); }
-    catch {
+    try {
+      await options.audio.play();
+    } catch {
       if (active()) update("blocked");
     }
   }
@@ -107,14 +116,26 @@ export function createStudioAudition(options: {
       const event = JSON.parse(String(data)) as { type?: string; error?: { message?: string } };
       if (event.type === "session.closed") return release();
       if (!active()) return;
-      if (event.type === "error") return fail("OpenAI rejected the audition command. Stop and review provider access or configuration.");
+      if (event.type === "error")
+        return fail(
+          "OpenAI rejected the audition command. Stop and review provider access or configuration.",
+        );
       if (event.type === "session.started" && !requested) {
         requested = true;
         clearTimeout(startup);
         update("ready");
-        channel.send(JSON.stringify({ type: "session.commentary.append", event_id: crypto.randomUUID(), delegation_id: null, content: AUDITION_SCRIPT }));
+        channel.send(
+          JSON.stringify({
+            type: "session.commentary.append",
+            event_id: crypto.randomUUID(),
+            delegation_id: null,
+            content: AUDITION_SCRIPT,
+          }),
+        );
       }
-    } catch { fail("Unexpected OpenAI audition event."); }
+    } catch {
+      fail("Unexpected OpenAI audition event.");
+    }
   };
   channel.onclose = () => {
     if (active()) options.onError("Audition disconnected without confirmed final session closure.");
@@ -126,7 +147,10 @@ export function createStudioAudition(options: {
   async function start() {
     options.onState("connecting");
     limit = setTimeout(stop, AUDITION_LIMIT_MS);
-    startup = setTimeout(() => fail("Audition did not start. No automatic retry was made."), 30_000);
+    startup = setTimeout(
+      () => fail("Audition did not start. No automatic retry was made."),
+      30_000,
+    );
     poll = setInterval(observePlayback, 250);
     // Try unlocking the mounted audio element while still in the click gesture.
     void options.audio.play().catch(() => {});
@@ -138,7 +162,9 @@ export function createStudioAudition(options: {
       const answer = await options.connect(sdp);
       if (!active()) return;
       await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
-    } catch (e) { fail(e instanceof Error ? e.message : "Audition failed"); }
+    } catch (e) {
+      fail(e instanceof Error ? e.message : "Audition failed");
+    }
   }
   return { start, stop, release, resume };
 }

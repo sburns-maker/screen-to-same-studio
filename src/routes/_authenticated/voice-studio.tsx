@@ -3,7 +3,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
-import { AUDITION_SCRIPT, createStudioAudition, type AuditionState } from "@/lib/voice-studio-audition";
+import {
+  AUDITION_SCRIPT,
+  createStudioAudition,
+  type AuditionState,
+} from "@/lib/voice-studio-audition";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { VOICE_DESIGNS, type VoiceDesignKey } from "@/lib/live-voice-design";
 import {
@@ -138,14 +142,27 @@ function VoiceStudio() {
   function stopAudition() {
     player.current?.stop();
   }
-  useEffect(() => () => { player.current?.release(); }, []);
+  useEffect(
+    () => () => {
+      player.current?.release();
+    },
+    [],
+  );
   function audition() {
     if (player.current || !selected || !status?.auditionsEnabled || !audioRef.current) return;
-    if (!window.confirm("Start a paid audition, limited to 45 seconds? It won't affect character memories or calls.")) return;
+    if (
+      !window.confirm(
+        "Start a paid audition, limited to 45 seconds? It won't affect character memories or calls.",
+      )
+    )
+      return;
     setError("");
     const session = createStudioAudition({
       audio: audioRef.current,
-      connect: (sdp) => auditionFn({ data: { character, voiceId: selected, sdp, confirmation: "START PAID VOICE AUDITION" } }),
+      connect: (sdp) =>
+        auditionFn({
+          data: { character, voiceId: selected, sdp, confirmation: "START PAID VOICE AUDITION" },
+        }),
       onState: (state) => {
         setAuditionState(state);
         if (state === "closed") player.current = null;
@@ -156,7 +173,8 @@ function VoiceStudio() {
     void session.start();
   }
   const current = candidates.filter((c) => c.character === character);
-  const canCreate = !!status?.creationEnabled && !!status.apiConfigured && busy === null && !playing;
+  const canCreate =
+    !!status?.creationEnabled && !!status.apiConfigured && busy === null && !playing;
 
   return (
     <>
@@ -169,7 +187,8 @@ function VoiceStudio() {
             </p>
             <h1 className="mt-1 font-display text-2xl">Find their voice</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions, not character calls.
+              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions,
+              not character calls.
             </p>
             {status ? (
               <ul className="mt-3 space-y-1 text-sm">
@@ -255,9 +274,37 @@ function VoiceStudio() {
               >
                 {copied === "script" ? "Copied" : "Copy script"}
               </button>
-              <Button type="button" disabled={!selected || playing || !status?.auditionsEnabled} className="min-h-11" onClick={audition}><Play />Hear selected voice</Button>
-              {playing && <Button type="button" variant="outline" className="min-h-11" onClick={stopAudition} disabled={auditionState === "stopping"}><Square />Stop</Button>}
-              {auditionState === "blocked" && <Button type="button" variant="outline" onClick={() => void player.current?.resume()}><Play />Enable audio</Button>}
+              <Button
+                type="button"
+                disabled={!selected || playing || !status?.auditionsEnabled}
+                className="min-h-11"
+                onClick={audition}
+              >
+                <Play />
+                Hear selected voice
+              </Button>
+              {playing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={stopAudition}
+                  disabled={auditionState === "stopping"}
+                >
+                  <Square />
+                  Stop
+                </Button>
+              )}
+              {auditionState === "blocked" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void player.current?.resume()}
+                >
+                  <Play />
+                  Enable audio
+                </Button>
+              )}
               <a
                 href="https://platform.openai.com/playground"
                 target="_blank"
@@ -268,13 +315,28 @@ function VoiceStudio() {
               </a>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              In-app and Playground auditions are billable. In-app auditions remain unavailable until server spending safeguards are ready.
+              In-app and Playground auditions are billable. In-app auditions remain unavailable
+              until server spending safeguards are ready.
             </p>
           </Step>
 
           <audio ref={audioRef} controls aria-label="Voice audition audio" className="w-full" />
-          <p role="status" className="text-sm text-muted-foreground">{auditionState === "playing" ? "Audio playback detected" : auditionState === "ready" ? "Connected — waiting for audio" : auditionState === "connecting" ? "Connecting…" : auditionState === "stopping" ? "Audio stopped — closing session…" : auditionState === "blocked" ? "Tap Enable audio to allow playback" : "No audition playing"}</p>
-          {status?.auditionBlocker && <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>}
+          <p role="status" className="text-sm text-muted-foreground">
+            {auditionState === "playing"
+              ? "Audio playback detected"
+              : auditionState === "ready"
+                ? "Connected — waiting for audio"
+                : auditionState === "connecting"
+                  ? "Connecting…"
+                  : auditionState === "stopping"
+                    ? "Audio stopped — closing session…"
+                    : auditionState === "blocked"
+                      ? "Tap Enable audio to allow playback"
+                      : "No audition playing"}
+          </p>
+          {status?.auditionBlocker && (
+            <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>
+          )}
 
           <Step n={3} title="Pick your favorite">
             <p className="text-xs text-muted-foreground">

@@ -14,7 +14,9 @@ describe("GPT-Live character voice identities", () => {
     expect(() => gptLiveSessionConfig("tess", {})).toThrow("approved GPT-Live voice");
   });
   it("cannot enable a voice session without an explicit feature flag", () => {
-    expect(() => gptLiveSessionConfig("tess", { GPT_LIVE_VOICE_TESS: "voice_tessabc123" })).toThrow("not enabled");
+    expect(() => gptLiveSessionConfig("tess", { GPT_LIVE_VOICE_TESS: "voice_tessabc123" })).toThrow(
+      "not enabled",
+    );
   });
   it("binds a saved approved ID to Tess's own voice instructions", () => {
     const cfg = gptLiveSessionConfig("tess", {
