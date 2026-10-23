@@ -163,6 +163,18 @@ export const TOWN_PLACES = [
     opens: 10,
     closes: 20,
   },
+  {
+    key: "dinner:fanellis",
+    label: "Fanelli's Italian Villa",
+    kind: "restaurant",
+    community: "Altoona",
+    latitude: 40.512,
+    longitude: -78.396,
+    description:
+      "A virtual Italian dining scene using a local restaurant name as geographic grounding. Menu, staff, guests and hours are invented; this is not service information, a reservation or a verified address.",
+    opens: 11,
+    closes: 22,
+  },
 ] as const;
 export type TownNpc = {
   key: string;

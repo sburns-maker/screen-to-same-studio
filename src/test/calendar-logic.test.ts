@@ -6,7 +6,7 @@ import {
   recognizePlan,
   type CalendarPlan,
 } from "@/lib/calendar-logic";
-import { PLACE_REGISTRY, interpretVenueAction, placeKnowledge } from "@/lib/place-registry";
+import { PLACE_REGISTRY, interpretVenueAction, placeKnowledge, venueFromText } from "@/lib/place-registry";
 const at = new Date("2026-10-23T00:30:00Z"); // Thursday evening Eastern.
 const m = (body: string, sender = "tess") => ({
   id: "source",
@@ -109,7 +109,7 @@ describe("grounded conversational calendar", () => {
     expect(recognizePlan(m("Let's take a walk Saturday.", "user"), [], null).category).toBe("walk");
   });
   it("has only clearly fictional/unverified map pins and no invented real addresses", () => {
-    expect(PLACE_REGISTRY).toHaveLength(14);
+    expect(PLACE_REGISTRY).toHaveLength(15);
     expect(
       PLACE_REGISTRY.every(
         (p) => p.address === null && p.coordinatesStatus === "illustrative_fictional",
@@ -119,6 +119,14 @@ describe("grounded conversational calendar", () => {
     expect(PLACE_REGISTRY.find((p) => p.key === "hope:drop-in")?.designation).toBe(
       "unverified_real_name_fictional_scene",
     );
+  });
+  it("registers Fanelli's as a public dinner venue without a verified address", () => {
+    const f = PLACE_REGISTRY.find((p) => p.key === "dinner:fanellis");
+    expect(f?.kind).toBe("restaurant");
+    expect(f?.eventCategories).toContain("dinner");
+    expect(f?.address).toBeNull();
+    expect(f?.designation).toBe("unverified_real_name_fictional_scene");
+    expect(venueFromText("Meet you at Fanelli's Italian Villa").map((p) => p.key)).toEqual(["dinner:fanellis"]);
   });
   it("interprets bounded user actions without guaranteeing another person’s consent", () => {
     expect(interpretVenueAction("Order coffee for two")).toEqual({
