@@ -92,3 +92,38 @@ BEGIN
 END;$$;
 REVOKE ALL ON FUNCTION public.living_experience_moment(uuid,uuid,uuid,text,timestamptz) FROM PUBLIC,authenticated;
 GRANT EXECUTE ON FUNCTION public.living_experience_moment(uuid,uuid,uuid,text,timestamptz) TO service_role;
+
+-- Only a never-claimed plan can be auto-claimed; a paused scene is untouchable.
+CREATE FUNCTION public.living_experience_due(p_now timestamptz,p_limit integer DEFAULT 20)
+RETURNS TABLE(user_id uuid,plan_id uuid) LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+ SELECT e.user_id,e.plan_id FROM living_experiences e
+ WHERE e.state='scheduled' AND e.claimed_at IS NULL AND e.claim_deadline<=p_now
+ ORDER BY e.claim_deadline LIMIT least(greatest(p_limit,1),20)
+$$;
+REVOKE ALL ON FUNCTION public.living_experience_due(timestamptz,integer) FROM PUBLIC,authenticated;
+GRANT EXECUTE ON FUNCTION public.living_experience_due(timestamptz,integer) TO service_role;
+
+-- Persist one final outcome and conservative summary in the same locked transaction.
+CREATE FUNCTION public.living_experience_complete(p_user uuid,p_plan uuid,p_expected_revision integer,p_outcome uuid,p_summary text,p_now timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE e living_experiences; p social_plans; newstate text;
+BEGIN
+ IF auth.role()<>'service_role' THEN RAISE EXCEPTION 'service role required'; END IF;
+ SELECT * INTO e FROM living_experiences WHERE user_id=p_user AND plan_id=p_plan FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'experience not found'; END IF;
+ IF e.state='completed' AND e.outcome_id=p_outcome THEN RETURN to_jsonb(e); END IF;
+ IF e.revision<>p_expected_revision OR e.state NOT IN('interactive','paused','auto_running') THEN
+   RAISE EXCEPTION 'experience changed or is not ready to complete';
+ END IF;
+ IF length(p_summary)>1200 OR length(trim(p_summary))<8 THEN RAISE EXCEPTION 'summary invalid'; END IF;
+ SELECT * INTO p FROM social_plans WHERE user_id=p_user AND id=p_plan FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'plan not found'; END IF;
+ UPDATE living_experiences SET state='completed',outcome_id=p_outcome,summary=p_summary,
+ revision=revision+1,updated_at=p_now WHERE user_id=p_user AND id=e.id;
+ -- Deliberately do not mutate social_plans or relationship scores here.
+ -- Their existing progression owns attendance and plan completion; a separate
+ -- reviewed synchronizer must map confirmed outcomes into that engine safely.
+ RETURN (SELECT to_jsonb(x) FROM living_experiences x WHERE x.user_id=p_user AND x.id=e.id);
+END;$$;
+REVOKE ALL ON FUNCTION public.living_experience_complete(uuid,uuid,integer,uuid,text,timestamptz) FROM PUBLIC,authenticated;
+GRANT EXECUTE ON FUNCTION public.living_experience_complete(uuid,uuid,integer,uuid,text,timestamptz) TO service_role;
