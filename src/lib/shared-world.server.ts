@@ -37,16 +37,19 @@ export async function sharedCommand(
 /** No paid calls. Per-user transaction + expected version protects concurrent workers. */
 export async function runSharedWorldTick(db: Client, user: string, now: Date) {
   if (!(await sharedWorldAvailable(db))) return { checked: 0, transitions: 0 };
-  const { data: plans, error } = await db
+  const interactive = await (await import("./interactive-world.server")).interactiveAvailable(db);
+  let queue = db
     .from("social_plans")
     .select("*")
     .eq("user_id", user)
-    .in("status", ["proposed", "active"])
-    .order("starts_at")
-    .limit(8);
+    .in("status", ["proposed", "active"]);
+  if (interactive) queue = queue.eq("origin", "legacy");
+  const { data: plans, error } = await queue.order("starts_at").limit(8);
   if (error) throw new Error("Shared plan queue unavailable");
   let transitions = 0;
-  for (let plan of plans ?? []) {
+  for (let plan of (plans ?? []).filter(
+    (p) => p.origin !== "conversation" && p.starts_at && p.ends_at && p.place_key,
+  ) as SharedPlan[]) {
     const { data: invites, error } = await db
       .from("social_rsvps")
       .select("*")
@@ -136,15 +139,15 @@ export async function sharedPlanContext(db: Client, user: string, character: str
     .select("*")
     .eq("user_id", user)
     .eq("id", data.plan_id)
-    .eq("status", "active")
+    .in("status", ["active", "in_progress"])
     .maybeSingle();
   if (planError) throw new Error("Shared plan context unavailable");
   return plan
     ? {
         activity: `at ${plan.place_key}`,
         availability: "limited" as const,
-        detail: `Attending ${plan.title} at ${plan.place_key}. User attendance is not established.`,
-        summary: `${plan.title} is currently happening at ${plan.place_key}. Do not assume the user is present.`,
+        detail: `Attending ${plan.title} at ${plan.place_key}. User attendance: ${plan.user_attendance}. Do not invent additional user actions.`,
+        summary: `${plan.title} is currently happening at ${plan.place_key}. ${plan.user_attendance === "not_reported" ? "Do not assume the user is present." : `User attendance is ${plan.user_attendance}; do not invent additional actions.`}`,
       }
     : null;
 }

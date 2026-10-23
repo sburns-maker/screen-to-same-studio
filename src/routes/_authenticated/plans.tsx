@@ -1,3 +1,4 @@
+import { CalendarBoard } from "@/components/CalendarBoard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -53,9 +54,11 @@ function Plans() {
       loading={q.isLoading}
     >
       <p className="mb-5 text-sm text-muted-foreground">
-        Shared gatherings you arrange here. Earlier dates kept only in chat memories remain in those
-        conversations; this is not a complete imported calendar.
+        Conversation invitations synchronize here when their visible messages are processed.
+        Existing historical dates and memories are preserved; older chat is not automatically
+        backfilled.
       </p>
+      <CalendarBoard />
       {decision && (
         <p role="status" className={`${card} mb-4 text-sm`}>
           {decision}
@@ -163,37 +166,39 @@ function Plans() {
         </form>
       )}
       <div className="space-y-3">
-        {q.data?.plans.map((p) => (
-          <article key={p.id} className={card}>
-            <p className="text-xs uppercase tracking-wider text-primary">{p.status}</p>
-            <h2 className="my-2 font-display text-2xl">{p.title}</h2>
-            <p className="text-sm">
-              {new Date(p.starts_at).toLocaleString()} ·{" "}
-              {q.data.places.find((v) => v.key === p.place_key)?.label ?? p.place_key}
-            </p>
-            {q.data.places.some((v) => v.key === p.place_key) && (
-              <Link
-                to="/place/$placeKey"
-                params={{ placeKey: p.place_key }}
-                className="mt-3 block text-sm text-primary underline"
-              >
-                Visit this place virtually
-              </Link>
-            )}
-            <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-              {q.data.invitations
-                .filter((i) => i.plan_id === p.id)
-                .map((i) => (
-                  <li key={i.character_key}>
-                    {i.character_key} · {i.response}
-                  </li>
-                ))}
-            </ul>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Your attendance: unreported. Characters’ private conversations are not shown.
-            </p>
-          </article>
-        ))}
+        {q.data?.plans
+          .filter((p) => p.origin !== "conversation")
+          .map((p) => (
+            <article key={p.id} className={card}>
+              <p className="text-xs uppercase tracking-wider text-primary">{p.status}</p>
+              <h2 className="my-2 font-display text-2xl">{p.title}</h2>
+              <p className="text-sm">
+                {p.starts_at ? new Date(p.starts_at).toLocaleString() : "Time undecided"} ·{" "}
+                {q.data.places.find((v) => v.key === p.place_key)?.label ?? p.place_key}
+              </p>
+              {p.place_key && q.data.places.some((v) => v.key === p.place_key) && (
+                <Link
+                  to="/place/$placeKey"
+                  params={{ placeKey: p.place_key }}
+                  className="mt-3 block text-sm text-primary underline"
+                >
+                  Visit this place virtually
+                </Link>
+              )}
+              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+                {q.data.invitations
+                  .filter((i) => i.plan_id === p.id)
+                  .map((i) => (
+                    <li key={i.character_key}>
+                      {i.character_key} · {i.response}
+                    </li>
+                  ))}
+              </ul>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Your attendance: unreported. Characters’ private conversations are not shown.
+              </p>
+            </article>
+          ))}
         {q.data && !q.data.plans.length && (
           <p className="py-6 text-sm text-muted-foreground">
             No gatherings arranged here yet. Existing dates and memories have not been changed.

@@ -134,6 +134,13 @@
       "when": 1792771200007,
       "tag": "0018_verify_media_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792771200008,
+      "tag": "0019_interactive_calendar",
+      "breakpoints": true
     }
   ]
 }

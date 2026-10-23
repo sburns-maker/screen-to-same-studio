@@ -1,3 +1,4 @@
+import { ConversationPlans } from "@/components/ConversationPlans";
 import { ConversationMedia } from "@/components/ConversationMedia";
 import { NpcIntroductionChip } from "@/components/NpcIntroductionChip";
 import { usePortraits } from "@/lib/use-portrait";
@@ -342,6 +343,7 @@ function Chat() {
         </div>
       </header>
 
+      <ConversationPlans conversationId={conversationId}/>
       <div ref={scroller} className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-xl flex-col px-3 py-4">
           {msgs.isLoading ? <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p> : null}

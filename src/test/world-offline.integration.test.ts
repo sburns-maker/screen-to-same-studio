@@ -153,6 +153,54 @@ afterEach(() => {
 });
 
 describe("offline living world through the normal character pipeline (fake paid providers only)", () => {
+  it("synchronizes conversational invitations and advances character arrival through the offline worker with AI budget zero", async () => {
+    vi.stubEnv("AUTONOMOUS_AI_DAILY_LIMIT", "0");
+    await db.query("update interactive_world_installation set installed_at=$1", [
+      new Date(now.getTime() - 60000).toISOString(),
+    ]);
+    const claire = "20000000-0000-4000-a000-999999999999";
+    await db.query(
+      "insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key='claire'",
+      [claire, user],
+    );
+    await db.query("insert into tess_state(conversation_id,user_id) values($1,$2)", [claire, user]);
+    for (const [i, sender, body] of [
+      [0, "tess", "Want to come to book club tonight at 7 PM at Lantern Reading Room?"],
+      [1, "user", "Yes!"],
+    ] as const)
+      await db.query(
+        "insert into messages(user_id,conversation_id,sender,body,created_at,visible_at) values($1,$2,$3,$4,$5,$5)",
+        [user, claire, sender, body, new Date(now.getTime() - 10000 + i * 1000).toISOString()],
+      );
+    const first = await runWorldTickWithAdmin(mocks.admin!, now);
+    expect(first.errors).toEqual([]);
+    expect(
+      (
+        await db.query<{ status: string }>(
+          "select status from social_plans where origin='conversation'",
+        )
+      ).rows,
+    ).toEqual([{ status: "accepted" }]);
+    const later = new Date("2026-10-22T23:01:00Z");
+    vi.setSystemTime(later);
+    expect((await runWorldTickWithAdmin(mocks.admin!, later)).errors).toEqual([]);
+    expect(
+      (
+        await db.query<{ character_key: string }>(
+          "select character_key from social_presence where character_key='claire'",
+        )
+      ).rows,
+    ).toEqual([{ character_key: "claire" }]);
+    expect(
+      (
+        await db.query<{ user_attendance: string }>(
+          "select user_attendance from social_plans where origin='conversation'",
+        )
+      ).rows,
+    ).toEqual([{ user_attendance: "not_reported" }]);
+    expect(mocks.text).not.toHaveBeenCalled();
+    expect(mocks.image).not.toHaveBeenCalled();
+  });
   it("records independent activity, decides on a clinic selfie, preserves identity and delivers once without a user message", async () => {
     expect(await count("messages")).toBe(0);
     const report = await runWorldTickWithAdmin(mocks.admin!, now);

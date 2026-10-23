@@ -29,8 +29,13 @@ export async function initializeTown(db: Client, user: string) {
       "World exploration needs reviewed migration 0012. Existing messages still work.",
     );
   const expanded = await expansionAvailable(db);
-  const places = expanded ? TOWN_PLACES : TOWN_PLACES.slice(0, 4);
-  const npcs = expanded ? TOWN_NPCS : TOWN_NPCS.slice(0, 3);
+  const interactive = await (await import("./interactive-world.server")).interactiveAvailable(db);
+  const places = interactive
+    ? TOWN_PLACES
+    : expanded
+      ? TOWN_PLACES.slice(0, 7)
+      : TOWN_PLACES.slice(0, 4);
+  const npcs = interactive ? TOWN_NPCS : expanded ? TOWN_NPCS.slice(0, 6) : TOWN_NPCS.slice(0, 3);
   const r = await db.from("world_places").upsert(
     places.map((p) => ({
       user_id: user,
@@ -329,7 +334,12 @@ export async function townSnapshot(db: Client, user: string, now: Date) {
   if (introductions.error) throw new Error("Introductions unavailable");
   const arrived = presence.data && Date.parse(presence.data.arrives_at) <= now.getTime();
   return {
-    places: ((await expansionAvailable(db)) ? TOWN_PLACES : TOWN_PLACES.slice(0, 4)).map((p) => ({
+    places: ((await (await import("./interactive-world.server")).interactiveAvailable(db))
+      ? TOWN_PLACES
+      : (await expansionAvailable(db))
+        ? TOWN_PLACES.slice(0, 7)
+        : TOWN_PLACES.slice(0, 4)
+    ).map((p) => ({
       ...p,
       open: placeOpen(p, now),
     })),

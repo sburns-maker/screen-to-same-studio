@@ -48,6 +48,15 @@ function Home() {
             : "A private fictional home, with no real address or GPS tracking."}
         </p>
         <div className="mt-4 flex gap-4 text-sm">
+          {pos && !travelling && pos.place_key !== "home:user" && (
+            <Link
+              to="/place/$placeKey"
+              params={{ placeKey: pos.place_key }}
+              className="font-medium underline"
+            >
+              Enter this destination
+            </Link>
+          )}
           <Link to="/explore" className="font-medium underline">
             Head into town
           </Link>

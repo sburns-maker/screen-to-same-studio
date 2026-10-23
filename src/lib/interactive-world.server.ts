@@ -1,0 +1,329 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database, Json } from "@/integrations/supabase/types";
+import {
+  PLACE_REGISTRY,
+  placeByKey,
+  placeKnowledge,
+  interpretVenueAction,
+  type VenueAction,
+} from "./place-registry";
+import { TOWN_PLACES, placeOpen } from "./town";
+import { characterFor, type CharacterKey } from "./characters";
+import { currentActivity } from "./world-continuity";
+import {
+  recognizePlan,
+  easternInstant,
+  type CalendarEvidence,
+  type CalendarPlan,
+} from "./calendar-logic";
+type Client = SupabaseClient<Database>;
+export async function interactiveAvailable(db: Client) {
+  const r = await db.rpc("interactive_world_status", {});
+  if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
+  if (r.error) throw new Error("Interactive world unavailable");
+  return r.data === 19;
+}
+export function calendarScheduleAllows(
+  character: string,
+  date: string | null,
+  time: string | null,
+  place: string | null,
+) {
+  const start = easternInstant(date, time),
+    p = placeByKey(place);
+  if (!start || !p) return false;
+  const at = new Date(start),
+    end = new Date(at.getTime() + 60 * 60000);
+  if (!placeOpen(p, at) || !placeOpen(p, new Date(end.getTime() - 1))) return false;
+  const c = characterFor(character),
+    s = c.schedule;
+  for (let t = at.getTime() - 30 * 60000; t <= end.getTime() + 30 * 60000; t += 15 * 60000) {
+    const now = new Date(t),
+      a = currentActivity(c, now);
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/New_York",
+        weekday: "short",
+        hour: "numeric",
+        hourCycle: "h23",
+      }).formatToParts(now),
+      day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+        parts.find((x) => x.type === "weekday")!.value,
+      ),
+      hour = Number(parts.find((x) => x.type === "hour")!.value);
+    if (
+      a.availability === "busy" ||
+      a.availability === "asleep" ||
+      (s.workDays.includes(day) && hour >= s.workStart && hour < s.workEnd)
+    )
+      return false;
+  }
+  return true;
+}
+export async function registerInteractivePlaces(db: Client, user: string) {
+  const r = await db.from("world_places").upsert(
+    PLACE_REGISTRY.map((p) => ({
+      user_id: user,
+      key: p.key,
+      label: p.label,
+      kind: p.kind,
+      metadata: JSON.parse(JSON.stringify({ ...p, fictional: true })) as Json,
+    })),
+    { onConflict: "user_id,key", ignoreDuplicates: true },
+  );
+  if (r.error) throw new Error("Venue registry unavailable");
+  // Merge newly added public activity fields without overwriting established names, descriptions or authored metadata.
+  const existing = await db
+    .from("world_places")
+    .select("*")
+    .eq("user_id", user)
+    .in(
+      "key",
+      PLACE_REGISTRY.map((p) => p.key),
+    );
+  if (existing.error) throw new Error("Venue metadata unavailable");
+  for (const row of existing.data ?? []) {
+    const p = placeByKey(row.key);
+    if (!p) continue;
+    const md = row.metadata as Record<string, Json>;
+    if (!md["activities"]) {
+      const w = await db
+        .from("world_places")
+        .update({ metadata: { ...p, ...md, activities: [...p.activities] } as unknown as Json })
+        .eq("user_id", user)
+        .eq("key", p.key);
+      if (w.error) throw new Error("Venue activities unavailable");
+    }
+  }
+}
+export async function calendarPlans(db: Client, user: string) {
+  const r = await db
+    .from("social_plans")
+    .select("*")
+    .eq("user_id", user)
+    .eq("origin", "conversation")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (r.error) throw new Error("Calendar unavailable");
+  return (r.data as unknown as CalendarPlan[]).filter((p) => p.conversation_id !== null);
+}
+export async function syncCalendar(db: Client, user: string, now: Date) {
+  if (!(await interactiveAvailable(db))) return { processed: 0, updated: 0 };
+  await registerInteractivePlaces(db, user);
+  const pending = await db.rpc("calendar_pending", { p_user: user, p_now: now.toISOString() });
+  if (pending.error) throw new Error("Calendar queue unavailable");
+  let updated = 0,
+    processed = 0;
+  for (const m of (pending.data as unknown as CalendarEvidence[]) ?? []) {
+    const plans = await calendarPlans(db, user);
+    const before = await db
+      .from("messages")
+      .select("id")
+      .eq("user_id", user)
+      .eq("conversation_id", m.conversation_id)
+      .lt("created_at", m.created_at)
+      .lte("visible_at", now.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (before.error) throw new Error("Invitation context unavailable");
+    const patch = recognizePlan(m, plans, before.data?.id ?? null),
+      target = plans.find((p) => p.id === patch.planId);
+    const date = patch.date ?? target?.date_local ?? null,
+      time = patch.time ?? target?.time_local ?? null,
+      place = patch.place ?? target?.place_key ?? null;
+    const r = await db.rpc("calendar_apply", {
+      p_user: user,
+      p_message: m.id,
+      p_payload: {
+        ...patch,
+        schedule_ok: calendarScheduleAllows(m.character_key, date, time, place),
+      } as unknown as Json,
+      p_now: now.toISOString(),
+    });
+    if (r.error) throw new Error("Calendar sync deferred; source evidence is retained for retry");
+    processed++;
+    if (patch.action !== "none") updated++;
+  }
+  const blocked = ["tess", "maya", "claire", "jordan", "ben"].filter((key) => {
+    const a = currentActivity(characterFor(key), now);
+    return a.availability === "busy" || a.availability === "asleep";
+  });
+  const advanced = await db.rpc("calendar_advance", {
+    p_user: user,
+    p_now: now.toISOString(),
+    p_blocked: blocked,
+  });
+  if (advanced.error) throw new Error("Calendar progression deferred");
+  return { processed, updated };
+}
+export async function interactiveSnapshot(db: Client, user: string, now: Date) {
+  if (!(await interactiveAvailable(db)))
+    return {
+      available: false,
+      plans: [] as CalendarPlan[],
+      session: null as null | {
+        id: string;
+        place_key: string;
+        state: Json;
+        arrived_at: string;
+        departed_at: string | null;
+      },
+      actions: [] as {
+        id: string;
+        action: string;
+        detail: string;
+        created_at: string;
+        result: Json;
+      }[],
+      transitions: [] as {
+        plan_id: string;
+        from_status: string | null;
+        to_status: string;
+        reason: string;
+        created_at: string;
+      }[],
+      companions: [] as { character_key: string; plan_id: string; place_key: string }[],
+    };
+  await syncCalendar(db, user, now);
+  const [plans, session, actions, transitions, companions] = await Promise.all([
+    calendarPlans(db, user),
+    db.rpc("venue_session", { p_user: user, p_now: now.toISOString() }),
+    db
+      .from("venue_actions")
+      .select("*")
+      .eq("user_id", user)
+      .order("created_at", { ascending: false })
+      .limit(30),
+    db
+      .from("calendar_transitions")
+      .select("*")
+      .eq("user_id", user)
+      .order("created_at", { ascending: false })
+      .limit(40),
+    db.from("social_presence").select("*").eq("user_id", user).gt("until_at", now.toISOString()),
+  ]);
+  if (session.error || actions.error || transitions.error || companions.error)
+    throw new Error("Venue state unavailable");
+  // Expose only companions whose accepted event includes this user; other characters' private whereabouts stay private.
+  return {
+    available: true,
+    plans,
+    session: session.data as {
+      id: string;
+      place_key: string;
+      state: Json;
+      arrived_at: string;
+      departed_at: string | null;
+    } | null,
+    actions: actions.data ?? [],
+    transitions: transitions.data ?? [],
+    companions: (companions.data ?? [])
+      .filter((p) =>
+        plans.some(
+          (plan) =>
+            plan.id === p.plan_id &&
+            plan.user_response === "accepted" &&
+            plan.character_response === "accepted" &&
+            plan.status === "in_progress",
+        ),
+      )
+      .map((p) => ({ character_key: p.character_key, plan_id: p.plan_id, place_key: p.place_key })),
+  };
+}
+export async function calendarContext(
+  db: Client,
+  user: string,
+  conversation: string,
+  character: string,
+  now: Date,
+) {
+  if (!(await interactiveAvailable(db))) return [] as string[];
+  await syncCalendar(db, user, now);
+  const plans = (await calendarPlans(db, user)).filter(
+    (p) =>
+      p.conversation_id === conversation &&
+      p.organizer === character &&
+      !["completed", "cancelled", "declined", "missed"].includes(p.status),
+  );
+  const lines = [
+    placeKnowledge(),
+    ...plans.map(
+      (p) =>
+        `YOUR CONVERSATION PLAN ${p.id}: ${p.title}; ${p.status}; date ${p.date_local ?? "undecided"}, time ${p.time_local ?? "undecided"} Eastern; venue ${placeByKey(p.place_key)?.label ?? "undecided"}; user ${p.user_response}, you ${p.character_response}; missing ${p.missing_details.join(", ")}; conflicts ${JSON.stringify(p.conflicts)}; followthrough ${JSON.stringify(p.followthrough)}. Choose known venue/time details explicitly if appropriate. A map meeting point is available for fictional places, NOT a verified street address. No host/email/reservation tools exist. Do not claim user attendance.`,
+    ),
+  ];
+  const presence = await db.from("town_presence").select("*").eq("user_id", user).maybeSingle();
+  const here = plans.find(
+    (p) =>
+      p.status === "in_progress" &&
+      p.place_key === presence.data?.place_key &&
+      Date.parse(presence.data.arrives_at) <= now.getTime(),
+  );
+  if (here)
+    lines.push(
+      `The user has actually arrived virtually at your accepted ${here.title}. Their recorded attendance state is ${here.user_attendance}. Respond naturally to their explicit scene actions; do not invent actions or private attendee facts.`,
+    );
+  return lines;
+}
+export async function actAtVenue(
+  db: Client,
+  user: string,
+  data: {
+    id: string;
+    place: string;
+    action: VenueAction | "speak" | "freeform";
+    text: string;
+    planId?: string | undefined;
+    character?: CharacterKey | undefined;
+  },
+  now: Date,
+) {
+  if (!(await interactiveAvailable(db)))
+    throw new Error("Review migration 0019 before venue interactions");
+  const p = placeByKey(data.place);
+  if (!p) throw new Error("Unknown public virtual place");
+  let action = data.action,
+    quantity = 1;
+  if (action === "freeform") {
+    const interpreted = interpretVenueAction(data.text);
+    if (!interpreted)
+      throw new Error(
+        "This action needs a conversation. Use Talk to a present companion or introduce yourself to an available NPC.",
+      );
+    action = interpreted.action;
+    quantity = interpreted.quantity;
+  }
+  const r = await db.rpc("venue_act", {
+    p_user: user,
+    p_id: data.id,
+    p_place: p.key,
+    p_action: action,
+    p_detail: data.text,
+    p_now: now.toISOString(),
+    ...(data.planId ? { p_plan: data.planId } : {}),
+    ...(data.character ? { p_character: data.character } : {}),
+    p_quantity: quantity,
+  });
+  if (r.error) {
+    const safe = [
+      "Arrive before interacting",
+      "Activity not available at this venue",
+      "The fictional venue is closed",
+      "A current accepted event here is required",
+      "Your companion has not arrived",
+      "Confirmed companion required",
+      "Action ID belongs to a different request",
+    ];
+    throw new Error(
+      safe.includes(r.error.message)
+        ? r.error.message
+        : "Venue action could not be confirmed. Refresh before retrying; the action ID prevents duplicates.",
+    );
+  }
+  const result = r.data as { conversationId?: string | null; replayed?: boolean };
+  if (action === "speak" && result.conversationId) {
+    const { runTurn } = await import("./tess.functions");
+    await runTurn(db, user, result.conversationId, "America/New_York");
+  }
+  return r.data;
+}

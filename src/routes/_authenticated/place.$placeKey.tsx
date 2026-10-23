@@ -1,3 +1,4 @@
+import { VenueScene } from "@/components/VenueScene";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -75,6 +76,7 @@ function Place() {
                 : `Visit virtually · about ${to ? travelMinutes(from, to) : 15} min`}
             </button>
           )}
+          {here && <VenueScene placeKey={placeKey} />}
           <h2 className="mb-3 text-lg font-semibold">Around you</h2>
           {here && place.open ? (
             q.data?.people

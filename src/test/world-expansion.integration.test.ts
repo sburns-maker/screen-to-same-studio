@@ -67,11 +67,11 @@ beforeEach(async () => {
   });
 });
 describe("bounded NPC continuity and agency", () => {
-  it("creates six stable fictional profiles and leaves every unapproved visual identity disabled", async () => {
-    expect(await count("town_people")).toBe(6);
-    expect(await count("visual_identity_registry")).toBe(6);
+  it("creates eight stable fictional profiles and leaves every unapproved visual identity disabled", async () => {
+    expect(await count("town_people")).toBe(8);
+    expect(await count("visual_identity_registry")).toBe(8);
     const snapshot = await townSnapshot(admin, user, now);
-    expect(snapshot.places).toHaveLength(7);
+    expect(snapshot.places).toHaveLength(11);
     expect(snapshot.people.every((p) => !p.photosEnabled)).toBe(true);
     expect(snapshot.places.find((p) => p.key === "hope:drop-in")?.description).toContain(
       "fictional",
