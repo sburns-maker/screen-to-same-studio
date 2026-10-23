@@ -7,6 +7,7 @@ import {
   AUDITION_SCRIPT,
   createStudioAudition,
   type AuditionState,
+  type AuditionTrace,
 } from "@/lib/voice-studio-audition";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { VOICE_DESIGNS, type VoiceDesignKey } from "@/lib/live-voice-design";
@@ -76,6 +77,9 @@ function VoiceStudio() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selected, setSelected] = useState("");
   const [copied, setCopied] = useState("");
+  const [level, setLevel] = useState(0);
+  const [spoken, setSpoken] = useState("");
+  const [trace, setTrace] = useState<AuditionTrace[]>([]);
 
   useEffect(() => {
     try {
@@ -159,6 +163,9 @@ function VoiceStudio() {
     )
       return;
     setError("");
+    setSpoken("");
+    setTrace([]);
+    setLevel(0);
     let auditionId: string | null = null;
     const release = () => {
       if (!auditionId) return;
@@ -184,6 +191,9 @@ function VoiceStudio() {
         }
       },
       onError: setError,
+      onLevel: (l) => setLevel(l),
+      onTranscript: setSpoken,
+      onTrace: (t) => setTrace((prev) => [...prev.slice(-29), t]),
     });
     player.current = session;
     void session.start();
@@ -337,11 +347,27 @@ function VoiceStudio() {
           </Step>
 
           <audio ref={audioRef} controls aria-label="Voice audition audio" className="w-full" />
+          <div>
+            <p className="text-xs text-muted-foreground">Incoming audio level</p>
+            <div
+              role="meter"
+              aria-label="Incoming audio level"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(Math.min(1, level * 8) * 100)}
+              className="mt-1 h-3 w-full overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full bg-primary transition-[width] duration-100"
+                style={{ width: `${Math.min(100, level * 800)}%` }}
+              />
+            </div>
+          </div>
           <p role="status" className="text-sm text-muted-foreground">
             {auditionState === "playing"
-              ? "Audio playback detected"
+              ? "Sound detected in incoming audio"
               : auditionState === "ready"
-                ? "Connected — waiting for audio"
+                ? "Connected — incoming audio is silent so far"
                 : auditionState === "connecting"
                   ? "Connecting…"
                   : auditionState === "stopping"
@@ -350,6 +376,21 @@ function VoiceStudio() {
                       ? "Tap Enable audio to allow playback"
                       : "No audition playing"}
           </p>
+          {(spoken || trace.length > 0) && (
+            <section className="rounded-2xl bg-surface p-3 text-xs">
+              <p className="font-semibold">What OpenAI said (transcript)</p>
+              <p className="mt-1">{spoken || "— nothing yet —"}</p>
+              <p className="mt-3 font-semibold">Session events</p>
+              <ul className="mt-1 space-y-0.5 font-mono text-muted-foreground">
+                {trace.map((t, i) => (
+                  <li key={i} className="break-all">
+                    {(t.at / 1000).toFixed(1)}s {t.type}
+                    {t.detail ? ` — ${t.detail}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {status?.auditionBlocker && (
             <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>
           )}

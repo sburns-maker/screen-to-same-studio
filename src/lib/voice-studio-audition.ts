@@ -53,12 +53,31 @@ export function assertAuditionAllowed(developer: boolean, env: Record<string, st
 
 export type AuditionState = "connecting" | "ready" | "playing" | "blocked" | "stopping" | "closed";
 
+/** RMS above this (0–1 float samples) counts as audible, non-silent speech. */
+export const AUDIBLE_RMS = 0.01;
+/** After speech transcript stops arriving this long, the single take is over. */
+export const SPEECH_QUIET_MS = 2_500;
+
+/** Developer prompt seeded at session creation so speech starts from frame one. */
+export const AUDITION_SPEAK_PROMPT = `Speak now, in English, the following sample exactly once, word for word, then stay completely silent until the session ends: "${AUDITION_SCRIPT}"`;
+
+export function rms(samples: Float32Array): number {
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) sum += samples[i]! * samples[i]!;
+  return samples.length ? Math.sqrt(sum / samples.length) : 0;
+}
+
+export type AuditionTrace = { at: number; type: string; detail?: string | undefined };
+
 /** No paid request is made until start is called explicitly by the UI. */
 export function createStudioAudition(options: {
   audio: HTMLAudioElement;
   connect: (sdp: string) => Promise<{ sdp: string }>;
   onState: (state: AuditionState) => void;
   onError: (message: string) => void;
+  onLevel?: (level: number, audible: boolean) => void;
+  onTranscript?: (text: string) => void;
+  onTrace?: (event: AuditionTrace) => void;
 }) {
   const pc = new RTCPeerConnection();
   const channel = pc.createDataChannel("oai-events");
@@ -68,8 +87,16 @@ export function createStudioAudition(options: {
   let drain: ReturnType<typeof setTimeout> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let startup: ReturnType<typeof setTimeout> | undefined;
-  let lastTime = 0;
+  let quiet: ReturnType<typeof setTimeout> | undefined;
+  let transcript = "";
+  let ctx: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  let heardAudio = false;
+  const t0 = Date.now();
 
+  function trace(type: string, detail?: string) {
+    options.onTrace?.({ at: Date.now() - t0, type, detail });
+  }
   function update(next: AuditionState) {
     state = next;
     options.onState(next);
@@ -94,9 +121,13 @@ export function createStudioAudition(options: {
     clearTimeout(limit);
     clearTimeout(drain);
     clearTimeout(startup);
+    clearTimeout(quiet);
     clearInterval(poll);
     window.removeEventListener("pagehide", release);
     silence();
+    void ctx?.close().catch(() => {});
+    ctx = null;
+    options.onLevel?.(0, false);
     update("closed");
     channel.close();
     pc.close();
@@ -106,8 +137,10 @@ export function createStudioAudition(options: {
     update("stopping");
     clearTimeout(limit);
     clearTimeout(startup);
+    clearTimeout(quiet);
     clearInterval(poll);
     silence();
+    options.onLevel?.(0, false);
     if (channel.readyState !== "open") return release();
     try {
       channel.send(JSON.stringify({ type: "session.close" }));
@@ -129,47 +162,98 @@ export function createStudioAudition(options: {
     if (!active() || !options.audio.srcObject) return;
     try {
       await options.audio.play();
+      void ctx?.resume().catch(() => {});
     } catch {
       if (active()) update("blocked");
     }
   }
-  function observePlayback() {
-    if (!active() || !options.audio.srcObject || options.audio.paused) return;
-    const now = options.audio.currentTime;
-    // Neither an SDP answer nor play() resolving proves media has played.
-    if (now > lastTime && options.audio.readyState >= 2) update("playing");
-    lastTime = now;
+  const buf = new Float32Array(1024);
+  function observe() {
+    if (!active()) return;
+    // Media-clock advance is not evidence of sound; measure actual energy.
+    if (!analyser) return;
+    analyser.getFloatTimeDomainData(buf);
+    const level = rms(buf);
+    const audible = level >= AUDIBLE_RMS;
+    options.onLevel?.(level, audible);
+    if (audible && !heardAudio) {
+      heardAudio = true;
+      trace("audio.audible", level.toFixed(3));
+    }
+    if (audible && state !== "playing" && state !== "blocked") update("playing");
   }
-  pc.addTransceiver("audio", { direction: "recvonly" });
+  /** Silent outgoing track: GPT-Live expects an active input stream, no mic needed. */
+  function silentInput(): MediaStreamTrack | null {
+    if (!ctx) return null;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    const dest = ctx.createMediaStreamDestination();
+    osc.connect(gain).connect(dest);
+    osc.start();
+    return dest.stream.getAudioTracks()[0] ?? null;
+  }
   pc.ontrack = ({ track }) => {
     if (!active()) return;
-    options.audio.srcObject = new MediaStream([track]);
+    const stream = new MediaStream([track]);
+    options.audio.srcObject = stream;
+    trace("media.track", track.kind);
+    if (ctx) {
+      try {
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        ctx.createMediaStreamSource(stream).connect(analyser);
+      } catch {
+        trace("meter.unavailable");
+      }
+    }
     void resume();
   };
   pc.onconnectionstatechange = () => {
+    trace("pc." + pc.connectionState);
     if (["failed", "closed", "disconnected"].includes(pc.connectionState)) {
       fail("Audition connection lost. Start a new audition to retry.");
     }
   };
   channel.onmessage = ({ data }) => {
     try {
-      const event = JSON.parse(String(data)) as { type?: string; error?: { message?: string } };
-      if (event.type === "session.closed") return release();
+      const event = JSON.parse(String(data)) as {
+        type?: string;
+        delta?: string;
+        reason?: string;
+        error?: { message?: string; code?: string };
+      };
+      const type = event.type ?? "unknown";
+      if (type !== "session.output_transcript.delta" && type !== "session.usage.updated")
+        trace(type, event.error?.message ?? event.reason);
+      if (type === "session.closed") return release();
       if (!active()) return;
-      if (event.type === "error")
+      if (type === "error")
         return fail(
-          "OpenAI rejected the audition command. Stop and review provider access or configuration.",
+          `OpenAI rejected the audition command: ${event.error?.message ?? "unknown error"}`,
         );
-      if (event.type === "session.started" && !requested) {
+      if (type === "session.output_transcript.delta" && event.delta) {
+        if (!transcript) trace("speech.started");
+        transcript += event.delta;
+        options.onTranscript?.(transcript);
+        // One take only: close shortly after the model stops speaking.
+        clearTimeout(quiet);
+        quiet = setTimeout(() => {
+          trace("speech.finished");
+          stop();
+        }, SPEECH_QUIET_MS);
+      }
+      if (type === "session.started" && !requested) {
         requested = true;
         clearTimeout(startup);
         update("ready");
+        // Exact wording uses instructions.append; commentary may be paraphrased or ignored.
         channel.send(
           JSON.stringify({
-            type: "session.commentary.append",
+            type: "session.instructions.append",
             event_id: crypto.randomUUID(),
             delegation_id: null,
-            content: AUDITION_SCRIPT,
+            content: `${AUDITION_SPEAK_PROMPT} If you have already begun saying it, do not repeat it.`,
           }),
         );
       }
@@ -191,8 +275,24 @@ export function createStudioAudition(options: {
       () => fail("Audition did not start. No automatic retry was made."),
       30_000,
     );
-    poll = setInterval(observePlayback, 250);
-    // Try unlocking the mounted audio element while still in the click gesture.
+    // Create audio graph and unlock playback while still in the click gesture.
+    const AC =
+      typeof window !== "undefined"
+        ? (window.AudioContext ??
+          (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)
+        : undefined;
+    if (AC) {
+      try {
+        ctx = new AC();
+        void ctx.resume().catch(() => {});
+      } catch {
+        ctx = null;
+      }
+    }
+    const input = silentInput();
+    if (input) pc.addTrack(input, new MediaStream([input]));
+    else pc.addTransceiver("audio", { direction: "recvonly" });
+    poll = setInterval(observe, 100);
     void options.audio.play().catch(() => {});
     try {
       await pc.setLocalDescription(await pc.createOffer());
@@ -202,6 +302,7 @@ export function createStudioAudition(options: {
       const answer = await options.connect(sdp);
       if (!active()) return;
       await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
+      trace("sdp.answered");
     } catch (e) {
       fail(e instanceof Error ? e.message : "Audition failed");
     }

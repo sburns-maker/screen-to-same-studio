@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  AUDIBLE_RMS,
   AUDITION_SCRIPT,
   assertAuditionAllowed,
   createStudioAudition,
+  rms,
 } from "@/lib/voice-studio-audition";
 
 const env = {
@@ -96,24 +98,39 @@ describe("direct OpenAI audition lifecycle (mocked transport)", () => {
     expect(f.channel.send).toHaveBeenCalledTimes(1);
     const command = f.channel.send.mock.calls[0]?.[0];
     if (typeof command !== "string") throw new Error("Missing audition command");
-    expect(JSON.parse(command)).toMatchObject({
-      type: "session.commentary.append",
-      delegation_id: null,
-      content: AUDITION_SCRIPT,
-    });
+    const parsed = JSON.parse(command);
+    expect(parsed).toMatchObject({ type: "session.instructions.append", delegation_id: null });
+    expect(parsed.content).toContain(AUDITION_SCRIPT);
     f.session.release();
   });
-  it("reports playback only after mounted media time advances", async () => {
+  it("never reports playback just because the media clock advances", async () => {
     vi.useFakeTimers();
     const f = fixture();
     await f.session.start();
     f.peer.ontrack?.({ track: {} });
-    await vi.advanceTimersByTimeAsync(250);
+    f.audio.currentTime = 5;
+    await vi.advanceTimersByTimeAsync(1000);
     expect(f.onState).not.toHaveBeenCalledWith("playing");
-    f.audio.currentTime = 0.5;
-    await vi.advanceTimersByTimeAsync(250);
-    expect(f.onState).toHaveBeenCalledWith("playing");
     f.session.release();
+  });
+  it("closes once after the single spoken take goes quiet", async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    await f.session.start();
+    f.event("session.started");
+    f.channel.onmessage?.({
+      data: JSON.stringify({ type: "session.output_transcript.delta", delta: "I have a complaint." }),
+    });
+    await vi.advanceTimersByTimeAsync(2_499);
+    expect(f.onState).not.toHaveBeenCalledWith("stopping");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(f.onState).toHaveBeenCalledWith("stopping");
+    expect(f.connect).toHaveBeenCalledTimes(1);
+    f.event("session.closed");
+  });
+  it("measures silence as zero and speech as audible", () => {
+    expect(rms(new Float32Array(512))).toBe(0);
+    expect(rms(new Float32Array(512).fill(0.2))).toBeGreaterThan(AUDIBLE_RMS);
   });
   it("silences immediately, sends session.close once and drains final closure", async () => {
     const f = fixture();
