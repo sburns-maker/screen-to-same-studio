@@ -1,3 +1,5 @@
+import { CallButton } from "@/components/CallButton";
+import { fictionalNumber } from "@/lib/phone-calls";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -106,6 +108,15 @@ function Profile() {
           <p className="text-sm text-muted-foreground">{def.pronouns}</p>
         </div>
 
+        <section className="mx-auto mb-5 flex max-w-xl items-center justify-between gap-3 px-5">
+          <div>
+            <p className="text-sm">{fictionalNumber(def.key)}</p>
+            <Link to="/calls" className="text-xs underline">
+              Calls & recents
+            </Link>
+          </div>
+          <CallButton conversationId={conversationId} name={def.preferredName} />
+        </section>
         <ProfilePhotoPanel character={def.key} canonical={def.avatar} />
         <div className="mt-6 grid grid-cols-4 gap-2">
           {[

@@ -72,6 +72,7 @@ function Inbox() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
+      <Link to="/calls" className="mx-auto flex min-h-11 max-w-xl items-center justify-end px-5 text-sm text-primary">Calls & recents</Link>
       <header className="pt-safe sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-xl items-center gap-1 px-3">
           <h1 className="flex-1 px-1 text-xl font-semibold">Chats</h1>

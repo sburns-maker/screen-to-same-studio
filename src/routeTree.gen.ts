@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedCallsRouteImport } from './routes/_authenticated/calls'
 import { Route as AuthenticatedExploreRouteImport } from './routes/_authenticated/explore'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
@@ -19,6 +20,7 @@ import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedPlansRouteImport } from './routes/_authenticated/plans'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedWorldRouteImport } from './routes/_authenticated/world'
+import { Route as AuthenticatedCallCallIdRouteImport } from './routes/_authenticated/call.$callId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedDebriefConversationIdRouteImport } from './routes/_authenticated/debrief.$conversationId'
 import { Route as AuthenticatedDebugConversationIdRouteImport } from './routes/_authenticated/debug.$conversationId'
@@ -43,6 +45,11 @@ const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedCallsRoute = AuthenticatedCallsRouteImport.update({
+  id: '/calls',
+  path: '/calls',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedExploreRoute = AuthenticatedExploreRouteImport.update({
   id: '/explore',
@@ -77,6 +84,11 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
 const AuthenticatedWorldRoute = AuthenticatedWorldRouteImport.update({
   id: '/world',
   path: '/world',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCallCallIdRoute = AuthenticatedCallCallIdRouteImport.update({
+  id: '/call/$callId',
+  path: '/call/$callId',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedChatConversationIdRoute =
@@ -141,6 +153,7 @@ const ApiPublicJobsWorldTickRoute = ApiPublicJobsWorldTickRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/calls': typeof AuthenticatedCallsRoute
   '/explore': typeof AuthenticatedExploreRoute
   '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
@@ -148,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/plans': typeof AuthenticatedPlansRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/world': typeof AuthenticatedWorldRoute
+  '/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
@@ -162,6 +176,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/calls': typeof AuthenticatedCallsRoute
   '/explore': typeof AuthenticatedExploreRoute
   '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
@@ -169,6 +184,7 @@ export interface FileRoutesByTo {
   '/plans': typeof AuthenticatedPlansRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/world': typeof AuthenticatedWorldRoute
+  '/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
@@ -185,6 +201,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/calls': typeof AuthenticatedCallsRoute
   '/_authenticated/explore': typeof AuthenticatedExploreRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
@@ -192,6 +209,7 @@ export interface FileRoutesById {
   '/_authenticated/plans': typeof AuthenticatedPlansRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/world': typeof AuthenticatedWorldRoute
+  '/_authenticated/call/$callId': typeof AuthenticatedCallCallIdRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/_authenticated/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
@@ -208,6 +226,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/calls'
     | '/explore'
     | '/home'
     | '/inbox'
@@ -215,6 +234,7 @@ export interface FileRouteTypes {
     | '/plans'
     | '/settings'
     | '/world'
+    | '/call/$callId'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
@@ -229,6 +249,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/calls'
     | '/explore'
     | '/home'
     | '/inbox'
@@ -236,6 +257,7 @@ export interface FileRouteTypes {
     | '/plans'
     | '/settings'
     | '/world'
+    | '/call/$callId'
     | '/chat/$conversationId'
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
@@ -251,6 +273,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/calls'
     | '/_authenticated/explore'
     | '/_authenticated/home'
     | '/_authenticated/inbox'
@@ -258,6 +281,7 @@ export interface FileRouteTypes {
     | '/_authenticated/plans'
     | '/_authenticated/settings'
     | '/_authenticated/world'
+    | '/_authenticated/call/$callId'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/debrief/$conversationId'
     | '/_authenticated/debug/$conversationId'
@@ -300,6 +324,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/calls': {
+      id: '/_authenticated/calls'
+      path: '/calls'
+      fullPath: '/calls'
+      preLoaderRoute: typeof AuthenticatedCallsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/explore': {
       id: '/_authenticated/explore'
@@ -348,6 +379,13 @@ declare module '@tanstack/react-router' {
       path: '/world'
       fullPath: '/world'
       preLoaderRoute: typeof AuthenticatedWorldRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/call/$callId': {
+      id: '/_authenticated/call/$callId'
+      path: '/call/$callId'
+      fullPath: '/call/$callId'
+      preLoaderRoute: typeof AuthenticatedCallCallIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/chat/$conversationId': {
@@ -424,6 +462,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCallsRoute: typeof AuthenticatedCallsRoute
   AuthenticatedExploreRoute: typeof AuthenticatedExploreRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
@@ -431,6 +470,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlansRoute: typeof AuthenticatedPlansRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedWorldRoute: typeof AuthenticatedWorldRoute
+  AuthenticatedCallCallIdRoute: typeof AuthenticatedCallCallIdRoute
   AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
   AuthenticatedDebriefConversationIdRoute: typeof AuthenticatedDebriefConversationIdRoute
   AuthenticatedDebugConversationIdRoute: typeof AuthenticatedDebugConversationIdRoute
@@ -442,6 +482,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCallsRoute: AuthenticatedCallsRoute,
   AuthenticatedExploreRoute: AuthenticatedExploreRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
@@ -449,6 +490,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlansRoute: AuthenticatedPlansRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedWorldRoute: AuthenticatedWorldRoute,
+  AuthenticatedCallCallIdRoute: AuthenticatedCallCallIdRoute,
   AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
   AuthenticatedDebriefConversationIdRoute:
     AuthenticatedDebriefConversationIdRoute,

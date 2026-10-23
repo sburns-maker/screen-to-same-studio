@@ -162,6 +162,13 @@
       "when": 1792771200011,
       "tag": "0022_verify_venue_experiences",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1792771200012,
+      "tag": "0023_phone_calls",
+      "breakpoints": true
     }
   ]
 }

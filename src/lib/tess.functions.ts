@@ -273,11 +273,17 @@ async function runTurnUnlocked(
   conversationId: string,
   tz: string,
   initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver" },
+  voice?: {callId:string;turnId:string;sourceId:string|null},
 ) {
   const { generateTessReply, generateContactReply } = await import("./tess.server");
   const conv = await loadConversation(supabase, userId, conversationId);
   if (!conv) throw new Error("No conversation");
+  if (!voice && process.env["ENABLE_VOICE_CALLS"] === "true") {
+    const live = await supabase.from("phone_calls").select("id").eq("user_id",userId).eq("conversation_id",conv.id).in("state",["calling","ringing","connecting","connected"]).gt("expires_at",new Date().toISOString()).limit(1);
+    if (live.data?.length) throw new Error("Finish this contact's call before sending another message");
+  }
   const def = characterFor(conv.character?.key);
+  if (voice) await (await import("./phone-calls.server")).guardVoiceTurn(supabase,userId,conv.id,voice);
   const isTess = def.key === "tess";
   const nowIso = new Date().toISOString();
   // Recover the durable outbox before any new paid generation.
@@ -290,7 +296,7 @@ async function runTurnUnlocked(
   // working during setup, but never charge for photos without durable delivery.
   const photoAdmin = deliveryProbe && !deliveryProbe.error ? configuredPhotoAdmin : null;
   const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
-  if (photoAdmin && initiation?.developerPhoto !== "preview") {
+  if (photoAdmin && !voice && initiation?.developerPhoto !== "preview") {
     const { recoverPhotoDelivery } = await import("./photo-delivery.server");
     const recovered = await recoverPhotoDelivery(photoAdmin, conv.id, userId);
     if (recovered) return recovered;
@@ -452,6 +458,10 @@ async function runTurnUnlocked(
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
   const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : [])].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
+  if (voice) {
+    photos=[];generateTypes=[];
+    worldKnowledge.unshift(`CHANNEL: Live in-app telephone conversation, not texting. Keep one natural spoken reply under 500 characters; no emojis, photographs or text-only actions. ${ (await import("./phone-calls")).CALL_VOICES[def.key].style } Do not award progress for answering. Use existing memories and boundaries. Only if you actually choose to end this call, end your spoken reply with <end_call>; an ordinary completed reply does NOT end the call.`);
+  }
   let reply: import("./tess.server").TessReply;
   if (isTess) {
     reply = await generateTessReply({
@@ -472,6 +482,7 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character declined the opportunity" };
 
+  if (voice) { reply.photo=null;reply.photo_boundary_decision="unchanged";await (await import("./phone-calls.server")).guardVoiceTurn(supabase,userId,conv.id,voice); }
   const proposedPhoto = !!reply.photo;
   const boundary = nextPhotoBoundary(photoContext.boundary, reply.photo_boundary_decision, !!reply.photo);
   if (reply.photo_boundary_decision === "reopen") reply.photo = null;
@@ -492,6 +503,7 @@ async function runTurnUnlocked(
   if (proposedPhoto && !reply.photo) return { count: 0, lastVisibleAt: null,
     reason: photoRejectionReason ?? "character chose to reopen photo boundaries without sharing" };
   const delta = sanitizeDelta(reply.state_delta, difficulty);
+  if (voice && !voice.sourceId) for (const key of STATE_KEYS) delta[key] = 0;
   if (!def.romanticCapable) {
     delta.romantic_attraction = 0;
     delta.physical_attraction = 0;
@@ -588,11 +600,13 @@ async function runTurnUnlocked(
   const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
   if ((photo || generated) && !bubbles.length) bubbles.push("");
+  const voiceEnd = !!voice && bubbles.join(" ").trim().endsWith("<end_call>");
+  if (voice) bubbles.splice(0,bubbles.length,bubbles.join(" ").replace(/<end_call>/g,"").trim().slice(0,1000));
 
   // Latency: practice mode keeps the 3s–4min delay; Real-Time Mode follows the contact's schedule.
   const lastUserMsg = recent.find((m) => m.sender === "user");
   const activelyChatting = !!lastUserMsg && Date.now() - new Date(lastUserMsg.created_at).getTime() < 5 * 60_000;
-  const latency = initiation
+  const latency = voice ? {seconds:0,reason:"telephone"} : initiation
     ? { seconds: 3 as number | null, reason: "initiation — no reply delay" }
     : decideLatency({
         realTimeMode: realTime,
@@ -607,7 +621,7 @@ async function runTurnUnlocked(
     return { count: 0, lastVisibleAt: null, sleep: true, latencyReason: latency.reason };
   }
   // Practice delays stay 3s–4min; real-time delays may run longer (work, events).
-  const delaySec = realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
+  const delaySec = voice ? 0 : realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
   let at = Date.now() + delaySec * 1000;
   const notificationGroup = photoAction ?? crypto.randomUUID();
   const rows = bubbles.map((body, i) => {
@@ -625,7 +639,8 @@ async function runTurnUnlocked(
         tags: reply.event_tags,
         initiated: !!initiation,
         notification_group: notificationGroup,
-        push_primary: i === 0,
+        push_primary: !voice && i === 0,
+        ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
           decision:photo || generated ? 'chosen' : 'not_selected',
           reason:photo || generated ? 'character_selected_eligible_photo' : photoRejectionReason ?? (opportunity.eligible ? 'character_did_not_select_photo' : opportunity.reason) } } : {}),
@@ -682,7 +697,7 @@ async function runTurnUnlocked(
       stage, boundary, memories: memRows,
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
-    } as unknown as import("@/integrations/supabase/types").Json);
+    } as unknown as import("@/integrations/supabase/types").Json, voice ? {callId:voice.callId,turnId:voice.turnId} : undefined);
   }
   // Text-only turns retain the existing persistence path. Never delete a paid pending photo.
   if (!initiation) {

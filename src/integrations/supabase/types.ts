@@ -13,7 +13,7 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
-    Tables: {
+    Tables: import("./phone-types").PhoneTables & {
       calendar_evidence: {
         Row: {
           action: string
@@ -1749,7 +1749,7 @@ export type Database = {
     Views: {
       [_ in never]: never
     }
-    Functions: {
+    Functions: import("./phone-types").PhoneFunctions & {
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number
