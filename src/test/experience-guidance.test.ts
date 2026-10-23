@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+import { experienceInstructions } from "@/lib/living-experiences";
+
+describe("experience scene agency guardrails", () => {
+  const history = [
+    { user_id: "u", id: "m", experience_id: "e", ordinal: 1, kind: "conversation", body: "Would you like to walk to the candy shop?", source: "user", confirmed: true, created_at: "2026-10-23T22:00:00Z" },
+  ];
+  it("lets a character advance an interactive scene while preserving user agency", () => {
+    const prompt = experienceInstructions("turn", "Dinner", "Fanelli's", history);
+    expect(prompt).toContain("Take believable initiative");
+    expect(prompt).toContain("Do not require the user to narrate every transition");
+    expect(prompt).toContain("do not invent a user decision");
+    expect(prompt).toContain("Avoid looping at the same stage");
+    expect(prompt).toContain("acknowledge what occurred in your immediate response");
+    expect(prompt).toContain("Would you like to walk to the candy shop?");
+  });
+  it("does not license invented romance in automatic completion", () => {
+    const prompt = experienceInstructions("automatic", "Dinner", "Fanelli's", history);
+    expect(prompt).toContain("Automatic completion must not establish any new intimate milestone");
+    expect(prompt).toContain("Do not invent user dialogue, new commitments, mutual consent");
+    expect(prompt).not.toContain("Take believable initiative");
+  });
+});
