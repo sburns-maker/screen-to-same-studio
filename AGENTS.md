@@ -10,7 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Tess app
-- Voice Studio auditions use a separate direct-OpenAI playback controller and stay server-blocked until durable spending/concurrency and server-owned session deadlines exist; browser timers alone must never authorize paid sessions.
+- Voice Studio auditions reserve a durable lease via `reserve_voice_audition` (one active per developer, daily/30-day caps) before any paid request, and a server sideband supervisor (`voice-studio-audition.server.ts`, kept alive by `keepAlive` waitUntil) closes the session at the deadline; browser timers alone must never authorize paid sessions, and failures are never auto-retried.
 - Tess model prompts live in `src/lib/tess.server.ts`, with direct OpenAI configuration in `src/lib/text-ai.server.ts`. They are reached only via server fns in `src/lib/tess.functions.ts`, keeping prompts, hidden-state logic and keys off the client.
 - State math (delta clamping, difficulty scaling, stage derivation) lives in pure `src/lib/tess-logic.ts` with tests in `src/test/tess-logic.test.ts`; stages must emerge from state, never points.
 - Delayed replies are stored with a future `visible_at`; the client hides messages until then. Unrevealed text replies are replaced when the user sends more; already-generated pending photo attachments are retained so their images are not charged again.
