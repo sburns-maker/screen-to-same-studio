@@ -148,6 +148,13 @@
       "when": 1792771200009,
       "tag": "0020_verify_interactive_places_and_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1792771200010,
+      "tag": "0021_venue_experiences",
+      "breakpoints": true
     }
   ]
 }

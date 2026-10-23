@@ -1,4 +1,5 @@
 import { TOWN_PLACES } from "./town";
+import { EXPERIENCE_TEMPLATES, experienceForPlace } from "./venue-experiences";
 export type VenueAction =
   | "look"
   | "menu"
@@ -12,6 +13,7 @@ export type VenueAction =
   | "discuss"
   | "leave";
 const actions: Record<string, readonly VenueAction[]> = {
+  bar: ["look", "menu", "order_food", "seat", "join", "discuss", "wait"],
   cafe: ["look", "menu", "order_coffee", "seat", "wait"],
   restaurant: ["look", "menu", "seat", "order_food", "wait"],
   park: ["look", "walk", "seat", "wait"],
@@ -55,13 +57,18 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
       : p.kind === "library"
         ? ["public reading room", "discussion table"]
         : ["public area"],
+  experience_templates: Object.fromEntries(
+    experienceForPlace(p.kind).map((kind) => [kind, EXPERIENCE_TEMPLATES[kind]]),
+  ),
   activities: actions[p.kind] ?? actions["community"]!,
   eventCategories:
     p.kind === "library" || p.kind === "bookshop"
       ? ["book_club", "meetup"]
-      : p.kind === "restaurant"
-        ? ["dinner", "meetup"]
-        : ["coffee", "walk", "meetup"],
+      : p.kind === "bar"
+        ? ["trivia", "meetup"]
+        : p.kind === "restaurant"
+          ? ["dinner", "meetup"]
+          : ["coffee", "walk", "meetup"],
   associations:
     p.key === "reading:lantern" || p.key === "books:hollidaysburg" ? ["claire"] : ([] as string[]),
   marker: {

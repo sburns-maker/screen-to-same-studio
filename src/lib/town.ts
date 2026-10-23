@@ -128,6 +128,41 @@ export const TOWN_PLACES = [
     opens: 7,
     closes: 20,
   },
+  {
+    key: "trivia:foundry",
+    label: "Foundry Table",
+    kind: "bar",
+    community: "Altoona",
+    latitude: 40.521,
+    longitude: -78.401,
+    description:
+      "A fictional casual bar with a public trivia table, warm booths and non-alcoholic refreshments. Games and guests are invented, not a real venue's event listing.",
+    opens: 16,
+    closes: 23,
+  },
+  {
+    key: "park:willow",
+    label: "Willow Bend Green",
+    kind: "park",
+    community: "Duncansville",
+    latitude: 40.425,
+    longitude: -78.434,
+    description: "A fictional green with a gentle loop, a shaded bench and a small picnic area.",
+    opens: 7,
+    closes: 20,
+  },
+  {
+    key: "arts:orchard",
+    label: "Orchard Studio",
+    kind: "community",
+    community: "Duncansville",
+    latitude: 40.423,
+    longitude: -78.431,
+    description:
+      "A fictional open arts room with sketch tables and a small display wall. All activities and visitors are fictional.",
+    opens: 10,
+    closes: 20,
+  },
 ] as const;
 export type TownNpc = {
   key: string;
@@ -245,6 +280,32 @@ export const TOWN_NPCS = [
     personality:
       "Warm, observant and independent. Enjoys talking about books without testing people. May be busy or decline contact. Do not invent private facts about other attendees.",
     interests: ["Science fiction", "Gardens", "Board games"],
+  },
+  {
+    key: "robin-hale",
+    name: "Robin Hale",
+    age: 42,
+    place: "trivia:foundry",
+    days: [4, 5, 6],
+    start: 18,
+    end: 22,
+    blurb: "A fictional regular who likes a good trivia question more than a perfect score.",
+    personality:
+      "Wry, welcoming and independent. Enjoys science and music; never assumes friendship or contact consent. Describes only fictional local games, never real patrons or staff.",
+    interests: ["Trivia", "Music", "Cycling"],
+  },
+  {
+    key: "dana-soler",
+    name: "Dana Soler",
+    age: 37,
+    place: "arts:orchard",
+    days: [2, 5, 6],
+    start: 14,
+    end: 19,
+    blurb: "A fictional amateur printmaker who enjoys quiet company at the sketch table.",
+    personality:
+      "Observant and gently direct. Interested in art, local walks and community projects. Can decline conversation or contact. No assumed romance or private knowledge about other people.",
+    interests: ["Printmaking", "Walking", "Community art"],
   },
 ] as const;
 export type TownNpcKey = (typeof TOWN_NPCS)[number]["key"];

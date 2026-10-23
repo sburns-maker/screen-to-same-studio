@@ -1750,6 +1750,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      town_favorite: { Args: { p_user: string; p_place: string; p_enabled: boolean }; Returns: Json }
+      venue_reconcile_departures: { Args: { p_user: string; p_now: string }; Returns: number }
+      venue_experience_status: { Args: Record<string, never>; Returns: number }
+      venue_progress: { Args: { p_user: string; p_id: string; p_place: string; p_kind: string; p_step: number; p_choice: number; p_now: string; p_plan?: string | null }; Returns: Json }
+
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number

@@ -1,3 +1,4 @@
+import { WorldHighlights } from "@/components/WorldHighlights";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -85,6 +86,7 @@ function Home() {
           </p>
         </Link>
       </div>
+      <WorldHighlights />
       <h2 className="mb-3 mt-7 text-lg font-semibold">Recent conversations</h2>
       <div className="divide-y rounded-3xl border">
         {inbox.data?.slice(0, 3).map((c) => (
@@ -103,8 +105,8 @@ function Home() {
       <Link to="/explore" className={`${card} block`}>
         <p className="font-display text-2xl">Coffee, books, or a small adventure?</p>
         <p className="mt-3 text-sm text-muted-foreground">
-          Explore fictional places in Altoona, Hollidaysburg, and Tyrone. New acquaintances begin
-          with an actual encounter.
+          Explore fictional places in Altoona, Hollidaysburg, Tyrone, and Duncansville. New
+          acquaintances begin with an actual encounter.
         </p>
       </Link>
       <p className="mt-6 text-xs text-muted-foreground">

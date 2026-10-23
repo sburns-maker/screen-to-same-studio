@@ -16,7 +16,8 @@ export function CalendarBoard() {
     navigate = useNavigate();
   const pendingIds = useRef(new Map<string, string>());
   const [busy, setBusy] = useState(false),
-    [day, setDay] = useState("");
+    [day, setDay] = useState(""),
+    [view, setView] = useState("all");
   async function act(
     planId: string,
     action: "accept" | "decline" | "cancel" | "details" | "reschedule",
@@ -51,7 +52,16 @@ export function CalendarBoard() {
         gatherings remain below.
       </p>
     );
-  const plans = q.data.plans.filter((p) => !day || p.date_local === day);
+  const plans = q.data.plans.filter(
+    (p) =>
+      (!day || p.date_local === day) &&
+      (view === "all" ||
+        (view === "upcoming" && ["accepted", "in_progress"].includes(p.status)) ||
+        (view === "attention" &&
+          ["proposed", "awaiting_details", "rescheduled"].includes(p.status)) ||
+        (view === "history" &&
+          ["completed", "missed", "cancelled", "declined"].includes(p.status))),
+  );
   const dates = [
     ...new Set(q.data.plans.flatMap((p) => (p.date_local ? [p.date_local] : []))),
   ].sort();
@@ -63,6 +73,23 @@ export function CalendarBoard() {
           America/New_York · plans are not proof of attendance. Duration uses a clearly estimated
           one-hour planning window unless stated otherwise.
         </p>
+        <div className="flex gap-2 overflow-x-auto" aria-label="Plan filters">
+          {[
+            ["all", "All"],
+            ["upcoming", "Upcoming"],
+            ["attention", "Needs attention"],
+            ["history", "History"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              aria-pressed={view === key}
+              onClick={() => setView(key!)}
+              className={`min-h-11 shrink-0 rounded-full border px-3 text-xs ${view === key ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <Calendar
           mode="single"
           timeZone="America/New_York"
@@ -136,8 +163,17 @@ export function CalendarBoard() {
             )}
             {!!p.conflicts.length && (
               <p role="status" className="rounded-xl border border-amber-500/50 p-3 text-sm">
-                Not confirmed: {p.conflicts.map((c) => c.replaceAll("_", " ")).join("; ")}. Discuss
-                a different time; existing commitments have not changed.
+                Not confirmed:{" "}
+                {p.conflicts
+                  .map((c) =>
+                    c === "character_schedule_or_venue_hours"
+                      ? "The character or venue is unavailable at that time"
+                      : c === "calendar_or_travel_overlap"
+                        ? "Another commitment overlaps, including travel time"
+                        : "The timing needs review",
+                  )
+                  .join("; ")}
+                . Discuss a different time; existing commitments have not changed.
               </p>
             )}
             {place && (
@@ -219,7 +255,23 @@ export function CalendarBoard() {
                     {new Date(t.created_at).toLocaleString("en-US", {
                       timeZone: "America/New_York",
                     })}
-                    : {t.from_status} → {t.to_status} · {t.reason}
+                    : {t.from_status} → {t.to_status} ·{" "}
+                    {(
+                      {
+                        invite: "Invitation proposed",
+                        accept: "Invitation accepted",
+                        details: "Meeting details updated",
+                        reschedule: "A new time was proposed",
+                        cancel: "Plan canceled",
+                        decline: "Invitation declined",
+                        explicit_participation_and_departure:
+                          "Participation and departure recorded",
+                        elapsed_without_recorded_attendance:
+                          "No attendance was recorded before the event ended",
+                        scheduled_character_arrival_user_not_assumed:
+                          "The character arrived for the accepted event",
+                      } as Record<string, string>
+                    )[t.reason] ?? "Plan updated"}
                   </p>
                 ))}
             </details>

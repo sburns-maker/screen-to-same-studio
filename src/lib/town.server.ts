@@ -120,7 +120,7 @@ export async function visitTown(db: Client, user: string, place: string, now: Da
   const r = await db.from("town_presence").select("*").eq("user_id", user).maybeSingle();
   if (r.error) throw new Error("Virtual presence unavailable");
   const from = TOWN_PLACES.find((p) => p.key === r.data?.place_key);
-  return townCommand(
+  const result = await townCommand(
     db,
     user,
     crypto.randomUUID(),
@@ -128,6 +128,20 @@ export async function visitTown(db: Client, user: string, place: string, now: Da
     { place, minutes: to ? travelMinutes(from, to) : 15 },
     now,
   );
+  // Travel has already committed. A recovery failure must not report that it never started.
+  try {
+    if (await (await import("./venue-experiences.server")).experiencesAvailable(db)) {
+      const recovered = await db.rpc("venue_reconcile_departures", {
+        p_user: user,
+        p_now: now.toISOString(),
+      });
+      if (recovered.error)
+        console.warn("[venue] departure reconciliation deferred to the world worker");
+    }
+  } catch {
+    console.warn("[venue] departure reconciliation deferred to the world worker");
+  }
+  return result;
 }
 export const encounterSchema = z.object({
   reply: z.string().max(1800),
@@ -332,8 +346,23 @@ export async function townSnapshot(db: Client, user: string, now: Date) {
     ? await db.from("town_introductions").select("*").eq("user_id", user)
     : { data: [], error: null };
   if (introductions.error) throw new Error("Introductions unavailable");
+  const prefs = await db
+    .from("user_profile")
+    .select("value")
+    .eq("user_id", user)
+    .eq("key", "town_favorites")
+    .maybeSingle();
+  if (prefs.error) throw new Error("Saved places unavailable");
+  let favorites: string[] = [];
+  try {
+    const saved: unknown = JSON.parse(prefs.data?.value ?? "[]");
+    if (Array.isArray(saved)) favorites = saved.filter((v): v is string => typeof v === "string");
+  } catch {
+    /* A malformed preference must not break the world. */
+  }
   const arrived = presence.data && Date.parse(presence.data.arrives_at) <= now.getTime();
   return {
+    favorites,
     places: ((await (await import("./interactive-world.server")).interactiveAvailable(db))
       ? TOWN_PLACES
       : (await expansionAvailable(db))

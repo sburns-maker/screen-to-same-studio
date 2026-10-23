@@ -98,3 +98,46 @@ export const respondToCalendarPlan = createServerFn({ method: "POST" })
     ).runTurn(db, context.userId, p.conversation_id, "America/New_York");
     return { conversationId: p.conversation_id };
   });
+export const progressVenueExperience = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        place: z.string().max(80),
+        kind: z.enum(["book_club", "trivia"]),
+        step: z.number().int().min(-1).max(10),
+        choice: z.number().int().min(-1).max(5),
+        planId: z.string().uuid().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const now = new Date();
+    await (await import("./interactive-world.server")).syncCalendar(db, context.userId, now);
+    return (await import("./venue-experiences.server")).progressVenue(
+      db,
+      context.userId,
+      data,
+      now,
+    );
+  });
+export const favoriteTownPlace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ place: z.string().max(80), enabled: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    if (!(await (await import("./venue-experiences.server")).experiencesAvailable(db)))
+      throw new Error("Favorites need reviewed migration 0021");
+    await (await import("./town.server")).initializeTown(db, context.userId);
+    const r = await db.rpc("town_favorite", {
+      p_user: context.userId,
+      p_place: data.place,
+      p_enabled: data.enabled,
+    });
+    if (r.error) throw new Error("Favorite could not be saved");
+    return r.data;
+  });

@@ -1,3 +1,4 @@
+import { experiencesAvailable } from "./venue-experiences.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import {
@@ -10,6 +11,7 @@ import {
 import { TOWN_PLACES, placeOpen } from "./town";
 import { characterFor, type CharacterKey } from "./characters";
 import { currentActivity } from "./world-continuity";
+import { scheduleFor } from "./tess-life";
 import {
   recognizePlan,
   easternInstant,
@@ -53,6 +55,7 @@ export function calendarScheduleAllows(
     if (
       a.availability === "busy" ||
       a.availability === "asleep" ||
+      (c.key === "tess" && ["busy", "asleep"].includes(scheduleFor(now).availability)) ||
       (s.workDays.includes(day) && hour >= s.workStart && hour < s.workEnd)
     )
       return false;
@@ -85,10 +88,17 @@ export async function registerInteractivePlaces(db: Client, user: string) {
     const p = placeByKey(row.key);
     if (!p) continue;
     const md = row.metadata as Record<string, Json>;
-    if (!md["activities"]) {
+    if (!md["activities"] || !md["experience_templates"]) {
       const w = await db
         .from("world_places")
-        .update({ metadata: { ...p, ...md, activities: [...p.activities] } as unknown as Json })
+        .update({
+          metadata: {
+            ...p,
+            ...md,
+            activities: [...p.activities],
+            experience_templates: p.experience_templates,
+          } as unknown as Json,
+        })
         .eq("user_id", user)
         .eq("key", p.key);
       if (w.error) throw new Error("Venue activities unavailable");
@@ -109,6 +119,13 @@ export async function calendarPlans(db: Client, user: string) {
 export async function syncCalendar(db: Client, user: string, now: Date) {
   if (!(await interactiveAvailable(db))) return { processed: 0, updated: 0 };
   await registerInteractivePlaces(db, user);
+  if (await experiencesAvailable(db)) {
+    const departures = await db.rpc("venue_reconcile_departures", {
+      p_user: user,
+      p_now: now.toISOString(),
+    });
+    if (departures.error) throw new Error("Departure recovery deferred; travel evidence retained");
+  }
   const pending = await db.rpc("calendar_pending", { p_user: user, p_now: now.toISOString() });
   if (pending.error) throw new Error("Calendar queue unavailable");
   let updated = 0,
@@ -146,7 +163,11 @@ export async function syncCalendar(db: Client, user: string, now: Date) {
   }
   const blocked = ["tess", "maya", "claire", "jordan", "ben"].filter((key) => {
     const a = currentActivity(characterFor(key), now);
-    return a.availability === "busy" || a.availability === "asleep";
+    return (
+      a.availability === "busy" ||
+      a.availability === "asleep" ||
+      (key === "tess" && ["busy", "asleep"].includes(scheduleFor(now).availability))
+    );
   });
   const advanced = await db.rpc("calendar_advance", {
     p_user: user,
@@ -160,6 +181,14 @@ export async function interactiveSnapshot(db: Client, user: string, now: Date) {
   if (!(await interactiveAvailable(db)))
     return {
       available: false,
+      experiencesEnabled: false,
+      recentVisits: [] as {
+        id: string;
+        place_key: string;
+        arrived_at: string;
+        departed_at: string | null;
+        state: Json;
+      }[],
       plans: [] as CalendarPlan[],
       session: null as null | {
         id: string;
@@ -185,28 +214,38 @@ export async function interactiveSnapshot(db: Client, user: string, now: Date) {
       companions: [] as { character_key: string; plan_id: string; place_key: string }[],
     };
   await syncCalendar(db, user, now);
-  const [plans, session, actions, transitions, companions] = await Promise.all([
-    calendarPlans(db, user),
-    db.rpc("venue_session", { p_user: user, p_now: now.toISOString() }),
-    db
-      .from("venue_actions")
-      .select("*")
-      .eq("user_id", user)
-      .order("created_at", { ascending: false })
-      .limit(30),
-    db
-      .from("calendar_transitions")
-      .select("*")
-      .eq("user_id", user)
-      .order("created_at", { ascending: false })
-      .limit(40),
-    db.from("social_presence").select("*").eq("user_id", user).gt("until_at", now.toISOString()),
-  ]);
-  if (session.error || actions.error || transitions.error || companions.error)
+  const [plans, session, actions, transitions, companions, recentVisits, experiencesEnabled] =
+    await Promise.all([
+      calendarPlans(db, user),
+      db.rpc("venue_session", { p_user: user, p_now: now.toISOString() }),
+      db
+        .from("venue_actions")
+        .select("*")
+        .eq("user_id", user)
+        .order("created_at", { ascending: false })
+        .limit(30),
+      db
+        .from("calendar_transitions")
+        .select("*")
+        .eq("user_id", user)
+        .order("created_at", { ascending: false })
+        .limit(40),
+      db.from("social_presence").select("*").eq("user_id", user).gt("until_at", now.toISOString()),
+      db
+        .from("venue_sessions")
+        .select("*")
+        .eq("user_id", user)
+        .order("arrived_at", { ascending: false })
+        .limit(12),
+      experiencesAvailable(db),
+    ]);
+  if (session.error || actions.error || transitions.error || companions.error || recentVisits.error)
     throw new Error("Venue state unavailable");
   // Expose only companions whose accepted event includes this user; other characters' private whereabouts stay private.
   return {
     available: true,
+    experiencesEnabled,
+    recentVisits: recentVisits.data ?? [],
     plans,
     session: session.data as {
       id: string;
@@ -259,10 +298,27 @@ export async function calendarContext(
       p.place_key === presence.data?.place_key &&
       Date.parse(presence.data.arrives_at) <= now.getTime(),
   );
-  if (here)
+  if (here) {
     lines.push(
       `The user has actually arrived virtually at your accepted ${here.title}. Their recorded attendance state is ${here.user_attendance}. Respond naturally to their explicit scene actions; do not invent actions or private attendee facts.`,
     );
+    const visit = await db
+      .from("venue_sessions")
+      .select("state")
+      .eq("user_id", user)
+      .eq("place_key", here.place_key!)
+      .is("departed_at", null)
+      .maybeSingle();
+    if (visit.error) throw new Error("Shared activity context unavailable");
+    const experience = (
+      visit.data?.state as
+        { experiences?: Record<string, { summary?: string; answers?: Json }> } | undefined
+    )?.experiences?.[here.id];
+    if (experience)
+      lines.push(
+        `YOUR CURRENT SHARED ACTIVITY: ${experience.summary ?? "In progress"}. Only recorded user contributions: ${JSON.stringify(experience.answers ?? [])}. These are the user's choices, not other attendees' dialogue, opinions or consent.`,
+      );
+  }
   return lines;
 }
 export async function actAtVenue(

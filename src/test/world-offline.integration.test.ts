@@ -153,6 +153,96 @@ afterEach(() => {
 });
 
 describe("offline living world through the normal character pipeline (fake paid providers only)", () => {
+  it("runs Claire's invitation, acceptance, book-club activity and later memory through the actual primary turn service", async () => {
+    const { runTurn } = await import("@/lib/tess.functions");
+    const { syncCalendar, calendarPlans, interactiveSnapshot, actAtVenue } =
+      await import("@/lib/interactive-world.server");
+    const { visitTown } = await import("@/lib/town.server");
+    const { progressVenue } = await import("@/lib/venue-experiences.server");
+    await db.query("update interactive_world_installation set installed_at=$1", [
+      new Date(now.getTime() - 60000).toISOString(),
+    ]);
+    const claire = "20000000-0000-4000-a000-999999999998";
+    await db.query(
+      "insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key='claire'",
+      [claire, user],
+    );
+    await db.query("insert into tess_state(conversation_id,user_id) values($1,$2)", [claire, user]);
+    const response = (text: string) => ({
+      messages: [text],
+      tone: "warm",
+      state_delta: {},
+      event_tags: [],
+      send_delay_seconds: 0,
+      memory_candidates: [],
+      photo_boundary_decision: "unchanged",
+      continuity: null,
+      photo: null,
+    });
+    const sendUser = async (body: string) => {
+      await db.query(
+        "insert into messages(user_id,conversation_id,sender,body,created_at,visible_at) values($1,$2,'user',$3,$4,$4)",
+        [user, claire, body, new Date().toISOString()],
+      );
+    };
+    await sendUser("Any plans for tonight?");
+    mocks.text.mockResolvedValue(
+      response("Want to come to book club tonight at 7 PM at Lantern Reading Room?"),
+    );
+    await runTurn(mocks.admin!, user, claire, "America/New_York");
+    vi.setSystemTime(new Date(now.getTime() + 5 * 60000));
+    await syncCalendar(mocks.admin!, user, new Date());
+    expect((await calendarPlans(mocks.admin!, user))[0]!.status).toBe("proposed");
+    await sendUser("Yes! I'll meet you there.");
+    mocks.text.mockResolvedValue(response("See you there."));
+    await runTurn(mocks.admin!, user, claire, "America/New_York");
+    vi.setSystemTime(new Date(now.getTime() + 10 * 60000));
+    await syncCalendar(mocks.admin!, user, new Date());
+    const plans = await calendarPlans(mocks.admin!, user);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]!.status).toBe("accepted");
+    await visitTown(mocks.admin!, user, "reading:lantern", new Date("2026-10-22T22:30:00Z"));
+    const during = new Date("2026-10-22T23:01:00Z");
+    vi.setSystemTime(during);
+    const snap = await interactiveSnapshot(mocks.admin!, user, during);
+    expect(snap.companions.map((c) => c.character_key)).toContain("claire");
+    for (const step of [-1, 0, 1, 2])
+      await progressVenue(
+        mocks.admin!,
+        user,
+        {
+          id: crypto.randomUUID(),
+          place: "reading:lantern",
+          kind: "book_club",
+          step,
+          choice: step === -1 ? -1 : 0,
+          planId: plans[0]!.id,
+        },
+        during,
+      );
+    await actAtVenue(
+      mocks.admin!,
+      user,
+      { id: crypto.randomUUID(), place: "reading:lantern", action: "leave", text: "" },
+      new Date("2026-10-22T23:30:00Z"),
+    );
+    expect((await calendarPlans(mocks.admin!, user))[0]!.status).toBe("completed");
+    vi.setSystemTime(new Date("2026-10-23T14:00:00Z"));
+    await sendUser("What stayed with you from book club?");
+    mocks.text
+      .mockClear()
+      .mockResolvedValue(
+        response("Your different interpretation gave me something to think about."),
+      );
+    await runTurn(mocks.admin!, user, claire, "America/New_York");
+    expect(mocks.text.mock.calls[0]![0].memories.join("\n")).toContain(
+      "A character's difficult decision",
+    );
+    expect(
+      (await db.query("select * from character_knowledge where character_key='maya' ")).rows,
+    ).toHaveLength(0);
+    expect(mocks.image).not.toHaveBeenCalled();
+  }, 20000);
   it("synchronizes conversational invitations and advances character arrival through the offline worker with AI budget zero", async () => {
     vi.stubEnv("AUTONOMOUS_AI_DAILY_LIMIT", "0");
     await db.query("update interactive_world_installation set installed_at=$1", [
