@@ -27,6 +27,29 @@ export const VOICE_DESIGNS = {
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 
+/**
+ * Longer script hint used only for custom voice creation (OpenAI rejects short
+ * hints). Live auditions keep the short AUDITION_SCRIPT.
+ */
+export const VOICE_CREATION_SCRIPT_HINT =
+  "Oh, hi. Sorry, I was halfway through a sandwich when you called, so that's going well. How are you? Actually, how are you really, not the polite version? " +
+  "Work was... fine. Mostly fine. Someone brought in a dog with a sock stuck somewhere a sock shouldn't be, and honestly, I respect the ambition. " +
+  "Mabel, on the other hand, has spent the entire afternoon staring at the radiator like it owes her money. I don't know what it did. I've decided not to ask. " +
+  "Anyway, I was thinking about what you said the other day. About feeling like you're always the one holding everything together. I just... I wanted to say I noticed. That's all. You don't have to do it on your own all the time, you know? " +
+  "Right, that got a bit serious. Let me ruin it properly. Did you actually eat dinner, or did you have crisps over the sink again? Chips. Whatever. I've been here ten years and my mouth still can't decide. " +
+  "Hmm. Tomorrow, then? Coffee, maybe around eight? I'll bring the good kind, not the stuff from the machine at the clinic that tastes faintly of regret. " +
+  "Okay. Go on, get some sleep. And text me when you're home, yeah? I'll pretend I wasn't waiting up.";
+
+/** Shared delivery guidance for Tess's creation variants: human, not polished. */
+export const TESS_VARIANT_DIRECTIONS = {
+  natural:
+    "Prioritize authentic, unpolished human conversation: relaxed everyday timing, small hesitations and filler, thoughts that change direction mid-sentence, quiet half-laughs and believable understated humor. Imperfect, lived-in, never announcer-like or robotic.",
+  refined:
+    "Prioritize authentic conversation over polished diction: clear but relaxed articulation, a lightly melodic cadence, understated timing, subtle emotional shifts from dry amusement to sincere warmth, and natural small imperfections. Never formal, recited, announcer-like or robotic.",
+  playful:
+    "Prioritize authentic spontaneous conversation: quick amused reactions, understated teasing, believable timing for dry jokes, small hesitations and warm softening afterward. Never caricatured, overly cheerful, polished, announcer-like or robotic.",
+} as const;
+
 export function customVoiceId(key: VoiceDesignKey, env: Record<string, string | undefined> = process.env): string | null {
   const id = env[`GPT_LIVE_VOICE_${key.toUpperCase()}`]?.trim();
   // Project-owned prompt-created voice ID, not a stock voice name.

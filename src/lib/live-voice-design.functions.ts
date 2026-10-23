@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { VOICE_DESIGNS } from "./live-voice-design";
+import { TESS_VARIANT_DIRECTIONS, VOICE_CREATION_SCRIPT_HINT, VOICE_DESIGNS } from "./live-voice-design";
 import {
   AUDITION_LEASE_MS,
   AUDITION_LIMIT_MS,
@@ -37,14 +37,17 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
     const key = process.env["OPENAI_API_KEY"];
     if (!key) throw new Error("OpenAI voice creation is not configured");
     const base = VOICE_DESIGNS[data.character];
-    const direction = {
-      natural:
-        "Favor effortless everyday conversational delivery, including pauses and ordinary relaxed expression.",
-      refined:
-        "Favor elegant articulation and a lightly melodic, delicately expressive cadence without a formal accent.",
-      playful:
-        "Favor quick spontaneous reactions and subtle amused inflections, without caricature or exaggerated cheer.",
-    }[data.variant];
+    const direction =
+      data.character === "tess"
+        ? TESS_VARIANT_DIRECTIONS[data.variant]
+        : {
+            natural:
+              "Favor effortless everyday conversational delivery, including pauses and ordinary relaxed expression.",
+            refined:
+              "Favor elegant articulation and a lightly melodic, delicately expressive cadence without a formal accent.",
+            playful:
+              "Favor quick spontaneous reactions and subtle amused inflections, without caricature or exaggerated cheer.",
+          }[data.variant];
     const { classifyVoiceCreationFailure } = await import("./voice-creation-errors");
     let res: Response;
     try {
@@ -56,7 +59,7 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
           name: `${base.name} (${data.variant})`,
           prompt: `${base.description} ${direction}`,
           model: "auto",
-          script_hint: AUDITION_SCRIPT,
+          script_hint: VOICE_CREATION_SCRIPT_HINT,
         }),
         signal: AbortSignal.timeout(30000),
       });
