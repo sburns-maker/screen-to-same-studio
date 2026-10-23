@@ -1,6 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Play, Square } from "lucide-react";
+import {
+  AUDITION_SCRIPT,
+  createStudioAudition,
+  type AuditionState,
+} from "@/lib/voice-studio-audition";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { VOICE_DESIGNS, type VoiceDesignKey } from "@/lib/live-voice-design";
 import {
@@ -33,8 +40,7 @@ export const Route = createFileRoute("/_authenticated/voice-studio")({
 type Variant = "natural" | "refined" | "playful";
 type Candidate = { id: string; variant: Variant; character: VoiceDesignKey; approved: false };
 const variants: Variant[] = ["natural", "refined", "playful"];
-const script =
-  "I have a complaint. About you, obviously. I haven't decided what you've done wrong yet, but I'm confident I'll find something. Have a lovely day.";
+const script = AUDITION_SCRIPT;
 const characters = Object.keys(VOICE_DESIGNS) as VoiceDesignKey[];
 const STORE = "voice-studio-candidates-v1";
 const title = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
@@ -57,8 +63,10 @@ function VoiceStudio() {
   const create = useServerFn(createCharacterVoiceCandidate);
   const statusFn = useServerFn(voiceStudioStatus);
   const auditionFn = useServerFn(startVoiceStudioAudition);
-  const peer = useRef<RTCPeerConnection | null>(null);
-  const [playing, setPlaying] = useState(false);
+  const player = useRef<ReturnType<typeof createStudioAudition> | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [auditionState, setAuditionState] = useState<AuditionState | "idle">("idle");
+  const playing = !["idle", "closed"].includes(auditionState);
   const [status, setStatus] = useState<Awaited<ReturnType<typeof voiceStudioStatus>> | null>(null);
   const [error, setError] = useState("");
   const [character, setCharacter] = useState<VoiceDesignKey>("tess");
@@ -132,45 +140,41 @@ function VoiceStudio() {
   }
 
   function stopAudition() {
-    peer.current?.close();
-    peer.current = null;
-    setPlaying(false);
+    player.current?.stop();
   }
-  useEffect(() => () => { peer.current?.close(); }, []);
-  async function audition() {
-    if (!selected || !window.confirm("Start a short paid GPT-Live voice audition? It won't affect character memories or calls.")) return;
-    stopAudition();
+  useEffect(
+    () => () => {
+      player.current?.release();
+    },
+    [],
+  );
+  function audition() {
+    if (player.current || !selected || !status?.auditionsEnabled || !audioRef.current) return;
+    if (
+      !window.confirm(
+        "Start a paid audition, limited to 45 seconds? It won't affect character memories or calls.",
+      )
+    )
+      return;
     setError("");
-    try {
-      const pc = new RTCPeerConnection();
-      peer.current = pc;
-      const audio = document.createElement("audio");
-      audio.autoplay = true;
-      pc.addTransceiver("audio", { direction: "recvonly" });
-      const events = pc.createDataChannel("oai-events");
-      events.onmessage = (ev) => {
-        try {
-          const msg = JSON.parse(String(ev.data)) as { type?: string; message?: string };
-          if (msg.type === "session.started") events.send(JSON.stringify({ type: "session.commentary.append", event_id: crypto.randomUUID(), delegation_id: null, content: script }));
-          if (msg.type === "error") setError(msg.message ?? "Live audition error");
-        } catch { /* invalid event */ }
-      };
-      pc.ontrack = (e) => { audio.srcObject = e.streams[0]; void audio.play().catch(() => setError("Audio playback was blocked by the browser.")); };
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      const answer = await auditionFn({ data: { character, voiceId: selected, sdp: pc.localDescription?.sdp ?? "", confirmation: "START PAID VOICE AUDITION" } });
-      if (peer.current !== pc) { pc.close(); return; }
-      await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
-      setPlaying(true);
-      // A short audition must not become an unlimited running paid session.
-      window.setTimeout(() => { if (peer.current === pc) stopAudition(); }, 45000);
-      pc.onconnectionstatechange = () => {
-        if (["failed", "closed", "disconnected"].includes(pc.connectionState)) stopAudition();
-      };
-    } catch (e) { stopAudition(); setError((e as Error).message); }
+    const session = createStudioAudition({
+      audio: audioRef.current,
+      connect: (sdp) =>
+        auditionFn({
+          data: { character, voiceId: selected, sdp, confirmation: "START PAID VOICE AUDITION" },
+        }),
+      onState: (state) => {
+        setAuditionState(state);
+        if (state === "closed") player.current = null;
+      },
+      onError: setError,
+    });
+    player.current = session;
+    void session.start();
   }
   const current = candidates.filter((c) => c.character === character);
-  const canCreate = !!status?.creationEnabled && !!status.apiConfigured && busy === null;
+  const canCreate =
+    !!status?.creationEnabled && !!status.apiConfigured && busy === null && !playing;
 
   return (
     <>
@@ -183,7 +187,8 @@ function VoiceStudio() {
             </p>
             <h1 className="mt-1 font-display text-2xl">Find their voice</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions, not character calls.
+              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions,
+              not character calls.
             </p>
             {status ? (
               <ul className="mt-3 space-y-1 text-sm">
@@ -213,6 +218,7 @@ function VoiceStudio() {
               aria-label="Voice character"
               className="mt-1 min-h-12 w-full rounded-xl border bg-surface px-3"
               value={character}
+              disabled={playing || busy !== null}
               onChange={(e) => {
                 setCharacter(e.target.value as VoiceDesignKey);
                 setSelected("");
@@ -268,8 +274,37 @@ function VoiceStudio() {
               >
                 {copied === "script" ? "Copied" : "Copy script"}
               </button>
-              <button type="button" disabled={!selected || playing} className="min-h-11 rounded-lg bg-primary px-3 text-sm text-primary-foreground disabled:opacity-40" onClick={() => void audition()}>{playing ? "Auditioning…" : "▶ Hear selected voice"}</button>
-              {playing && <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={stopAudition}>■ Stop</button>}
+              <Button
+                type="button"
+                disabled={!selected || playing || !status?.auditionsEnabled}
+                className="min-h-11"
+                onClick={audition}
+              >
+                <Play />
+                Hear selected voice
+              </Button>
+              {playing && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-11"
+                  onClick={stopAudition}
+                  disabled={auditionState === "stopping"}
+                >
+                  <Square />
+                  Stop
+                </Button>
+              )}
+              {auditionState === "blocked" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void player.current?.resume()}
+                >
+                  <Play />
+                  Enable audio
+                </Button>
+              )}
               <a
                 href="https://platform.openai.com/playground"
                 target="_blank"
@@ -280,9 +315,28 @@ function VoiceStudio() {
               </a>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              In-app and Playground auditions are billable. Server setting ENABLE_VOICE_STUDIO_AUDITIONS must be enabled separately.
+              In-app and Playground auditions are billable. In-app auditions remain unavailable
+              until server spending safeguards are ready.
             </p>
           </Step>
+
+          <audio ref={audioRef} controls aria-label="Voice audition audio" className="w-full" />
+          <p role="status" className="text-sm text-muted-foreground">
+            {auditionState === "playing"
+              ? "Audio playback detected"
+              : auditionState === "ready"
+                ? "Connected — waiting for audio"
+                : auditionState === "connecting"
+                  ? "Connecting…"
+                  : auditionState === "stopping"
+                    ? "Audio stopped — closing session…"
+                    : auditionState === "blocked"
+                      ? "Tap Enable audio to allow playback"
+                      : "No audition playing"}
+          </p>
+          {status?.auditionBlocker && (
+            <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>
+          )}
 
           <Step n={3} title="Pick your favorite">
             <p className="text-xs text-muted-foreground">
@@ -304,6 +358,7 @@ function VoiceStudio() {
                       name="candidate"
                       className="mt-1 h-5 w-5"
                       checked={selected === c.id}
+                      disabled={playing}
                       onChange={() => setSelected(c.id)}
                     />
                     <span className="min-w-0 flex-1">

@@ -1,5 +1,10 @@
 # Tess roadmap
 
+## Voice Studio audition validation
+- Done: repaired mounted audio, one-shot script trigger, playback detection, blocked-audio recovery, startup/Stop/disconnection cleanup; verified direct-OpenAI documented events with mocked transport, without paid requests.
+- Blocked: auditions remain disabled until durable concurrency/spending reservations and a server-owned OpenAI sideband deadline are implemented and reviewed; no schema changes authorized here. Normal calls remain disabled.
+- Done: 509 tests passed; edited files lint clean; automatic preview build/typecheck OK. Signed-in developer mobile page loads with all five selectors and no horizontal overflow. Repository-wide lint has 3,455 pre-existing findings. Physical Android/audio and production paid playback remain unverified; not published.
+
 ## Multi-week life upgrade
 - Done: persistent multi-week situations for all five characters; deterministic branching, postponement/fading/open-ended outcomes, shared milestones, participant context, and idempotent personal outcome memories, integrated with schedule, latency, initiation and photo prompts. No additional AI calls or schema changes.
 - Done: 9 focused tests; 30-day simulation produced 6 situations, 30 milestones, 24 transitions and 4 remembered outcomes; replay/partial-write recovery and user isolation passed. Full regression suite run once: 141 tests passed; preview build OK.
