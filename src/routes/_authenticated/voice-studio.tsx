@@ -778,7 +778,7 @@ function VoiceStudio() {
                       onChange={() => setSelected(c.id)}
                     />
                     <span className="min-w-0 flex-1">
-                      <strong className="capitalize">{c.variant}</strong>
+                      <strong className="break-words">{c.name || `${title(character)} — ${c.variant}`}</strong>\n                      <span className="block text-xs capitalize text-muted-foreground">{c.variant} · Saved candidate</span>
                       <code className="mt-1 block select-all break-all text-xs">{c.id}</code>
                     </span>
                     <button
