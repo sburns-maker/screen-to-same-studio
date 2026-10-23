@@ -273,7 +273,12 @@ export function planPhotography(args: {
   const socialTransition = !!location && location === "social" && previous?.location !== "social";
   const explicitChange = /\\b(?:changed (?:clothes|outfit)|got dressed|getting dressed|put on (?:my|a)|showered|pajamas|pyjamas|getting ready|dressed up)\\b/i.test(text);
   const newEpisode = changedSetting || socialTransition || explicitChange;
-  const retain = sameDay && !newEpisode && !!previous && (location === previous.location || !location);
+  const retain =
+    sameDay &&
+    !newEpisode &&
+    !!previous &&
+    previous.character === args.character &&
+    (location === previous.location || !location);
   const outfitEpisode: PhotographyPlan["outfitEpisode"] = !previous ? "unestablished" : !sameDay ? "new_day" : newEpisode ? "context_transition" : "same_day";
   const objects = [
     ...(/\bMabel\b/i.test(text) && location === "outdoors" ? ["Mabel"] : []),
@@ -431,7 +436,13 @@ export function continuityPhotoStyle(
     );
   return {
     ...proposed,
-    hairstyle: !explicitHair && plan.outfitEpisode === "same_day" && plan.continuity.hairstyle ? plan.continuity.hairstyle : proposed.hairstyle,
-    clothing_category: !explicitClothes && plan.outfitEpisode === "same_day" && plan.continuity.clothing ? plan.continuity.clothing : proposed.clothing_category,
+    hairstyle:
+      proposed.hairstyle ??
+      (!explicitHair && plan.outfitEpisode === "same_day" ? plan.continuity.hairstyle : null),
+    clothing_category: explicitClothes
+      ? null
+      : (plan.outfitEpisode === "same_day" ? plan.continuity.clothing : null) ??
+        proposed.clothing_category ??
+        null,
   };
 }
