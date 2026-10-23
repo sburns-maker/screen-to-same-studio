@@ -1,5 +1,10 @@
 # Tess roadmap
 
+## Failed live dinner reply
+- In progress: diagnose the failed pending turn, correct generation accounting and safe diagnostics, test concurrent retry/replay and unchanged dinner state.
+- Preserve the existing claim, moments, pending operation and all unrelated plans; do not run a paid retry or finish the outing.
+- Blocker: existing pending operation has exhausted its three-attempt allowance; recovery requires an explicit scoped decision after diagnosis.
+
 ## Editable conversational auditions
 - Done: editable performance instructions and cue, locally saved with reset and exact request preview; shared validated client/server prompts; voice IDs and safeguards preserved.
 - Done: 51 focused tests passed; automatic build checks report OK; signed-in edit/refresh/reset, blank-input validation and exact preview verified with no page errors. Live calls Off. No paid requests.
