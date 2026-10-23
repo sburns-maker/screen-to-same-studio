@@ -73,7 +73,7 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
         /* non-JSON error body */
       }
       const f = classifyVoiceCreationFailure(res.status, body);
-      console.error("voice creation failed", res.status, f.kind, body?.error?.code ?? "");
+      console.error("voice creation failed", res.status, f.kind, (body as { error?: { code?: string | null } } | null)?.error?.code ?? "");
       throw new Error(f.message);
     }
     const json = (await res.json()) as { id?: string; voice_id?: string };
