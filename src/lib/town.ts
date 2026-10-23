@@ -83,6 +83,51 @@ export const TOWN_PLACES = [
     opens: 8,
     closes: 19,
   },
+  {
+    key: "reading:lantern",
+    label: "Lantern Reading Room",
+    kind: "library",
+    community: "Hollidaysburg",
+    latitude: 40.429,
+    longitude: -78.393,
+    description:
+      "A fictional evening reading room with a discussion table, public shelves and quiet corners. All programs and attendees are invented.",
+    opens: 10,
+    closes: 22,
+  },
+  {
+    key: "diner:valley",
+    label: "Valley Table",
+    kind: "restaurant",
+    community: "Hollidaysburg",
+    latitude: 40.432,
+    longitude: -78.39,
+    description: "A fictional casual diner with booths and an unhurried dinner service.",
+    opens: 8,
+    closes: 22,
+  },
+  {
+    key: "market:borough",
+    label: "Borough Market",
+    kind: "shop",
+    community: "Altoona",
+    latitude: 40.516,
+    longitude: -78.408,
+    description: "A fictional neighborhood grocery and small provisions shop.",
+    opens: 8,
+    closes: 21,
+  },
+  {
+    key: "garden:rail",
+    label: "Rail Garden",
+    kind: "garden",
+    community: "Tyrone",
+    latitude: 40.668,
+    longitude: -78.243,
+    description: "A fictional public garden and short walking loop near the virtual town center.",
+    opens: 7,
+    closes: 20,
+  },
 ] as const;
 export type TownNpc = {
   key: string;
@@ -174,6 +219,32 @@ export const TOWN_NPCS = [
     personality:
       "Thoughtful, grounded and gently humorous. An invented person in the fictional scene, never a real visitor or service worker. Shares ordinary hobby interests; never invents real attendees, private support histories or clinical advice. Likes connection without assuming romance.",
     interests: ["Crafts", "Community gardens", "Old films"],
+  },
+  {
+    key: "orla-june",
+    name: "Orla June",
+    age: 44,
+    place: "reading:lantern",
+    days: [2, 4],
+    start: 18,
+    end: 21,
+    blurb: "A fictional volunteer reading-group host who enjoys unhurried discussion.",
+    personality:
+      "Patient and curious, allows disagreement and quiet listeners. Leads fictional open reading discussions. Never claims real bookings or private attendee information. No automatic friendship, romance or contact consent.",
+    interests: ["Reading", "Community arts", "Walking"],
+  },
+  {
+    key: "elliot-reed",
+    name: "Elliot Reed",
+    age: 34,
+    place: "reading:lantern",
+    days: [2, 4],
+    start: 18,
+    end: 21,
+    blurb: "A fictional regular at public reading discussions with a taste for science fiction.",
+    personality:
+      "Warm, observant and independent. Enjoys talking about books without testing people. May be busy or decline contact. Do not invent private facts about other attendees.",
+    interests: ["Science fiction", "Gardens", "Board games"],
   },
 ] as const;
 export type TownNpcKey = (typeof TOWN_NPCS)[number]["key"];

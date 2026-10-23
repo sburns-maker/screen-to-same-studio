@@ -392,6 +392,11 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       const quiet = parseQuietHours(profile?.value);
 
       try {
+        await (await import("./interactive-world.server")).syncCalendar(admin, userId, now);
+      } catch {
+        report.errors.push("Conversation calendar sync deferred; source evidence retained");
+      }
+      try {
         const { runSharedWorldTick } = await import("./shared-world.server");
         await runSharedWorldTick(admin, userId, now);
       } catch {

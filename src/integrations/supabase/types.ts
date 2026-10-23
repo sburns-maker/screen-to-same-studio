@@ -1,3 +1,4 @@
+import type { InteractiveTables, InteractiveFunctions } from "./interactive-types";
 export type Json =
   | string
   | number
@@ -13,7 +14,7 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
-    Tables: {
+    Tables: InteractiveTables & {
       character_knowledge: {
         Row: {
           acquired_at: string
@@ -730,11 +731,11 @@ export type Database = {
       social_plans: {
         Row: {
           created_at: string
-          ends_at: string
+          ends_at: string | null
           id: string
           organizer: string
-          place_key: string
-          starts_at: string
+          place_key: string | null
+          starts_at: string | null
           status: string
           title: string
           user_attendance: string
@@ -743,11 +744,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          ends_at: string
+          ends_at: string | null
           id: string
           organizer: string
-          place_key: string
-          starts_at: string
+          place_key: string | null
+          starts_at: string | null
           status?: string
           title: string
           user_attendance?: string
@@ -756,11 +757,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          ends_at?: string
+          ends_at?: string | null
           id?: string
           organizer?: string
-          place_key?: string
-          starts_at?: string
+          place_key?: string | null
+          starts_at?: string | null
           status?: string
           title?: string
           user_attendance?: string
@@ -1508,7 +1509,7 @@ export type Database = {
     Views: {
       [_ in never]: never
     }
-    Functions: {
+    Functions: InteractiveFunctions & {
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
       deliver_user_video: {

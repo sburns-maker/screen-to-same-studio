@@ -1,3 +1,4 @@
+import { InteractiveWorldDebug } from "@/components/InteractiveWorldDebug";
 import { photoTestStatus } from "@/lib/photo-test-status";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -126,6 +127,7 @@ function Debug() {
         <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
+        {snap?.photoDeveloperTools&&<Section title="Interactive world & calendar"><InteractiveWorldDebug/></Section>}
         {snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography"><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
         {snap?.photoDeveloperTools && (
           <Section title="Photo boundaries (developer)">

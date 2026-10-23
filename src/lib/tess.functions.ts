@@ -366,7 +366,15 @@ async function runTurnUnlocked(
   const story = await storylineContext(supabase, userId, def.key, now);
   const { knowledgePromptLines } = await import("./social-logic");
   const continuity = worldReady && photoAdmin ? await continuityContext(photoAdmin, userId, conv.id, now) : { lines: [] };
-  const worldKnowledge = [...continuity.lines, ...story.lines, ...knowledgePromptLines(
+  const calendarLines = photoAdmin
+    ? await (await import("./interactive-world.server"))
+        .calendarContext(photoAdmin, userId, conv.id, def.key, now)
+        .catch(() => {
+          console.warn("[calendar] sync deferred; existing character conversation preserved");
+          return [] as string[];
+        })
+    : [];
+  const worldKnowledge = [...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];
