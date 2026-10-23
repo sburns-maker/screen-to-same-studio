@@ -88,7 +88,7 @@ export function superviseAudition(
         clearTimeout(deadline);
         clearTimeout(drain);
         sb.close();
-        void finish(db, row.id, { state: "closed", close_reason: reason, usage_seconds: usage })
+        void finish(db, row.id, { state: "closed", close_reason: reason, usage_seconds: usage ?? null })
           .catch(() => {})
           .finally(resolve);
       };

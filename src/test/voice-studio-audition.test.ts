@@ -129,7 +129,7 @@ describe("direct OpenAI audition lifecycle (mocked transport)", () => {
     f.event("session.closed");
     expect(f.peer.close).toHaveBeenCalledOnce();
   });
-  it("stops locally at exactly 45 seconds without an automatic retry", async () => {
+  it("stops locally at exactly 30 seconds without an automatic retry", async () => {
     vi.useFakeTimers();
     const f = fixture();
     await f.session.start();
