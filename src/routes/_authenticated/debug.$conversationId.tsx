@@ -1,3 +1,4 @@
+import { LivingExperiencesDebug } from "@/components/LivingExperiencesDebug";
 import { CallsDebug } from "@/components/CallsDebug";
 import { InteractiveWorldDebug } from "@/components/InteractiveWorldDebug";
 import { photoTestStatus } from "@/lib/photo-test-status";
@@ -130,6 +131,7 @@ function Debug() {
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
         {snap && <section className="rounded-2xl bg-surface p-4" aria-label="Simulation overview"><div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">At a glance</div><div className="mt-2 text-lg font-semibold">{snap.stage}</div><p className="text-sm text-muted-foreground mt-1">Currently {snap.schedule.activity} · {snap.schedule.availability} · Real-Time {snap.realTimeMode ? "on" : "off"}</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Messages</span><div className="font-medium">{snap.initiation.eligible ? "Can initiate" : "Waiting"}</div></div><div><span className="text-muted-foreground">Photos</span><div className="font-medium">{snap.photo.eligible ? "Eligible" : "Not eligible"}</div></div></div>{!snap.photo.eligible && <p className="mt-2 text-xs text-muted-foreground">Photo: {snap.photo.reason}</p>}</section>}
+        {snap?.photoDeveloperTools&&<Section title="Living Experiences" collapsible><LivingExperiencesDebug conversationId={conversationId}/></Section>}
         {snap?.photoDeveloperTools&&<Section title="Calls" collapsible><CallsDebug conversationId={conversationId}/></Section>}
         {snap?.photoDeveloperTools && <Link to="/voice-studio" className="mb-3 block rounded-2xl border bg-surface p-4 text-sm font-medium">🎙️ Open Voice Studio <span className="block text-xs font-normal text-muted-foreground">Create and compare private fictional character voices</span></Link>}
         {snap?.photoDeveloperTools&&<Section title="Interactive world & calendar" collapsible><InteractiveWorldDebug/></Section>}

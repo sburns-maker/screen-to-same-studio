@@ -1,3 +1,4 @@
+import { ExperienceEntry } from "./ExperienceEntry";
 import { VenueExperience } from "./VenueExperience";
 import { useState, useRef } from "react";
 import { Link } from "@tanstack/react-router";
@@ -126,6 +127,11 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
           {status}
         </p>
       )}
+      {q.data?.plans
+        .filter((p) => p.place_key === placeKey)
+        .map((p) => (
+          <ExperienceEntry key={p.id} planId={p.id} />
+        ))}
       <VenueExperience placeKey={placeKey} />
       <div className="grid grid-cols-2 gap-2">
         {p.activities.map((a) => (

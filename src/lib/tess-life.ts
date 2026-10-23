@@ -59,9 +59,9 @@ export function scheduleFor(now: Date, chaos = 1): TessActivity {
       "an equipment check is taking longer than expected",
     ];
     const localDate = new Intl.DateTimeFormat("en-CA", {timeZone:TESS_TZ, year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
-    const dateNumber = Number(localDate.replace(/\\D/g, ""));
+    const dateNumber = Number(localDate.replace(/\D/g, ""));
     const texture = workTextures[(dateNumber * 17 + Math.floor(dateNumber / 100)) % workTextures.length]!;
-    const ordinaryDay = (dateNumber * 7 + 3) % 7;
+    const ordinaryDay = (dateNumber * 11 + 3) % 7;
     const workDetail = ordinaryDay <= 1
       ? "the clinic is unusually busy; " + texture
       : ordinaryDay === 2

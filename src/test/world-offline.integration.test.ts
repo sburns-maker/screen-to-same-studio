@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
 // Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
 vi.mock("@/lib/photo-identity-qc.server", () => ({
   requireVisualScreen: () => {},
@@ -540,4 +541,50 @@ describe("offline living world through the normal character pipeline (fake paid 
         .body,
     ).toBe("A clip from my walk");
   }, 20000);
+  it("the managed leased world tick completes a due Living Experience without browser activity", async () => {
+    await db.exec(
+      "CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT 'service_role'::text $$",
+    );
+    for (const f of [
+      "0024_verify_phone_calls",
+      "0025_living_experiences",
+      "0026_complete_living_experiences",
+    ])
+      await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
+    vi.stubEnv("LIVING_EXPERIENCES_ENABLED", "true");
+    const appointment = "2026-10-25T18:00:00Z",
+      later = new Date("2026-10-25T22:01:00Z");
+    vi.setSystemTime(later);
+    await db.exec(
+      `UPDATE experience_settings SET enabled=true,installed_at='2026-10-24T00:00:00Z';UPDATE conversations SET muted=true,real_time_mode=false;`,
+    );
+    const maya = "20000000-0000-4000-a000-999999999997",
+      plan = "30000000-0000-4000-a000-999999999997";
+    await db.exec(
+      `INSERT INTO conversations(user_id,id,character_id,real_time_mode,muted) SELECT '${user}','${maya}',id,true,true FROM characters WHERE key='maya';INSERT INTO tess_state(user_id,conversation_id) VALUES('${user}','${maya}');INSERT INTO world_places(user_id,key,label,kind) VALUES('${user}','coffee:local','Switchyard Coffee','cafe') ON CONFLICT DO NOTHING;INSERT INTO social_plans(user_id,id,organizer,place_key,title,starts_at,ends_at,status,origin,conversation_id,category,date_local,time_local) VALUES('${user}','${plan}','maya','coffee:local','Quiet coffee','${appointment}','2026-10-25T19:00Z','accepted','conversation','${maya}','coffee','2026-10-25','14:00');`,
+    );
+    mocks.text.mockResolvedValue({
+      messages: ["A modest off-screen coffee outing ended without new commitments."],
+      state_delta: {},
+      photo: null,
+      continuity: null,
+      memory_candidates: [],
+      event_tags: [],
+    });
+    const report = await runWorldTickWithAdmin(mocks.admin!, later);
+    expect(report.errors).toEqual([]);
+    expect(report.aiCalls).toBe(1);
+    expect(
+      (
+        await db.query(
+          `SELECT state,synced_at IS NOT NULL synced FROM living_experiences WHERE plan_id='${plan}'`,
+        )
+      ).rows[0],
+    ).toEqual({ state: "completed", synced: true });
+    expect(
+      (await db.query(`SELECT count(*)::int n FROM memories WHERE conversation_id='${maya}'`))
+        .rows[0],
+    ).toEqual({ n: 1 });
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
 });
