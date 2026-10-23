@@ -139,6 +139,7 @@ describe("typed character photography", () => {
   });
   it("fills missing same-moment styling without overriding an explicitly changed hairstyle or scene", () => {
     const p = plan();
+    p.outfitEpisode = "same_day";
     p.continuity.hairstyle = "ponytail";
     p.continuity.clothing = "charcoal cardigan";
     expect(continuityPhotoStyle(p, {}, "a reaction selfie at home")).toMatchObject({
@@ -166,10 +167,27 @@ describe("typed character photography", () => {
           at: new Date(now.getTime() - 21 * 60_000).toISOString(),
         },
       }).continuity.hairstyle,
-    ).toBeNull();
+    ).toBe("ponytail");
     expect(
       plan("tess", { previous: { ...previous, location: "home" } }).continuity.hairstyle,
     ).toBeNull();
+  });
+  it("keeps a look across the local day but permits a transition to trivia", () => {
+    const previous = {
+      character: "tess",
+      at: new Date(now.getTime() - 4 * 3600_000).toISOString(),
+      location: "home" as const,
+      style: { hairstyle: "messy_bun", clothing_category: "charcoal_sweater" },
+      objects: [],
+    };
+    const home = plan("tess", { previous });
+    expect(home.outfitEpisode).toBe("same_day");
+    expect(continuityPhotoStyle(home, { clothing_category: "generic_black_top" }, "selfie at home").clothing_category).toBe("charcoal_sweater");
+    const trivia = plan("tess", { previous, schedule: {
+      activity: "at bar trivia", detail: "at the bar with her trivia team", availability: "free",
+    } });
+    expect(trivia.outfitEpisode).toBe("context_transition");
+    expect(trivia.continuity.clothing).toBeNull();
   });
   it("uses only delivered screened photos from this character, not pending or user images", () => {
     const metadata = {
