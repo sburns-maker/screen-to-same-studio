@@ -45,22 +45,37 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
       playful:
         "Favor quick spontaneous reactions and subtle amused inflections, without caricature or exaggerated cheer.",
     }[data.variant];
-    const res = await fetch("https://api.openai.com/v1/audio/voices", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "prompt",
-        name: `${base.name} (${data.variant})`,
-        prompt: `${base.description} ${direction}`,
-        model: "auto",
-        script_hint: AUDITION_SCRIPT,
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok)
-      throw new Error(
-        res.status === 403 ? "Custom voice access denied" : "Custom voice creation failed",
-      );
+    const { classifyVoiceCreationFailure } = await import("./voice-creation-errors");
+    let res: Response;
+    try {
+      res = await fetch("https://api.openai.com/v1/audio/voices", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "prompt",
+          name: `${base.name} (${data.variant})`,
+          prompt: `${base.description} ${direction}`,
+          model: "auto",
+          script_hint: AUDITION_SCRIPT,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+    } catch (e) {
+      const f = classifyVoiceCreationFailure(null, null, e as { name?: string });
+      console.error("voice creation network failure", f.kind);
+      throw new Error(f.message);
+    }
+    if (!res.ok) {
+      let body: Parameters<typeof classifyVoiceCreationFailure>[1] = null;
+      try {
+        body = (await res.json()) as typeof body;
+      } catch {
+        /* non-JSON error body */
+      }
+      const f = classifyVoiceCreationFailure(res.status, body);
+      console.error("voice creation failed", res.status, f.kind, body?.error?.code ?? "");
+      throw new Error(f.message);
+    }
     const json = (await res.json()) as { id?: string; voice_id?: string };
     const id = json.id ?? json.voice_id;
     if (!id || !/^voice_[a-zA-Z0-9_-]{3,120}$/.test(id))
