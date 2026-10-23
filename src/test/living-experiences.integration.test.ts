@@ -142,6 +142,40 @@ describe("Living Experiences against real PostgreSQL engine and real migrations"
     expect((await livingHistory(client(), user, plan)).moments).toHaveLength(1);
     await generateExperience(client(), user, plan, turn, "turn", "Hello", 1, false, now);
     expect((await livingHistory(client(), user, plan)).moments).toHaveLength(2);
+    await generateExperience(client(), user, plan, turn, "turn", "Hello", 1, false, now);
+    expect(model.reply).toHaveBeenCalledTimes(2);
+    expect((await livingHistory(client(), user, plan)).moments.map((m) => m.source)).toEqual(["user", "character"]);
+    expect((await db.query("SELECT count(*)::int n FROM memories")).rows[0]).toEqual({ n: 0 });
+    expect((await db.query("SELECT trust FROM tess_state")).rows[0]).toEqual({ trust: 25 });
+    expect((await livingHistory(client(), user, plan)).scene.state).toBe("interactive");
+  });
+  it("blocks concurrent same-ID retries before a second model call", async () => {
+    await claim();
+    const action = id();
+    let release: ((value: { messages: string[]; state_delta: { trust: number } }) => void) | undefined;
+    const waiting = new Promise<{ messages: string[]; state_delta: { trust: number } }>((resolve) => { release = resolve; });
+    model.reply.mockReturnValueOnce(waiting);
+    const first = generateExperience(client(), user, plan, action, "turn", "Hello", 1, false, now);
+    await vi.waitFor(() => expect(model.reply).toHaveBeenCalledTimes(1));
+    await expect(generateExperience(client(), user, plan, action, "turn", "Hello", 1, false, now)).rejects.toThrow();
+    release?.({ messages: ["Good to see you."], state_delta: { trust: 2 } });
+    await first;
+    expect(model.reply).toHaveBeenCalledTimes(1);
+    expect((await livingHistory(client(), user, plan)).moments).toHaveLength(2);
+  });
+  it("keeps exhausted pending turns and claim unchanged without calling the model", async () => {
+    const claimed = await claim();
+    const action = id();
+    model.reply.mockRejectedValue(new Error("Character AI capacity limit reached; try later"));
+    for (let attempt = 0; attempt < 3; attempt++)
+      await expect(generateExperience(client(), user, plan, action, "turn", "Hello", 1, false, now)).rejects.toThrow("capacity limit");
+    await expect(generateExperience(client(), user, plan, action, "turn", "Hello", 1, false, now)).rejects.toThrow("retry limit");
+    const h = await livingHistory(client(), user, plan);
+    expect(model.reply).toHaveBeenCalledTimes(3);
+    expect(h.moments).toHaveLength(1);
+    expect(h.pending).toMatchObject({ id: action, status: "failed", attempts: 3 });
+    expect(Date.parse(h.scene.claimed_at ?? "")).toBe(Date.parse(claimed.experience.claimed_at ?? ""));
+    expect(h.scene).toMatchObject({ state: "interactive", revision: 1, outcome_id: null });
   });
   it("rejects cross-user commands and context", async () => {
     await claim();

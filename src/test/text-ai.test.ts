@@ -111,15 +111,26 @@ describe("direct OpenAI structured character generation", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("rejects excessive context and stops at the process spending guard", async () => {
+  it("reconciles successful reported usage rather than accumulating prompt characters", async () => {
     const fetchMock = vi.fn().mockImplementation(async () => response());
+    vi.stubGlobal("fetch", fetchMock);
+    const { runStructured } = await import("@/lib/text-ai.server");
+    for (let i = 0; i < 8; i++)
+      await runStructured(schema, "canon", "x".repeat(90_000));
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+  });
+
+  it("rejects excessive context and retains reservations for unknown failed usage", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => Response.json(
+      { error: { message: "unavailable", type: "server_error" } }, { status: 500 },
+    ));
     vi.stubGlobal("fetch", fetchMock);
     const { runStructured } = await import("@/lib/text-ai.server");
     await expect(runStructured(schema, "canon", "x".repeat(100_000))).rejects.toThrow(
       "context limit",
     );
-    await runStructured(schema, "canon", "x".repeat(90_000));
-    await runStructured(schema, "canon", "x".repeat(90_000));
+    await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow("temporarily unavailable");
+    await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow("temporarily unavailable");
     await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow(
       "capacity limit",
     );

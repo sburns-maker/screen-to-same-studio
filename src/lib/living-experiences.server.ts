@@ -170,7 +170,9 @@ export async function generateExperience(
     now,
   );
   if (reserved.done) return reserved;
-  const job = reserved.operation!;
+  const job = reserved.operation;
+  if (!job) throw new Error("Scene reservation unavailable; refresh before retrying.");
+  let phase = "context";
   try {
     if (kind === "automatic" && !(await reserveWorldAi(db, user)))
       throw new Error("Autonomous budget unavailable");
@@ -262,11 +264,13 @@ export async function generateExperience(
             : ""),
       },
     };
+    phase = "generation";
     const { generateTessReply, generateContactReply } = await import("./tess.server");
     const reply =
       def.key === "tess"
         ? await generateTessReply(args)
         : await generateContactReply({ ...args, character: def });
+    phase = "validation";
     const text = reply.messages
       .join("\n\n")
       .trim()
@@ -276,6 +280,7 @@ export async function generateExperience(
       throw new Error("Unsafe off-screen outcome");
     const delta = kind === "turn" && body ? sanitizeDelta(reply.state_delta, difficulty) : {};
     // Completion consumes deltas accumulated ONLY from actual interactive turns, never auto attendance.
+    phase = "reconciliation";
     const ops = await db
       .from("experience_operations")
       .select("result")
@@ -295,6 +300,7 @@ export async function generateExperience(
         ),
       ]),
     );
+    phase = "commit";
     return await experienceCommand(
       db,
       user,
@@ -305,12 +311,25 @@ export async function generateExperience(
       { token: job.token, body: text, delta: (kind === "turn" ? delta : aggregate) as Json },
       now,
     );
-  } catch {
+  } catch (error) {
+    const knownReasons = [
+      "Character context unavailable", "Character AI is not configured", "Character AI is paused",
+      "Character AI context limit reached", "Character AI capacity limit reached; try later",
+      "Character AI is temporarily unavailable; please try again later",
+      "Character AI access unavailable (402)", "Character AI access unavailable (403)",
+      "Character did not produce a scene", "Unsafe off-screen outcome",
+      "Experience reconciliation unavailable", "Autonomous budget unavailable",
+    ];
+    const reason = error instanceof Error && knownReasons.includes(error.message)
+      ? error.message : "Scene step failed";
+    // Never log prompts, transcripts, provider bodies, headers or arbitrary errors.
+    console.warn("[living-experience]", { operationId: id, phase, reason });
     await experienceCommand(db, user, plan, id, "fail", null, { token: job.token }, now).catch(
       () => undefined,
     );
     throw new Error(
-      "The scene could not be generated. Your recorded progress is safe; retry this action.",
+      "The scene could not be generated. Your recorded progress is safe; retry this action." +
+        (reason.startsWith("Character AI") ? ` ${reason}` : ""),
     );
   }
 }
