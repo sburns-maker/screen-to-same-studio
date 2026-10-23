@@ -217,6 +217,17 @@ function Debug() {
                 <div><div className="text-muted-foreground">Emotional intimacy</div><strong>{s.emotional_intimacy}/100</strong></div>
               </div>
               <p className="mt-3 text-xs text-muted-foreground">Latest recorded change tags: {tags.length ? tags.join(", ") : "none"}. An action such as putting hands in pockets can have multiple explanations; never infer its cause from these scores alone.</p>
+              <div className="mt-3 border-t pt-3 text-sm">
+                <div className="font-semibold">Evidence versus interpretation</div>
+                <p className="mt-1 text-xs text-muted-foreground">The following is extracted from saved relationship memories, not a window into ungenerated private thoughts. Interpretations are deliberately not assigned confidence scores.</p>
+                {snap.recentMemories.filter((m) => m.memory_type === "relationship").slice(0, 3).map((m, i) => (
+                  <div key={i} className="mt-2 rounded-lg border p-2">
+                    <span className="text-xs text-muted-foreground">Recorded memory · importance {m.importance}</span>
+                    <p className="mt-1 text-sm">{m.summary}</p>
+                  </div>
+                ))}
+                <p className="mt-2 text-xs text-muted-foreground">Schedule source: regular/shared-world activity, not necessarily the latest completed outing. Do not equate generic labels such as “home after work” with proof that an outing was forgotten. Await event-aware schedule reconciliation.</p>
+              </div>
             </Section>}
 
             <Section title="Their world right now">
