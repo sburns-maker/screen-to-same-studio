@@ -235,7 +235,7 @@ export async function generateTessImage(args: {
   try {
     const group = needsRef && fictionalGroupScene(args.scene);
     if ((group && mentionsOtherEstablishedCharacter(args.scene, args.identity?.key ?? "")) ||
-        (!group && /\\b(?:group (?:photo|selfie|portrait)|two (?:people|characters|women|men)|both (?:of )?us|(?:selfie|photo|portrait) (?:of |with )?(?:everyone|the whole group))\\b/i.test(args.scene)))
+        (!group && /\b(?:group (?:photo|selfie|portrait)|two (?:people|characters|women|men)|both (?:of )?us|(?:selfie|photo|portrait) (?:of |with )?(?:everyone|the whole group))\b/i.test(args.scene)))
       throw new Error("unsupported_group_photo");
     let canonical: (Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }) | null = null;
     if (needsRef) {
@@ -251,9 +251,9 @@ export async function generateTessImage(args: {
     const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
     if (text && !textVerificationAvailable()) throw new Error("text_verification_unavailable");
     const groupInstructions = group
-      ? "\\n\\nFICTIONAL GROUP MOMENT: The approved reference image belongs ONLY to the main foreground character. Keep that character recognizable, and add 1–4 generic fictional adult teammates appropriate to the established scene. Give the teammates distinct ordinary appearances; do not claim they are known or named contacts. No real patrons, clients, patients, private screens or identifying material. Compose like a casual phone group selfie, not a studio portrait."
+      ? "\n\nFICTIONAL GROUP MOMENT: The approved reference image belongs ONLY to the main foreground character. Keep that character recognizable, and add 1–4 generic fictional adult teammates appropriate to the established scene. Give the teammates distinct ordinary appearances; do not claim they are known or named contacts. No real patrons, clients, patients, private screens or identifying material. Compose like a casual phone group selfie, not a studio portrait."
       : "";
-    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\\n\\n${photoTextPrompt(text)}`;
+    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\n\n${photoTextPrompt(text)}`;
     const references: Blob[] = [];
     if (canonical) references.push(canonical.blob); // Always primary, original portrait.
     if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)
