@@ -53,7 +53,8 @@ type Snapshot = {
   recentMemories: { memory_type: string; summary: string; importance: number; created_at: string }[];
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, collapsible = false }: { title: string; children: React.ReactNode; collapsible?: boolean }) {
+  if (collapsible) return <details className="mt-4 rounded-2xl bg-surface p-4 group"><summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}<span className="ml-2 text-[10px] normal-case font-normal">Tap to expand</span></summary><div className="mt-3 text-sm">{children}</div></details>;
   return (
     <section className="mt-4 rounded-2xl bg-surface p-4">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
@@ -127,8 +128,9 @@ function Debug() {
         <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
-        {snap?.photoDeveloperTools&&<Section title="Interactive world & calendar"><InteractiveWorldDebug/></Section>}
-        {snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography"><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
+        {snap && <section className="rounded-2xl bg-surface p-4" aria-label="Simulation overview"><div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">At a glance</div><div className="mt-2 text-lg font-semibold">{snap.stage}</div><p className="text-sm text-muted-foreground mt-1">Currently {snap.schedule.activity} · {snap.schedule.availability} · Real-Time {snap.realTimeMode ? "on" : "off"}</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Messages</span><div className="font-medium">{snap.initiation.eligible ? "Can initiate" : "Waiting"}</div></div><div><span className="text-muted-foreground">Photos</span><div className="font-medium">{snap.photo.eligible ? "Eligible" : "Not eligible"}</div></div></div>{!snap.photo.eligible && <p className="mt-2 text-xs text-muted-foreground">Photo: {snap.photo.reason}</p>}</section>}
+        {snap?.photoDeveloperTools&&<Section title="Interactive world & calendar" collapsible><InteractiveWorldDebug/></Section>}
+        {snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography" collapsible><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
         {snap?.photoDeveloperTools && (
           <Section title="Photo boundaries (developer)">
             <p className="text-xs text-muted-foreground">Current saved setting: <strong>{snap.photoBoundary === "selfies" ? "No selfies" : snap.photoBoundary === "all_photos" ? "No photos" : snap.photoBoundary === "mature" ? "No mature romantic photos" : "No restriction"}</strong>. This is a persisted conversation preference, not a cooldown.</p>
@@ -153,7 +155,7 @@ function Debug() {
         {!snap && <p className="text-sm text-muted-foreground">Loading…</p>}
         {snap && s && (
           <>
-            {snap.photoDeveloperTools && snap.photoIdentity && <Section title="Canonical photo identity">
+            {snap.photoDeveloperTools && snap.photoIdentity && <Section title="Canonical photo identity" collapsible>
               <p className="text-xs text-muted-foreground">The existing profile portrait is the generation anchor. Visual screening can miss drift; compare the actual images. Historic images may have no validation record.</p>
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <figure><img src={snap.photoIdentity.profileUrl} alt="Authoritative existing profile portrait" className="w-full rounded-lg" /><figcaption className="text-xs">Canonical profile</figcaption></figure>
@@ -161,7 +163,7 @@ function Debug() {
               </div>
               <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({canonical:snap.photoIdentity.canonical,latest:snap.photoIdentity.latest,source:snap.photoIdentity.source,delivery:snap.photoIdentity.delivery},null,2)}</pre>
             </Section>}
-            {snap.photoDeveloperTools && <Section title="Persistent world diagnostics">
+            {snap.photoDeveloperTools && <Section title="Persistent world diagnostics" collapsible>
               <p className="text-xs text-muted-foreground">Current backend checkpoint, pending intentions, photo decisions, delivery events and monthly image attempts. Schedule preview advances no data or relationship scores. Global worker history is on Living world timeline.</p>
               <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.world, null, 2)}</pre>
             </Section>}
@@ -227,9 +229,7 @@ function Debug() {
                 </ul>
               </div>
               {!!snap.initiation.lastCheck && (
-                <div className="mt-2 border-t pt-2 font-mono text-[11px] text-muted-foreground">
-                  last check: {JSON.stringify(snap.initiation.lastCheck)}
-                </div>
+                <details className="mt-2 border-t pt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Last initiation check · technical data</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[11px]">{JSON.stringify(snap.initiation.lastCheck, null, 2)}</pre></details>
               )}
             </Section>
 
@@ -244,7 +244,7 @@ function Debug() {
               <p className="font-mono text-xs text-muted-foreground">{snap.latencyReason ?? "—"}</p>
             </Section>
 
-            <Section title="Recent memories">
+            <Section title="Recent memories" collapsible>
               {(snap.recentMemories ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
               <ul className="space-y-1.5">
                 {(snap.recentMemories ?? []).map((m, i) => (
