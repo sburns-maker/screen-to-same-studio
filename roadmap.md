@@ -1,5 +1,9 @@
 # Tess roadmap
 
+## Editable conversational auditions
+- Pending: editable performance instructions and cue, locally saved with reset and exact request preview; shared validated client/server prompts; preserve voice IDs and safeguards.
+- Pending: focused tests, automatic compilation checks and signed-in edit/refresh/reset verification without paid requests.
+
 ## Conversational Voice Studio comparison
 - Done: developer-only Tess conversational mode reusing the selected voice; original scripted mode, 30-second server deadline, durable caps and recording preserved. Recordings are labeled by audition mode.
 - Done: 48 focused regression tests passed; automatic preview compilation passed; signed-in developer mode switching and narrow-screen controls verified with no page errors. Live calls reported Off.

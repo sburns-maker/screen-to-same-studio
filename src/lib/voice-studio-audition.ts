@@ -1,4 +1,4 @@
-import { CONVERSATIONAL_SPEAK_PROMPT, type AuditionMode } from "./voice-audition-modes";
+import { auditionReinforcement, type ConversationalOptions, type AuditionMode } from "./voice-audition-modes";
 
 /** Direct OpenAI GPT-Live data-channel protocol, not the Realtime protocol. */
 export const AUDITION_SCRIPT =
@@ -75,6 +75,7 @@ export type AuditionTrace = { at: number; type: string; detail?: string | undefi
 export function createStudioAudition(options: {
   audio: HTMLAudioElement;
   mode?: AuditionMode;
+  conversationalOptions?: ConversationalOptions;
   connect: (sdp: string) => Promise<{ sdp: string }>;
   onState: (state: AuditionState) => void;
   onError: (message: string) => void;
@@ -267,7 +268,7 @@ export function createStudioAudition(options: {
             type: "session.instructions.append",
             event_id: crypto.randomUUID(),
             delegation_id: null,
-            content: `${options.mode === "conversational" ? CONVERSATIONAL_SPEAK_PROMPT : AUDITION_SPEAK_PROMPT} If you have already begun the response, finish it without starting another. If you have finished, remain silent.`,
+            content: auditionReinforcement(options.mode ?? "scripted", AUDITION_SPEAK_PROMPT, options.conversationalOptions),
           }),
         );
       }
