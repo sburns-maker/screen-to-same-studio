@@ -50,6 +50,43 @@ export const TESS_VARIANT_DIRECTIONS = {
     "Prioritize authentic spontaneous conversation: quick amused reactions, understated teasing, believable timing for dry jokes, small hesitations and warm softening afterward. Never caricatured, overly cheerful, polished, announcer-like or robotic.",
 } as const;
 
+const GENERIC_VARIANT_DIRECTIONS = {
+  natural:
+    "Favor effortless everyday conversational delivery, including pauses and ordinary relaxed expression.",
+  refined:
+    "Favor elegant articulation and a lightly melodic, delicately expressive cadence without a formal accent.",
+  playful:
+    "Favor quick spontaneous reactions and subtle amused inflections, without caricature or exaggerated cheer.",
+} as const;
+
+export type VoicePreset = keyof typeof GENERIC_VARIANT_DIRECTIONS;
+export type VoiceVariant = VoicePreset | "custom";
+export const VOICE_PRESETS: VoicePreset[] = ["natural", "refined", "playful"];
+export const VOICE_PROMPT_MIN = 40;
+export const VOICE_PROMPT_MAX = 1500;
+export const VOICE_NAME_MAX = 60;
+
+/** The exact original preset prompt (base description + variant direction). */
+export function presetVoicePrompt(key: VoiceDesignKey, preset: VoicePreset): string {
+  const direction = key === "tess" ? TESS_VARIANT_DIRECTIONS[preset] : GENERIC_VARIANT_DIRECTIONS[preset];
+  return `${VOICE_DESIGNS[key].description} ${direction}`;
+}
+
+export function defaultVoiceName(key: VoiceDesignKey, variant: VoiceVariant): string {
+  return `${VOICE_DESIGNS[key].name} (${variant})`;
+}
+
+/** Returns an error message, or null when the prompt/name are acceptable. */
+export function validateVoiceRequest(prompt: string, name: string): string | null {
+  const p = prompt.trim();
+  if (p.length < VOICE_PROMPT_MIN) return `Description must be at least ${VOICE_PROMPT_MIN} characters.`;
+  if (p.length > VOICE_PROMPT_MAX) return `Description must be at most ${VOICE_PROMPT_MAX} characters.`;
+  const n = name.trim();
+  if (!n) return "Candidate name is required.";
+  if (n.length > VOICE_NAME_MAX) return `Candidate name must be at most ${VOICE_NAME_MAX} characters.`;
+  return null;
+}
+
 export function customVoiceId(key: VoiceDesignKey, env: Record<string, string | undefined> = process.env): string | null {
   const id = env[`GPT_LIVE_VOICE_${key.toUpperCase()}`]?.trim();
   // Project-owned prompt-created voice ID, not a stock voice name.

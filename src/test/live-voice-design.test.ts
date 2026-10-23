@@ -50,3 +50,22 @@ describe("voice creation script hint", () => {
     for (const d of Object.values(TESS_VARIANT_DIRECTIONS)) expect(d).toContain("robotic");
   });
 });
+
+import { presetVoicePrompt, validateVoiceRequest, VOICE_PROMPT_MAX, VOICE_NAME_MAX } from "@/lib/live-voice-design";
+describe("editable voice descriptions", () => {
+  it("preset prompt combines base description and Tess direction", () => {
+    const p = presetVoicePrompt("tess", "refined");
+    expect(p).toContain("grew up in England");
+    expect(p).toContain("lightly melodic cadence");
+  });
+  it("rejects too short, too long and nameless requests", () => {
+    expect(validateVoiceRequest("short", "Tess")).toMatch(/at least/);
+    expect(validateVoiceRequest("x".repeat(VOICE_PROMPT_MAX + 1), "Tess")).toMatch(/at most/);
+    expect(validateVoiceRequest(presetVoicePrompt("tess", "natural"), "  ")).toMatch(/name/);
+    expect(validateVoiceRequest(presetVoicePrompt("tess", "natural"), "n".repeat(VOICE_NAME_MAX + 1))).toMatch(/name/);
+  });
+  it("accepts every preset as-is", () => {
+    for (const v of ["natural", "refined", "playful"] as const)
+      expect(validateVoiceRequest(presetVoicePrompt("tess", v), "Tess")).toBeNull();
+  });
+});
