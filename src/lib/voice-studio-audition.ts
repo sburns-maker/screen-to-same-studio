@@ -78,6 +78,8 @@ export function createStudioAudition(options: {
   onLevel?: (level: number, audible: boolean) => void;
   onTranscript?: (text: string) => void;
   onTrace?: (event: AuditionTrace) => void;
+  /** Decoded incoming audio, suitable for local MediaRecorder capture. */
+  onRecordableStream?: (stream: MediaStream) => void;
 }) {
   const pc = new RTCPeerConnection();
   const channel = pc.createDataChannel("oai-events");
@@ -202,10 +204,19 @@ export function createStudioAudition(options: {
       try {
         analyser = ctx.createAnalyser();
         analyser.fftSize = 1024;
-        ctx.createMediaStreamSource(stream).connect(analyser);
+        const src = ctx.createMediaStreamSource(stream);
+        src.connect(analyser);
+        // Chrome can record silence from a raw remote WebRTC track; route
+        // through Web Audio so the recorder captures decoded, audible audio.
+        const dest = ctx.createMediaStreamDestination();
+        src.connect(dest);
+        options.onRecordableStream?.(dest.stream);
       } catch {
         trace("meter.unavailable");
+        options.onRecordableStream?.(stream);
       }
+    } else {
+      options.onRecordableStream?.(stream);
     }
     void resume();
   };
