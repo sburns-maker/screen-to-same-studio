@@ -134,12 +134,7 @@ function VoiceStudio() {
       save([...candidates, { ...v, character, variant }]);
       setSelected(v.id);
     } catch (e) {
-      const m = (e as Error).message;
-      setError(
-        m.includes("access denied")
-          ? "OpenAI denied custom voice access for this API key's project. Check that your OpenAI organization has custom voice creation enabled."
-          : m,
-      );
+      setError(`${(e as Error).message} Your saved candidates are unchanged.`);
     } finally {
       setBusy(null);
     }
