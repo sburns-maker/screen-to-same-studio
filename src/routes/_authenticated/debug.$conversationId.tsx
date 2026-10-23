@@ -79,6 +79,7 @@ function Debug() {
   const fn = useServerFn(debugSnapshot);
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [activeTab, setActiveTab] = useState<"mind" | "world" | "social" | "photos" | "technical">("mind");
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     let stop = false;
     const load = () => fn({ data: { conversationId } }).then((d) => !stop && setSnap(d as Snapshot)).catch(() => {});
@@ -128,6 +129,13 @@ function Debug() {
     <>
       <ScreenHeader title={`Simulation debug · ${snap?.character.name ?? ""}`} backTo="/chat/$conversationId" backParams={{ conversationId }} />
       <Screen>
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border bg-surface p-3">
+          <div className="min-w-0"><strong className="block truncate text-sm">{snap?.character.name ?? "Character"}</strong><span className="text-xs text-muted-foreground">{snap?.stage ?? "Loading"} · {snap?.schedule.availability ?? "—"}</span></div>
+          <button type="button" disabled={refreshing} className="shrink-0 rounded-lg border px-3 py-2 text-sm disabled:opacity-50" onClick={() => {
+            setRefreshing(true);
+            void fn({ data: { conversationId } }).then((next) => setSnap(next as Snapshot)).finally(() => setRefreshing(false));
+          }}>{refreshing ? "Refreshing…" : "Refresh"}</button>
+        </div>
         <nav aria-label="Debug sections" className="sticky top-0 z-10 -mx-4 mb-3 flex gap-2 overflow-x-auto border-b bg-background px-4 py-3">
           {([
             ["mind", "Mind"], ["world", "World"], ["social", "Messages"], ["photos", "Photos"], ["technical", "Technical"],
