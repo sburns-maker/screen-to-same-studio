@@ -47,8 +47,7 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
         name: `${base.name} (${data.variant})`,
         prompt: `${base.description} ${direction}`,
         model: "auto",
-        script_hint:
-          "I have a complaint. About you, obviously. I haven\'t decided what you\'ve done wrong yet, but I\'m confident I\'ll find something. Have a lovely day.",
+        script_hint: AUDITION_SCRIPT,
       }),
       signal: AbortSignal.timeout(30000),
     });

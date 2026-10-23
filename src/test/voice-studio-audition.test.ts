@@ -94,7 +94,9 @@ describe("direct OpenAI audition lifecycle (mocked transport)", () => {
     f.event("session.started");
     f.event("session.started");
     expect(f.channel.send).toHaveBeenCalledTimes(1);
-    expect(JSON.parse(f.channel.send.mock.calls[0][0])).toMatchObject({
+    const command = f.channel.send.mock.calls[0]?.[0];
+    if (typeof command !== "string") throw new Error("Missing audition command");
+    expect(JSON.parse(command)).toMatchObject({
       type: "session.commentary.append",
       delegation_id: null,
       content: AUDITION_SCRIPT,
