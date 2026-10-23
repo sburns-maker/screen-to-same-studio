@@ -431,8 +431,7 @@ export function continuityPhotoStyle(
     );
   return {
     ...proposed,
-    hairstyle: proposed.hairstyle ?? (explicitHair ? null : plan.continuity.hairstyle),
-    clothing_category:
-      proposed.clothing_category ?? (explicitClothes ? null : plan.continuity.clothing),
+    hairstyle: !explicitHair && plan.outfitEpisode === "same_day" && plan.continuity.hairstyle ? plan.continuity.hairstyle : proposed.hairstyle,
+    clothing_category: !explicitClothes && plan.outfitEpisode === "same_day" && plan.continuity.clothing ? plan.continuity.clothing : proposed.clothing_category,
   };
 }
