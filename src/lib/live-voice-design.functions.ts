@@ -44,3 +44,19 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
     // approved GPT_LIVE_VOICE_* server setting manually.
     return { id, character: data.character, variant: data.variant, approved: false };
   });
+
+/** Developer-only read-only setup status; no keys, prompts or paid requests exposed. */
+export const voiceStudioStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer access required");
+    return {
+      creationEnabled: process.env["ENABLE_VOICE_DESIGN"] === "true",
+      apiConfigured: !!process.env["OPENAI_API_KEY"],
+      liveEnabled: process.env["ENABLE_GPT_LIVE_CALLS"] === "true",
+      approved: Object.fromEntries(
+        Object.keys(VOICE_DESIGNS).map((key) => [key, !!process.env[`GPT_LIVE_VOICE_${key.toUpperCase()}`]]),
+      ),
+    };
+  });
