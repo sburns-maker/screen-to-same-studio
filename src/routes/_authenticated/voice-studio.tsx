@@ -12,9 +12,15 @@ export const Route = createFileRoute("/_authenticated/voice-studio")({
   head: () => ({
     meta: [
       { title: "Voice Studio · Developer" },
-      { name: "description", content: "Developer tool to create and audition fictional character voice candidates." },
+      {
+        name: "description",
+        content: "Developer tool to create and audition fictional character voice candidates.",
+      },
       { property: "og:title", content: "Voice Studio · Developer" },
-      { property: "og:description", content: "Create and audition fictional character voice candidates." },
+      {
+        property: "og:description",
+        content: "Create and audition fictional character voice candidates.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
@@ -130,17 +136,25 @@ function VoiceStudio() {
       <Screen>
         <div className="space-y-4 pb-10">
           <section className="rounded-2xl bg-surface p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Developer studio</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Developer studio
+            </p>
             <h1 className="mt-1 font-display text-2xl">Find their voice</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Candidates are saved voice IDs, not recordings. Audio can't be played inside AI Town yet — listening
-              happens in OpenAI's Playground.
+              Candidates are saved voice IDs, not recordings. Audio can't be played inside AI Town
+              yet — listening happens in OpenAI's Playground.
             </p>
             {status ? (
               <ul className="mt-3 space-y-1 text-sm">
-                <li>OpenAI key: <strong>{status.apiConfigured ? "Configured" : "Missing"}</strong></li>
-                <li>Voice creation: <strong>{status.creationEnabled ? "Enabled" : "Disabled"}</strong></li>
-                <li>Live calls: <strong>{status.liveEnabled ? "Enabled" : "Off"}</strong></li>
+                <li>
+                  OpenAI key: <strong>{status.apiConfigured ? "Configured" : "Missing"}</strong>
+                </li>
+                <li>
+                  Voice creation: <strong>{status.creationEnabled ? "Enabled" : "Disabled"}</strong>
+                </li>
+                <li>
+                  Live calls: <strong>{status.liveEnabled ? "Enabled" : "Off"}</strong>
+                </li>
               </ul>
             ) : !error ? (
               <p className="mt-3 text-sm">Checking developer access…</p>
@@ -173,7 +187,9 @@ function VoiceStudio() {
 
           <section className="rounded-2xl bg-surface p-4">
             <h2 className="font-semibold">{VOICE_DESIGNS[character].name}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">{VOICE_DESIGNS[character].description}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {VOICE_DESIGNS[character].description}
+            </p>
             <p className="mt-3 text-xs text-muted-foreground">
               Active phone voice: {status?.approved[character] ? "Set" : "None yet"}
             </p>
@@ -199,10 +215,16 @@ function VoiceStudio() {
           </Step>
 
           <Step n={2} title="Audition in OpenAI Playground">
-            <p className="text-sm">Paste a candidate ID into the Playground and read this same script with each one:</p>
+            <p className="text-sm">
+              Paste a candidate ID into the Playground and read this same script with each one:
+            </p>
             <p className="mt-2 rounded-lg bg-background p-3 text-sm">{script}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={() => void copy(script, "script")}>
+              <button
+                type="button"
+                className="min-h-11 rounded-lg border px-3 text-sm"
+                onClick={() => void copy(script, "script")}
+              >
                 {copied === "script" ? "Copied" : "Copy script"}
               </button>
               <a
@@ -214,17 +236,26 @@ function VoiceStudio() {
                 Open Playground ↗
               </a>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Playground auditions are billed by OpenAI.</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Playground auditions are billed by OpenAI.
+            </p>
           </Step>
 
           <Step n={3} title="Pick your favorite">
-            <p className="text-xs text-muted-foreground">Saved on this device. Picking here doesn't change anything in the app.</p>
+            <p className="text-xs text-muted-foreground">
+              Saved on this device. Picking here doesn't change anything in the app.
+            </p>
             {current.length === 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">No {title(character)} candidates yet.</p>
+              <p className="mt-3 text-sm text-muted-foreground">
+                No {title(character)} candidates yet.
+              </p>
             ) : (
               <div className="mt-3 space-y-2">
                 {current.map((c) => (
-                  <label key={c.id} className="flex items-start gap-3 rounded-xl border p-3 text-sm">
+                  <label
+                    key={c.id}
+                    className="flex items-start gap-3 rounded-xl border p-3 text-sm"
+                  >
                     <input
                       type="radio"
                       name="candidate"
@@ -236,7 +267,11 @@ function VoiceStudio() {
                       <strong className="capitalize">{c.variant}</strong>
                       <code className="mt-1 block select-all break-all text-xs">{c.id}</code>
                     </span>
-                    <button type="button" className="min-h-9 shrink-0 rounded-lg border px-2 text-xs" onClick={() => void copy(c.id, c.id)}>
+                    <button
+                      type="button"
+                      className="min-h-9 shrink-0 rounded-lg border px-2 text-xs"
+                      onClick={() => void copy(c.id, c.id)}
+                    >
                       {copied === c.id ? "Copied" : "Copy ID"}
                     </button>
                   </label>
@@ -248,11 +283,15 @@ function VoiceStudio() {
           <Step n={4} title="Activate for phone calls (manual)">
             <p className="text-sm">
               Nothing is activated automatically. When you've chosen, save the ID as server setting{" "}
-              <code className="break-all">GPT_LIVE_VOICE_{character.toUpperCase()}</code>. Calls stay off until live
-              calling is separately enabled and tested.
+              <code className="break-all">GPT_LIVE_VOICE_{character.toUpperCase()}</code>. Calls
+              stay off until live calling is separately enabled and tested.
             </p>
             {selected && (
-              <button type="button" className="mt-3 min-h-11 rounded-lg border px-3 text-sm" onClick={() => void copy(selected, "sel")}>
+              <button
+                type="button"
+                className="mt-3 min-h-11 rounded-lg border px-3 text-sm"
+                onClick={() => void copy(selected, "sel")}
+              >
                 {copied === "sel" ? "Copied" : "Copy chosen ID"}
               </button>
             )}
