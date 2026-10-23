@@ -53,7 +53,11 @@ export function createStudioAudition(options: {
     if (state === "closed") return;
     // Best-effort remote shutdown on route teardown or document exit.
     if (active() && channel.readyState === "open") {
-      try { channel.send(JSON.stringify({ type: "session.close" })); } catch { /* transport lost */ }
+      try {
+        channel.send(JSON.stringify({ type: "session.close" }));
+      } catch {
+        /* transport lost */
+      }
     }
     clearTimeout(limit);
     clearTimeout(drain);
