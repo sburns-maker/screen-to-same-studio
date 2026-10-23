@@ -134,7 +134,7 @@ describe("direct OpenAI audition lifecycle (mocked transport)", () => {
     const f = fixture();
     await f.session.start();
     f.event("session.started");
-    await vi.advanceTimersByTimeAsync(44_999);
+    await vi.advanceTimersByTimeAsync(29_999);
     expect(f.onState).not.toHaveBeenCalledWith("stopping");
     await vi.advanceTimersByTimeAsync(1);
     expect(f.onState).toHaveBeenCalledWith("stopping");
