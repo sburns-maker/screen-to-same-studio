@@ -6,6 +6,36 @@ import {
   createStudioAudition,
   rms,
 } from "@/lib/voice-studio-audition";
+import { auditionRequestSchema, auditionSessionConfig, type AuditionMode } from "@/lib/voice-audition-modes";
+import { AUDITION_SPEAK_PROMPT } from "@/lib/voice-studio-audition";
+
+describe("audition mode contract", () => {
+  const request = {
+    character: "tess", voiceId: "voice_savedRefined123", sdp: "existing-sdp-offer",
+    confirmation: "START PAID VOICE AUDITION",
+  };
+  it("defaults old requests to scripted mode", () => {
+    expect(auditionRequestSchema.parse(request).mode).toBe("scripted");
+  });
+  it("reuses the selected Refined ID for both modes without voice creation configuration", () => {
+    for (const mode of ["scripted", "conversational"] as const) {
+      const config = auditionSessionConfig("tess", request.voiceId, mode, AUDITION_SPEAK_PROMPT);
+      expect(config.audio.output.voice.id).toBe("voice_savedRefined123");
+      expect(config.model).toBe("gpt-live-1");
+      expect(config.input).toHaveLength(1);
+      expect(config).not.toHaveProperty("script_hint");
+    }
+  });
+  it("rejects conversational auditions for non-Tess characters on the server contract", () => {
+    expect(auditionRequestSchema.safeParse({ ...request, character: "ben", mode: "conversational" }).success).toBe(false);
+    expect(() => auditionSessionConfig("ben", request.voiceId, "conversational", AUDITION_SPEAK_PROMPT)).toThrow();
+    expect(auditionRequestSchema.safeParse({ ...request, character: "ben", mode: "scripted" }).success).toBe(true);
+  });
+  it("rejects unknown modes and missing paid confirmation", () => {
+    expect(auditionRequestSchema.safeParse({ ...request, mode: "unlimited" }).success).toBe(false);
+    expect(auditionRequestSchema.safeParse({ ...request, mode: "conversational", confirmation: undefined }).success).toBe(false);
+  });
+});
 
 const env = {
   ENABLE_VOICE_DESIGN: "true",
@@ -31,7 +61,7 @@ describe("studio safety gates", () => {
   });
 });
 
-function fixture() {
+function fixture(mode: AuditionMode = "scripted") {
   const channel = {
     readyState: "open",
     send: vi.fn(),
@@ -74,6 +104,7 @@ function fixture() {
   const connect = vi.fn(async () => ({ sdp: "answer" }));
   const session = createStudioAudition({
     audio: audio as unknown as HTMLAudioElement,
+    mode,
     connect,
     onState,
     onError,
@@ -87,6 +118,25 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("direct OpenAI audition lifecycle (mocked transport)", () => {
+  it("conversational mode sends one aligned instruction, stops at 30 seconds and never reconnects", async () => {
+    vi.useFakeTimers();
+    const f = fixture("conversational");
+    expect(f.connect).not.toHaveBeenCalled();
+    await f.session.start();
+    f.event("session.started");
+    f.event("session.started");
+    expect(f.channel.send).toHaveBeenCalledTimes(1);
+    const command = JSON.parse(String(f.channel.send.mock.calls[0]?.[0]));
+    const config = auditionSessionConfig("tess", "voice_savedRefined123", "conversational", AUDITION_SPEAK_PROMPT);
+    expect(command.content.startsWith(config.input[0]?.content[0]?.text)).toBe(true);
+    expect(command.content).not.toContain(AUDITION_SCRIPT);
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(f.onState).not.toHaveBeenCalledWith("stopping");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(f.onState).toHaveBeenCalledWith("stopping");
+    expect(f.connect).toHaveBeenCalledTimes(1);
+    f.event("session.closed");
+  });
   it("only requests speech once after session.started, never on SDP alone", async () => {
     const f = fixture();
     expect(f.connect).not.toHaveBeenCalled();
