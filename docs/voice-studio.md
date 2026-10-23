@@ -6,8 +6,10 @@ Route: `/voice-studio`. Linked from a developer-authorized character's Simulatio
 - Developer-only status check (OpenAI API key, creation flag and saved voice setting presence).
 - Three explicitly confirmed prompt-to-voice variations per character.
 - The creator returns a saved OpenAI voice ID without automatically approving it.
-- The same audition text can be copied for each voice; link opens the OpenAI Playground.
-- Candidate IDs persist at OpenAI but cards on this page are intentionally local state only. Copy an ID before leaving; no new database migration is used.
+- Candidate IDs persist in this device's local storage across refreshes; they are not approvals.
+- The mounted audio player supports blocked-playback recovery, one script append after `session.started`, immediate speaker silence on Stop and a bounded final-event drain. Direct OpenAI GPT-Live uses `session.commentary.append`, not the Realtime `response.create` sequence.
+- **In-app paid auditions remain blocked.** The one-shot server function cannot enforce durable cross-instance concurrency, usage reservations or a server-owned duration deadline. The server safety gate rejects auditions even if someone sets the enable flag. No paid verification was performed.
+- Before enabling, add a separately reviewed persistent budget/lease mechanism and server-owned OpenAI sideband lifecycle with disconnect/deadline termination. This may require schema/deployment additions; do not create them without review. No database migration was applied here.
 
 ## Lovable setup order
 1. Review/publish code and verify the app builds. Keep all live calling flags off.
