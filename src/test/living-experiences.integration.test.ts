@@ -174,7 +174,7 @@ describe("Living Experiences against real PostgreSQL engine and real migrations"
     expect(model.reply).toHaveBeenCalledTimes(3);
     expect(h.moments).toHaveLength(1);
     expect(h.pending).toMatchObject({ id: action, status: "failed", attempts: 3 });
-    expect(h.scene.claimed_at).toBe(claimed.experience.claimed_at);
+    expect(Date.parse(h.scene.claimed_at ?? "")).toBe(Date.parse(claimed.experience.claimed_at ?? ""));
     expect(h.scene).toMatchObject({ state: "interactive", revision: 1, outcome_id: null });
   });
   it("rejects cross-user commands and context", async () => {
