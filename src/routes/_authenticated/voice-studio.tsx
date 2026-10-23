@@ -252,6 +252,7 @@ function VoiceStudio() {
   function audition() {
     if (player.current || !selected || !status?.auditionsEnabled || !audioRef.current) return;
     if (auditionInvalid) return setError(auditionInvalid);
+    const auditionOptions = auditionMode === "conversational" ? { ...conversationalOptions } : { ...DEFAULT_CONVERSATIONAL_OPTIONS };
     if (
       !window.confirm(
         `Start a paid ${auditionMode} audition with the selected saved voice, limited to 30 seconds? No new voice is generated. It won't affect character memories or calls.`,
@@ -313,10 +314,10 @@ function VoiceStudio() {
     const session = createStudioAudition({
       audio: audioRef.current,
       mode: auditionMode,
-      conversationalOptions: { ...conversationalOptions },
+      conversationalOptions: auditionOptions,
       connect: async (sdp) => {
         const r = await auditionFn({
-          data: { character, voiceId: selected, sdp, mode: auditionMode, ...conversationalOptions, confirmation: "START PAID VOICE AUDITION" },
+          data: { character, voiceId: selected, sdp, mode: auditionMode, ...auditionOptions, confirmation: "START PAID VOICE AUDITION" },
         });
         auditionId = r.auditionId;
         return r;
