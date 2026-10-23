@@ -1,3 +1,4 @@
+import { IncomingCall } from "@/components/IncomingCall";
 import { WorldNavigation } from "@/components/WorldNavigation";
 import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +22,7 @@ function AuthenticatedShell() {
         <Outlet />
       </div>
       <WorldNavigation />
+      {!/^\/call\//.test(path) && <IncomingCall />}
     </>
   );
 }

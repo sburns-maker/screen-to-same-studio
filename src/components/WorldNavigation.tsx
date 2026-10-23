@@ -9,7 +9,7 @@ const tabs = [
 ] as const;
 export function WorldNavigation() {
   const path = useLocation().pathname;
-  if (/^\/(chat|encounter)\//.test(path)) return null;
+  if (/^\/(chat|encounter|call)\//.test(path)) return null;
   return (
     <nav
       aria-label="Main navigation"

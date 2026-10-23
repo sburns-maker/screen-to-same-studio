@@ -29,6 +29,8 @@ export async function worldDatabase() {
     "0019_interactive_calendar",
     "0020_verify_interactive_places_and_calendar",
     "0021_venue_experiences",
+    "0022_verify_venue_experiences",
+    "0023_phone_calls",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   return db;
@@ -205,7 +207,7 @@ export function postgresSupabase(db: PGlite) {
   };
   const client = {
     from,
-    async rpc(name: string, args: Record<string, unknown>) {
+    async rpc(name: string, args: Record<string, unknown> = {}) {
       try {
         const entries = Object.entries(args);
         const result = await db.query<{ value: unknown }>(

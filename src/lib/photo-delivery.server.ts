@@ -8,6 +8,7 @@ export type DeliveryResult = {
   replayed?: boolean;
   reason?: string;
   notificationGroup?: string;
+  preparedActionId?: string;
 };
 export async function photoActionId(key: string): Promise<string> {
   const bytes = await crypto.subtle.digest(
@@ -43,6 +44,8 @@ export async function recoverPhotoDelivery(
   if (!data) return null;
   const detail = data.detail as { userId?: string; phase?: string };
   if (detail.userId !== userId) throw new Error("Photo delivery owner mismatch");
+  if (detail.phase === "voice_prepared")
+    return { count: 0, lastVisibleAt: null, reason: "Phone playback acknowledgement pending" };
   if (detail.phase !== "prepared") {
     // A lost provider response is ambiguous. Release the conversation after five minutes,
     // but retain this action's primary key forever so retries cannot charge it again.
@@ -73,7 +76,9 @@ export async function reservePhotoAction(
   args: { key: string; conversationId: string; userId: string },
 ): Promise<string | null> {
   // Probe the migration before any paid image request. Missing RPC fails closed.
-  const { error: unsupported } = await admin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string });
+  const { error: unsupported } = await admin.rpc("deliver_photo_turn", {
+    p_job_id: null as unknown as string,
+  });
   if (unsupported) throw new Error("Photo delivery migration is not installed");
   const id = await photoActionId(args.key);
   const { error } = await admin.from("job_runs").insert({
@@ -101,14 +106,24 @@ export async function preparePhotoDelivery(
   userId: string,
   conversationId: string,
   plan: Json,
+  deferVoice?: { callId: string; turnId: string },
 ): Promise<DeliveryResult> {
   const { error } = await admin
     .from("job_runs")
-    .update({ detail: { phase: "prepared", userId, conversationId, plan } })
+    .update({
+      detail: {
+        phase: deferVoice ? "voice_prepared" : "prepared",
+        userId,
+        conversationId,
+        plan,
+        ...(deferVoice ? { callId: deferVoice.callId, callTurnId: deferVoice.turnId } : {}),
+      },
+    })
     .eq("id", id)
     .eq("status", "running");
   if (error)
     throw new Error("Photo was generated but delivery could not be prepared; do not regenerate");
+  if (deferVoice) return { count: 0, lastVisibleAt: null, preparedActionId: id };
   return deliverPhotoTurn(admin, id);
 }
 

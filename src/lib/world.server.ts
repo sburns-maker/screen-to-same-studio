@@ -402,6 +402,11 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       } catch {
         report.errors.push("Shared plan progression failed; existing state retained");
       }
+      try {
+        await (await import("./phone-calls.server")).offerDueCallback(admin, userId, now);
+      } catch {
+        report.errors.push("Call callback offer deferred");
+      }
       // Social world: independent circles, shared events, knowledge
       // propagation. Structured simulation only — bounded, idempotent, no AI.
       try {
