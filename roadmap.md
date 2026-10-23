@@ -4,7 +4,7 @@
 - Done: corrected inflated successful-call capacity accounting (seven dinner replies reserved 243,889 tokens versus 54,058 reported); added safe failure phase/reason diagnostics. This is the strongest supported cause, not a provable historical error: previous capacity checks and scene catches discarded the reason.
 - Done: 46 focused tests passed, including same-ID concurrent generation, replay, exhausted retries and unchanged claim/state; automatic checks report build OK. Signed-in dinner UI and database both retain the failed turn, 14 moments, interactive claim and revision 9; no paid retry or publication performed.
 - Preserve the existing claim, moments, pending operation and all unrelated plans; do not run a paid retry or finish the outing.
-- Blocker: existing pending operation has exhausted its three-attempt allowance; recovery requires an explicit scoped decision after diagnosis.
+- Done: approved one-time recovery restored exactly one manual retry for the existing failed operation (attempts 3 → 2), conditional on unchanged owner/dinner/revision/failed status and absent result. Verified 14 moments, revision 9, original interactive claim and no outcome remain unchanged. No generation executed.
 
 ## Editable conversational auditions
 - Done: editable performance instructions and cue, locally saved with reset and exact request preview; shared validated client/server prompts; voice IDs and safeguards preserved.
