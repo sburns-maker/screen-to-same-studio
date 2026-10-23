@@ -53,3 +53,18 @@ export const recordExperienceMoment = createServerFn({ method:"POST" })
   if(r.error)throw new Error(r.error.message);
   return r.data;
  });
+
+export const completeExperience = createServerFn({method:"POST"})
+ .middleware([requireSupabaseAuth])
+ .inputValidator((v:unknown)=>z.object({
+  planId:uuid,outcomeId:uuid,revision:z.number().int().min(0),summary:z.string().trim().min(8).max(1200),
+ }).parse(v))
+ .handler(async({context,data})=>{
+  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
+  const r=await db.rpc("living_experience_complete" as never,{
+   p_user:context.userId,p_plan:data.planId,p_outcome:data.outcomeId,p_expected_revision:data.revision,
+   p_summary:data.summary,p_now:new Date().toISOString(),
+  } as never);
+  if(r.error)throw new Error(r.error.message);
+  return r.data;
+ });
