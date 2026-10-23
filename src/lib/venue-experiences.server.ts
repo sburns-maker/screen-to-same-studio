@@ -3,7 +3,7 @@ import type { Database } from "@/integrations/supabase/types";
 import type { ExperienceKind } from "./venue-experiences";
 type Client = SupabaseClient<Database>;
 export async function experiencesAvailable(db: Client) {
-  const r = await db.rpc("venue_experience_status", {});
+  const r = await db.rpc("venue_experience_status");
   if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
   if (r.error) throw new Error("Venue activities unavailable");
   return r.data === 21;
