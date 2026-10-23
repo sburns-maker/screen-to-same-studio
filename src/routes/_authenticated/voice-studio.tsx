@@ -147,6 +147,14 @@ function VoiceStudio() {
       const audio = document.createElement("audio");
       audio.autoplay = true;
       pc.addTransceiver("audio", { direction: "recvonly" });
+      const events = pc.createDataChannel("oai-events");
+      events.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(String(ev.data)) as { type?: string; message?: string };
+          if (msg.type === "session.started") events.send(JSON.stringify({ type: "session.commentary.append", event_id: crypto.randomUUID(), delegation_id: null, content: script }));
+          if (msg.type === "error") setError(msg.message ?? "Live audition error");
+        } catch { /* invalid event */ }
+      };
       pc.ontrack = (e) => { audio.srcObject = e.streams[0]; void audio.play().catch(() => setError("Audio playback was blocked by the browser.")); };
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -154,6 +162,8 @@ function VoiceStudio() {
       if (peer.current !== pc) { pc.close(); return; }
       await pc.setRemoteDescription({ type: "answer", sdp: answer.sdp });
       setPlaying(true);
+      // A short audition must not become an unlimited running paid session.
+      window.setTimeout(() => { if (peer.current === pc) stopAudition(); }, 45000);
       pc.onconnectionstatechange = () => {
         if (["failed", "closed", "disconnected"].includes(pc.connectionState)) stopAudition();
       };
