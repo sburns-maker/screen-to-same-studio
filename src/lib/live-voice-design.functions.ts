@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { VOICE_DESIGNS } from "./live-voice-design";
+import { AUDITION_SCRIPT, AUDITION_SERVER_SAFEGUARDS_READY, assertAuditionAllowed } from "./voice-studio-audition";
 
 /**
  * Developer-only, explicit voice creation. Never invoked by ordinary call setup,
@@ -57,6 +58,8 @@ export const voiceStudioStatus = createServerFn({ method: "POST" })
       creationEnabled: process.env["ENABLE_VOICE_DESIGN"] === "true",
       apiConfigured: !!process.env["OPENAI_API_KEY"],
       liveEnabled: process.env["ENABLE_GPT_LIVE_CALLS"] === "true",
+      auditionsEnabled: process.env["ENABLE_VOICE_STUDIO_AUDITIONS"] === "true" && AUDITION_SERVER_SAFEGUARDS_READY,
+      auditionBlocker: AUDITION_SERVER_SAFEGUARDS_READY ? null : "Paid auditions need server-side duration, concurrency and spending safeguards before activation.",
       approved: Object.fromEntries(
         Object.keys(VOICE_DESIGNS).map((key) => [key, !!process.env[`GPT_LIVE_VOICE_${key.toUpperCase()}`]]),
       ),
@@ -74,13 +77,9 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
   }).strict().parse(v))
   .handler(async ({ context, data }) => {
     const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
-    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer access required");
-    if (process.env["ENABLE_VOICE_DESIGN"] !== "true" ||
-        process.env["ENABLE_VOICE_STUDIO_AUDITIONS"] !== "true")
-      throw new Error("Studio auditions are disabled");
+    assertAuditionAllowed(developerPhotosAllowed(context.userId), process.env);
     const key = process.env["OPENAI_API_KEY"];
     if (!key) throw new Error("OpenAI is not configured");
-    const script = "I have a complaint. About you, obviously. I haven't decided what you've done wrong yet, but I'm confident I'll find something. Have a lovely day.";
     const res = await fetch("https://api.openai.com/v1/live/sessions", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -88,7 +87,8 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
         transport: { type: "webrtc", sdp: data.sdp },
         session: {
           model: "gpt-live-1",
-          instructions: `This is an isolated voice audition, not an AI Town character conversation. Speak in American English. ${VOICE_DESIGNS[data.character].description} Your only task: speak the following exact sample once with appropriate natural expression, then remain quiet: ${script} Do not ask questions or start a dialogue. This is synthetic speech for a fictional adult character.`,
+          delegation: { type: "client" },
+          instructions: `This is an isolated synthetic voice audition for a fictional adult, not an AI Town conversation. ${VOICE_DESIGNS[data.character].description} Wait for the supplied commentary, then speak this exact sample once and remain quiet: ${AUDITION_SCRIPT} Do not ask questions, start a dialogue, or delegate tasks.`,
           audio: { output: { voice: { id: data.voiceId } } },
         },
       }),
