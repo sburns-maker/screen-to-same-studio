@@ -120,6 +120,14 @@ describe("grounded conversational calendar", () => {
       "unverified_real_name_fictional_scene",
     );
   });
+  it("registers Fanelli's as a public dinner venue without a verified address", () => {
+    const f = PLACE_REGISTRY.find((p) => p.key === "dinner:fanellis");
+    expect(f?.kind).toBe("restaurant");
+    expect(f?.eventCategories).toContain("dinner");
+    expect(f?.address).toBeNull();
+    expect(f?.designation).toBe("unverified_real_name_fictional_scene");
+    expect(venueFromText("Meet you at Fanelli's Italian Villa").map((p) => p.key)).toEqual(["dinner:fanellis"]);
+  });
   it("interprets bounded user actions without guaranteeing another person’s consent", () => {
     expect(interpretVenueAction("Order coffee for two")).toEqual({
       action: "order_coffee",
