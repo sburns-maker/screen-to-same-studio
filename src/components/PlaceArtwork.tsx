@@ -1,4 +1,23 @@
-/** Stable original vector artwork, never a claimed real photograph or billable generation. */
+import { useState } from "react";
+
+/** Representative stock atmosphere, NOT a photograph of the actual fictional or real venue.
+ * Stable image URLs avoid paid generation. Vector art remains an offline/broken-image fallback.
+ */
+const ATMOSPHERE_PHOTOS: Record<string, string> = {
+  cafe: "photo-1501339847302-ac426a4a7cbb",
+  coffee_shop: "photo-1501339847302-ac426a4a7cbb",
+  park: "photo-1441974231531-c6227db76b6e",
+  garden: "photo-1441974231531-c6227db76b6e",
+  trail: "photo-1441974231531-c6227db76b6e",
+  library: "photo-1507842217343-583bb7270b66",
+  bookshop: "photo-1507842217343-583bb7270b66",
+  bar: "photo-1514933651103-005eec06c04b",
+  restaurant: "photo-1517248135467-4c7edcad34c4",
+  diner: "photo-1517248135467-4c7edcad34c4",
+  venue: "photo-1517248135467-4c7edcad34c4",
+  community: "photo-1497366754035-f200968a6e72",
+};
+
 export function PlaceArtwork({
   kind,
   label,
@@ -8,6 +27,8 @@ export function PlaceArtwork({
   label: string;
   compact?: boolean;
 }) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const photoId = ATMOSPHERE_PHOTOS[kind.toLowerCase()] ?? null;
   const outdoors = ["park", "garden"].includes(kind),
     books = ["library", "bookshop"].includes(kind),
     night = kind === "bar";
@@ -82,7 +103,22 @@ export function PlaceArtwork({
           </g>
         )}
       </svg>
-      {!compact && <span className="absolute bottom-2 right-2 rounded-full bg-background/90 px-2 py-1 text-[10px] text-muted-foreground">
+      {photoId && !photoFailed && (
+        <img
+          src={`https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=${compact ? 400 : 1100}&q=75`}
+          alt={`Representative atmosphere for ${label}; not a photograph of this venue`}
+          loading="lazy"
+          decoding="async"
+          onError={() => setPhotoFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      {photoId && !photoFailed && (
+        <span className="absolute bottom-1 right-1 max-w-[95%] rounded-md bg-black/60 px-1.5 py-0.5 text-[9px] text-white">
+          Representative photo
+        </span>
+      )}
+      {(!photoId || photoFailed) && !compact && <span className="absolute bottom-2 right-2 rounded-full bg-background/90 px-2 py-1 text-[10px] text-muted-foreground">
         Fictional venue · illustration
       </span>}
     </div>
