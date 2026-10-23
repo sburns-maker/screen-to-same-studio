@@ -82,9 +82,9 @@ export function PlaceArtwork({
           </g>
         )}
       </svg>
-      <span className="absolute bottom-2 right-2 rounded-full bg-background/90 px-2 py-1 text-[10px] text-muted-foreground">
+      {!compact && <span className="absolute bottom-2 right-2 rounded-full bg-background/90 px-2 py-1 text-[10px] text-muted-foreground">
         Fictional venue · illustration
-      </span>
+      </span>}
     </div>
   );
 }
