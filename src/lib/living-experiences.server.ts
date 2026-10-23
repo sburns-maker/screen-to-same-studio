@@ -149,10 +149,12 @@ export async function generateExperience(
       p.data.time_local,
       p.data.place_key,
     )
-  )
+  ) {
+    await experienceCommand(db, user, plan, id, "eligibility_fail", old.scene.revision, {}, now);
     throw new Error(
       "The scheduled activity conflicts with character availability; resolve the plan first",
     );
+  }
   if (kind === "turn" && old.moments.reduce((n, m) => n + m.body.length, 0) > 50000)
     throw new Error(
       "This outing has reached its scene limit. Finish here or finish the remaining portion automatically; all recorded choices are preserved.",
@@ -314,28 +316,9 @@ export async function generateExperience(
 }
 export async function runExperienceTick(db: Client, user: string, now = new Date()) {
   if (!(await experienceSeed(db, user, now))) return 0;
-  const clocks = await db
-    .from("conversations")
-    .select("id")
-    .eq("user_id", user)
-    .eq("real_time_mode", true)
-    .limit(100);
-  if (clocks.error) throw new Error("Experience clock mode unavailable");
-  if (!clocks.data?.length) return 0;
-  const r = await db
-    .from("living_experiences")
-    .select("*")
-    .eq("user_id", user)
-    .in("state", ["scheduled", "auto_running"])
-    .in(
-      "conversation_id",
-      clocks.data.map((c) => c.id),
-    )
-    .lte("claim_deadline", now.toISOString())
-    .order("claim_deadline")
-    .limit(6);
+  const r = await db.rpc("experience_candidates", { p_user: user, p_now: now.toISOString() });
   if (r.error) throw new Error("Experience worker unavailable");
-  for (const e of r.data ?? []) {
+  for (const e of (r.data ?? []) as ExperienceRow[]) {
     const pending = await db
       .from("experience_operations")
       .select("id,attempts,status,lease_until")

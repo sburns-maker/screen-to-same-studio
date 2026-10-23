@@ -1924,6 +1924,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      experience_candidates: { Args: {p_user:string;p_now:string}; Returns:Json };
       experience_status: { Args: Record<string, never>; Returns: number };
       experience_seed: { Args: {p_user:string;p_now:string}; Returns:number };
       experience_command: { Args: {p_user:string;p_plan:string;p_id:string;p_command:string;p_revision:number|null;p_payload:Json;p_now:string}; Returns:Json };

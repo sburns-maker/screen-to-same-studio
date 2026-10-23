@@ -3,7 +3,7 @@ CREATE TABLE public.experience_settings(singleton boolean PRIMARY KEY DEFAULT tr
 INSERT INTO experience_settings(singleton) VALUES(true);
 ALTER TABLE experience_settings ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON experience_settings TO service_role;
-ALTER TABLE living_experiences ADD COLUMN last_failure text,ADD COLUMN synced_at timestamptz;
+ALTER TABLE living_experiences ADD COLUMN last_failure text,ADD COLUMN synced_at timestamptz,ADD COLUMN plan_version integer;
 CREATE TABLE public.experience_operations(
  user_id uuid NOT NULL,id uuid NOT NULL,experience_id uuid NOT NULL,kind text NOT NULL CHECK(kind IN('turn','finish','automatic')),
  body text NOT NULL DEFAULT '',status text NOT NULL DEFAULT 'running' CHECK(status IN('running','failed','done')),
@@ -25,14 +25,27 @@ DECLARE n integer;
 BEGIN
  IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION 'service role required'; END IF;
  IF NOT (SELECT enabled FROM experience_settings) THEN RETURN 0; END IF;
- INSERT INTO living_experiences(user_id,plan_id,conversation_id,start_at,claim_deadline)
- SELECT p.user_id,p.id,p.conversation_id,p.starts_at,p.starts_at+make_interval(hours=>s.window_hours)
+ INSERT INTO living_experiences(user_id,plan_id,conversation_id,start_at,claim_deadline,plan_version)
+ SELECT p.user_id,p.id,p.conversation_id,p.starts_at,p.starts_at+make_interval(hours=>s.window_hours),p.version
  FROM social_plans p CROSS JOIN experience_settings s JOIN conversations c ON c.user_id=p_user
  WHERE p.user_id=p_user AND c.id=p.conversation_id AND p.status IN('accepted','in_progress')
  AND p.origin='conversation' AND p.place_key IS NOT NULL AND p.starts_at>=s.installed_at
  AND p.organizer IN('tess','maya','claire','jordan','ben') AND p.category IN('dinner','coffee','date','meetup','walk','book_club','trivia','outing','social')
- ORDER BY p.starts_at LIMIT 50 ON CONFLICT(user_id,plan_id) DO NOTHING;
+ ORDER BY p.starts_at LIMIT 50 ON CONFLICT(user_id,plan_id) DO UPDATE
+ SET start_at=excluded.start_at,claim_deadline=excluded.start_at+(living_experiences.claim_deadline-living_experiences.start_at),plan_version=excluded.plan_version,revision=living_experiences.revision+1,last_failure=NULL
+ WHERE living_experiences.state='scheduled' AND living_experiences.claimed_at IS NULL AND living_experiences.plan_version IS DISTINCT FROM excluded.plan_version;
  GET DIAGNOSTICS n=ROW_COUNT; RETURN n;
+END $$;
+
+-- Filter exhausted/leased/practice candidates BEFORE limiting the batch, avoiding starvation.
+CREATE FUNCTION public.experience_candidates(p_user uuid,p_now timestamptz) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+ IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION 'service role required'; END IF;
+ RETURN coalesce((SELECT jsonb_agg(to_jsonb(x)) FROM (
+ SELECT e.* FROM living_experiences e JOIN social_plans p ON p.user_id=e.user_id AND p.id=e.plan_id JOIN conversations c ON c.user_id=e.user_id AND c.id=e.conversation_id
+ WHERE e.user_id=p_user AND c.real_time_mode AND p.status IN('accepted','in_progress') AND coalesce(e.last_failure,'') NOT LIKE 'Schedule or venue conflict%' AND e.state IN('scheduled','auto_running') AND e.claim_deadline<=p_now
+ AND NOT EXISTS(SELECT 1 FROM experience_operations o WHERE o.user_id=e.user_id AND o.experience_id=e.id AND ((o.status='failed' AND o.attempts>=3) OR (o.status='running' AND o.lease_until>p_now)))
+ ORDER BY e.claim_deadline LIMIT 1) x),'[]'::jsonb);
 END $$;
 
 -- All legacy calendar/venue writers must respect this ownership boundary.
@@ -87,6 +100,7 @@ BEGIN
  SELECT * INTO o FROM experience_operations WHERE user_id=p_user AND id=p_id;
  IF FOUND AND (o.experience_id<>e.id OR (p_command IN('turn','finish','automatic') AND (o.kind<>p_command OR o.body<>coalesce(p_payload->>'body','')))) THEN RAISE EXCEPTION 'Action ID conflict'; END IF;
  IF FOUND AND o.status='done' THEN RETURN jsonb_build_object('experience',to_jsonb(e),'operation',to_jsonb(o),'done',true); END IF;
+ IF p_command IN('claim','automatic') AND e.state='scheduled' AND (p.status NOT IN('accepted','in_progress') OR e.start_at IS DISTINCT FROM p.starts_at OR e.plan_version IS DISTINCT FROM p.version) THEN RAISE EXCEPTION 'Confirmed plan changed; refresh'; END IF;
  IF p_command IN('claim','automatic') AND e.state='scheduled' AND EXISTS(SELECT 1 FROM social_plans other WHERE other.user_id=p_user AND other.id<>p.id AND other.status IN('accepted','in_progress','active') AND other.starts_at<p.ends_at AND other.ends_at>p.starts_at) THEN RAISE EXCEPTION 'Resolve conflicting accepted plans before this outing'; END IF;
  IF p_command IN('commit','fail') THEN
   IF o.id IS NULL OR o.status<>'running' OR o.token::text IS DISTINCT FROM p_payload->>'token' OR o.revision<>e.revision THEN RAISE EXCEPTION 'Stale generation'; END IF;
@@ -108,6 +122,8 @@ BEGIN
    INSERT INTO memories(id,user_id,conversation_id,memory_type,summary,importance) VALUES(cid,p_user,e.conversation_id,'relationship',
     CASE WHEN e.mode='automatic' THEN '[Off-screen fictional outing; no recorded user dialogue or new intimate milestone] ' ELSE '[Completed in-person experience] ' END||p.title||': '||vsummary,4);
    INSERT INTO shared_events(user_id,id,title,kind,location,occurs_at,facts,source) VALUES(p_user,'experience:'||cid,p.title,'living_experience',coalesce(p.place_key,''),e.start_at,jsonb_build_object('outcome_id',cid,'plan_id',p.id,'mode',e.mode,'summary',vsummary),'experience');
+   INSERT INTO event_participants(user_id,event_id,participant_type,participant_key,perspective) VALUES(p_user,'experience:'||cid,'character',p.organizer,vsummary);
+   IF e.mode='interactive' THEN INSERT INTO event_participants(user_id,event_id,participant_type,participant_key,perspective) VALUES(p_user,'experience:'||cid,'user',p_user::text,'Explicitly played outing; actual choices are in the experience journal'); END IF;
    INSERT INTO character_knowledge(user_id,character_key,subject_type,subject_id,knowledge_type,summary,source,acquired_at)
     VALUES(p_user,p.organizer,'experience',cid::text,'completed',vsummary,'shared experience',p_now) ON CONFLICT DO NOTHING;
    -- Apply one bounded aggregate at completion against CURRENT state; never overwrite later SMS deltas.
@@ -135,7 +151,10 @@ BEGIN
   UPDATE experience_operations SET status='failed' WHERE user_id=p_user AND experience_id=e.id AND status='running' AND lease_until<=p_now;
   IF EXISTS(SELECT 1 FROM experience_operations WHERE user_id=p_user AND experience_id=e.id AND status='running') THEN RAISE EXCEPTION 'A scene is still generating; retry shortly'; END IF;
   IF p_revision IS NOT NULL AND p_revision<>e.revision THEN RAISE EXCEPTION 'Experience changed; refresh'; END IF;
-  IF p_command='window' THEN
+  IF p_command='eligibility_fail' THEN
+   IF e.state<>'scheduled' THEN RAISE EXCEPTION 'Only unclaimed eligibility can be deferred'; END IF;
+   UPDATE living_experiences SET last_failure='Schedule or venue conflict; update the plan before starting',revision=revision+1 WHERE user_id=p_user AND id=e.id;
+  ELSIF p_command='window' THEN
    IF e.state<>'scheduled' OR (p_payload->>'hours')::integer NOT BETWEEN 1 AND 24 THEN RAISE EXCEPTION 'Only unclaimed start windows can be adjusted (1-24 hours)'; END IF;
    UPDATE living_experiences SET claim_deadline=start_at+make_interval(hours=>(p_payload->>'hours')::integer),revision=revision+1,updated_at=p_now WHERE user_id=p_user AND id=e.id;
   ELSIF p_command IN('claim','pause','resume') THEN
@@ -171,4 +190,4 @@ BEGIN
  IF p_command IN('claim','pause','resume','window') THEN INSERT INTO experience_action_receipts VALUES(p_user,p_id,p_plan,p_command,output); END IF;
  RETURN output;
 END $$;
-DO $$ DECLARE f regprocedure; BEGIN FOREACH f IN ARRAY ARRAY['experience_status()'::regprocedure,'experience_seed(uuid,timestamptz)'::regprocedure,'experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure] LOOP EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,authenticated',f);EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',f);END LOOP; END $$;
+DO $$ DECLARE f regprocedure; BEGIN FOREACH f IN ARRAY ARRAY['experience_status()'::regprocedure,'experience_candidates(uuid,timestamptz)'::regprocedure,'experience_seed(uuid,timestamptz)'::regprocedure,'experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure] LOOP EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,authenticated',f);EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role',f);END LOOP; END $$;

@@ -333,4 +333,39 @@ describe("Living Experiences against real PostgreSQL engine and real migrations"
     expect(args.experience.instruction).toContain("no late-arrival accusations");
     expect((await db.query("SELECT trust FROM tess_state")).rows[0]).toEqual({ trust: 25 });
   });
+  it("filters exhausted jobs before selecting a bounded due candidate", async () => {
+    await db.exec(
+      `INSERT INTO social_plans(user_id,id,organizer,place_key,title,starts_at,ends_at,status,origin,conversation_id,category,date_local,time_local) SELECT '${user}',gen_random_uuid(),'maya','coffee:local','Earlier outing','2026-10-25T17:00Z','2026-10-25T17:30Z','accepted','conversation','${conv}','coffee','2026-10-25','13:00' FROM generate_series(1,6)`,
+    );
+    await experienceSeed(client(), user, now);
+    await db.exec(
+      `INSERT INTO experience_operations(user_id,id,experience_id,kind,status,attempts,token,lease_until,revision) SELECT user_id,gen_random_uuid(),id,'automatic','failed',3,gen_random_uuid(),'2026-10-25T18:00Z',revision FROM living_experiences WHERE plan_id<>'${plan}'`,
+    );
+    const r = await client().rpc("experience_candidates", {
+      p_user: user,
+      p_now: "2026-10-25T22:00:00Z",
+    });
+    expect(r.error).toBeNull();
+    expect(r.data).toEqual([expect.objectContaining({ plan_id: plan })]);
+  });
+  it("rescheduling an unclaimed plan moves its window without losing the user adjustment", async () => {
+    await experienceSeed(client(), user, now);
+    await cmd("window", 0, { hours: 8 });
+    await db.exec(
+      `UPDATE social_plans SET starts_at='2026-10-26T18:00Z',ends_at='2026-10-26T19:00Z',version=version+1 WHERE id='${plan}'`,
+    );
+    await experienceSeed(client(), user, now);
+    const h = await livingHistory(client(), user, plan);
+    expect(h.scene.start_at).toContain("2026-10-26T18:00");
+    expect(Date.parse(h.scene.claim_deadline) - Date.parse(h.scene.start_at)).toBe(8 * 3600000);
+  });
+  it("never automatically completes a cancelled plan", async () => {
+    await experienceSeed(client(), user, now);
+    await db.exec(
+      `UPDATE social_plans SET status='cancelled',version=version+1 WHERE id='${plan}'`,
+    );
+    await runExperienceTick(client(), user, new Date("2026-10-25T22:00Z"));
+    expect(model.reply).not.toHaveBeenCalled();
+    await expect(cmd("automatic", null, { explicit: true })).rejects.toThrow();
+  });
 });

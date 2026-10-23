@@ -6,7 +6,7 @@ Implemented on `feature/phase6-living-experiences`, continuing draft PR #33. No 
 
 The published foundation provided a journal, row-locked claim/pause/resume and a local lifecycle test. It did not invoke a character, run off-screen simulation, or reconcile completion. Its unrestricted service completion RPC could bypass final reconciliation, and the older calendar processor could mark plans missed before the claim window closed. Migration 0025 was also missing from the migration journal.
 
-Migration **0026_complete_living_experiences** extends 0025 without rewriting it. The migration journal now registers both. It adds generation reservations, transition receipts, feature settings and ownership guards. No historic plans are automatically backfilled: only confirmed, venue-linked primary-character conversation plans scheduled on or after the installation timestamp qualify. Existing Phase 6 rows are preserved. Legacy multi-participant gatherings continue to use their existing engine; this release supports one primary companion (Tess, Maya, Claire, Jordan or Ben), including ordinary platonic activities.
+Migration **0026_complete_living_experiences** extends 0025 without rewriting it. The migration journal now registers both. It adds generation reservations, transition receipts, feature settings and ownership guards. Unclaimed reschedules move the same experience window while preserving its chosen duration; cancelled plans cannot be simulated. No historic plans are automatically backfilled: only confirmed, venue-linked primary-character conversation plans scheduled on or after the installation timestamp qualify. Existing Phase 6 rows are preserved. Legacy multi-participant gatherings continue to use their existing engine; this release supports one primary companion (Tess, Maya, Claire, Jordan or Ben), including ordinary platonic activities.
 
 The experience channel calls the **same `generateTessReply` / `generateContactReply` functions**, character bibles, structured schema, model, voice enforcement, scoped memory recall, own-character knowledge, storyline, continuity and calendar context as texting. Channel instructions allow concise narration, gestures and spoken dialogue. Recorded user contributions are untrusted evidence in the input, not system instructions. The fictional clock starts at the scheduled appointment; opening late never establishes a stand-up. Images, videos, canonical references, SMS and calls are not reimplemented or redirected.
 
@@ -14,7 +14,7 @@ In-person moments live in their own journal, never in the SMS messages table. Pr
 
 `experience_command` locks the calendar, plan and experience in that order. Claim ownership is indefinite; no browser timer, lease or refresh releases an interactive/paused claim. Generation reservations have a two-minute lease and fresh fencing token. A retry preserves the original contribution; concurrent or stale results cannot commit. Transition receipts and completed-operation receipts make repeated request IDs safe. At most three attempts per generation operation; uncertain text requests may have incurred charges. There is no image-generation retry in this feature.
 
-Completion commits the final scene, canonical outcome, plan status, transition, one memory, one shared-world event, own-character knowledge and bounded relationship adjustment in **one transaction**. Any reconciliation failure rolls everything back. `synced_at` is the transaction receipt. Old calendar/departure batch processors skip protected outings; the plan trigger rejects incompatible writes from other paths. Explicit travel away can still update virtual travel, but cannot finish or overwrite an interactive date.
+Completion commits the final scene, canonical outcome, plan status, transition, one memory, one shared-world event with participant records (user participation only for interactive mode), own-character knowledge and bounded relationship adjustment in **one transaction**. Any reconciliation failure rolls everything back. `synced_at` is the transaction receipt. Old calendar/departure batch processors skip protected outings; the plan trigger rejects incompatible writes from other paths. Explicit travel away can still update virtual travel, but cannot finish or overwrite an interactive date.
 
 ## User experience
 
@@ -33,7 +33,7 @@ Existing navigation is preserved. No new move-by-move game, mandatory romance, r
 
 ## Offline worker and limits
 
-The existing leased `runWorldTickWithAdmin` invokes experience processing before calendar progression. It needs no open tab. It respects the run's pause/AI budget, shared per-user `reserve_world_ai`, and existing text-provider safeguards. Each user gets at most one selected experience generation per tick. Practice-mode conversations are excluded from automatic processing; explicit interaction/simulation remains available. Candidate scanning is bounded to six; an exhausted or still-running reservation is skipped so it cannot permanently block another outing. Failed claims remain recoverable, not falsely completed.
+The existing leased `runWorldTickWithAdmin` invokes experience processing before calendar progression. It needs no open tab. It respects the run's pause/AI budget, shared per-user `reserve_world_ai`, and existing text-provider safeguards. Each user gets at most one selected experience generation per tick. Practice-mode conversations are excluded from automatic processing; explicit interaction/simulation remains available. Candidate selection filters exhausted, still-leased and Practice-mode records in PostgreSQL before selecting one, so they cannot permanently block another outing. Failed claims remain recoverable, not falsely completed.
 
 Additional bounds: 40 new experience generation operations per user per UTC day, three attempts per operation, 80 operations per outing, and a roughly 50,000-character played-scene budget. The scene-budget limit offers completion while retaining the entire journal for reconciliation. Ancillary prompt sections are bounded, and the full played journal is supplied to final generation. No recurring image, video or voice costs are enabled. Costs are one normal configured character-text inference per scene/closing generation, plus any explicitly bounded text retry; no provider/model changes.
 
@@ -63,12 +63,27 @@ The test refuses a non-local host or a database name other than `phase6_tests`, 
 
 The repository-wide lint command has thousands of **pre-existing Prettier formatting errors** (3,602 errors on the original PR head); formatting the entire unrelated application is intentionally outside this feature. New modules are formatted, and changed modules receive functional ESLint checks with that formatting rule disabled. See PR validation results for final counts.
 
+### Final local results
+
+- `npm test`: **550 passed**, 5 opt-in PostgreSQL tests skipped in the ordinary run (60 passing test files).
+- Separate fresh PostgreSQL 17 run, applying **every SQL migration in order**: **5 passed**, including both claim races, duplicate completion, transactional rollback and cross-user/RPC isolation.
+- `npx tsc --noEmit`: passed.
+- `npm run build`: passed; existing PWA asset-glob warnings remain non-fatal.
+- Focused ESLint/formatting for new Phase 6 modules: passed. Functional ESLint for changed existing modules (Prettier rule disabled): passed.
+- `npm run lint`: not green; 3,503 formatting errors and 6 warnings in the latest repository run. The original PR head had 3,602 errors and 7 warnings. This is existing repository formatting debt; the feature does not claim a clean full-repository lint result.
+- `git diff --check`: passed.
+- Tests used fictional records, mocked paid providers and local disposable databases. No real histories, production data or paid generations were used.
+
+The latest main-branch clinic-context update was merged **into this feature branch**. Its newly introduced failing test exposed an over-escaped date pattern that produced `NaN`/`undefined` daily details; the date seed and modulo variation were repaired and the full suite rerun successfully.
+
+Primary changed files: `living-experiences.server.ts` (shared-brain adapter, worker and scoped reads), `living-experiences.functions.ts` (authenticated actions/diagnostics), `living-experiences.ts` (channel/clock contracts), `experiences.tsx` (mobile scene UI), `ExperienceEntry.tsx`, `LivingExperiencesDebug.tsx`, `use-experiences.ts`, Plans/venue/debug integration, `tess.server.ts` (optional channel override), `world.server.ts` (leased worker integration), migration 0026/journal/types, the PostgreSQL CI workflow and Phase 6 tests. Existing migration 0025 is unchanged. All changed files can be reviewed in PR #33's Files changed tab.
+
 ## Lovable configuration and activation — no SSH required
 
 These are instructions for the owner **after reviewing and approving PR #33**, not actions already taken:
 
 1. Merge PR #33 in GitHub when ready. Open the connected Lovable project and confirm it has synchronized the merged source. Do not publish yet.
-2. Ask Lovable to review and apply pending migrations **0025 and 0026**, in order, using its backend migration tooling. Skip 0025 if already recorded as applied. Do not paste/execute 0025 a second time, reset tables, or regenerate the schema.
+2. Ask Lovable to review and apply pending migrations **0025 and 0026**, in order, using its backend migration tooling. Skip 0025 if already recorded as applied. If it was applied manually before its journal entry existed, verify its tables/RPCs and reconcile the migration ledger through the existing tooling rather than rerunning CREATE TABLE statements. Do not paste/execute 0025 a second time, reset tables, or regenerate the schema.
 3. In Lovable Cloud server secrets, keep the existing `OPENAI_API_KEY`, Supabase URL/service-role secret and current character model configuration. Add `LIVING_EXPERIENCES_ENABLED=true`. No new paid provider is needed. Never use a frontend `VITE_` key.
 4. Ask Lovable to enable the reviewed database feature switch with:
    ```sql

@@ -161,92 +161,104 @@ function Experiences() {
                   Messages.
                 </p>
               )}
-              {q.data.scenes.map((e) => {
-                const p = q.data.plans.find((x) => x.id === e.plan_id);
-                if (!p) return null;
-                return (
-                  <article key={e.id} className="space-y-2 rounded-2xl border bg-surface p-4">
-                    <button
-                      className="w-full text-left"
-                      onClick={() => {
-                        setActive(e.plan_id);
-                        setError("");
-                      }}
-                    >
-                      <h2 className="font-semibold">{p.title}</h2>
-                      <p className="text-sm">
-                        {characterFor(p.organizer).preferredName} ·{" "}
-                        {placeByKey(p.place_key)?.label ?? p.place_key}
+              {scene && (
+                <button
+                  onClick={() => setActive("")}
+                  className="min-h-11 rounded-full border px-4 text-sm"
+                >
+                  Other outings
+                </button>
+              )}
+              {q.data.scenes
+                .filter((e) => !scene || e.plan_id === active)
+                .map((e) => {
+                  const p = q.data.plans.find((x) => x.id === e.plan_id);
+                  if (!p) return null;
+                  return (
+                    <article key={e.id} className="space-y-2 rounded-2xl border bg-surface p-4">
+                      <button
+                        className="w-full text-left"
+                        onClick={() => {
+                          setActive(e.plan_id);
+                          setError("");
+                        }}
+                      >
+                        <h2 className="font-semibold">{p.title}</h2>
+                        <p className="text-sm">
+                          {characterFor(p.organizer).preferredName} ·{" "}
+                          {placeByKey(p.place_key)?.label ?? p.place_key}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {local(e.start_at)} Eastern · start by {local(e.claim_deadline)}
+                        </p>
+                      </button>
+                      <p className="text-xs" role="status">
+                        {e.state.replace("_", " ")}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {local(e.start_at)} Eastern · start by {local(e.claim_deadline)}
-                      </p>
-                    </button>
-                    <p className="text-xs" role="status">
-                      {e.state.replace("_", " ")}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {e.state === "scheduled" && (
-                        <label className="text-xs">
-                          Start window (hours)
-                          <select
-                            aria-label={`Start window for ${p.title}`}
-                            value={Math.round(
-                              (Date.parse(e.claim_deadline) - Date.parse(e.start_at)) / 3600000,
-                            )}
+                      <div className="flex flex-wrap gap-2">
+                        {e.state === "scheduled" && (
+                          <label className="text-xs">
+                            Start window (hours)
+                            <select
+                              aria-label={`Start window for ${p.title}`}
+                              value={Math.round(
+                                (Date.parse(e.claim_deadline) - Date.parse(e.start_at)) / 3600000,
+                              )}
+                              disabled={busy}
+                              onChange={(ev) => void act(e, "window", ev.target.value)}
+                              className="ml-2 min-h-11 rounded-xl border bg-background px-2"
+                            >
+                              {[1, 2, 4, 6, 8, 12, 24].map((h) => (
+                                <option key={h} value={h}>
+                                  {h}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        {ready(e) && (
+                          <button
                             disabled={busy}
-                            onChange={(ev) => void act(e, "window", ev.target.value)}
-                            className="ml-2 min-h-11 rounded-xl border bg-background px-2"
+                            onClick={() => void act(e, "claim")}
+                            className="min-h-11 rounded-full bg-primary px-4 text-primary-foreground"
                           >
-                            {[1, 2, 4, 6, 8, 12, 24].map((h) => (
-                              <option key={h} value={h}>
-                                {h}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                            Experience this outing
+                          </button>
+                        )}
+                        {e.state === "scheduled" && Date.now() >= Date.parse(e.start_at) && (
+                          <button
+                            disabled={busy}
+                            onClick={() => void act(e, "automatic")}
+                            className="min-h-11 rounded-full border px-4"
+                          >
+                            Skip &amp; Simulate
+                          </button>
+                        )}
+                        {e.state === "paused" && (
+                          <button
+                            disabled={busy}
+                            onClick={() => void act(e, "resume")}
+                            className="min-h-11 rounded-full border px-4"
+                          >
+                            Resume Experience
+                          </button>
+                        )}
+                        {e.state === "auto_running" && (
+                          <button
+                            disabled={busy}
+                            onClick={() => void act(e, "automatic")}
+                            className="min-h-11 rounded-full border px-4"
+                          >
+                            Retry automatic completion
+                          </button>
+                        )}
+                      </div>
+                      {e.last_failure && (
+                        <p className="text-sm text-destructive">{e.last_failure}</p>
                       )}
-                      {ready(e) && (
-                        <button
-                          disabled={busy}
-                          onClick={() => void act(e, "claim")}
-                          className="min-h-11 rounded-full bg-primary px-4 text-primary-foreground"
-                        >
-                          Experience this outing
-                        </button>
-                      )}
-                      {e.state === "scheduled" && Date.now() >= Date.parse(e.start_at) && (
-                        <button
-                          disabled={busy}
-                          onClick={() => void act(e, "automatic")}
-                          className="min-h-11 rounded-full border px-4"
-                        >
-                          Skip &amp; Simulate
-                        </button>
-                      )}
-                      {e.state === "paused" && (
-                        <button
-                          disabled={busy}
-                          onClick={() => void act(e, "resume")}
-                          className="min-h-11 rounded-full border px-4"
-                        >
-                          Resume Experience
-                        </button>
-                      )}
-                      {e.state === "auto_running" && (
-                        <button
-                          disabled={busy}
-                          onClick={() => void act(e, "automatic")}
-                          className="min-h-11 rounded-full border px-4"
-                        >
-                          Retry automatic completion
-                        </button>
-                      )}
-                    </div>
-                    {e.last_failure && <p className="text-sm text-destructive">{e.last_failure}</p>}
-                  </article>
-                );
-              })}
+                    </article>
+                  );
+                })}
               {scene && plan && (
                 <section
                   aria-label="In-person experience"

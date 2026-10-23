@@ -15,6 +15,7 @@ export type ExperienceRow = {
   updated_at: string;
   last_failure: string | null;
   synced_at: string | null;
+  plan_version: number | null;
 };
 export type ExperienceMoment = {
   user_id: string;
