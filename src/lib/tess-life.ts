@@ -40,15 +40,43 @@ export function scheduleFor(now: Date, chaos = 1): TessActivity {
   if (hour < 8) return { activity: "walking Mabel", availability: "limited", detail: "morning Mabel walk / getting ready for the day" };
 
   if (!weekend && hour >= 8 && hour < 17) {
+    // Seed from the Eastern local calendar date, not UTC day boundaries.
+    // Availability and day texture stay stable across server calls.
+    const workTextures = [
+      "ordinary appointments and reception paperwork; mostly uneventful",
+      "a sweet elderly dog charmed the whole waiting room",
+      "a nervous rescue cat needed a patient, quiet hand",
+      "a perfectly routine morning; she is pleasantly surprised",
+      "a late supplier delivery needs a little troubleshooting",
+      "a coworker brought homemade treats for the staff",
+      "a puppy's first checkup provided some welcome comic relief",
+      "a client sent a grateful follow-up about a recovering pet",
+      "a software hiccup is slowing the front desk",
+      "a new colleague is learning the clinic's routines",
+      "a particularly calm stretch lets her catch up on small tasks",
+      "a lively but manageable stream of appointments",
+      "a misplaced chart caused five minutes of harmless confusion",
+      "an equipment check is taking longer than expected",
+    ];
+    const localDate = new Intl.DateTimeFormat("en-CA", {timeZone:TESS_TZ, year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
+    const dateNumber = Number(localDate.replace(/\\D/g, ""));
+    const texture = workTextures[(dateNumber * 17 + Math.floor(dateNumber / 100)) % workTextures.length]!;
+    const ordinaryDay = (dateNumber * 7 + 3) % 7;
+    const workDetail = ordinaryDay <= 1
+      ? "the clinic is unusually busy; " + texture
+      : ordinaryDay === 2
+        ? "the clinic has a brief rush but is otherwise manageable; " + texture
+        : "a fairly ordinary clinic shift; " + texture;
+
     // A hectic shift still has ordinary breaks; a live emergency disruption can override them.
-    if (hour === 12) return { activity: "at work (lunch)", availability: "limited", detail: "at the clinic office, taking a lunch break, phone available" };
+    if (hour === 12) return { activity: "at work (lunch)", availability: "limited", detail: `at the clinic office on a lunch break, phone available; ${texture}` };
     if ((hour === 10 && minute >= 30 && minute < 45) || (hour === 13 && minute >= 15 && minute < 30)) {
-      return { activity: "at work (desk break)", availability: "limited", detail: "a brief clinic office break, a few quiet minutes at her desk, phone available" };
+      return { activity: "at work (desk break)", availability: "limited", detail: `a brief clinic office break, phone available; ${texture}` };
     }
     if (chaoticDay) {
-      return { activity: "at work (chaotic day)", availability: "busy", detail: "at the clinic — chaotic day, short-staffed, replies are short and sporadic" };
+      return { activity: "at work (chaotic day)", availability: "busy", detail: `at the clinic — ${workDetail}; replies are short and sporadic` };
     }
-    return { activity: "at work", availability: "limited", detail: "at the clinic — calm enough day, can text between things" };
+    return { activity: "at work", availability: "limited", detail: `at the clinic — ${workDetail}; can text between tasks` };
   }
 
   if (dow === 4 && hour >= 19 && hour < 22) return { activity: "at trivia", availability: "busy", detail: "at Thursday trivia with her team — distracted, phone mostly away" };

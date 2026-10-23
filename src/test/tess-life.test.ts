@@ -101,6 +101,13 @@ describe("initiation engine", () => {
 });
 
 describe("schedule", () => {
+  it("provides varied but stable everyday clinic details across different dates", () => {
+    const days = ["2026-10-19","2026-10-20","2026-10-21","2026-10-22","2026-10-23"].map(d=>new Date(d+"T09:00:00-04:00"));
+    const descriptions = days.map(d=>scheduleFor(d).detail);
+    expect(new Set(descriptions).size).toBeGreaterThanOrEqual(3);
+    expect(scheduleFor(days[0]!).detail).toEqual(scheduleFor(days[0]! ).detail);
+    expect(descriptions.some(s=>s.includes("short-staffed"))).toBe(false);
+  });
   const at = (iso: string) => new Date(iso);
   it("weekday work hours are work", () => {
     // 2026-10-21 is a Wednesday
