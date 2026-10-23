@@ -69,3 +69,26 @@ BEGIN
 END;$$;
 REVOKE ALL ON FUNCTION public.living_experience_action(uuid,uuid,text,timestamptz,integer,uuid) FROM PUBLIC,authenticated;
 GRANT EXECUTE ON FUNCTION public.living_experience_action(uuid,uuid,text,timestamptz,integer,uuid) TO service_role;
+
+-- Atomic player contribution: the user may write only into a claimed interactive experience.
+CREATE FUNCTION public.living_experience_moment(p_user uuid,p_plan uuid,p_id uuid,p_body text,p_now timestamptz)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE e public.living_experiences; existing public.living_experience_moments; next_ordinal integer;
+BEGIN
+ IF auth.role()<>'service_role' THEN RAISE EXCEPTION 'service role required'; END IF;
+ IF length(trim(p_body))<1 OR length(p_body)>1500 THEN RAISE EXCEPTION 'invalid contribution'; END IF;
+ SELECT * INTO e FROM living_experiences WHERE user_id=p_user AND plan_id=p_plan FOR UPDATE;
+ IF NOT FOUND OR e.state<>'interactive' THEN RAISE EXCEPTION 'experience is not interactive'; END IF;
+ SELECT * INTO existing FROM living_experience_moments WHERE user_id=p_user AND id=p_id;
+ IF FOUND THEN
+   IF existing.experience_id<>e.id OR existing.body<>p_body OR existing.source<>'user' THEN RAISE EXCEPTION 'moment id conflict'; END IF;
+   RETURN to_jsonb(existing);
+ END IF;
+ SELECT coalesce(max(ordinal),0)+1 INTO next_ordinal FROM living_experience_moments WHERE user_id=p_user AND experience_id=e.id;
+ INSERT INTO living_experience_moments(user_id,id,experience_id,ordinal,kind,body,source,confirmed)
+ VALUES(p_user,p_id,e.id,next_ordinal,'conversation',trim(p_body),'user',true)
+ RETURNING * INTO existing;
+ RETURN to_jsonb(existing);
+END;$$;
+REVOKE ALL ON FUNCTION public.living_experience_moment(uuid,uuid,uuid,text,timestamptz) FROM PUBLIC,authenticated;
+GRANT EXECUTE ON FUNCTION public.living_experience_moment(uuid,uuid,uuid,text,timestamptz) TO service_role;
