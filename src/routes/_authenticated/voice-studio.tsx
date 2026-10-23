@@ -613,6 +613,48 @@ function VoiceStudio() {
               </ul>
             </section>
           )}
+          <section className="rounded-2xl bg-surface p-4">
+            <h2 className="font-semibold">Recorded sample</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Each audition is recorded on this device only. Replaying is free; nothing is uploaded
+              unless you share or download it.
+            </p>
+            {recording && <p className="mt-2 text-sm">● Recording incoming audio…</p>}
+            {sampleNote && <p className="mt-2 text-sm text-muted-foreground">{sampleNote}</p>}
+            {sample && sampleUrl ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm">
+                  <strong>{sample.candidate}</strong> · {(sample.durationMs / 1000).toFixed(1)}s
+                  {sample.partial ? " · partial" : ""}
+                  {!sample.audible ? " · no speech detected" : ""}
+                </p>
+                <audio src={sampleUrl} controls aria-label="Recorded sample" className="w-full" />
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" className="min-h-11" onClick={() => void shareSample(sample)}>
+                    Share sample
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => downloadSample(sample)}
+                  >
+                    Download sample
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-11"
+                    onClick={() => void removeSample()}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              !recording && <p className="mt-2 text-sm text-muted-foreground">No sample yet.</p>
+            )}
+          </section>
           {status?.auditionBlocker && (
             <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>
           )}
