@@ -66,7 +66,7 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
       throw new Error(f.message);
     }
     if (!res.ok) {
-      let body: Parameters<typeof classifyVoiceCreationFailure>[1] = null;
+      let body: { error?: { message?: string; code?: string | null } } | null = null;
       try {
         body = (await res.json()) as typeof body;
       } catch {
