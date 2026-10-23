@@ -424,8 +424,7 @@ function VoiceStudio() {
             </p>
             <h1 className="mt-1 font-display text-2xl">Find their voice</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Create and audition voices in AI Town. Auditions are isolated paid GPT-Live sessions,
-              not character calls.
+              Edit descriptions and replay saved recordings for free. Creating a new voice or starting a live audition uses paid OpenAI services. Auditions are not character calls.
             </p>
             {status ? (
               <ul className="mt-3 space-y-1 text-sm">
@@ -482,7 +481,7 @@ function VoiceStudio() {
 
           <Step n={1} title="Edit description & create new voice" anchor="voice-create">
             <p className="text-xs text-muted-foreground">
-              Edit the text below freely, then create a new voice only when ready. OpenAI voice IDs are immutable: changing the description does not modify a voice you already made.
+              Free: revise this description as often as you like; drafts save on this phone. Paid: create a new voice only when ready. Existing OpenAI voice IDs are not editable in place.
             </p>
             <div className="mt-3 grid grid-cols-4 gap-2">
               {[...variants, "custom" as const].map((v) => (
@@ -704,7 +703,7 @@ function VoiceStudio() {
             </section>
           )}
           <section className="rounded-2xl bg-surface p-4">
-            <h2 className="font-semibold">Recorded sample</h2>
+            <h2 className="font-semibold">Recorded sample · free replay</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               Each audition is recorded on this device only. Replaying is free; nothing is uploaded
               unless you share or download it.
@@ -749,7 +748,7 @@ function VoiceStudio() {
             <p className="text-sm text-muted-foreground">{status.auditionBlocker}</p>
           )}
 
-          <Step n={3} title="Pick your favorite" anchor="voice-saved">
+          <Step n={3} title="My saved voices · free selection" anchor="voice-saved">
             <p className="text-xs text-muted-foreground">
               Saved on this device. Picking here doesn't change anything in the app.
             </p>
