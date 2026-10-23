@@ -67,7 +67,10 @@ export function auditionSessionConfig(
 ) {
   if (mode === "conversational" && character !== "tess")
     throw new Error("Conversational auditions are available for Tess only.");
-  const validated = conversationalOptionsSchema.parse(options);
+  const validated = conversationalOptionsSchema.parse({
+    performanceInstructions: options.performanceInstructions,
+    conversationalCue: options.conversationalCue,
+  });
   const prompt = mode === "conversational" ? conversationalSpeakPrompt(validated) : scriptedPrompt;
   const direction = mode === "conversational" ? validated.performanceInstructions : VOICE_DESIGNS[character].description;
   return {
