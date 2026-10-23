@@ -206,6 +206,30 @@ function Debug() {
               })}
             </div>
 
+            {snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
+              <p className="text-xs text-muted-foreground">Developer diagnostic, not hidden thoughts. These are the engine's saved relationship variables and observed response tags, not a private monologue or proof of why a gesture happened.</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div><div className="text-muted-foreground">Relationship stage</div><strong>{snap.stage}</strong></div>
+                <div><div className="text-muted-foreground">Recent tone</div><strong>{snap.lastTone ?? "not recorded"}</strong></div>
+                <div><div className="text-muted-foreground">Romantic intent</div><strong>{s.romantic_intent}/100</strong></div>
+                <div><div className="text-muted-foreground">Perceived pressure</div><strong>{s.perceived_pressure}/100</strong></div>
+                <div><div className="text-muted-foreground">Comfort</div><strong>{s.comfort}/100</strong></div>
+                <div><div className="text-muted-foreground">Emotional intimacy</div><strong>{s.emotional_intimacy}/100</strong></div>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">Latest recorded change tags: {tags.length ? tags.join(", ") : "none"}. An action such as putting hands in pockets can have multiple explanations; never infer its cause from these scores alone.</p>
+              <div className="mt-3 border-t pt-3 text-sm">
+                <div className="font-semibold">Evidence versus interpretation</div>
+                <p className="mt-1 text-xs text-muted-foreground">The following is extracted from saved relationship memories, not a window into ungenerated private thoughts. Interpretations are deliberately not assigned confidence scores.</p>
+                {snap.recentMemories.filter((m) => m.memory_type === "relationship").slice(0, 3).map((m, i) => (
+                  <div key={i} className="mt-2 rounded-lg border p-2">
+                    <span className="text-xs text-muted-foreground">Recorded memory · importance {m.importance}</span>
+                    <p className="mt-1 text-sm">{m.summary}</p>
+                  </div>
+                ))}
+                <p className="mt-2 text-xs text-muted-foreground">Schedule source: regular/shared-world activity, not necessarily the latest completed outing. Do not equate generic labels such as “home after work” with proof that an outing was forgotten. Await event-aware schedule reconciliation.</p>
+              </div>
+            </Section>}
+
             <Section title="Their world right now">
               <KV k="activity" v={snap.schedule.activity} />
               <KV k="availability" v={snap.schedule.availability} />
@@ -225,6 +249,9 @@ function Debug() {
               <KV k="chance this check" v={`${Math.round(snap.initiation.chance * 100)}%`} />
               {snap.initiation.nextWindowHours != null && <KV k="next window" v={`in ~${snap.initiation.nextWindowHours.toFixed(1)}h`} />}
               <KV k="last initiated" v={snap.initiation.lastInitiatedAt ? new Date(snap.initiation.lastInitiatedAt).toLocaleString() : "never"} />
+              {snap.initiation.lastCheck?.initiated === true && typeof snap.initiation.lastCheck.at === "string" && (!snap.initiation.lastInitiatedAt || Date.parse(snap.initiation.lastInitiatedAt) < Date.parse(snap.initiation.lastCheck.at)) && (
+                <p role="status" className="mt-2 rounded-lg border p-2 text-xs">The latest initiation check selected an attempt, but there is no newer successful initiation timestamp. This is not proof that a message was delivered. Check pending visibility, generation limits and worker results before concluding that the character ignored you.</p>
+              )}
               <div className="mt-2 border-t pt-2">
                 <div className="text-xs font-semibold text-muted-foreground">Why / why not</div>
                 <ul className="mt-1 space-y-1 font-mono text-[11px] text-muted-foreground">

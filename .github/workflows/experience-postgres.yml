@@ -23,18 +23,15 @@ jobs:
           --health-cmd "pg_isready -U postgres -d phase6_tests" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      # The app uses bun.lock, not package-lock.json. This SQL-only suite does
-      # not need the app's private package mirrors, React plugins or build scripts.
-      # Pin these two test dependencies to their versions in bun.lock.
+      - uses: oven-sh/setup-bun@v2
+      # Install only the PostgreSQL test dependencies in a temporary Bun project.
+      # Avoid npm's Arborist installer issue on hosted runners.
       - name: Install isolated PostgreSQL test dependencies
         shell: bash
         run: |
-          npm install --prefix "$RUNNER_TEMP/phase6-postgres" \
-            --no-package-lock --no-audit --no-fund \
-            vitest@4.1.11 postgres@3.4.9
+          mkdir -p "$RUNNER_TEMP/phase6-postgres"
+          printf '%s\n' '{"name":"phase6-postgres-ci","version":"1.0.0","private":true,"devDependencies":{"vitest":"4.1.11","postgres":"3.4.9"}}' > "$RUNNER_TEMP/phase6-postgres/package.json"
+          bun install --cwd "$RUNNER_TEMP/phase6-postgres" --ignore-scripts
           ln -s "$RUNNER_TEMP/phase6-postgres/node_modules" node_modules
       - name: Test real PostgreSQL transactions
         run: ./node_modules/.bin/vitest run --config vitest.postgres.config.ts
