@@ -8,7 +8,15 @@ import { useTown } from "@/lib/town-queries";
 import { actInTown } from "@/lib/town.functions";
 import { inboxOverview } from "@/lib/tess.functions";
 import { TownLayout, card } from "@/components/TownLayout";
-export const Route = createFileRoute("/_authenticated/home")({ component: Home });
+export const Route = createFileRoute("/_authenticated/home")({
+  head: () => ({ meta: [
+    { title: "Home \u00b7 AI Town" },
+    { name: "description", content: "Your private AI Town conversations, plans and virtual whereabouts." },
+    { property: "og:title", content: "Home \u00b7 AI Town" },
+    { property: "og:description", content: "Your private AI Town conversations, plans and virtual whereabouts." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: Home });
 function Home() {
   const q = useTown(),
     load = useServerFn(inboxOverview),

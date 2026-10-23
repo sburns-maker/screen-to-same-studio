@@ -8,7 +8,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { inboxOverview } from "@/lib/tess.functions";
 import { characterFor } from "@/lib/characters";
 import { TownLayout, card } from "@/components/TownLayout";
-export const Route = createFileRoute("/_authenticated/people")({ component: People });
+export const Route = createFileRoute("/_authenticated/people")({
+  head: () => ({ meta: [
+    { title: "People \u00b7 AI Town" },
+    { name: "description", content: "Your established fictional contacts and acquaintances in AI Town." },
+    { property: "og:title", content: "People \u00b7 AI Town" },
+    { property: "og:description", content: "Your established fictional contacts and acquaintances in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: People });
 function People() {
   const portraits = usePortraits(),
     world = useInteractiveWorld();

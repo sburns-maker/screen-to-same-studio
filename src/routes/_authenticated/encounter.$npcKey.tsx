@@ -6,7 +6,15 @@ import { toast } from "sonner";
 import { useTown } from "@/lib/town-queries";
 import { actInTown } from "@/lib/town.functions";
 import { ScreenHeader } from "@/components/ScreenHeader";
-export const Route = createFileRoute("/_authenticated/encounter/$npcKey")({ component: Encounter });
+export const Route = createFileRoute("/_authenticated/encounter/$npcKey")({
+  head: () => ({ meta: [
+    { title: "Encounter \u00b7 AI Town" },
+    { name: "description", content: "Your private fictional encounter conversation in AI Town." },
+    { property: "og:title", content: "Encounter \u00b7 AI Town" },
+    { property: "og:description", content: "Your private fictional encounter conversation in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: Encounter });
 function Encounter() {
   const { npcKey } = Route.useParams(),
     q = useTown(),

@@ -7,7 +7,15 @@ import { useTown } from "@/lib/town-queries";
 import { suggestGathering } from "@/lib/town.functions";
 import { TownLayout, card } from "@/components/TownLayout";
 import type { CharacterKey } from "@/lib/characters";
-export const Route = createFileRoute("/_authenticated/plans")({ component: Plans });
+export const Route = createFileRoute("/_authenticated/plans")({
+  head: () => ({ meta: [
+    { title: "Plans \u00b7 AI Town" },
+    { name: "description", content: "Your private shared calendar and fictional gathering plans in AI Town." },
+    { property: "og:title", content: "Plans \u00b7 AI Town" },
+    { property: "og:description", content: "Your private shared calendar and fictional gathering plans in AI Town." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: Plans });
 function Plans() {
   const q = useTown(),
     suggest = useServerFn(suggestGathering),

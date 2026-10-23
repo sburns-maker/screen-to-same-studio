@@ -3,7 +3,15 @@ import { ExplorePlaces } from "@/components/ExplorePlaces";
 import { useTown } from "@/lib/town-queries";
 import { TownLayout } from "@/components/TownLayout";
 import { CountyMap } from "@/components/CountyMap";
-export const Route = createFileRoute("/_authenticated/explore")({ component: Explore });
+export const Route = createFileRoute("/_authenticated/explore")({
+  head: () => ({ meta: [
+    { title: "Explore \u00b7 AI Town" },
+    { name: "description", content: "Discover fictional places across the AI Town community." },
+    { property: "og:title", content: "Explore \u00b7 AI Town" },
+    { property: "og:description", content: "Discover fictional places across the AI Town community." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }), component: Explore });
 function Explore() {
   const q = useTown();
   return (
