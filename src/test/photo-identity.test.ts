@@ -2,7 +2,7 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { screenPhotoVisuals, visualScreenAccepted } from "@/lib/photo-identity-qc.server";
-import { generateTessImage, lovableGatewayProvider } from "@/lib/tess-image.server";
+import { generateTessImage, fictionalGroupScene, mentionsOtherEstablishedCharacter, lovableGatewayProvider } from "@/lib/tess-image.server";
 import { characterFor } from "@/lib/characters";
 import { PROFILE_PORTRAITS } from "@/lib/character-portraits";
 vi.mock("@/lib/photo-text-qc.server", () => ({
@@ -285,6 +285,23 @@ describe("every shared generation path anchors original portraits", () => {
     expect(generate.mock.calls[1]![0]).toContain("IDENTITY CONTINUITY CORRECTION");
     expect(await (generate.mock.calls[0]![1][0] as Blob).arrayBuffer())
       .toEqual(await (generate.mock.calls[1]![1][0] as Blob).arrayBuffer());
+  });
+  it("accepts a trivia-team photo with anchored Tess and incidental fictional adults", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-only");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      choices: [{ message: { content: JSON.stringify({ ...good, unexpected_people: true }) } }],
+    })));
+    const generate = vi.fn().mockResolvedValue({ bytes: new Uint8Array([1]), mime: "image/png", provider: "test", model: "test" });
+    const scene = "Group photo of Tess with her trivia team at the bar after a round";
+    expect(fictionalGroupScene(scene)).toBe(true);
+    expect(mentionsOtherEstablishedCharacter(scene, "tess")).toBe(false);
+    const result = await generateTessImage({
+      provider: { name: "test", model: "test", referenceConditioning: true, generate },
+      type: "casual_selfie", scene, expression: "amused",
+      identity: { key: "tess", name: "Tess", age: 34, pronouns: "she/her", appearance: "" },
+    });
+    expect(result.diagnostics.validationStatus).toBe("screen_passed");
+    expect(generate.mock.calls[0]![0]).toContain("FICTIONAL GROUP MOMENT");
   });
   it("rejects unsupported shared-event group portraits before buying an image", async () => {
     vision();
