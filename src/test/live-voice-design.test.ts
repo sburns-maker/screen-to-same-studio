@@ -5,7 +5,7 @@ describe("GPT-Live character voice identities", () => {
   it("has distinct non-impersonating designs for all primary contacts", () => {
     expect(Object.keys(VOICE_DESIGNS)).toEqual(["tess", "maya", "claire", "jordan", "ben"]);
     expect(VOICE_DESIGNS.tess.description).toContain("never");
-    expect(VOICE_DESIGNS.tess.description).toContain("Never husky");
+    expect(VOICE_DESIGNS.tess.description).toContain("never husky");
     expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(5);
   });
   it("refuses missing and arbitrary stock voice names", () => {
