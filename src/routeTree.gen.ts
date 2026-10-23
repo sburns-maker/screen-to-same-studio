@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedCallsRouteImport } from './routes/_authenticated/calls'
+import { Route as AuthenticatedExperiencesRouteImport } from './routes/_authenticated/experiences'
 import { Route as AuthenticatedExploreRouteImport } from './routes/_authenticated/explore'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
@@ -52,6 +53,12 @@ const AuthenticatedCallsRoute = AuthenticatedCallsRouteImport.update({
   path: '/calls',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExperiencesRoute =
+  AuthenticatedExperiencesRouteImport.update({
+    id: '/experiences',
+    path: '/experiences',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedExploreRoute = AuthenticatedExploreRouteImport.update({
   id: '/explore',
   path: '/explore',
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/calls': typeof AuthenticatedCallsRoute
+  '/experiences': typeof AuthenticatedExperiencesRoute
   '/explore': typeof AuthenticatedExploreRoute
   '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
@@ -185,6 +193,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/calls': typeof AuthenticatedCallsRoute
+  '/experiences': typeof AuthenticatedExperiencesRoute
   '/explore': typeof AuthenticatedExploreRoute
   '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
@@ -211,6 +220,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/calls': typeof AuthenticatedCallsRoute
+  '/_authenticated/experiences': typeof AuthenticatedExperiencesRoute
   '/_authenticated/explore': typeof AuthenticatedExploreRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/calls'
+    | '/experiences'
     | '/explore'
     | '/home'
     | '/inbox'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/calls'
+    | '/experiences'
     | '/explore'
     | '/home'
     | '/inbox'
@@ -286,6 +298,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/calls'
+    | '/_authenticated/experiences'
     | '/_authenticated/explore'
     | '/_authenticated/home'
     | '/_authenticated/inbox'
@@ -343,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/calls'
       fullPath: '/calls'
       preLoaderRoute: typeof AuthenticatedCallsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/experiences': {
+      id: '/_authenticated/experiences'
+      path: '/experiences'
+      fullPath: '/experiences'
+      preLoaderRoute: typeof AuthenticatedExperiencesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/explore': {
@@ -483,6 +503,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCallsRoute: typeof AuthenticatedCallsRoute
+  AuthenticatedExperiencesRoute: typeof AuthenticatedExperiencesRoute
   AuthenticatedExploreRoute: typeof AuthenticatedExploreRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
@@ -504,6 +525,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCallsRoute: AuthenticatedCallsRoute,
+  AuthenticatedExperiencesRoute: AuthenticatedExperiencesRoute,
   AuthenticatedExploreRoute: AuthenticatedExploreRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,

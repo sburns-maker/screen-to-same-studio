@@ -392,6 +392,12 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       const quiet = parseQuietHours(profile?.value);
 
       try {
+        if(!report.paused && !aiPause.paused && report.aiCalls < aiBudget) report.aiCalls += await (await import("./living-experiences.server")).runExperienceTick(admin,userId,now);
+      } catch {
+        report.aiCalls = Math.min(aiBudget, report.aiCalls + 1);
+        report.errors.push("Living Experience deferred; recorded progress retained");
+      }
+      try {
         await (await import("./interactive-world.server")).syncCalendar(admin, userId, now);
       } catch {
         report.errors.push("Conversation calendar sync deferred; source evidence retained");

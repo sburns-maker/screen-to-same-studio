@@ -1,3 +1,4 @@
+import { ExperienceEntry } from "./ExperienceEntry";
 import { Calendar } from "./ui/calendar";
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -148,6 +149,7 @@ export function CalendarBoard() {
                 {p.status.replaceAll("_", " ")}
               </span>
             </div>
+            <ExperienceEntry planId={p.id} />
             <p className="text-sm">
               {p.date_local ?? "Date undecided"} · {p.time_local ?? "Time undecided"} Eastern ·{" "}
               {place?.label ?? "Venue undecided"}

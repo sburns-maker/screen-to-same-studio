@@ -3,68 +3,108 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const uuid = z.string().uuid();
 export const experienceSnapshot = createServerFn({ method: "POST" })
- .middleware([requireSupabaseAuth])
- .handler(async ({ context }) => {
-  const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-  const [plans, scenes] = await Promise.all([
-   db.from("social_plans").select("id,title,starts_at,place_key,status,conversation_id,category").eq("user_id",context.userId).in("status",["accepted","in_progress","active"]).order("starts_at",{ascending:true}).limit(50),
-   db.from("living_experiences" as never).select("*").eq("user_id",context.userId).limit(50),
-  ]);
-  if (plans.error || scenes.error) throw new Error("Experience setup requires reviewed migration 0025");
-  return { plans: plans.data ?? [], scenes: scenes.data ?? [] };
- });
-export const experienceAction = createServerFn({ method: "POST" })
- .middleware([requireSupabaseAuth])
- .inputValidator((v:unknown)=>z.object({
-   planId:uuid, action:z.enum(["claim","pause","resume"]),
-   revision:z.number().int().min(0).nullable().default(null),
- }).parse(v))
- .handler(async ({context,data})=>{
-  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
-  const r=await db.rpc("living_experience_action" as never,{
-   p_user:context.userId,p_plan:data.planId,p_action:data.action,
-   p_now:new Date().toISOString(),p_expected_revision:data.revision,
-   p_outcome:null,
-  } as never);
-  if(r.error)throw new Error(r.error.message);
-  return r.data;
- });
-
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    return (await import("./living-experiences.server")).livingSnapshot(db, context.userId);
+  });
 export const experienceMoments = createServerFn({ method: "POST" })
- .middleware([requireSupabaseAuth])
- .inputValidator((v:unknown)=>z.object({planId:uuid}).parse(v))
- .handler(async({context,data})=>{
-  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
-  const scene=await db.from("living_experiences" as never).select("id,state").eq("user_id",context.userId).eq("plan_id",data.planId).maybeSingle();
-  if(scene.error||!scene.data)throw new Error("Experience not available");
-  const sceneId=(scene.data as {id:string}).id;
-  const moments=await db.from("living_experience_moments" as never).select("id,ordinal,kind,body,source,confirmed").eq("user_id",context.userId).eq("experience_id",sceneId).order("ordinal",{ascending:true}).limit(100);
-  if(moments.error)throw new Error("Experience history unavailable");
-  return {state:(scene.data as {state:string}).state,moments:moments.data??[]};
- });
-export const recordExperienceMoment = createServerFn({ method:"POST" })
- .middleware([requireSupabaseAuth])
- .inputValidator((v:unknown)=>z.object({planId:uuid,id:uuid,text:z.string().trim().min(1).max(1500)}).parse(v))
- .handler(async({context,data})=>{
-  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
-  const r=await db.rpc("living_experience_moment" as never,{
-   p_user:context.userId,p_plan:data.planId,p_id:data.id,p_body:data.text,p_now:new Date().toISOString(),
-  } as never);
-  if(r.error)throw new Error(r.error.message);
-  return r.data;
- });
-
-export const completeExperience = createServerFn({method:"POST"})
- .middleware([requireSupabaseAuth])
- .inputValidator((v:unknown)=>z.object({
-  planId:uuid,outcomeId:uuid,revision:z.number().int().min(0),summary:z.string().trim().min(8).max(1200),
- }).parse(v))
- .handler(async({context,data})=>{
-  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
-  const r=await db.rpc("living_experience_complete" as never,{
-   p_user:context.userId,p_plan:data.planId,p_outcome:data.outcomeId,p_expected_revision:data.revision,
-   p_summary:data.summary,p_now:new Date().toISOString(),
-  } as never);
-  if(r.error)throw new Error(r.error.message);
-  return r.data;
- });
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ planId: uuid }).parse(v))
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    return (await import("./living-experiences.server")).livingHistory(
+      db,
+      context.userId,
+      data.planId,
+    );
+  });
+export const experienceAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) =>
+    z
+      .object({
+        planId: uuid,
+        id: uuid,
+        action: z.enum(["claim", "pause", "resume", "turn", "finish", "automatic", "window"]),
+        revision: z.number().int().min(0).nullable(),
+        text: z.string().trim().max(1500).default(""),
+        hours: z.number().int().min(1).max(24).default(4),
+      })
+      .parse(v),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const s = await import("./living-experiences.server");
+    if (!(await s.experienceSeed(db, context.userId)))
+      throw new Error("Living Experiences are not enabled");
+    if (data.action === "turn" || data.action === "finish" || data.action === "automatic")
+      return {
+        experience: (
+          await s.generateExperience(
+            db,
+            context.userId,
+            data.planId,
+            data.id,
+            data.action,
+            data.text,
+            data.revision,
+            data.action === "automatic",
+          )
+        ).experience,
+      };
+    return {
+      experience: (
+        await s.experienceCommand(
+          db,
+          context.userId,
+          data.planId,
+          data.id,
+          data.action,
+          data.revision,
+          { hours: data.hours },
+        )
+      ).experience,
+    };
+  });
+export const experienceDiagnostics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ conversationId: uuid }).parse(v))
+  .handler(async ({ context, data }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer access required");
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const scenes = await db
+      .from("living_experiences")
+      .select("*")
+      .eq("user_id", context.userId)
+      .eq("conversation_id", data.conversationId)
+      .order("start_at", { ascending: false })
+      .limit(10);
+    if (scenes.error) throw new Error("Experience diagnostics unavailable");
+    return Promise.all(
+      (scenes.data ?? []).map(async (e) => {
+        const [plan, moments] = await Promise.all([
+          db
+            .from("social_plans")
+            .select("organizer,place_key,title")
+            .eq("user_id", context.userId)
+            .eq("id", e.plan_id)
+            .maybeSingle(),
+          db
+            .from("living_experience_moments")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", context.userId)
+            .eq("experience_id", e.id),
+        ]);
+        if (plan.error || moments.error) throw new Error("Experience diagnostics unavailable");
+        return {
+          ...e,
+          character: plan.data?.organizer ?? "",
+          venue: plan.data?.place_key ?? "",
+          title: plan.data?.title ?? "",
+          moment_count: moments.count ?? 0,
+        };
+      }),
+    );
+  });

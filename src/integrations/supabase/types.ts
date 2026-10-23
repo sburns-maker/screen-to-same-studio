@@ -14,6 +14,10 @@ export type Database = {
   }
   public: {
     Tables: {
+      living_experiences: { Row: import("@/lib/living-experiences").ExperienceRow; Insert: Partial<import("@/lib/living-experiences").ExperienceRow>; Update: Partial<import("@/lib/living-experiences").ExperienceRow>; Relationships: [] };
+      living_experience_moments: { Row: import("@/lib/living-experiences").ExperienceMoment; Insert: Partial<import("@/lib/living-experiences").ExperienceMoment>; Update: Partial<import("@/lib/living-experiences").ExperienceMoment>; Relationships: [] };
+      experience_operations: { Row: import("@/lib/living-experiences").ExperienceOperation; Insert: Partial<import("@/lib/living-experiences").ExperienceOperation>; Update: Partial<import("@/lib/living-experiences").ExperienceOperation>; Relationships: [] };
+
       calendar_evidence: {
         Row: {
           action: string
@@ -1920,6 +1924,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      experience_status: { Args: Record<string, never>; Returns: number };
+      experience_seed: { Args: {p_user:string;p_now:string}; Returns:number };
+      experience_command: { Args: {p_user:string;p_plan:string;p_id:string;p_command:string;p_revision:number|null;p_payload:Json;p_now:string}; Returns:Json };
+
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number

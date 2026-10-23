@@ -1,48 +1,381 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { experienceSnapshot, experienceAction, experienceMoments, recordExperienceMoment, completeExperience } from "@/lib/living-experiences.functions";
-export const Route=createFileRoute("/_authenticated/experiences")({component:Experiences});
-type Snapshot=Awaited<ReturnType<typeof experienceSnapshot>>;
-function Experiences(){
- const load=useServerFn(experienceSnapshot), act=useServerFn(experienceAction);
- const readMoments=useServerFn(experienceMoments), recordMoment=useServerFn(recordExperienceMoment), complete=useServerFn(completeExperience);
- const [data,setData]=useState<Snapshot|null>(null),[error,setError]=useState(""),[busy,setBusy]=useState("");
- const [activePlan,setActivePlan]=useState(""),[text,setText]=useState(""),[history,setHistory]=useState<Array<{id:string;ordinal:number;body:string;source:string}>>([]);
- async function refresh(){try{setData(await load());}catch(e){setError((e as Error).message);}}
- useEffect(()=>{void refresh();},[]);
- async function action(planId:string,command:"claim"|"pause"|"resume",revision:number|null){
-  setBusy(planId);setError("");
-  try{await act({data:{planId,action:command,revision}});await refresh();}
-  catch(e){setError((e as Error).message);}
-  finally{setBusy("");}
- }
- async function openScene(planId:string){setActivePlan(planId);try{const h=await readMoments({data:{planId}});setHistory(h.moments as typeof history);}catch(e){setError((e as Error).message);}}
- async function sendMoment(){if(!activePlan||!text.trim())return;setBusy(activePlan);try{await recordMoment({data:{planId:activePlan,id:crypto.randomUUID(),text:text.trim()}});setText("");await openScene(activePlan);}catch(e){setError((e as Error).message);}finally{setBusy("");}}
- async function finishScene(planId:string,revision:number){if(!window.confirm("Finish this experience and preserve the recorded moments? No further interaction will be possible."))return;setBusy(planId);try{const transcript=history.map(x=>x.body).join("; ");const summary=("Shared experience: "+transcript).slice(0,1200);await complete({data:{planId,revision,outcomeId:crypto.randomUUID(),summary}});setActivePlan("");await refresh();}catch(e){setError((e as Error).message);}finally{setBusy("");}}
- const entries=(data?.scenes??[]) as Array<{plan_id:string;state:string;revision:number;summary:string}>;
- return <><ScreenHeader title="Living Experiences" backTo="/plans"/><Screen><div className="space-y-4 pb-10">
-  <h1 className="font-display text-2xl">Live the moments that matter</h1>
-  <p className="text-sm text-muted-foreground">Start within four hours of the planned time. Once started, your experience is protected from automatic simulation—even if you close the app. Pause and resume whenever you like.</p>
-  {error&&<p role="alert" className="rounded-xl border border-destructive p-3 text-sm">{error}</p>}
-  {!data?<p>Loading…</p>:data.plans.filter(p=>p.starts_at).map(p=>{
-   const e=entries.find(x=>x.plan_id===p.id);
-   const start=Date.parse(p.starts_at!);const now=Date.now();
-   const eligible=!e&&now>=start&&now<start+4*3600000;
-   return <article key={p.id} className="rounded-2xl border bg-surface p-4 space-y-2">
-    <h2 className="font-semibold">{p.title}</h2>
-    <p className="text-sm text-muted-foreground">{new Date(start).toLocaleString()} · {p.place_key??"Venue undecided"}</p>
-    <p className="text-sm">Experience: {e?.state??(eligible?"Ready to start":"Scheduled")}</p>
-    {eligible&&<button disabled={busy===p.id} onClick={()=>void action(p.id,"claim",null)} className="rounded-full bg-primary px-4 py-3 text-primary-foreground">Start experience</button>}
-    {e?.state==="interactive"&&<button disabled={busy===p.id} onClick={()=>void action(p.id,"pause",e.revision)} className="rounded-full border px-4 py-3">Pause experience</button>}
-    {e?.state==="paused"&&<button disabled={busy===p.id} onClick={()=>void action(p.id,"resume",e.revision)} className="rounded-full bg-primary px-4 py-3 text-primary-foreground">Resume experience</button>}
-    {e?.state==="interactive"&&<button className="rounded-full border px-4 py-3" onClick={()=>void openScene(p.id)}>Open experience journal</button>}
-    {e?.summary&&<p className="text-sm">{e.summary}</p>}
-   </article>;
-  })}
-  {activePlan&&<section className="rounded-2xl border p-4 space-y-3"><h2 className="font-semibold">Shared moments journal</h2><p className="text-xs text-muted-foreground">This securely records what you actually did. Interactive character replies are not connected yet. No actions are invented.</p>{history.map(m=><p key={m.id} className="rounded-xl bg-surface p-3 text-sm">{m.body}</p>)}<textarea aria-label="What happened" value={text} onChange={e=>setText(e.target.value)} className="w-full rounded-xl border bg-background p-3" placeholder="Describe what you said or did…" maxLength={1500}/><button disabled={!text.trim()||busy===activePlan} onClick={()=>void sendMoment()} className="rounded-full bg-primary px-4 py-3 text-primary-foreground">Record moment</button><button className="ml-2 rounded-full border px-4 py-3" onClick={()=>setActivePlan("")}>Close journal</button>{history.length>0&&<button onClick={()=>void finishScene(activePlan,entries.find(x=>x.plan_id===activePlan)?.revision??0)} className="block rounded-full border px-4 py-3">Finish journal</button>}</section>}
-  <p className="text-xs text-muted-foreground">Early preview: immersive character dialogue and off-screen completion are not enabled yet. Only claim/pause/resume are available.</p>
-  <Link to="/plans" className="text-sm underline">Back to Plans</Link>
- </div></Screen></>;
+import { experienceAction, experienceMoments } from "@/lib/living-experiences.functions";
+import { useExperiences } from "@/lib/use-experiences";
+import { characterFor } from "@/lib/characters";
+import { placeByKey } from "@/lib/place-registry";
+import { usePortraits } from "@/lib/use-portrait";
+import { canTransition } from "@/lib/experience-lifecycle";
+import type { ExperienceRow } from "@/lib/living-experiences";
+export const Route = createFileRoute("/_authenticated/experiences")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    plan: typeof s["plan"] === "string" ? s["plan"] : "",
+  }),
+  component: Experiences,
+});
+function ready(e: ExperienceRow) {
+  return canTransition(
+    {
+      id: e.id,
+      planId: e.plan_id,
+      state: e.state,
+      startAt: e.start_at,
+      claimDeadline: e.claim_deadline,
+      claimedAt: e.claimed_at,
+      mode: e.mode,
+      outcomeId: e.outcome_id,
+      revision: e.revision,
+    },
+    "claim",
+    new Date(),
+  );
+}
+const local = (s: string) =>
+  new Date(s).toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+function Experiences() {
+  const portraits = usePortraits();
+  const selected = Route.useSearch().plan;
+  const q = useExperiences(),
+    cache = useQueryClient(),
+    action = useServerFn(experienceAction),
+    read = useServerFn(experienceMoments);
+  const [active, setActive] = useState(selected),
+    [text, setText] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const ids = useRef(new Map<string, string>()),
+    bottom = useRef<HTMLDivElement>(null);
+  const history = useQuery({
+    queryKey: ["experience-history", active],
+    queryFn: () => read({ data: { planId: active } }),
+    enabled: !!active && !!q.data?.scenes.some((e) => e.plan_id === active),
+    refetchInterval: 5000,
+    retry: false,
+  });
+  useEffect(() => {
+    bottom.current?.scrollIntoView({ behavior: "smooth" });
+  }, [history.data?.moments.length]);
+  const scene = q.data?.scenes.find((e) => e.plan_id === active),
+    plan = q.data?.plans.find((p) => p.id === active),
+    person = characterFor(plan?.organizer);
+  async function act(
+    e: ExperienceRow,
+    command: "claim" | "pause" | "resume" | "turn" | "finish" | "automatic" | "window",
+    body = "",
+    retryId?: string,
+  ) {
+    if (
+      (command === "finish" || command === "automatic") &&
+      !window.confirm(
+        command === "finish"
+          ? body === "close_now"
+            ? "Finish here and save only the recorded experience?"
+            : "Finish only the remaining portion automatically? Recorded choices will be preserved."
+          : "Simulate this outing off-screen? No user dialogue or new intimate milestone will be invented.",
+      )
+    )
+      return;
+    setBusy(true);
+    setError("");
+    setActive(e.plan_id);
+    const key = JSON.stringify([e.plan_id, command, body]);
+    const id = retryId ?? ids.current.get(key) ?? crypto.randomUUID();
+    ids.current.set(key, id);
+    try {
+      const result = await action({
+        data: {
+          planId: e.plan_id,
+          id,
+          action: command,
+          revision: e.revision,
+          text: body,
+          hours: command === "window" ? Number(body) : 4,
+        },
+      });
+      if (command === "claim") {
+        const openingKey = JSON.stringify([e.plan_id, "opening"]);
+        const opening = ids.current.get(openingKey) ?? crypto.randomUUID();
+        ids.current.set(openingKey, opening);
+        await action({
+          data: {
+            planId: e.plan_id,
+            id: opening,
+            action: "turn",
+            revision: result.experience.revision,
+            text: "",
+            hours: 4,
+          },
+        });
+        ids.current.delete(openingKey);
+      }
+      ids.current.delete(key);
+      if (command === "turn") setText("");
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      await Promise.all([
+        cache.invalidateQueries({ queryKey: ["living-experiences"] }),
+        cache.invalidateQueries({ queryKey: ["experience-history"] }),
+        cache.invalidateQueries({ queryKey: ["interactive-world"] }),
+        cache.invalidateQueries({ queryKey: ["debug"] }),
+      ]);
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <ScreenHeader title={plan ? plan.title : "Living Experiences"} backTo="/plans" />
+      <Screen>
+        <div className="space-y-4 pb-24">
+          <p className="text-sm text-muted-foreground">
+            Begin within the start window; the outing begins at its fictional scheduled time.
+            Pausing keeps your place across devices.
+          </p>
+          {(error || q.error || history.error) && (
+            <p role="alert" className="rounded-xl border border-destructive p-3">
+              {error || (q.error as Error)?.message || (history.error as Error)?.message}
+            </p>
+          )}
+          {q.isLoading ? (
+            <p role="status">Loading outings…</p>
+          ) : !q.data?.available ? (
+            <p>
+              Living Experiences require reviewed migrations 0025–0026 and server enablement. Your
+              existing plans are preserved.
+            </p>
+          ) : (
+            <>
+              {!q.data.scenes.length && (
+                <p>
+                  No eligible outings yet. Confirm an upcoming plan with a time and venue in
+                  Messages.
+                </p>
+              )}
+              {q.data.scenes.map((e) => {
+                const p = q.data.plans.find((x) => x.id === e.plan_id);
+                if (!p) return null;
+                return (
+                  <article key={e.id} className="space-y-2 rounded-2xl border bg-surface p-4">
+                    <button
+                      className="w-full text-left"
+                      onClick={() => {
+                        setActive(e.plan_id);
+                        setError("");
+                      }}
+                    >
+                      <h2 className="font-semibold">{p.title}</h2>
+                      <p className="text-sm">
+                        {characterFor(p.organizer).preferredName} ·{" "}
+                        {placeByKey(p.place_key)?.label ?? p.place_key}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {local(e.start_at)} Eastern · start by {local(e.claim_deadline)}
+                      </p>
+                    </button>
+                    <p className="text-xs" role="status">
+                      {e.state.replace("_", " ")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {e.state === "scheduled" && (
+                        <label className="text-xs">
+                          Start window (hours)
+                          <select
+                            aria-label={`Start window for ${p.title}`}
+                            value={Math.round(
+                              (Date.parse(e.claim_deadline) - Date.parse(e.start_at)) / 3600000,
+                            )}
+                            disabled={busy}
+                            onChange={(ev) => void act(e, "window", ev.target.value)}
+                            className="ml-2 min-h-11 rounded-xl border bg-background px-2"
+                          >
+                            {[1, 2, 4, 6, 8, 12, 24].map((h) => (
+                              <option key={h} value={h}>
+                                {h}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      {ready(e) && (
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e, "claim")}
+                          className="min-h-11 rounded-full bg-primary px-4 text-primary-foreground"
+                        >
+                          Experience this outing
+                        </button>
+                      )}
+                      {e.state === "scheduled" && Date.now() >= Date.parse(e.start_at) && (
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e, "automatic")}
+                          className="min-h-11 rounded-full border px-4"
+                        >
+                          Skip &amp; Simulate
+                        </button>
+                      )}
+                      {e.state === "paused" && (
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e, "resume")}
+                          className="min-h-11 rounded-full border px-4"
+                        >
+                          Resume Experience
+                        </button>
+                      )}
+                      {e.state === "auto_running" && (
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e, "automatic")}
+                          className="min-h-11 rounded-full border px-4"
+                        >
+                          Retry automatic completion
+                        </button>
+                      )}
+                    </div>
+                    {e.last_failure && <p className="text-sm text-destructive">{e.last_failure}</p>}
+                  </article>
+                );
+              })}
+              {scene && plan && (
+                <section
+                  aria-label="In-person experience"
+                  className="space-y-4 rounded-2xl border p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={portraits.data?.[person.key] ?? person.avatar}
+                      alt={person.preferredName}
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
+                    <div>
+                      <h2 className="font-semibold">With {person.preferredName}</h2>
+                      <p className="text-xs">
+                        {plan.title} · {placeByKey(plan.place_key)?.label ?? "Venue"}
+                      </p>
+                    </div>
+                  </div>
+                  <div aria-live="polite" className="max-h-[55dvh] space-y-3 overflow-y-auto">
+                    {history.isLoading ? (
+                      <p>Loading scene…</p>
+                    ) : (
+                      history.data?.moments.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`whitespace-pre-wrap rounded-2xl p-3 text-sm leading-relaxed ${m.source === "user" ? "ml-6 bg-primary/10" : "mr-3 bg-surface"}`}
+                        >
+                          <span className="mb-1 block text-xs text-muted-foreground">
+                            {m.source === "user"
+                              ? "You"
+                              : m.source === "simulation"
+                                ? "Closing moments"
+                                : person.preferredName}
+                          </span>
+                          {m.body}
+                        </div>
+                      ))
+                    )}
+                    <div ref={bottom} />
+                  </div>
+                  {history.data?.pending && (
+                    <div role="status" className="rounded-xl border p-3 text-sm">
+                      <p>
+                        Pending scene: {history.data.pending.status}. Recorded progress is
+                        preserved.
+                      </p>
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          const o = history.data!.pending!;
+                          void act(scene, o.kind, o.body, o.id);
+                        }}
+                        className="min-h-11 rounded-full border px-4"
+                      >
+                        Retry pending scene
+                      </button>
+                    </div>
+                  )}
+                  {scene.state === "interactive" && !history.data?.pending && (
+                    <>
+                      {!history.data?.moments.some((m) => m.source === "character") &&
+                        !history.isLoading && (
+                          <button
+                            disabled={busy}
+                            onClick={() => void act(scene, "turn")}
+                            className="min-h-11 rounded-full border px-4"
+                          >
+                            Begin scene / retry opening
+                          </button>
+                        )}
+                      <form
+                        onSubmit={(ev) => {
+                          ev.preventDefault();
+                          if (text.trim()) void act(scene, "turn", text.trim());
+                        }}
+                        className="space-y-2"
+                      >
+                        <textarea
+                          aria-label="What you say or do"
+                          value={text}
+                          onChange={(e) => setText(e.target.value)}
+                          maxLength={1500}
+                          rows={3}
+                          className="w-full rounded-2xl border bg-background p-3 text-base"
+                          placeholder="Say something, describe an action, or let the moment unfold…"
+                        />
+                        <button
+                          disabled={busy || !text.trim()}
+                          className="min-h-11 rounded-full bg-primary px-5 text-primary-foreground"
+                        >
+                          {busy ? "Continuing…" : "Continue"}
+                        </button>
+                      </form>
+                      <button
+                        disabled={busy}
+                        onClick={() => void act(scene, "pause")}
+                        className="min-h-11 rounded-full border px-4"
+                      >
+                        Pause
+                      </button>
+                    </>
+                  )}
+                  {["interactive", "paused"].includes(scene.state) && (
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        disabled={busy || !history.data?.moments.length}
+                        onClick={() => void act(scene, "finish", "close_now")}
+                        className="min-h-11 rounded-full border px-4"
+                      >
+                        Finish experience
+                      </button>
+                      <button
+                        disabled={busy || !history.data?.moments.length}
+                        onClick={() => void act(scene, "finish")}
+                        className="min-h-11 rounded-full border px-4"
+                      >
+                        Finish remaining portion automatically
+                      </button>
+                    </div>
+                  )}
+                  {scene.state === "completed" && (
+                    <p className="whitespace-pre-wrap text-sm">{scene.summary}</p>
+                  )}
+                </section>
+              )}
+            </>
+          )}
+        </div>
+      </Screen>
+    </>
+  );
 }

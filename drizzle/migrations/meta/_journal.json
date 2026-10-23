@@ -176,6 +176,20 @@
       "when": 1792771200013,
       "tag": "0024_verify_phone_calls",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792771200014,
+      "tag": "0025_living_experiences",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792771200015,
+      "tag": "0026_complete_living_experiences",
+      "breakpoints": true
     }
   ]
 }
