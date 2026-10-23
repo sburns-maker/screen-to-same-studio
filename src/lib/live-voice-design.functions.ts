@@ -1,7 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { TESS_VARIANT_DIRECTIONS, VOICE_CREATION_SCRIPT_HINT, VOICE_DESIGNS } from "./live-voice-design";
+import {
+  VOICE_CREATION_SCRIPT_HINT,
+  VOICE_DESIGNS,
+  VOICE_NAME_MAX,
+  VOICE_PROMPT_MAX,
+  validateVoiceRequest,
+} from "./live-voice-design";
 import {
   AUDITION_LEASE_MS,
   AUDITION_LIMIT_MS,
@@ -24,7 +30,9 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
     z
       .object({
         character: z.enum(["tess", "maya", "claire", "jordan", "ben"]),
-        variant: z.enum(["natural", "refined", "playful"]),
+        variant: z.enum(["natural", "refined", "playful", "custom"]),
+        prompt: z.string().max(VOICE_PROMPT_MAX + 100),
+        name: z.string().max(VOICE_NAME_MAX + 20),
         confirmation: z.literal("CREATE CUSTOM VOICE"),
       })
       .strict()
@@ -36,18 +44,8 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
     if (process.env["ENABLE_VOICE_DESIGN"] !== "true") throw new Error("Voice design is disabled");
     const key = process.env["OPENAI_API_KEY"];
     if (!key) throw new Error("OpenAI voice creation is not configured");
-    const base = VOICE_DESIGNS[data.character];
-    const direction =
-      data.character === "tess"
-        ? TESS_VARIANT_DIRECTIONS[data.variant]
-        : {
-            natural:
-              "Favor effortless everyday conversational delivery, including pauses and ordinary relaxed expression.",
-            refined:
-              "Favor elegant articulation and a lightly melodic, delicately expressive cadence without a formal accent.",
-            playful:
-              "Favor quick spontaneous reactions and subtle amused inflections, without caricature or exaggerated cheer.",
-          }[data.variant];
+    const invalid = validateVoiceRequest(data.prompt, data.name);
+    if (invalid) throw new Error(invalid);
     const { classifyVoiceCreationFailure } = await import("./voice-creation-errors");
     let res: Response;
     try {
@@ -56,8 +54,8 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "prompt",
-          name: `${base.name} (${data.variant})`,
-          prompt: `${base.description} ${direction}`,
+          name: data.name.trim(),
+          prompt: data.prompt.trim(),
           model: "auto",
           script_hint: VOICE_CREATION_SCRIPT_HINT,
         }),
