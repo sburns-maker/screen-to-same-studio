@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
+import { CONVERSATIONAL_CUE, TESS_CONVERSATIONAL_DIRECTION, type AuditionMode } from "@/lib/voice-audition-modes";
 import {
   AUDITION_SCRIPT,
   createStudioAudition,
@@ -103,6 +104,7 @@ function VoiceStudio() {
   const [busy, setBusy] = useState<Variant | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selected, setSelected] = useState("");
+  const [auditionMode, setAuditionMode] = useState<AuditionMode>("scripted");
   const [copied, setCopied] = useState("");
   const [level, setLevel] = useState(0);
   const [spoken, setSpoken] = useState("");
@@ -237,7 +239,7 @@ function VoiceStudio() {
     if (player.current || !selected || !status?.auditionsEnabled || !audioRef.current) return;
     if (
       !window.confirm(
-        "Start a paid audition, limited to 30 seconds? It won't affect character memories or calls.",
+        `Start a paid ${auditionMode} audition with the selected saved voice, limited to 30 seconds? No new voice is generated. It won't affect character memories or calls.`,
       )
     )
       return;
@@ -251,7 +253,7 @@ function VoiceStudio() {
     const cand = candidates.find((c) => c.id === selected);
     const meta = {
       character,
-      candidate: cand?.name ?? `${title(character)} ${cand?.variant ?? "voice"}`,
+      candidate: `${cand?.name ?? `${title(character)} ${cand?.variant ?? "voice"}`} · ${auditionMode}`,
       voiceId: selected,
     };
     let endedCleanly = false;
@@ -295,9 +297,10 @@ function VoiceStudio() {
     };
     const session = createStudioAudition({
       audio: audioRef.current,
+      mode: auditionMode,
       connect: async (sdp) => {
         const r = await auditionFn({
-          data: { character, voiceId: selected, sdp, confirmation: "START PAID VOICE AUDITION" },
+          data: { character, voiceId: selected, sdp, mode: auditionMode, confirmation: "START PAID VOICE AUDITION" },
         });
         auditionId = r.auditionId;
         return r;
@@ -425,6 +428,7 @@ function VoiceStudio() {
               onChange={(e) => {
                 setCharacter(e.target.value as VoiceDesignKey);
                 setSelected("");
+                setAuditionMode("scripted");
               }}
             >
               {characters.map((c) => (
@@ -510,21 +514,42 @@ function VoiceStudio() {
           </Step>
 
           <Step n={2} title="Hear the selected voice">
-            <p className="text-sm">
-              Select a candidate below and listen to the same script with each voice:
+            <div role="group" aria-label="Audition mode" className="grid grid-cols-2 gap-2">
+              {(["scripted", "conversational"] as const).map((mode) => (
+                <Button
+                  key={mode}
+                  type="button"
+                  variant={auditionMode === mode ? "default" : "outline"}
+                  aria-pressed={auditionMode === mode}
+                  disabled={playing || busy !== null || !status || (mode === "conversational" && character !== "tess")}
+                  className="min-h-12 whitespace-normal px-2 text-sm"
+                  onClick={() => setAuditionMode(mode)}
+                >
+                  {mode === "scripted" ? "Scripted audition" : "Conversational audition"}
+                </Button>
+              ))}
+            </div>
+            <p className="mt-3 rounded-lg bg-background p-3 text-sm">
+              {auditionMode === "scripted" ? script : CONVERSATIONAL_CUE}
             </p>
-            <p className="mt-2 rounded-lg bg-background p-3 text-sm">{script}</p>
+            {auditionMode === "conversational" && (
+              <details className="mt-2 text-sm">
+                <summary className="cursor-pointer font-medium">Performance instructions</summary>
+                <p className="mt-2 whitespace-pre-line text-muted-foreground">{TESS_CONVERSATIONAL_DIRECTION}</p>
+              </details>
+            )}
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="min-h-11 rounded-lg border px-3 text-sm"
-                onClick={() => void copy(script, "script")}
-              >
-                {copied === "script" ? "Copied" : "Copy script"}
-              </button>
               <Button
                 type="button"
-                disabled={!selected || playing || !status?.auditionsEnabled}
+                variant="outline"
+                className="min-h-11"
+                onClick={() => void copy(auditionMode === "scripted" ? script : CONVERSATIONAL_CUE, "script")}
+              >
+                {copied === "script" ? "Copied" : auditionMode === "scripted" ? "Copy script" : "Copy cue"}
+              </Button>
+              <Button
+                type="button"
+                disabled={!selected || playing || busy !== null || !status?.auditionsEnabled}
                 className="min-h-11"
                 onClick={audition}
               >

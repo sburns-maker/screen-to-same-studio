@@ -12,13 +12,13 @@ import {
   AUDITION_LEASE_MS,
   AUDITION_LIMIT_MS,
   AUDITION_RESERVED_SECONDS,
-  AUDITION_SCRIPT,
   AUDITION_SPEAK_PROMPT,
   AUDITION_SERVER_SAFEGUARDS_READY,
   assertAuditionAllowed,
   auditionLimits,
   reservationError,
 } from "./voice-studio-audition";
+import { auditionRequestSchema, auditionSessionConfig } from "./voice-audition-modes";
 
 /**
  * Developer-only, explicit voice creation. Never invoked by ordinary call setup,
@@ -117,17 +117,7 @@ export const voiceStudioStatus = createServerFn({ method: "POST" })
  */
 export const startVoiceStudioAudition = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((v: unknown) =>
-    z
-      .object({
-        character: z.enum(["tess", "maya", "claire", "jordan", "ben"]),
-        voiceId: z.string().regex(/^voice_[a-zA-Z0-9_-]{3,120}$/),
-        sdp: z.string().min(10).max(200000),
-        confirmation: z.literal("START PAID VOICE AUDITION"),
-      })
-      .strict()
-      .parse(v),
-  )
+  .inputValidator((v: unknown) => auditionRequestSchema.parse(v))
   .handler(async ({ context, data }) => {
     const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
     assertAuditionAllowed(developerPhotosAllowed(context.userId), process.env);
@@ -149,11 +139,12 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
     if (r.error) throw new Error("Audition safeguards unavailable");
     const lease = r.data as { ok: boolean; reason?: string; id?: string; deadline_at?: string };
     if (!lease.ok || !lease.id || !lease.deadline_at) throw new Error(reservationError(lease.reason));
+    const leaseId = lease.id;
     const fail = (reason: string) =>
       db
         .from("voice_studio_auditions")
         .update({ state: "failed", close_reason: reason, ended_at: new Date().toISOString() })
-        .eq("id", lease.id!);
+        .eq("id", leaseId);
     let res: Response;
     try {
       res = await fetch("https://api.openai.com/v1/live/sessions", {
@@ -161,20 +152,7 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           transport: { type: "webrtc", sdp: data.sdp },
-          session: {
-            model: "gpt-live-1",
-            delegation: { type: "client" },
-            instructions: `This is an isolated synthetic voice audition for a fictional adult, not an AI Town conversation. ${VOICE_DESIGNS[data.character].description} As soon as the session starts, speak this exact sample aloud once, word for word, then remain silent: ${AUDITION_SCRIPT} Never repeat it. Do not ask questions, start a dialogue, backchannel, or delegate tasks.`,
-            // Documented speak-first pattern: developer message available from frame one.
-            input: [
-              {
-                type: "message",
-                role: "developer",
-                content: [{ type: "input_text", text: AUDITION_SPEAK_PROMPT }],
-              },
-            ],
-            audio: { output: { voice: { id: data.voiceId } } },
-          },
+          session: auditionSessionConfig(data.character, data.voiceId, data.mode, AUDITION_SPEAK_PROMPT),
         }),
         signal: AbortSignal.timeout(20000),
       });

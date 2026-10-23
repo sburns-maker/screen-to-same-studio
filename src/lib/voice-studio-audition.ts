@@ -1,3 +1,5 @@
+import { CONVERSATIONAL_SPEAK_PROMPT, type AuditionMode } from "./voice-audition-modes";
+
 /** Direct OpenAI GPT-Live data-channel protocol, not the Realtime protocol. */
 export const AUDITION_SCRIPT =
   "I have a complaint. About you, obviously. I haven't decided what you've done wrong yet, but I'm confident I'll find something. Have a lovely day.";
@@ -63,7 +65,7 @@ export const AUDITION_SPEAK_PROMPT = `Speak now, in English, the following sampl
 
 export function rms(samples: Float32Array): number {
   let sum = 0;
-  for (let i = 0; i < samples.length; i++) sum += samples[i]! * samples[i]!;
+  for (const sample of samples) sum += sample * sample;
   return samples.length ? Math.sqrt(sum / samples.length) : 0;
 }
 
@@ -72,6 +74,7 @@ export type AuditionTrace = { at: number; type: string; detail?: string | undefi
 /** No paid request is made until start is called explicitly by the UI. */
 export function createStudioAudition(options: {
   audio: HTMLAudioElement;
+  mode?: AuditionMode;
   connect: (sdp: string) => Promise<{ sdp: string }>;
   onState: (state: AuditionState) => void;
   onError: (message: string) => void;
@@ -258,13 +261,13 @@ export function createStudioAudition(options: {
         requested = true;
         clearTimeout(startup);
         update("ready");
-        // Exact wording uses instructions.append; commentary may be paraphrased or ignored.
+        // Keep the client reinforcement aligned with the server's seeded mode.
         channel.send(
           JSON.stringify({
             type: "session.instructions.append",
             event_id: crypto.randomUUID(),
             delegation_id: null,
-            content: `${AUDITION_SPEAK_PROMPT} If you have already begun saying it, do not repeat it.`,
+            content: `${options.mode === "conversational" ? CONVERSATIONAL_SPEAK_PROMPT : AUDITION_SPEAK_PROMPT} If you have already begun the response, finish it without starting another. If you have finished, remain silent.`,
           }),
         );
       }
