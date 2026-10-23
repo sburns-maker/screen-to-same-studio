@@ -1,0 +1,1 @@
+COMMENT ON FUNCTION public.experience_status() IS 'Phase 6 living experiences status: 26 when enabled, 0 otherwise.';
