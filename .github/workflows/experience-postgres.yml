@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p "$RUNNER_TEMP/phase6-postgres"
-          printf '{"name":"phase6-postgres-ci","version":"1.0.0","private":true}\\n' > "$RUNNER_TEMP/phase6-postgres/package.json"
+          printf '%s\n' '{"name":"phase6-postgres-ci","version":"1.0.0","private":true}' > "$RUNNER_TEMP/phase6-postgres/package.json"
           npm install --prefix "$RUNNER_TEMP/phase6-postgres" \
             --no-package-lock --no-audit --no-fund \
             vitest@4.1.11 postgres@3.4.9
