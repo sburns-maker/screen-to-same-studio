@@ -3,9 +3,14 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { VOICE_DESIGNS } from "./live-voice-design";
 import {
+  AUDITION_LEASE_MS,
+  AUDITION_LIMIT_MS,
+  AUDITION_RESERVED_SECONDS,
   AUDITION_SCRIPT,
   AUDITION_SERVER_SAFEGUARDS_READY,
   assertAuditionAllowed,
+  auditionLimits,
+  reservationError,
 } from "./voice-studio-audition";
 
 /**
@@ -88,7 +93,11 @@ export const voiceStudioStatus = createServerFn({ method: "POST" })
     };
   });
 
-/** Paid, short-lived GPT-Live studio audition; no character memory or call ledger. */
+/**
+ * Paid, short-lived GPT-Live studio audition; no character memory or call
+ * ledger. Reserves a durable lease (one active per developer, daily and
+ * 30-day spend caps) before any paid request and never retries.
+ */
 export const startVoiceStudioAudition = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
@@ -107,27 +116,118 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
     assertAuditionAllowed(developerPhotosAllowed(context.userId), process.env);
     const key = process.env["OPENAI_API_KEY"];
     if (!key) throw new Error("OpenAI is not configured");
-    const res = await fetch("https://api.openai.com/v1/live/sessions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        transport: { type: "webrtc", sdp: data.sdp },
-        session: {
-          model: "gpt-live-1",
-          delegation: { type: "client" },
-          instructions: `This is an isolated synthetic voice audition for a fictional adult, not an AI Town conversation. ${VOICE_DESIGNS[data.character].description} Wait for the supplied commentary, then speak this exact sample once and remain quiet: ${AUDITION_SCRIPT} Do not ask questions, start a dialogue, or delegate tasks.`,
-          audio: { output: { voice: { id: data.voiceId } } },
-        },
-      }),
-      signal: AbortSignal.timeout(20000),
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const limits = auditionLimits(process.env);
+    const r = await db.rpc("reserve_voice_audition", {
+      p_user: context.userId,
+      p_character: data.character,
+      p_voice: data.voiceId,
+      p_now: new Date().toISOString(),
+      p_limit_ms: AUDITION_LIMIT_MS,
+      p_lease_ms: AUDITION_LEASE_MS,
+      p_reserved_seconds: AUDITION_RESERVED_SECONDS,
+      p_daily_count: limits.daily,
+      p_monthly_seconds: limits.monthlySeconds,
     });
-    if (!res.ok)
+    if (r.error) throw new Error("Audition safeguards unavailable");
+    const lease = r.data as { ok: boolean; reason?: string; id?: string; deadline_at?: string };
+    if (!lease.ok || !lease.id || !lease.deadline_at) throw new Error(reservationError(lease.reason));
+    const fail = (reason: string) =>
+      db
+        .from("voice_studio_auditions")
+        .update({ state: "failed", close_reason: reason, ended_at: new Date().toISOString() })
+        .eq("id", lease.id!);
+    let res: Response;
+    try {
+      res = await fetch("https://api.openai.com/v1/live/sessions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transport: { type: "webrtc", sdp: data.sdp },
+          session: {
+            model: "gpt-live-1",
+            delegation: { type: "client" },
+            instructions: `This is an isolated synthetic voice audition for a fictional adult, not an AI Town conversation. ${VOICE_DESIGNS[data.character].description} Wait for the supplied commentary, then speak this exact sample once and remain quiet: ${AUDITION_SCRIPT} Do not ask questions, start a dialogue, or delegate tasks.`,
+            audio: { output: { voice: { id: data.voiceId } } },
+          },
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch {
+      await fail("provider_unreachable");
+      throw new Error("OpenAI did not respond. No automatic retry was made.");
+    }
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      console.error("voice audition provider error", res.status, detail.slice(0, 500));
+      await fail(`http_${res.status}`);
       throw new Error(
         res.status === 403
-          ? "GPT-Live voice access denied"
-          : `Studio audition failed (HTTP ${res.status})`,
+          ? "OpenAI denied GPT-Live or custom-voice access for this API key."
+          : res.status === 400
+            ? "OpenAI rejected the audition request (check the voice ID belongs to this OpenAI project)."
+            : res.status === 429
+              ? "OpenAI rate or quota limit reached. Try later."
+              : `Studio audition failed (HTTP ${res.status}). No automatic retry was made.`,
       );
+    }
     const j = (await res.json()) as { transport?: { sdp?: string }; session?: { id?: string } };
-    if (!j.transport?.sdp || !j.session?.id) throw new Error("Invalid GPT-Live SDP response");
-    return { sdp: j.transport.sdp, sessionId: j.session.id };
+    if (!j.transport?.sdp || !j.session?.id) {
+      await fail("invalid_response");
+      throw new Error("Invalid GPT-Live SDP response");
+    }
+    await db
+      .from("voice_studio_auditions")
+      .update({ state: "active", session_id: j.session.id })
+      .eq("id", lease.id);
+    const { superviseAudition } = await import("./voice-studio-audition.server");
+    superviseAudition(
+      db,
+      { id: lease.id, sessionId: j.session.id, deadline: Date.parse(lease.deadline_at) },
+      key,
+    );
+    return {
+      sdp: j.transport.sdp,
+      sessionId: j.session.id,
+      auditionId: lease.id,
+      deadlineAt: lease.deadline_at,
+    };
+  });
+
+/** Explicit Stop or browser cleanup; closes server-side and releases the lease. */
+export const stopVoiceStudioAudition = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ auditionId: z.string().uuid() }).strict().parse(v))
+  .handler(async ({ context, data }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer access required");
+    const key = process.env["OPENAI_API_KEY"];
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const row = await db
+      .from("voice_studio_auditions")
+      .select("id, session_id, state")
+      .eq("id", data.auditionId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (row.error || !row.data) throw new Error("Audition not found");
+    if (!["reserved", "active"].includes(row.data.state)) return { closed: true };
+    const { closeAuditionSession } = await import("./voice-studio-audition.server");
+    await closeAuditionSession(db, row.data.id, row.data.session_id, key ?? "");
+    return { closed: true };
+  });
+
+/** Developer usage summary: current lease and remaining allowance. */
+export const voiceStudioUsage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer access required");
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+    const r = await db
+      .from("voice_studio_auditions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", context.userId)
+      .gt("created_at", since);
+    return { usedToday: r.count ?? 0, dailyLimit: auditionLimits(process.env).daily };
   });
