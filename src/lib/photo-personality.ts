@@ -168,7 +168,7 @@ export function photographyProfile(
     : (supporting?.[key] ?? neutral);
 }
 export type PhotoLocation =
-  "home" | "clinic" | "venue" | "coffee_shop" | "library" | "garden" | "outdoors" | "work";
+  "home" | "clinic" | "venue" | "coffee_shop" | "library" | "garden" | "outdoors" | "work" | "social";
 export function photoLocation(text: string): PhotoLocation | null {
   if (/\b(?:or|maybe|planning|might)\b|\//i.test(text)) return null;
   if (
@@ -185,6 +185,7 @@ export function photoLocation(text: string): PhotoLocation | null {
     )
   )
     return "home";
+  if (/\b(?:at|in|inside) (?:a |the )?(?:bar|pub|restaurant|trivia night|dinner date)\b|\b(?:bar trivia|trivia team|night out|book club gathering)\b/i.test(text)) return "social";
   if (/\b(?:coffee shop|cafe|café)\b/i.test(text)) return "coffee_shop";
   if (/\b(?:at|in|inside) (?:the |her |his )?library\b/i.test(text)) return "library";
   if (/\b(?:in (?:the |her |his )?garden|gardening)\b/i.test(text)) return "garden";
@@ -208,6 +209,7 @@ export type PhotographyPlan = {
   continuity: VisualContinuity;
   continuitySource: "recent_delivered_photo" | "current_context_only";
   continuityReason: string;
+  outfitEpisode: "same_day" | "new_day" | "context_transition" | "unestablished";
 };
 export type DeliveredPhoto = {
   character: string;
@@ -260,15 +262,19 @@ export function planPhotography(args: {
       draw -= profile.scenarios[c] ?? 1;
       return draw < 0;
     }) ?? null;
-  const previous = args.previous,
-    age = previous ? args.now.getTime() - Date.parse(previous.at) : Infinity;
-  const retain =
-    !!previous &&
-    previous.character === args.character &&
-    age >= 0 &&
-    age <= 20 * 60_000 &&
-    !!location &&
-    location === previous.location;
+  const previous = args.previous;
+  const age = previous ? args.now.getTime() - Date.parse(previous.at) : Infinity;
+  const sameDay = !!previous && age >= 0 &&
+    new Intl.DateTimeFormat("en-CA", {timeZone: "America/New_York", year:"numeric",month:"2-digit",day:"2-digit"}).format(args.now) ===
+    new Intl.DateTimeFormat("en-CA", {timeZone: "America/New_York", year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(previous.at));
+  // A venue/activity transition allows a new outfit; staying in the same visual episode
+  // preserves garments throughout the local day, not merely a twenty-minute window.
+  const changedSetting = !!(previous?.location && location && previous.location !== location);
+  const socialTransition = !!location && location === "social" && previous?.location !== "social";
+  const explicitChange = /\\b(?:changed (?:clothes|outfit)|got dressed|getting dressed|put on (?:my|a)|showered|pajamas|pyjamas|getting ready|dressed up)\\b/i.test(text);
+  const newEpisode = changedSetting || socialTransition || explicitChange;
+  const retain = sameDay && !newEpisode && !!previous && (location === previous.location || !location);
+  const outfitEpisode: PhotographyPlan["outfitEpisode"] = !previous ? "unestablished" : !sameDay ? "new_day" : newEpisode ? "context_transition" : "same_day";
   const objects = [
     ...(/\bMabel\b/i.test(text) && location === "outdoors" ? ["Mabel"] : []),
     ...(/\bcoffee\b/i.test(text) ? ["coffee"] : []),
@@ -281,6 +287,7 @@ export function planPhotography(args: {
     candidates,
     location,
     availability: args.schedule.availability,
+    outfitEpisode,
     continuity: {
       hairstyle: retain ? (previous.style.hairstyle ?? null) : null,
       clothing: retain ? (previous.style.clothing_category ?? null) : null,
@@ -289,8 +296,8 @@ export function planPhotography(args: {
     },
     continuitySource: retain ? "recent_delivered_photo" : "current_context_only",
     continuityReason: retain
-      ? "Same character, same known location, delivered photo within 20 minutes. Explicit current details can supersede prior styling."
-      : "No sufficiently recent delivered photo in the same known location; do not invent continuity.",
+      ? "Same local day and no established outfit change; reuse visible clothes and hair unless new scene explicitly changes them."
+      : outfitEpisode === "context_transition" ? "A setting or clothing transition justifies a fresh visual episode." : "No established same-day outfit continuity; do not invent continuity.",
   };
 }
 export function photographyGuidance(plan: PhotographyPlan): string {
