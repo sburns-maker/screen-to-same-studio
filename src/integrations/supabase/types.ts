@@ -1969,6 +1969,57 @@ export type Database = {
           },
         ]
       }
+      voice_studio_auditions: {
+        Row: {
+          character_key: string
+          close_reason: string | null
+          created_at: string
+          deadline_at: string
+          ended_at: string | null
+          id: string
+          lease_until: string
+          reserved_seconds: number
+          session_id: string | null
+          state: string
+          supervised: boolean
+          usage_seconds: number | null
+          user_id: string
+          voice_id: string
+        }
+        Insert: {
+          character_key: string
+          close_reason?: string | null
+          created_at?: string
+          deadline_at: string
+          ended_at?: string | null
+          id?: string
+          lease_until: string
+          reserved_seconds: number
+          session_id?: string | null
+          state?: string
+          supervised?: boolean
+          usage_seconds?: number | null
+          user_id: string
+          voice_id: string
+        }
+        Update: {
+          character_key?: string
+          close_reason?: string | null
+          created_at?: string
+          deadline_at?: string
+          ended_at?: string | null
+          id?: string
+          lease_until?: string
+          reserved_seconds?: number
+          session_id?: string | null
+          state?: string
+          supervised?: boolean
+          usage_seconds?: number | null
+          user_id?: string
+          voice_id?: string
+        }
+        Relationships: []
+      }
       world_control: {
         Row: {
           key: string
@@ -2258,6 +2309,20 @@ export type Database = {
           p_id: string
           p_mime: string
           p_user: string
+        }
+        Returns: Json
+      }
+      reserve_voice_audition: {
+        Args: {
+          p_character: string
+          p_daily_count: number
+          p_lease_ms: number
+          p_limit_ms: number
+          p_monthly_seconds: number
+          p_now: string
+          p_reserved_seconds: number
+          p_user: string
+          p_voice: string
         }
         Returns: Json
       }

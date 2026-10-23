@@ -1,10 +1,42 @@
 /** Direct OpenAI GPT-Live data-channel protocol, not the Realtime protocol. */
 export const AUDITION_SCRIPT =
   "I have a complaint. About you, obviously. I haven't decided what you've done wrong yet, but I'm confident I'll find something. Have a lovely day.";
-export const AUDITION_LIMIT_MS = 45_000;
-// Fail closed: the current one-shot SDP endpoint has no durable concurrency
-// reservation or server-owned connection enforcing a paid-session deadline.
-export const AUDITION_SERVER_SAFEGUARDS_READY = false;
+/** Server-owned hard deadline; fits the Workers post-response keep-alive window. */
+export const AUDITION_LIMIT_MS = 30_000;
+/**
+ * A crashed supervisor leaves OpenAI's own 120 s transcript-inactivity close
+ * as the backstop, so the lease and spend reservation assume that worst case.
+ */
+export const AUDITION_LEASE_MS = 150_000;
+export const AUDITION_RESERVED_SECONDS = 150;
+export const AUDITION_DEFAULT_DAILY = 10;
+export const AUDITION_DEFAULT_MONTHLY_SECONDS = 3_000;
+// Durable lease ledger (voice_studio_auditions), server sideband deadline and
+// spend caps are installed; the env flag still has to be explicitly enabled.
+export const AUDITION_SERVER_SAFEGUARDS_READY = true;
+
+export function auditionLimits(env: Record<string, string | undefined>) {
+  const num = (v: string | undefined, d: number, max: number) => {
+    const n = Number(v);
+    return Number.isInteger(n) && n > 0 ? Math.min(n, max) : d;
+  };
+  return {
+    daily: num(env["VOICE_AUDITION_DAILY_LIMIT"], AUDITION_DEFAULT_DAILY, 50),
+    monthlySeconds: num(
+      env["VOICE_AUDITION_MONTHLY_SECONDS"],
+      AUDITION_DEFAULT_MONTHLY_SECONDS,
+      20_000,
+    ),
+  };
+}
+
+export function reservationError(reason: unknown): string {
+  if (reason === "active")
+    return "An audition is already running. Stop it, or wait up to 2½ minutes if a tab was closed.";
+  if (reason === "daily") return "Daily audition limit reached. Try again tomorrow.";
+  if (reason === "monthly") return "Monthly audition spending cap reached.";
+  return "Audition could not be reserved.";
+}
 
 export function assertAuditionAllowed(developer: boolean, env: Record<string, string | undefined>) {
   if (!developer) throw new Error("Developer access required");

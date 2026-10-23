@@ -14,6 +14,7 @@ import {
   createCharacterVoiceCandidate,
   voiceStudioStatus,
   startVoiceStudioAudition,
+  stopVoiceStudioAudition,
 } from "@/lib/live-voice-design.functions";
 
 export const Route = createFileRoute("/_authenticated/voice-studio")({
@@ -63,6 +64,7 @@ function VoiceStudio() {
   const create = useServerFn(createCharacterVoiceCandidate);
   const statusFn = useServerFn(voiceStudioStatus);
   const auditionFn = useServerFn(startVoiceStudioAudition);
+  const stopFn = useServerFn(stopVoiceStudioAudition);
   const player = useRef<ReturnType<typeof createStudioAudition> | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const [auditionState, setAuditionState] = useState<AuditionState | "idle">("idle");
@@ -152,20 +154,34 @@ function VoiceStudio() {
     if (player.current || !selected || !status?.auditionsEnabled || !audioRef.current) return;
     if (
       !window.confirm(
-        "Start a paid audition, limited to 45 seconds? It won't affect character memories or calls.",
+        "Start a paid audition, limited to 30 seconds? It won't affect character memories or calls.",
       )
     )
       return;
     setError("");
+    let auditionId: string | null = null;
+    const release = () => {
+      if (!auditionId) return;
+      const id = auditionId;
+      auditionId = null;
+      // Server-side close + lease release; the server deadline still applies if this fails.
+      void stopFn({ data: { auditionId: id } }).catch(() => {});
+    };
     const session = createStudioAudition({
       audio: audioRef.current,
-      connect: (sdp) =>
-        auditionFn({
+      connect: async (sdp) => {
+        const r = await auditionFn({
           data: { character, voiceId: selected, sdp, confirmation: "START PAID VOICE AUDITION" },
-        }),
+        });
+        auditionId = r.auditionId;
+        return r;
+      },
       onState: (state) => {
         setAuditionState(state);
-        if (state === "closed") player.current = null;
+        if (state === "closed") {
+          player.current = null;
+          release();
+        }
       },
       onError: setError,
     });
@@ -315,8 +331,8 @@ function VoiceStudio() {
               </a>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              In-app and Playground auditions are billable. In-app auditions remain unavailable
-              until server spending safeguards are ready.
+              In-app and Playground auditions are billable. In-app auditions stop on the server
+              after 30 seconds, allow one at a time and are capped per day.
             </p>
           </Step>
 
