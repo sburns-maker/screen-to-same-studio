@@ -273,6 +273,7 @@ export async function generateTessImage(args: {
           canonical?.blob ?? null,
           new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
           args.scene,
+          { allowBackgroundAdults: group },
         );
         img = candidate;
         break;
