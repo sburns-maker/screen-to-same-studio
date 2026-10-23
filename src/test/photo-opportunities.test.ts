@@ -78,6 +78,24 @@ describe("independent contextual photo opportunities", () => {
       );
     },
   );
+  it("allows Jordan's free-ish climbing practice when the detail says patiently", () => {
+    const result = photoOpportunity({
+      ...base,
+      character: "jordan",
+      schedule: {
+        activity: "free-ish",
+        availability: "free",
+        detail: "free-ish; ongoing situation: Jordan and Ruth are working patiently on a climbing technique during their normal sessions",
+      },
+      context: "Jordan jokes about holding the toaster hostage",
+    });
+    expect(result.eligible).toBe(true);
+  });
+  it("continues blocking real patient consultations without matching patiently", () => {
+    expect(photoOpportunity({
+      ...base, schedule: { ...base.schedule, detail: "working with patients in a private room" },
+    }).reason).toBe("current activity is incompatible with a photo");
+  });
   it("honors absolute time and message cooldowns even after many texts or in accelerated practice", () => {
     const lastPhotoAt = "2026-10-22T14:00:00Z";
     expect(photoOpportunity({ ...base, lastPhotoAt, ownSinceLastPhoto: 100 }).reason).toContain(
