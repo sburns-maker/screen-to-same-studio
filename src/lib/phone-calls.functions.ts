@@ -55,14 +55,14 @@ export const phoneAction = createServerFn({ method: "POST" })
       throw new Error("Voice calling is not configured");
     if (
       data.command === "answer" &&
-      (await import("./phone-calls")).callAvailability(c.character_key, new Date()).outcome !==
+      (await import("./phone-calls")).callAvailability(c.character_key as never, new Date()).outcome !==
         "answer"
     )
       return s.phoneCommand(db, context.userId, data.id, "fail");
     if (
       data.command === "resolve" &&
       c.state === "calling" &&
-      (await import("./phone-calls")).callAvailability(c.character_key, new Date()).outcome !==
+      (await import("./phone-calls")).callAvailability(c.character_key as never, new Date()).outcome !==
         "answer" &&
       c.outcome === "answer"
     ) {
