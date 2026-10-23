@@ -1,3 +1,4 @@
+import { photoPersonalityPrompt, photographyDiagnostics, type PhotographyPlan } from "./photo-personality";
 import { canonicalProfile } from "./canonical-profile.server";
 import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
 import type { CharacterKey } from "./characters";
@@ -96,19 +97,21 @@ export function buildImagePrompt(
   expression: string | null,
   style?: PhotoStyle | null,
   identity?: CharacterIdentity,
+  photography?: PhotographyPlan,
 ) {
   if (identity && (!Number.isInteger(identity.age) || identity.age < 18))
     throw new Error("adult identity required");
+  const personality = photography ? `\n\n${photoPersonalityPrompt(photography,style,includesTess(type))}` : "";
   const mabel = sceneHasMabel(scene) ? ` ${MABEL}` : "";
   const age = identity?.age ?? 34;
   const person = identity?.pronouns === "he/him" ? "man" : "woman";
   if (!includesTess(type)) {
-    return `A casual realistic smartphone photo taken by a ${age}-year-old ${person} in a mid-sized Pennsylvania city. Scene: ${scene}.${mabel} No people's faces visible. ${STYLE}`;
+    return `A casual realistic smartphone photo taken by a ${age}-year-old ${person} in a mid-sized Pennsylvania city. Scene: ${scene}.${mabel} No people's faces visible. ${STYLE}${personality}`;
   }
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
     !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES["selfie"] : "";
-  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}`;
+  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}${personality}`;
 }
 
 export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
@@ -187,6 +190,7 @@ export type PhotoDiagnostics = {
   failureReason: string | null;
   retryCount: number;
   retryReasons?: string[];
+  photography?: ReturnType<typeof photographyDiagnostics>;
 };
 export class PhotoGenerationFailure extends Error {
   constructor(public diagnostics: PhotoDiagnostics) {
@@ -204,6 +208,7 @@ export async function generateTessImage(args: {
   style?: PhotoStyle | null;
   identity?: CharacterIdentity | undefined;
   text?: PhotoText | null | undefined;
+  photography?: PhotographyPlan | undefined;
 }) {
   const needsRef = includesTess(args.type);
   const diagnostic: PhotoDiagnostics = {
@@ -216,6 +221,7 @@ export async function generateTessImage(args: {
     validationStatus: "pending",
     failureReason: null,
     retryCount: 0,
+    ...(args.photography ? {photography:photographyDiagnostics(args.photography,args.style)} : {}),
   };
   try {
     if (
@@ -237,7 +243,7 @@ export async function generateTessImage(args: {
     const text = validatePhotoText(args.text);
     const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
     if (text && !textVerificationAvailable()) throw new Error("text_verification_unavailable");
-    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity)}\n\n${photoTextPrompt(text)}`;
+    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}\n\n${photoTextPrompt(text)}`;
     const references: Blob[] = [];
     if (canonical) references.push(canonical.blob); // Always primary, original portrait.
     if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)

@@ -169,6 +169,17 @@ afterEach(() => {
 });
 
 describe("normal spontaneous photo turn pipeline", () => {
+  it('provides character photography and separate scene-matched caption guidance through the normal turn', async()=>{
+    const fetchMock=vi.fn().mockResolvedValue(Response.json({data:[{b64_json:'aW1hZ2U='}]}));vi.stubGlobal('fetch',fetchMock);
+    const {runTurn}=await import('@/lib/tess.functions');
+    const preview = await runTurn(client,uid,cid,'America/New_York',{reason:'brief clinic office break',gapHours:2,developerPhoto:'preview'});
+    expect(preview).toMatchObject({photography:{profile:'tess',location:'clinic'}});
+    expect(fetchMock).not.toHaveBeenCalled();
+    await runTurn(client,uid,cid,'America/New_York');
+    expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('PHOTOGRAPHY PERSONALITY');
+    expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('Captions are separate messages');
+  });
+
   it("keeps ordinary text working before the migration without allowing image charges", async () => {
     vi.mocked(mocks.admin["rpc"] as ReturnType<typeof vi.fn>).mockResolvedValue({
       data: null,
@@ -238,7 +249,7 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(download).not.toHaveBeenCalled(); // No independent storage alias can override the profile.
     const [url, request] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://api.openai.com/v1/images/edits");
-    expect(request.body.get("model")).toBe("gpt-image-1-mini");
+    expect(request.body.get("model")).toBe("gpt-image-2.5-flare");
     expect(request.body.get("prompt")).toContain(
       "Preserve the exact same recognizable fictional woman",
     );
@@ -248,6 +259,9 @@ describe("normal spontaneous photo turn pipeline", () => {
     });
     const plan = mocks.prepare.mock.calls[0]![4];
     expect(plan.rows[0].body).toBe(caption);
+    expect(plan.rows[0].metadata.photo_identity.photography).toMatchObject({profile:'tess',location:'clinic',style:{hairstyle:'clipped_up'}});
+    expect(plan.rows[0].metadata.photo_visual).toMatchObject({version:1,character:'tess',location:'clinic',style:{clothing_category:'ordinary work cardigan'}});
+    expect(plan.rows[0].metadata.photo_decision.decision).toBe('chosen');
     expect(plan.rows[0].metadata.generated_path).toBe(`${uid}/${action}.png`);
     expect(plan.rows[0].metadata.generated_image_id).toBe(plan.generated.id);
     expect(plan.generated.message_id).toBe(plan.rows[0].id);
@@ -358,12 +372,12 @@ describe("normal spontaneous photo turn pipeline", () => {
   });
 
   it("never uploads or delivers a visually mismatched character image",async()=>{
-    mocks.visual.mockRejectedValueOnce(new Error("face_structure_drift"));
-    const fetchMock=vi.fn().mockResolvedValue(Response.json({data:[{b64_json:btoa("png")}]}));vi.stubGlobal("fetch",fetchMock);
+    mocks.visual.mockRejectedValue(new Error("face_structure_drift"));
+    const fetchMock=vi.fn().mockImplementation(async()=>Response.json({data:[{b64_json:btoa("png")}]}));vi.stubGlobal("fetch",fetchMock);
     const {runTurn}=await import("@/lib/tess.functions");
     expect((await runTurn(client,uid,cid,"America/New_York",{gapHours:3,photoKey:"mismatch"})).count).toBe(0);
     expect(upload).not.toHaveBeenCalled();expect(mocks.prepare).not.toHaveBeenCalled();expect(mocks.fail).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(mutations).toHaveBeenCalledWith("world_events","insert");
   });
 

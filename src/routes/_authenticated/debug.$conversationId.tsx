@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
 
 type Snapshot = {
   world?: Record<string, unknown>;
+  photography?: unknown;
   photoIdentity?: { profileUrl: string; comparisonUrl: string | null; canonical: Record<string, string | number> | null; latest: Record<string, unknown> | null; source: string | null; delivery: string } | null;
   photoDeveloperTools: boolean;
   photoBoundary: string;
@@ -125,6 +126,7 @@ function Debug() {
         <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
         </Link>
+        {snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography"><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
         {snap?.photoDeveloperTools && (
           <Section title="Photo boundaries (developer)">
             <p className="text-xs text-muted-foreground">Current saved setting: <strong>{snap.photoBoundary === "selfies" ? "No selfies" : snap.photoBoundary === "all_photos" ? "No photos" : snap.photoBoundary === "mature" ? "No mature romantic photos" : "No restriction"}</strong>. This is a persisted conversation preference, not a cooldown.</p>

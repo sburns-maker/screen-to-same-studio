@@ -1,3 +1,4 @@
+import { continuityPhotoStyle, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photoSceneCompatible, photographyProfile, type PhotographyPlan } from "./photo-personality";
 import { photoPacing } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
@@ -170,6 +171,7 @@ async function createGeneratedPhoto(
   def?: CharacterDef,
   actionId?: string,
   text?: import("./photo-text").PhotoText | null,
+  photography?: PhotographyPlan,
 ) {
   // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
   const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
@@ -190,7 +192,7 @@ async function createGeneratedPhoto(
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
   const canonical = includesTess(t) ? await (await import("./profile-media.server")).currentCanonical(supabaseAdmin, userId, characterKey) : undefined;
-  const img = await generateTessImage({ provider, canonical, mabelReference, type: t, scene, expression, style, identity, text });
+  const img = await generateTessImage({ provider, canonical, photography, mabelReference, type: t, scene, expression, style, identity, text });
   const path = `${userId}/${actionId ?? crypto.randomUUID()}.png`;
   const { error } = await supabase.storage.from("tess-photos").upload(path, img.bytes, { contentType: img.mime });
   if (error) throw new Error(error.message);
@@ -413,6 +415,9 @@ async function runTurnUnlocked(
   if (imageBudget && !imageBudget.allowed) generateTypes = [];
   if (!photoAdmin) { generateTypes = []; photos = []; }
   const lifeEvent = story.event ?? (isTess ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined) : null);
+  const photography = planPhotography({character:def.key,key:actionKey,now,schedule,
+    userText:initiation?'':recent.find(m=>m.sender==='user')?.body??'',
+    weather:weather?.condition??null,previous:previousDeliveredPhoto(recent,def.key,now)});
   const opportunity = photoOpportunity({
     character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
@@ -430,14 +435,14 @@ async function runTurnUnlocked(
     const { currentCanonical } = await import("./profile-media.server");
     const reference = await currentCanonical(photoAdmin ?? supabase, userId, def.key).then(r => ({ asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable" })).catch(() => null);
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
-    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, pacing, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
+    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, photography: photographyDiagnostics(photography,null), pacing, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
       textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
       deliveryMigrationReady: !!migration && !migration.error };
   }
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
-  const photoHint = opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 });
+  const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : [])].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
   let reply: import("./tess.server").TessReply;
   if (isTess) {
@@ -528,9 +533,10 @@ async function runTurnUnlocked(
         if (repeatsPhotoComposition(rawStyle, recentStyles) || (recentGen ?? []).some((old) => old.scene.trim().toLowerCase() === p.scene!.trim().toLowerCase())) {
           throw new Error("repeated photo composition");
         }
-        const style = rawStyle;
+        if (!photoSceneCompatible(photography,p.scene)) throw new Error('photo scene contradicts current location');
+        const style = continuityPhotoStyle(photography,rawStyle,p.scene);
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
-        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec);
+        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);
         if (worldReady) {
           const { error } = await photoAdmin!.from("media_attempts").update({ status: "generated", storage_path: generated.path }).eq("action_id", photoAction!);
           if (error) console.warn("[character-photo] usage status pending; reserved attempt remains counted");
@@ -538,7 +544,7 @@ async function runTurnUnlocked(
       } catch (e) {
         const { PhotoGenerationFailure } = await import("./tess-image.server");
         // Do not expose raw provider errors, prompts or secrets in client-facing diagnostics.
-        const safeLocalReasons = ["repeated photo composition", "Image attempt budget exhausted",
+        const safeLocalReasons = ["repeated photo composition", "photo scene contradicts current location", "Image attempt budget exhausted",
           "photo scene outside supported boundaries", "image provider not configured"];
         generationFailure = e instanceof PhotoGenerationFailure
           ? e.diagnostics.failureReason ?? "generation_or_quality_check_failed"
@@ -549,7 +555,7 @@ async function runTurnUnlocked(
           await photoAdmin.from("world_events").insert({ user_id: userId, conversation_id: conv.id,
             character_key: def.key, kind: "photo_generation_failure",
             summary: `Photo withheld: ${generationFailure}`,
-            payload: { reason: generationFailure,
+            payload: { reason: generationFailure, photography: photographyDiagnostics(photography, null),
               ...(e instanceof PhotoGenerationFailure ? { ...e.diagnostics } : {}),
               actionId: photoAction, source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation",
               delivery: "not_delivered" } });
@@ -605,9 +611,13 @@ async function runTurnUnlocked(
         initiated: !!initiation,
         notification_group: notificationGroup,
         push_primary: i === 0,
+        ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
+          decision:photo || generated ? 'chosen' : 'not_selected',
+          reason:photo || generated ? 'character_selected_eligible_photo' : photoRejectionReason ?? (opportunity.eligible ? 'character_did_not_select_photo' : opportunity.reason) } } : {}),
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
-        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type, text_quality: generated.textQuality.status, photo_identity: generated.diagnostics, photo_source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation" } : {}),
+        ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type, text_quality: generated.textQuality.status, photo_identity: generated.diagnostics,
+          photo_visual: { version:1, character:def.key, location:photography.location, style:{...generated.style}, objects:photography.continuity.objects }, photo_source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation" } : {}),
       },
     };
   });
@@ -1075,6 +1085,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     }
     return {
       photoIdentity,
+      photography: developerTools ? {profile:photographyProfile(def.key), current:photographyDiagnostics(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule,userText:list.find(m=>m.sender==='user')?.body??'',weather:weather?.condition??null,previous:previousDeliveredPhoto(list,def.key,now)}),null),latest:(list.find(m=>(m.metadata as {photo_identity?:{photography?:unknown}}|null)?.photo_identity?.photography)?.metadata as {photo_identity?:unknown}|undefined)?.photo_identity??null,latestDecision:(list.find(m=>(m.metadata as {photo_decision?:unknown}|null)?.photo_decision)?.metadata as {photo_decision?:unknown}|undefined)?.photo_decision??null,pacingReason:debugPacing.reason,eligibleTypes:genTypes,lastFailure:events?.find(e=>e.kind==='photo_generation_failure')??null} : null,
       world: { checkpoint, records: records ?? [], events: events ?? [], imageAttemptsThisMonth: attempts?.length ?? 0, imageAttempts: attempts ?? [],
         workerHealth, imageBudget: await imageBudgetStatus(supabase, userId, conv.id, now).catch(() => null), schedulePreview: (await import("./world-runtime.server")).previewWorld(def, now), checkpointPresent: !!checkpoint },
       photoDeveloperTools: developerTools,

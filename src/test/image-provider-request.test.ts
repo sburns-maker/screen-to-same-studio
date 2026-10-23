@@ -24,7 +24,7 @@ describe("image provider request compatibility", () => {
     expect(init.body.getAll("image[]")[1].name).toBe("mabel-reference-1.jpg");
     expect(init.signal).toBeDefined();
     expect(result.provider).toBe("openai");
-    expect(result.model).toBe("gpt-image-1-mini");
+    expect(result.model).toBe("gpt-image-2.5-flare");
   });
   it("retains the existing gateway fallback and records the provider accurately", async () => {
     vi.stubEnv("OPENAI_API_KEY", "");
