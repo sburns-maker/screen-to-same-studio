@@ -35,6 +35,7 @@ export async function runStructured<T>(
   reservedTokens += reservation; // Keep reservations on failures: failed calls can still cost money.
   inFlight++;
   const started = Date.now();
+  const reservationWindow = windowStart;
   try {
     const provider = createOpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
     const result = await generateText({
@@ -47,6 +48,13 @@ export async function runStructured<T>(
       abortSignal: AbortSignal.timeout(60_000),
       providerOptions: { openai: { store: false, strictJsonSchema: true, reasoningEffort: "low" } },
     });
+    // Reconcile only known usage in the same window. Unknown/failed requests keep
+    // their conservative reservation; never erase other concurrent reservations.
+    const actualTokens = result.totalUsage.totalTokens;
+    if (windowStart === reservationWindow && actualTokens !== undefined &&
+        Number.isFinite(actualTokens) && actualTokens >= 0) {
+      reservedTokens = Math.max(0, reservedTokens + actualTokens - reservation);
+    }
     // Validate before callers persist messages, memories, or state.
     if (result.finishReason !== "stop") throw new Error("Incomplete character response");
     const output = schema.parse(result.output);
@@ -72,6 +80,10 @@ export async function runStructured<T>(
       status: "failed",
       operation,
       durationMs: Date.now() - started,
+      statusCode: APICallError.isInstance(error) ? (error.statusCode ?? null) : null,
+      failureKind: APICallError.isInstance(error) ? "provider_http" :
+        error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)
+          ? "timeout" : "invalid_or_incomplete_response",
     });
     // Preserve only safe billing/access status codes for the existing world-tick circuit breaker.
     if (APICallError.isInstance(error) && [402, 403].includes(error.statusCode ?? 0)) {

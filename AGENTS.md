@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Tess app
+- Successful direct text-AI calls reconcile conservative in-flight reservations to reported token usage in the same window; failed or unknown usage remains reserved. Living Experience failure logs use allowlisted reasons and phase/operation IDs, never transcript or raw provider errors, so diagnosis does not expose private context.
 - Voice Studio auditions reserve a durable lease via `reserve_voice_audition` (one active per developer, daily/30-day caps) before any paid request, and a server sideband supervisor (`voice-studio-audition.server.ts`, kept alive by `keepAlive` waitUntil) closes the session at the deadline; browser timers alone must never authorize paid sessions, and failures are never auto-retried.
 - Scripted and Tess conversational audition modes share validation and prompt builders in `voice-audition-modes.ts`; editable performance/cue drafts use separate device-local storage and are snapshotted for each explicitly confirmed audition so server and client prompts stay aligned without changing saved voices, character state or the audition lease.
 - Tess model prompts live in `src/lib/tess.server.ts`, with direct OpenAI configuration in `src/lib/text-ai.server.ts`. They are reached only via server fns in `src/lib/tess.functions.ts`, keeping prompts, hidden-state logic and keys off the client.
