@@ -1,7 +1,8 @@
 # Tess roadmap
 
 ## Failed live dinner reply
-- In progress: diagnose the failed pending turn, correct generation accounting and safe diagnostics, test concurrent retry/replay and unchanged dinner state.
+- Done: corrected inflated successful-call capacity accounting (seven dinner replies reserved 243,889 tokens versus 54,058 reported); added safe failure phase/reason diagnostics. This is the strongest supported cause, not a provable historical error: previous capacity checks and scene catches discarded the reason.
+- Done: 46 focused tests passed, including same-ID concurrent generation, replay, exhausted retries and unchanged claim/state; automatic checks report build OK. Signed-in dinner UI and database both retain the failed turn, 14 moments, interactive claim and revision 9; no paid retry or publication performed.
 - Preserve the existing claim, moments, pending operation and all unrelated plans; do not run a paid retry or finish the outing.
 - Blocker: existing pending operation has exhausted its three-attempt allowance; recovery requires an explicit scoped decision after diagnosis.
 
