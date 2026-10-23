@@ -14,10 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      living_experiences: { Row: import("@/lib/living-experiences").ExperienceRow; Insert: Partial<import("@/lib/living-experiences").ExperienceRow>; Update: Partial<import("@/lib/living-experiences").ExperienceRow>; Relationships: [] };
-      living_experience_moments: { Row: import("@/lib/living-experiences").ExperienceMoment; Insert: Partial<import("@/lib/living-experiences").ExperienceMoment>; Update: Partial<import("@/lib/living-experiences").ExperienceMoment>; Relationships: [] };
-      experience_operations: { Row: import("@/lib/living-experiences").ExperienceOperation; Insert: Partial<import("@/lib/living-experiences").ExperienceOperation>; Update: Partial<import("@/lib/living-experiences").ExperienceOperation>; Relationships: [] };
-
       calendar_evidence: {
         Row: {
           action: string
@@ -421,6 +417,112 @@ export type Database = {
         }
         Relationships: []
       }
+      experience_action_receipts: {
+        Row: {
+          command: string
+          id: string
+          plan_id: string
+          result: Json
+          user_id: string
+        }
+        Insert: {
+          command: string
+          id: string
+          plan_id: string
+          result: Json
+          user_id: string
+        }
+        Update: {
+          command?: string
+          id?: string
+          plan_id?: string
+          result?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_action_receipts_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "living_experiences"
+            referencedColumns: ["user_id", "plan_id"]
+          },
+        ]
+      }
+      experience_operations: {
+        Row: {
+          attempts: number
+          body: string
+          created_at: string
+          experience_id: string
+          id: string
+          kind: string
+          lease_until: string
+          result: Json | null
+          revision: number
+          status: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          experience_id: string
+          id: string
+          kind: string
+          lease_until: string
+          result?: Json | null
+          revision: number
+          status?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          body?: string
+          created_at?: string
+          experience_id?: string
+          id?: string
+          kind?: string
+          lease_until?: string
+          result?: Json | null
+          revision?: number
+          status?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_operations_user_id_experience_id_fkey"
+            columns: ["user_id", "experience_id"]
+            isOneToOne: false
+            referencedRelation: "living_experiences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      experience_settings: {
+        Row: {
+          enabled: boolean
+          installed_at: string
+          singleton: boolean
+          window_hours: number
+        }
+        Insert: {
+          enabled?: boolean
+          installed_at?: string
+          singleton?: boolean
+          window_hours?: number
+        }
+        Update: {
+          enabled?: boolean
+          installed_at?: string
+          singleton?: boolean
+          window_hours?: number
+        }
+        Relationships: []
+      }
       generated_images: {
         Row: {
           camera_angle: string | null
@@ -555,6 +657,115 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      living_experience_moments: {
+        Row: {
+          body: string
+          confirmed: boolean
+          created_at: string
+          experience_id: string
+          id: string
+          kind: string
+          ordinal: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          confirmed?: boolean
+          created_at?: string
+          experience_id: string
+          id: string
+          kind: string
+          ordinal: number
+          source: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          confirmed?: boolean
+          created_at?: string
+          experience_id?: string
+          id?: string
+          kind?: string
+          ordinal?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "living_experience_moments_user_id_experience_id_fkey"
+            columns: ["user_id", "experience_id"]
+            isOneToOne: false
+            referencedRelation: "living_experiences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      living_experiences: {
+        Row: {
+          claim_deadline: string
+          claimed_at: string | null
+          conversation_id: string | null
+          id: string
+          last_failure: string | null
+          mode: string | null
+          outcome_id: string | null
+          plan_id: string
+          plan_version: number | null
+          revision: number
+          start_at: string
+          state: string
+          summary: string
+          synced_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          claim_deadline: string
+          claimed_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          last_failure?: string | null
+          mode?: string | null
+          outcome_id?: string | null
+          plan_id: string
+          plan_version?: number | null
+          revision?: number
+          start_at: string
+          state?: string
+          summary?: string
+          synced_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          claim_deadline?: string
+          claimed_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          last_failure?: string | null
+          mode?: string | null
+          outcome_id?: string | null
+          plan_id?: string
+          plan_version?: number | null
+          revision?: number
+          start_at?: string
+          state?: string
+          summary?: string
+          synced_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "living_experiences_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: true
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
       }
       media_attempts: {
         Row: {
@@ -1924,11 +2135,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      experience_candidates: { Args: {p_user:string;p_now:string}; Returns:Json };
-      experience_status: { Args: Record<string, never>; Returns: number };
-      experience_seed: { Args: {p_user:string;p_now:string}; Returns:number };
-      experience_command: { Args: {p_user:string;p_plan:string;p_id:string;p_command:string;p_revision:number|null;p_payload:Json;p_now:string}; Returns:Json };
-
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number
@@ -1956,7 +2162,67 @@ export type Database = {
         Args: { p_id: string; p_user: string }
         Returns: Json
       }
+      experience_candidates: {
+        Args: { p_now: string; p_user: string }
+        Returns: Json
+      }
+      experience_command: {
+        Args: {
+          p_command: string
+          p_id: string
+          p_now: string
+          p_payload: Json
+          p_plan: string
+          p_revision: number
+          p_user: string
+        }
+        Returns: Json
+      }
+      experience_seed: {
+        Args: { p_now: string; p_user: string }
+        Returns: number
+      }
+      experience_status: { Args: never; Returns: number }
       interactive_world_status: { Args: never; Returns: number }
+      living_experience_action_v25: {
+        Args: {
+          p_action: string
+          p_expected_revision?: number
+          p_now: string
+          p_outcome?: string
+          p_plan: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      living_experience_complete_v25: {
+        Args: {
+          p_expected_revision: number
+          p_now: string
+          p_outcome: string
+          p_plan: string
+          p_summary: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      living_experience_due: {
+        Args: { p_limit?: number; p_now: string }
+        Returns: {
+          plan_id: string
+          user_id: string
+        }[]
+      }
+      living_experience_moment: {
+        Args: {
+          p_body: string
+          p_id: string
+          p_now: string
+          p_plan: string
+          p_user: string
+        }
+        Returns: Json
+      }
       media_profile_status: { Args: never; Returns: number }
       phone_command: {
         Args: {

@@ -21,11 +21,11 @@ function ready(e: ExperienceRow) {
     {
       id: e.id,
       planId: e.plan_id,
-      state: e.state,
+      state: e.state as Parameters<typeof canTransition>[0]["state"],
       startAt: e.start_at,
       claimDeadline: e.claim_deadline,
       claimedAt: e.claimed_at,
-      mode: e.mode,
+      mode: e.mode as Parameters<typeof canTransition>[0]["mode"],
       outcomeId: e.outcome_id,
       revision: e.revision,
     },
@@ -309,7 +309,7 @@ function Experiences() {
                         disabled={busy}
                         onClick={() => {
                           const o = history.data!.pending!;
-                          void act(scene, o.kind, o.body, o.id);
+                          void act(scene, o.kind as "turn" | "finish" | "automatic", o.body, o.id);
                         }}
                         className="min-h-11 rounded-full border px-4"
                       >

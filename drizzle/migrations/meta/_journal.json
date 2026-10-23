@@ -190,6 +190,13 @@
       "when": 1792771200015,
       "tag": "0026_complete_living_experiences",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792774872506,
+      "tag": "0027_verify_living_experiences",
+      "breakpoints": true
     }
   ]
 }
