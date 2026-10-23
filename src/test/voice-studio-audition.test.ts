@@ -128,7 +128,7 @@ describe("direct OpenAI audition lifecycle (mocked transport)", () => {
     expect(f.channel.send).toHaveBeenCalledTimes(1);
     const command = JSON.parse(String(f.channel.send.mock.calls[0]?.[0]));
     const config = auditionSessionConfig("tess", "voice_savedRefined123", "conversational", AUDITION_SPEAK_PROMPT);
-    expect(command.content.startsWith(config.input[0]?.content[0]?.text)).toBe(true);
+    expect(command.content).toContain(config.input[0]?.content[0]?.text);
     expect(command.content).not.toContain(AUDITION_SCRIPT);
     await vi.advanceTimersByTimeAsync(29_999);
     expect(f.onState).not.toHaveBeenCalledWith("stopping");

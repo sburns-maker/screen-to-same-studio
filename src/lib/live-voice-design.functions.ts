@@ -152,7 +152,7 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           transport: { type: "webrtc", sdp: data.sdp },
-          session: auditionSessionConfig(data.character, data.voiceId, data.mode, AUDITION_SPEAK_PROMPT),
+          session: auditionSessionConfig(data.character, data.voiceId, data.mode, AUDITION_SPEAK_PROMPT, data),
         }),
         signal: AbortSignal.timeout(20000),
       });

@@ -3,9 +3,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
-import { CONVERSATIONAL_CUE, TESS_CONVERSATIONAL_DIRECTION, type AuditionMode } from "@/lib/voice-audition-modes";
+import { CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
 import {
   AUDITION_SCRIPT,
+  AUDITION_SPEAK_PROMPT,
   createStudioAudition,
   type AuditionState,
   type AuditionTrace,
@@ -105,6 +106,10 @@ function VoiceStudio() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selected, setSelected] = useState("");
   const [auditionMode, setAuditionMode] = useState<AuditionMode>("scripted");
+  const [conversationalOptions, setConversationalOptions] = useState<ConversationalOptions>(DEFAULT_CONVERSATIONAL_OPTIONS);
+  const conversationalValidation = conversationalOptionsSchema.safeParse(conversationalOptions);
+  const auditionInvalid = auditionMode === "conversational" && !conversationalValidation.success
+    ? conversationalValidation.error.issues[0]?.message : undefined;
   const [copied, setCopied] = useState("");
   const [level, setLevel] = useState(0);
   const [spoken, setSpoken] = useState("");
@@ -121,6 +126,7 @@ function VoiceStudio() {
 
   useEffect(() => {
     try {
+      setConversationalOptions(restoreConversationalDraft(localStorage.getItem(CONVERSATIONAL_DRAFT_STORE)));
       const raw = localStorage.getItem(DRAFT_STORE);
       if (raw) setDrafts(JSON.parse(raw) as Record<string, Draft>);
     } catch {
@@ -143,6 +149,14 @@ function VoiceStudio() {
       localStorage.setItem(DRAFT_STORE, JSON.stringify(next));
     } catch {
       /* ignore */
+    }
+  }
+  function saveConversationalOptions(next: ConversationalOptions) {
+    setConversationalOptions(next);
+    try {
+      localStorage.setItem(CONVERSATIONAL_DRAFT_STORE, JSON.stringify(next));
+    } catch {
+      setError("Audition edits could not be saved on this device; they remain available for this visit.");
     }
   }
   function updateDraft(patch: Partial<Draft>) {
@@ -237,6 +251,8 @@ function VoiceStudio() {
   );
   function audition() {
     if (player.current || !selected || !status?.auditionsEnabled || !audioRef.current) return;
+    if (auditionInvalid) return setError(auditionInvalid);
+    const auditionOptions = auditionMode === "conversational" ? { ...conversationalOptions } : { ...DEFAULT_CONVERSATIONAL_OPTIONS };
     if (
       !window.confirm(
         `Start a paid ${auditionMode} audition with the selected saved voice, limited to 30 seconds? No new voice is generated. It won't affect character memories or calls.`,
@@ -298,9 +314,10 @@ function VoiceStudio() {
     const session = createStudioAudition({
       audio: audioRef.current,
       mode: auditionMode,
+      conversationalOptions: auditionOptions,
       connect: async (sdp) => {
         const r = await auditionFn({
-          data: { character, voiceId: selected, sdp, mode: auditionMode, confirmation: "START PAID VOICE AUDITION" },
+          data: { character, voiceId: selected, sdp, mode: auditionMode, ...auditionOptions, confirmation: "START PAID VOICE AUDITION" },
         });
         auditionId = r.auditionId;
         return r;
@@ -529,27 +546,61 @@ function VoiceStudio() {
                 </Button>
               ))}
             </div>
-            <p className="mt-3 rounded-lg bg-background p-3 text-sm">
-              {auditionMode === "scripted" ? script : CONVERSATIONAL_CUE}
-            </p>
-            {auditionMode === "conversational" && (
-              <details className="mt-2 text-sm">
-                <summary className="cursor-pointer font-medium">Performance instructions</summary>
-                <p className="mt-2 whitespace-pre-line text-muted-foreground">{TESS_CONVERSATIONAL_DIRECTION}</p>
-              </details>
+            {auditionMode === "scripted" ? (
+              <p className="mt-3 rounded-lg bg-background p-3 text-sm">{script}</p>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <label className="block text-sm font-medium">
+                  Performance instructions
+                  <textarea
+                    className="mt-1 min-h-48 w-full rounded-lg border bg-background p-3 text-sm"
+                    value={conversationalOptions.performanceInstructions}
+                    aria-label="Performance instructions"
+                    maxLength={PERFORMANCE_MAX}
+                    disabled={playing || busy !== null || !status}
+                    onChange={(e) => saveConversationalOptions({ ...conversationalOptions, performanceInstructions: e.target.value })}
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Conversational audition cue
+                  <textarea
+                    className="mt-1 min-h-28 w-full rounded-lg border bg-background p-3 text-sm"
+                    value={conversationalOptions.conversationalCue}
+                    aria-label="Conversational audition cue"
+                    maxLength={CUE_MAX}
+                    disabled={playing || busy !== null || !status}
+                    onChange={(e) => saveConversationalOptions({ ...conversationalOptions, conversationalCue: e.target.value })}
+                  />
+                </label>
+                <Button type="button" variant="outline" disabled={playing || busy !== null || !status}
+                  onClick={() => saveConversationalOptions({ ...DEFAULT_CONVERSATIONAL_OPTIONS })}>
+                  Reset to Default
+                </Button>
+                {auditionInvalid && <p role="alert" className="text-sm text-destructive">{auditionInvalid}</p>}
+                {conversationalValidation.success && (
+                  <details className="text-sm">
+                    <summary className="cursor-pointer font-medium">Exact GPT-Live audition request</summary>
+                    <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-background p-3 text-xs">{JSON.stringify({
+                      instructions: auditionSessionConfig("tess", selected, "conversational", AUDITION_SPEAK_PROMPT, conversationalOptions).instructions,
+                      input: auditionSessionConfig("tess", selected, "conversational", AUDITION_SPEAK_PROMPT, conversationalOptions).input,
+                      reinforcement: auditionReinforcement("conversational", AUDITION_SPEAK_PROMPT, conversationalOptions),
+                    }, null, 2)}</pre>
+                  </details>
+                )}
+              </div>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
                 className="min-h-11"
-                onClick={() => void copy(auditionMode === "scripted" ? script : CONVERSATIONAL_CUE, "script")}
+                onClick={() => void copy(auditionMode === "scripted" ? script : conversationalOptions.conversationalCue, "script")}
               >
                 {copied === "script" ? "Copied" : auditionMode === "scripted" ? "Copy script" : "Copy cue"}
               </Button>
               <Button
                 type="button"
-                disabled={!selected || playing || busy !== null || !status?.auditionsEnabled}
+                disabled={!selected || playing || busy !== null || !status?.auditionsEnabled || !!auditionInvalid}
                 className="min-h-11"
                 onClick={audition}
               >

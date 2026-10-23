@@ -1,5 +1,10 @@
 # Tess roadmap
 
+## Editable conversational auditions
+- Done: editable performance instructions and cue, locally saved with reset and exact request preview; shared validated client/server prompts; voice IDs and safeguards preserved.
+- Done: 51 focused tests passed; automatic build checks report OK; signed-in edit/refresh/reset, blank-input validation and exact preview verified with no page errors. Live calls Off. No paid requests.
+- Unverified: actual delivery with edited instructions on the saved Refined voice requires a manually confirmed paid device audition.
+
 ## Conversational Voice Studio comparison
 - Done: developer-only Tess conversational mode reusing the selected voice; original scripted mode, 30-second server deadline, durable caps and recording preserved. Recordings are labeled by audition mode.
 - Done: 48 focused regression tests passed; automatic preview compilation passed; signed-in developer mode switching and narrow-screen controls verified with no page errors. Live calls reported Off.
@@ -7,7 +12,7 @@
 
 ## Voice Studio audition validation
 - Done: repaired mounted audio, one-shot script trigger, playback detection, blocked-audio recovery, startup/Stop/disconnection cleanup; verified direct-OpenAI documented events with mocked transport, without paid requests.
-- Blocked: auditions remain disabled until durable concurrency/spending reservations and a server-owned OpenAI sideband deadline are implemented and reviewed; no schema changes authorized here. Normal calls remain disabled.
+- Done: durable concurrency/spending reservations and server-owned sideband deadline installed in the subsequent safeguards task; auditions enabled, normal calls remain disabled.
 - Done: 509 tests passed; edited files lint clean; automatic preview build/typecheck OK. Signed-in developer mobile page loads with all five selectors and no horizontal overflow. Repository-wide lint has 3,455 pre-existing findings. Physical Android/audio and production paid playback remain unverified; not published.
 
 ## Multi-week life upgrade
