@@ -66,6 +66,15 @@ const MABEL = `Mabel is Tess's rescue dog: a scruffy medium-sized brown-and-whit
 export const includesTess = (t: TessImageType) => t !== "object";
 
 export const sceneHasMabel = (scene: string) => /\bmabel\b/i.test(scene);
+/** Only incidental fictional adults with one anchored lead; other known cast require multi-anchor validation. */
+export function fictionalGroupScene(scene: string): boolean {
+  return /\b(?:group (?:photo|selfie|portrait)|team (?:photo|selfie|picture)|trivia team|(?:photo|selfie|portrait) (?:of |with )?(?:everyone|the whole group)|teammates? (?:in|at|posing|standing|sitting))\b/i.test(scene);
+}
+export function mentionsOtherEstablishedCharacter(scene: string, lead: string): boolean {
+  return ["tess", "maya", "claire", "jordan", "ben"].some(k =>
+    k !== lead && new RegExp(`\\b${k}\\b`, "i").test(scene));
+}
+
 
 const SELFIE_LINES: Record<string, string> = {
   selfie:
@@ -224,11 +233,9 @@ export async function generateTessImage(args: {
     ...(args.photography ? {photography:photographyDiagnostics(args.photography,args.style)} : {}),
   };
   try {
-    if (
-      /\b(group (?:photo|selfie|portrait)|two (?:people|characters|women|men)|both (?:of )?us|(?:selfie|photo|portrait) (?:of |with )?(?:everyone|the whole group))\b/i.test(
-        args.scene,
-      )
-    )
+    const group = needsRef && fictionalGroupScene(args.scene);
+    if ((group && mentionsOtherEstablishedCharacter(args.scene, args.identity?.key ?? "")) ||
+        (!group && /\\b(?:group (?:photo|selfie|portrait)|two (?:people|characters|women|men)|both (?:of )?us|(?:selfie|photo|portrait) (?:of |with )?(?:everyone|the whole group))\\b/i.test(args.scene)))
       throw new Error("unsupported_group_photo");
     let canonical: (Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }) | null = null;
     if (needsRef) {
@@ -243,7 +250,10 @@ export async function generateTessImage(args: {
     const text = validatePhotoText(args.text);
     const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
     if (text && !textVerificationAvailable()) throw new Error("text_verification_unavailable");
-    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}\n\n${photoTextPrompt(text)}`;
+    const groupInstructions = group
+      ? "\\n\\nFICTIONAL GROUP MOMENT: The approved reference image belongs ONLY to the main foreground character. Keep that character recognizable, and add 1–4 generic fictional adult teammates appropriate to the established scene. Give the teammates distinct ordinary appearances; do not claim they are known or named contacts. No real patrons, clients, patients, private screens or identifying material. Compose like a casual phone group selfie, not a studio portrait."
+      : "";
+    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\\n\\n${photoTextPrompt(text)}`;
     const references: Blob[] = [];
     if (canonical) references.push(canonical.blob); // Always primary, original portrait.
     if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)
