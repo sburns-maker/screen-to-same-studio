@@ -349,7 +349,7 @@ function VoiceStudio() {
   }
   function sampleFile(s: StoredSample) {
     return new File([s.blob], sampleFilename(s.character, s.candidate, new Date(s.recordedAt), s.mime), {
-      type: s.mime.split(";")[0],
+      type: s.mime.split(";")[0] ?? s.mime,
     });
   }
   function downloadSample(s: StoredSample) {
