@@ -1864,6 +1864,10 @@ export type Database = {
         }
         Returns: Json
       }
+      town_favorite: {
+        Args: { p_enabled: boolean; p_place: string; p_user: string }
+        Returns: Json
+      }
       town_propose_plan: {
         Args: { p_id: string; p_now: string; p_payload: Json; p_user: string }
         Returns: Json
@@ -1900,6 +1904,24 @@ export type Database = {
           p_user: string
         }
         Returns: Json
+      }
+      venue_experience_status: { Args: never; Returns: number }
+      venue_progress: {
+        Args: {
+          p_choice: number
+          p_id: string
+          p_kind: string
+          p_now: string
+          p_place: string
+          p_plan?: string
+          p_step: number
+          p_user: string
+        }
+        Returns: Json
+      }
+      venue_reconcile_departures: {
+        Args: { p_now: string; p_user: string }
+        Returns: number
       }
       venue_session: { Args: { p_now: string; p_user: string }; Returns: Json }
       world_expansion_status: { Args: never; Returns: number }

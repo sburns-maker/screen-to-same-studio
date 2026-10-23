@@ -1,0 +1,1 @@
+DO $$ BEGIN IF public.venue_experience_status() <> 21 THEN RAISE EXCEPTION 'venue experiences not installed'; END IF; END $$;
