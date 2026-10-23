@@ -49,7 +49,7 @@ beforeEach(async () => {
 describe("persistent exploration and contact exchange", () => {
   it("seeds the same eleven places without changing existing primary conversations", async () => {
     await initializeTown(admin, user);
-    expect(await count("world_places")).toBe(14);
+    expect(await count("world_places")).toBe(15);
     expect(await count("conversations")).toBe(0);
     expect(await count("messages")).toBe(0);
   });
