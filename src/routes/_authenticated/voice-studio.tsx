@@ -10,7 +10,17 @@ import {
   type AuditionTrace,
 } from "@/lib/voice-studio-audition";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { VOICE_DESIGNS, type VoiceDesignKey } from "@/lib/live-voice-design";
+import {
+  VOICE_DESIGNS,
+  VOICE_NAME_MAX,
+  VOICE_PRESETS,
+  VOICE_PROMPT_MAX,
+  defaultVoiceName,
+  presetVoicePrompt,
+  validateVoiceRequest,
+  type VoiceDesignKey,
+  type VoiceVariant,
+} from "@/lib/live-voice-design";
 import {
   createCharacterVoiceCandidate,
   voiceStudioStatus,
@@ -39,9 +49,17 @@ export const Route = createFileRoute("/_authenticated/voice-studio")({
   component: VoiceStudio,
 });
 
-type Variant = "natural" | "refined" | "playful";
-type Candidate = { id: string; variant: Variant; character: VoiceDesignKey; approved: false };
-const variants: Variant[] = ["natural", "refined", "playful"];
+type Variant = VoiceVariant;
+type Candidate = { id: string; variant: Variant; character: VoiceDesignKey; approved: false; name?: string };
+type Draft = { prompt: string; name: string };
+const variants: Variant[] = VOICE_PRESETS;
+const DRAFT_STORE = "voice-studio-drafts-v1";
+function presetDraft(c: VoiceDesignKey, v: Variant): Draft {
+  return {
+    prompt: v === "custom" ? "" : presetVoicePrompt(c, v),
+    name: defaultVoiceName(c, v),
+  };
+}
 const script = AUDITION_SCRIPT;
 const characters = Object.keys(VOICE_DESIGNS) as VoiceDesignKey[];
 const STORE = "voice-studio-candidates-v1";
@@ -80,6 +98,41 @@ function VoiceStudio() {
   const [level, setLevel] = useState(0);
   const [spoken, setSpoken] = useState("");
   const [trace, setTrace] = useState<AuditionTrace[]>([]);
+  const [variant, setVariant] = useState<Variant>("natural");
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const draftKey = `${character}:${variant}`;
+  const draft: Draft = drafts[draftKey] ?? presetDraft(character, variant);
+  const invalid = validateVoiceRequest(draft.prompt, draft.name);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_STORE);
+      if (raw) setDrafts(JSON.parse(raw) as Record<string, Draft>);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function saveDrafts(next: Record<string, Draft>) {
+    setDrafts(next);
+    try {
+      localStorage.setItem(DRAFT_STORE, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  function updateDraft(patch: Partial<Draft>) {
+    saveDrafts({ ...drafts, [draftKey]: { ...draft, ...patch } });
+  }
+  function resetDraft() {
+    const next = { ...drafts };
+    delete next[draftKey];
+    saveDrafts(next);
+  }
+  function pickVariant(v: Variant) {
+    setVariant(v);
+  }
+
 
   useEffect(() => {
     try {
@@ -120,18 +173,27 @@ function VoiceStudio() {
     }
   }
 
-  async function generate(variant: Variant) {
+  async function generate() {
+    if (invalid) return setError(invalid);
     if (
       !window.confirm(
-        `Create a ${title(character)} / ${variant} candidate voice at OpenAI? It will not be approved or activated automatically.`,
+        `Create "${draft.name.trim()}" as a new paid voice at OpenAI? This is billed and adds a voice to your account. It will not be approved or activated automatically.`,
       )
     )
       return;
     setBusy(variant);
     setError("");
     try {
-      const v = await create({ data: { character, variant, confirmation: "CREATE CUSTOM VOICE" } });
-      save([...candidates, { ...v, character, variant }]);
+      const v = await create({
+        data: {
+          character,
+          variant,
+          prompt: draft.prompt,
+          name: draft.name,
+          confirmation: "CREATE CUSTOM VOICE",
+        },
+      });
+      save([...candidates, { ...v, character, variant, name: draft.name.trim() }]);
       setSelected(v.id);
     } catch (e) {
       setError(`${(e as Error).message} Your saved candidates are unchanged.`);
@@ -265,20 +327,65 @@ function VoiceStudio() {
 
           <Step n={1} title="Create a candidate">
             <p className="text-xs text-muted-foreground">
-              Each tap creates one saved voice at OpenAI. Creating does not activate it.
+              Pick a preset or Custom, edit the description, then tap Create. Editing never creates a voice.
             </p>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              {variants.map((v) => (
+            <div className="mt-3 grid grid-cols-4 gap-2">
+              {[...variants, "custom" as const].map((v) => (
                 <button
                   type="button"
                   key={v}
-                  disabled={!canCreate}
-                  onClick={() => void generate(v)}
-                  className="min-h-12 rounded-xl border px-2 text-sm capitalize disabled:opacity-40"
+                  aria-pressed={variant === v}
+                  disabled={busy !== null}
+                  onClick={() => pickVariant(v)}
+                  className={`min-h-11 rounded-xl border px-1 text-sm capitalize ${variant === v ? "border-primary bg-primary text-primary-foreground" : ""}`}
                 >
-                  {busy === v ? "Creating…" : v}
+                  {v}
                 </button>
               ))}
+            </div>
+            <label className="mt-3 block text-sm font-medium">
+              Candidate name
+              <input
+                className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3 text-sm"
+                value={draft.name}
+                maxLength={VOICE_NAME_MAX}
+                disabled={busy !== null}
+                onChange={(e) => updateDraft({ name: e.target.value })}
+              />
+            </label>
+            <label className="mt-3 block text-sm font-medium">
+              Voice description (exact prompt sent to OpenAI)
+              <textarea
+                className="mt-1 min-h-48 w-full rounded-xl border bg-background p-3 text-sm"
+                value={draft.prompt}
+                maxLength={VOICE_PROMPT_MAX}
+                disabled={busy !== null}
+                onChange={(e) => updateDraft({ prompt: e.target.value })}
+              />
+            </label>
+            <p className={`text-xs ${invalid ? "text-destructive" : "text-muted-foreground"}`}>
+              {draft.prompt.trim().length}/{VOICE_PROMPT_MAX} characters
+              {invalid ? ` — ${invalid}` : ""}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {variant !== "custom" && (
+                <button
+                  type="button"
+                  className="min-h-11 rounded-lg border px-3 text-sm"
+                  disabled={busy !== null}
+                  onClick={resetDraft}
+                >
+                  Reset to preset
+                </button>
+              )}
+              <Button
+                type="button"
+                className="min-h-11"
+                disabled={!canCreate || !!invalid}
+                onClick={() => void generate()}
+              >
+                {busy ? "Creating…" : "Create voice (paid)"}
+              </Button>
             </div>
           </Step>
 
