@@ -530,7 +530,14 @@ async function runTurnUnlocked(
           selfie_type: p.selfie_type,
         };
         // Context first, variety second: only nudge an exact repeat of a recent photo.
-        if (repeatsPhotoComposition(rawStyle, recentStyles) || (recentGen ?? []).some((old) => old.scene.trim().toLowerCase() === p.scene!.trim().toLowerCase())) {
+        const { fictionalGroupScene } = await import("./tess-image.server");
+        const isGroupScene = fictionalGroupScene(p.scene);
+        const matchingScene = (recentGen ?? []).some((old) => old.scene.trim().toLowerCase() === p.scene!.trim().toLowerCase());
+        // A first group portrait is meaningfully different from an earlier solo selfie even
+        // when the character's outfit, crop and lighting happen to match.
+        const comparableRecentStyles = (recentGen ?? []).filter((old) =>
+          fictionalGroupScene(old.scene) === isGroupScene) as PhotoStyle[];
+        if (matchingScene || repeatsPhotoComposition(rawStyle, comparableRecentStyles)) {
           throw new Error("repeated photo composition");
         }
         if (!photoSceneCompatible(photography,p.scene)) throw new Error('photo scene contradicts current location');
