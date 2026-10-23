@@ -6,7 +6,7 @@ import {
   recognizePlan,
   type CalendarPlan,
 } from "@/lib/calendar-logic";
-import { PLACE_REGISTRY, interpretVenueAction, placeKnowledge } from "@/lib/place-registry";
+import { PLACE_REGISTRY, interpretVenueAction, placeKnowledge, venueFromText } from "@/lib/place-registry";
 const at = new Date("2026-10-23T00:30:00Z"); // Thursday evening Eastern.
 const m = (body: string, sender = "tess") => ({
   id: "source",
