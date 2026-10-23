@@ -331,8 +331,8 @@ function VoiceStudio() {
               </a>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              In-app and Playground auditions are billable. In-app auditions remain unavailable
-              until server spending safeguards are ready.
+              In-app and Playground auditions are billable. In-app auditions stop on the server
+              after 30 seconds, allow one at a time and are capped per day.
             </p>
           </Step>
 

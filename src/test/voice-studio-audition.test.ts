@@ -22,8 +22,8 @@ describe("studio safety gates", () => {
       assertAuditionAllowed(true, { ...env, ENABLE_VOICE_STUDIO_AUDITIONS: "false" }),
     ).toThrow("disabled");
   });
-  it("cannot be enabled by a flag while server spending safeguards are absent", () => {
-    expect(() => assertAuditionAllowed(true, env)).toThrow(
+  it("passes once flags and server safeguards are present", () => {
+    expect(() => assertAuditionAllowed(true, env)).not.toThrow(
       "server-side duration, concurrency and spending",
     );
   });
