@@ -6,7 +6,7 @@
 export const VOICE_DESIGNS = {
   tess: {
     name: "Tess — Refined",
-    description: "An adult American woman with a light, clear, naturally feminine voice. Pleasant and subtly melodic, crisply articulate but never formal or theatrical. A quick, intelligent conversational rhythm with delicate pitch variations, dry humor delivered with innocent sincerity, and understated warmth. Natural pauses and quiet amusement. Never husky, raspy, breathy, overly cheerful, flirtatiously exaggerated, or robotic.",
+    description: "An adult woman who grew up in England and has lived in Pennsylvania for around ten years. Her English is now predominantly American, but her vowels occasionally retain a soft southern-English roundness and her speech keeps a subtle measured English cadence; the hybrid accent sounds natural and consistent, never performative. Warm, softly feminine, clear, quietly confident, intelligent and genuinely conversational, with graceful articulation, unhurried pacing and understated dry wit. Gentle melodic movement, reflective pauses and sincere tenderness. Not strongly British or posh, and never husky, raspy, breathy, perky, bubbly, theatrical, announcer-like or robotic.",
   },
   maya: {
     name: "Maya — Warm",
