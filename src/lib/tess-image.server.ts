@@ -115,7 +115,12 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   const ownKey = process.env["OPENAI_API_KEY"];
   const apiKey = ownKey || gatewayKey;
   const GATEWAY = ownKey ? "https://api.openai.com" : GATEWAY_URL;
-  const model = ownKey ? "gpt-image-1-mini" : "openai/gpt-image-2.5-sunburst";
+  // New-image default is Flare; deployments can explicitly choose mini or Sunburst.
+  const supported = ["gpt-image-1-mini", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"];
+  const requested = process.env["OPENAI_IMAGE_MODEL"] ?? "gpt-image-2.5-flare";
+  const model = ownKey
+    ? (supported.includes(requested) ? requested : "gpt-image-2.5-flare")
+    : "openai/gpt-image-2.5-sunburst";
   return {
     name: ownKey ? "openai" : "lovable-ai-gateway",
     model,
