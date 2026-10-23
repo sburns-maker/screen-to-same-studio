@@ -26,7 +26,7 @@ import { photoActionId } from "./photo-delivery.server";
 type Client = SupabaseClient<Database>;
 export async function experienceReady(db: Client) {
   if (process.env["LIVING_EXPERIENCES_ENABLED"] !== "true") return false;
-  const r = await db.rpc("experience_status", {});
+  const r = await db.rpc("experience_status");
   return !r.error && r.data === 26;
 }
 export async function experienceSeed(db: Client, user: string, now = new Date()) {
@@ -103,7 +103,7 @@ export async function experienceCommand(
     p_plan: plan,
     p_id: id,
     p_command: command,
-    p_revision: revision,
+    p_revision: revision as number,
     p_payload: payload,
     p_now: now.toISOString(),
   });
@@ -290,7 +290,7 @@ export async function generateExperience(
           -3,
           Math.min(
             3,
-            (ops.data ?? []).reduce((n, o) => n + (o.result?.delta?.[k] ?? 0), 0),
+            (ops.data ?? []).reduce((n, o) => n + ((o.result as { delta?: Record<string, number> } | null)?.delta?.[k] ?? 0), 0),
           ),
         ),
       ]),

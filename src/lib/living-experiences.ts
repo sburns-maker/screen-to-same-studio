@@ -3,9 +3,10 @@ export type ExperienceRow = {
   user_id: string;
   id: string;
   plan_id: string;
-  conversation_id: string;
-  state: "scheduled" | "interactive" | "paused" | "auto_running" | "completed" | "cancelled";
-  mode: "interactive" | "automatic" | null;
+  conversation_id: string | null;
+  // Generated database rows type these as text; values are constrained by CHECKs.
+  state: string;
+  mode: string | null;
   start_at: string;
   claim_deadline: string;
   claimed_at: string | null;
@@ -24,7 +25,7 @@ export type ExperienceMoment = {
   ordinal: number;
   kind: string;
   body: string;
-  source: "user" | "character" | "simulation";
+  source: string;
   confirmed: boolean;
   created_at: string;
 };
