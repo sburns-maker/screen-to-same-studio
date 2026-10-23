@@ -5,11 +5,13 @@ on:
       - 'drizzle/migrations/**'
       - 'src/lib/*experience*'
       - 'src/test/experience-postgres.test.ts'
+      - 'vitest.postgres.config.ts'
       - '.github/workflows/experience-postgres.yml'
   workflow_dispatch:
 jobs:
   transactions:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:17
@@ -18,14 +20,23 @@ jobs:
           POSTGRES_PASSWORD: local-test-only
         ports: ['5432:5432']
         options: >-
-          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+          --health-cmd "pg_isready -U postgres -d phase6_tests" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx vitest run src/test/experience-postgres.test.ts
+      # The app uses bun.lock, not package-lock.json. This SQL-only suite does
+      # not need the app's private package mirrors, React plugins or build scripts.
+      # Pin these two test dependencies to their versions in bun.lock.
+      - name: Install isolated PostgreSQL test dependencies
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/phase6-postgres" \
+            --no-package-lock --no-audit --no-fund \
+            vitest@4.1.11 postgres@3.4.9
+          ln -s "$RUNNER_TEMP/phase6-postgres/node_modules" node_modules
+      - name: Test real PostgreSQL transactions
+        run: ./node_modules/.bin/vitest run --config vitest.postgres.config.ts
         env:
           PHASE6_TEST_DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/phase6_tests

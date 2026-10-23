@@ -63,6 +63,12 @@ The test refuses a non-local host or a database name other than `phase6_tests`, 
 
 The repository-wide lint command has thousands of **pre-existing Prettier formatting errors** (3,602 errors on the original PR head); formatting the entire unrelated application is intentionally outside this feature. New modules are formatted, and changed modules receive functional ESLint checks with that formatting rule disabled. See PR validation results for final counts.
 
+### GitHub check setup correction
+
+The initial PostgreSQL workflow incorrectly configured npm lockfile caching and `npm ci`, although this application commits `bun.lock` and no npm lockfile. A fresh `npm ci --dry-run` reproduced the installation failure. The app's Bun lock also contains private Lovable package-mirror URLs, so the SQL-only job now installs only `vitest@4.1.11` and `postgres@3.4.9` (their existing lockfile versions) into the runner's temporary directory. It uses `vitest.postgres.config.ts`, without application React plugins or browser test setup. The app manifest and Bun lock are unchanged.
+
+The corrected job was reproduced in a clean directory with freshly downloaded public test dependencies, Node **22.23.4**, a fresh PostgreSQL **17** database and all SQL migrations: **5 tests passed**. The dedicated config also passes ESLint. This verifies the local workflow reproduction; the next GitHub run must still turn green before merging. GitHub's API was unavailable from this workspace, so hosted-run logs/status could not be independently verified. No production migrations or application changes are involved in this correction.
+
 ### Final local results
 
 - `npm test`: **550 passed**, 5 opt-in PostgreSQL tests skipped in the ordinary run (60 passing test files).
