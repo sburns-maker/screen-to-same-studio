@@ -67,7 +67,7 @@ export function rms(samples: Float32Array): number {
   return samples.length ? Math.sqrt(sum / samples.length) : 0;
 }
 
-export type AuditionTrace = { at: number; type: string; detail?: string };
+export type AuditionTrace = { at: number; type: string; detail?: string | undefined };
 
 /** No paid request is made until start is called explicitly by the UI. */
 export function createStudioAudition(options: {
