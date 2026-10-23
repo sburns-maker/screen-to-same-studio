@@ -49,7 +49,7 @@ beforeEach(async () => {
 describe("persistent exploration and contact exchange", () => {
   it("seeds the same eleven places without changing existing primary conversations", async () => {
     await initializeTown(admin, user);
-    expect(await count("world_places")).toBe(11);
+    expect(await count("world_places")).toBe(14);
     expect(await count("conversations")).toBe(0);
     expect(await count("messages")).toBe(0);
   });
@@ -317,7 +317,7 @@ describe("calendar transaction and preservation", () => {
     ).rows[0]!;
     expect(row.label).toBe("An already established cafe");
     expect(row.metadata.public).toBe(true);
-    expect(await count("town_people")).toBe(8);
+    expect(await count("town_people")).toBe(10);
   });
   it("a message insert failure rolls back both bubbles and retains a recoverable reserved action", async () => {
     await arrive();

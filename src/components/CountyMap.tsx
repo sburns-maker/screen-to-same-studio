@@ -103,6 +103,7 @@ export function CountyMap({
           { label: "Altoona", lat: 40.5187, lon: -78.3947 },
           { label: "Hollidaysburg", lat: 40.4273, lon: -78.3889 },
           { label: "Tyrone", lat: 40.6706, lon: -78.2386 },
+          { label: "Duncansville", lat: 40.4234, lon: -78.4339 },
         ].map((c) => (
           <button
             key={c.label}

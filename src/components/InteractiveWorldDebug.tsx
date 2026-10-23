@@ -1,3 +1,4 @@
+import { experienceSummary, type ExperienceState } from "@/lib/venue-experiences";
 import { useInteractiveWorld } from "@/lib/use-interactive-world";
 import { useTown } from "@/lib/town-queries";
 import { placeByKey, ACTION_LABELS, type VenueAction } from "@/lib/place-registry";
@@ -26,6 +27,20 @@ export function InteractiveWorldDebug() {
           .map((c) => `${c.character_key} at ${placeByKey(c.place_key)?.label ?? c.place_key}`)
           .join("; ") || "none; unrelated private whereabouts are not disclosed"}
       </p>
+      <p>
+        Structured activities:{" "}
+        {q.data.experiencesEnabled ? "available" : "migration 0021 not installed"}. Recent visits:{" "}
+        {q.data.recentVisits.length}.
+      </p>
+      {Object.values(
+        (q.data.session?.state as { experiences?: Record<string, ExperienceState> } | null)
+          ?.experiences ?? {},
+      ).map((e, i) => (
+        <p key={i}>
+          {experienceSummary(e)} · shared participation:{" "}
+          {e.plan_id ? "recorded for its accepted plan" : "solo"}
+        </p>
+      ))}
       <details>
         <summary>Invitations, conflicts, missing details & commitments</summary>
         <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap text-xs">

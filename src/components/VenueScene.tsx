@@ -1,3 +1,4 @@
+import { VenueExperience } from "./VenueExperience";
 import { useState, useRef } from "react";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -30,7 +31,7 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
     character?: CharacterKey,
   ) {
     setBusy(true);
-    const key = JSON.stringify([placeKey, action, text, planId, character]);
+    const key = JSON.stringify([s?.id, placeKey, action, text, planId, character]);
     const id = pendingIds.current.get(key) ?? crypto.randomUUID();
     pendingIds.current.set(key, id);
     try {
@@ -44,11 +45,11 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
       setText("");
       setStatus(
         action === "leave"
-          ? "You left the scene. Normal virtual travel home has started."
+          ? "You’ve left for your virtual home."
           : action === "order_coffee"
             ? "Virtual coffee order placed; no real purchase."
             : action === "speak"
-              ? "Your words were sent through the normal character conversation. Reply timing and availability still apply."
+              ? "Sent. Give them a moment to reply."
               : `Recorded: ${ACTION_LABELS[action as VenueAction] ?? action}`,
       );
     } catch (e) {
@@ -85,11 +86,10 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
   return (
     <section aria-label="Interactive venue" className="mb-6 space-y-4">
       <div className={`${card} overflow-hidden bg-gradient-to-br from-primary/15 to-surface`}>
-        <div className="mb-3 text-6xl" aria-hidden="true">
-          {p.marker.icon}
-        </div>
-        <h2 className="font-display text-3xl">A moment at {p.label}</h2>
-        <p className="mt-3 text-sm">{p.description}</p>
+        <h2 className="font-display text-2xl">Settle in</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Choose an activity, look around or say hello. This visit remembers what you do.
+        </p>
         <p className="mt-3 text-xs text-muted-foreground">
           Virtual scene ·{" "}
           {new Date().toLocaleString("en-US", {
@@ -126,6 +126,7 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
           {status}
         </p>
       )}
+      <VenueExperience placeKey={placeKey} />
       <div className="grid grid-cols-2 gap-2">
         {p.activities.map((a) => (
           <button
@@ -177,8 +178,8 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
           ))}
           {talk && (
             <p className="text-xs text-muted-foreground">
-              Talking to {plan?.organizer}; this uses their ordinary messaging, memory and pacing
-              system.
+              Speaking with {characterFor(plan?.organizer).preferredName}. You can also open the
+              full conversation below.
             </p>
           )}
         </div>
@@ -238,7 +239,7 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
           disabled={busy || !text.trim()}
           className="min-h-12 w-full rounded-full bg-primary p-3 text-primary-foreground"
         >
-          {busy ? "Recording…" : talk ? "Speak through the normal conversation" : "Try this action"}
+          {busy ? "Sending…" : talk ? "Say it" : "Do this"}
         </button>
         {talk && (
           <button
@@ -250,6 +251,39 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
           </button>
         )}
       </form>
+      <details className="rounded-2xl border p-4 text-sm">
+        <summary className="min-h-11 cursor-pointer py-2 font-medium">Earlier visits here</summary>
+        {q.data.recentVisits.filter((v) => v.place_key === placeKey && v.id !== s.id).length ===
+        0 ? (
+          <p className="py-2 text-muted-foreground">This is your first recorded visit here.</p>
+        ) : (
+          q.data.recentVisits
+            .filter((v) => v.place_key === placeKey && v.id !== s.id)
+            .map((v) => {
+              const state = v.state as {
+                order?: { item?: string; quantity?: number };
+                position?: string;
+                last_activity?: VenueAction;
+              };
+              return (
+                <p key={v.id} className="border-t py-3 text-muted-foreground">
+                  {new Date(v.arrived_at).toLocaleDateString("en-US", {
+                    timeZone: "America/New_York",
+                    month: "short",
+                    day: "numeric",
+                  })}{" "}
+                  ·{" "}
+                  {state.order
+                    ? `${state.order.quantity ?? 1} ${state.order.item ?? "virtual order"}`
+                    : state.last_activity
+                      ? ACTION_LABELS[state.last_activity]
+                      : "A quiet visit"}
+                  {state.position ? ` · ${state.position}` : ""}
+                </p>
+              );
+            })
+        )}
+      </details>
       <button
         disabled={busy}
         onClick={() => void action("leave")}

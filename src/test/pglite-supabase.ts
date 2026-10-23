@@ -27,6 +27,8 @@ export async function worldDatabase() {
     "0016_verify_world_expansion",
     "0017_media_profiles",
     "0019_interactive_calendar",
+    "0020_verify_interactive_places_and_calendar",
+    "0021_venue_experiences",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   return db;
@@ -184,8 +186,10 @@ export function postgresSupabase(db: PGlite) {
             if (offset) sql += ` OFFSET ${offset}`;
           } else sql += " RETURNING *";
           const result = await db.query(sql, parameters);
+          // PostgREST JSON serializes timestamps; PGlite's raw Date objects otherwise diverge from production.
+          const rows = JSON.parse(JSON.stringify(result.rows)) as typeof result.rows;
           return resolve({
-            data: head ? null : single ? (result.rows[0] ?? null) : result.rows,
+            data: head ? null : single ? (rows[0] ?? null) : rows,
             error: null,
             count: count ? result.rows.length : null,
           });

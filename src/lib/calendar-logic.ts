@@ -139,7 +139,7 @@ function category(text: string) {
         ? "coffee"
         : /\bwalk\b/i.test(text)
           ? "walk"
-          : /\b(?:meet|meetup|join|hang out|get together)\b/i.test(text)
+          : /\b(?:meet|meetup|join|hang out|get together|trivia|gathering)\b/i.test(text)
             ? "meetup"
             : null;
 }
@@ -246,7 +246,9 @@ export function recognizePlan(
               ? "Coffee together"
               : cat === "walk"
                 ? "A walk"
-                : "Meetup",
+                : /\btrivia\b/i.test(text)
+                  ? "Trivia night"
+                  : "Meetup",
     };
   }
   if (

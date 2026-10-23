@@ -1,3 +1,4 @@
+import { PlaceArtwork } from "@/components/PlaceArtwork";
 import { VenueScene } from "@/components/VenueScene";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -42,6 +43,9 @@ function Place() {
     >
       {place && (
         <>
+          <div className="mb-4">
+            <PlaceArtwork kind={place.kind} label={place.label} />
+          </div>
           <div className={`${card} mb-5 bg-primary/5`}>
             <p className="text-xs uppercase tracking-widest text-primary">
               {place.community} · Fictional {place.kind}

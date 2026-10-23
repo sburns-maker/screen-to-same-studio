@@ -1,5 +1,13 @@
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+const subscribeOnline = (fn: () => void) => {
+  window.addEventListener("online", fn);
+  window.addEventListener("offline", fn);
+  return () => {
+    window.removeEventListener("online", fn);
+    window.removeEventListener("offline", fn);
+  };
+};
 export function TownLayout({
   title,
   kicker,
@@ -13,8 +21,13 @@ export function TownLayout({
   error?: Error | null;
   loading?: boolean;
 }) {
+  const online = useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine,
+    () => true,
+  );
   return (
-    <div className="mx-auto min-h-dvh max-w-xl px-5 pb-8">
+    <div className="mx-auto min-h-dvh max-w-xl px-4 pb-10 sm:px-5">
       <header className="flex items-start justify-between gap-3 py-7">
         <div>
           <p className="mb-1 text-xs font-semibold uppercase tracking-[.18em] text-primary">
@@ -26,6 +39,11 @@ export function TownLayout({
           Settings
         </Link>
       </header>
+      {!online && (
+        <p role="status" className="mb-4 rounded-2xl border bg-surface p-3 text-sm">
+          You’re offline. Saved views may be available; reconnect before making world changes.
+        </p>
+      )}
       {loading && (
         <p role="status" className="py-6 text-muted-foreground">
           Opening your world…
