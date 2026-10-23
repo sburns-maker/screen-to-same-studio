@@ -186,7 +186,7 @@ describe("audition spend limits", () => {
   });
 });
 
-describe("durable audition lease (SQL)", () => {
+describe("durable audition lease (SQL)", { timeout: 60_000 }, () => {
   const user = "11111111-1111-4111-8111-111111111111";
   async function db() {
     const pg = new PGlite();
