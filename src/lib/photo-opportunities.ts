@@ -1,46 +1,16 @@
+import { PHOTOGRAPHY_PROFILES } from "./photo-personality";
 import { photoPacing, reactionPhotoCue, visualCue } from "./photo-pacing";
 import type { CharacterKey } from "./characters";
 import type { TessActivity } from "./tess-life";
 import type { TessState } from "./tess-logic";
 import { FREQUENCY_RULES, type PhotoFrequency } from "./tess-photos";
 
-export const PHOTO_TENDENCIES: Record<
-  CharacterKey,
-  { hours: number; messages: number; chance: number; subjects: string }
-> = {
-  tess: {
-    messages: 4,
-    hours: 8,
-    chance: 0.38,
-    subjects:
-      "dry everyday observations, clinic desk breaks, Mabel, cooking; occasional unposed selfie",
-  },
-  maya: {
-    messages: 3,
-    hours: 6,
-    chance: 0.6,
-    subjects:
-      "adventures, event preparations, places she's actually visiting, casual expressive selfies",
-  },
-  claire: {
-    messages: 5,
-    hours: 12,
-    chance: 0.35,
-    subjects: "garden, plants, small outdoor discoveries; an occasional quiet natural selfie",
-  },
-  jordan: {
-    messages: 8,
-    hours: 24,
-    chance: 0.16,
-    subjects: "a specific interesting detail worth sharing; rarely a selfie, never a performance",
-  },
-  ben: {
-    messages: 5,
-    hours: 12,
-    chance: 0.25,
-    subjects: "an everyday oddity, project or joke; entirely platonic",
-  },
-};
+export const PHOTO_TENDENCIES = Object.fromEntries(
+  Object.entries(PHOTOGRAPHY_PROFILES).map(([key, p]) => [
+    key,
+    { hours: p.hours, messages: p.messages, chance: p.spontaneity, subjects: p.subjects },
+  ]),
+) as Record<CharacterKey, { hours: number; messages: number; chance: number; subjects: string }>;
 
 export type PhotoOpportunity = {
   eligible: boolean;
@@ -94,7 +64,8 @@ export function photoOpportunity(args: {
   if (args.state.irritation >= 20 || args.state.perceived_pressure >= 30)
     return no("not independently inclined to share");
   const scale = args.frequency === "rare" ? 2 : args.frequency === "frequent" ? 0.75 : 1;
-  const contextualReaction = reactionPhotoCue(args.context ?? "") || reactionPhotoCue(args.userText ?? "");
+  const contextualReaction =
+    reactionPhotoCue(args.context ?? "") || reactionPhotoCue(args.userText ?? "");
   if (args.activeConversation || args.developerOverride || contextualReaction) {
     const pacing = photoPacing({
       character: args.character,
@@ -104,7 +75,7 @@ export function photoOpportunity(args: {
       ownSinceLastPhoto: args.ownSinceLastPhoto,
       userText: args.userText ?? "",
       context: args.context ?? "",
-      developerOverride: args.developerOverride,
+      developerOverride: !!args.developerOverride,
     });
     if (!pacing.allowed) return no(pacing.reason);
   } else {
@@ -127,7 +98,11 @@ export function photoOpportunity(args: {
   // Stable per opportunity: polling more often (or Practice mode) never rerolls the chance.
   let hash = 2166136261;
   for (const c of key) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
-  const chance=Math.min(.85,profile.chance+(visualCue(args.userText??"")?.15:visualCue(args.context??"")?.08:0));
+  const chance = Math.min(
+    0.85,
+    profile.chance +
+      (visualCue(args.userText ?? "") ? 0.15 : visualCue(args.context ?? "") ? 0.08 : 0),
+  );
   const selected = !!args.preview || (hash >>> 0) / 4294967296 < chance;
   return {
     eligible: true,
