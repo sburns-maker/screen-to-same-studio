@@ -13,7 +13,7 @@ export type Database = {
     PostgrestVersion: "14.18"
   }
   public: {
-    Tables: import("./phone-types").PhoneTables & {
+    Tables: {
       calendar_evidence: {
         Row: {
           action: string
@@ -90,6 +90,77 @@ export type Database = {
             columns: ["user_id", "plan_id"]
             isOneToOne: false
             referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      call_preferences: {
+        Row: {
+          enabled: boolean
+          incoming: boolean
+          save_transcripts: boolean
+          user_id: string
+        }
+        Insert: {
+          enabled?: boolean
+          incoming?: boolean
+          save_transcripts?: boolean
+          user_id: string
+        }
+        Update: {
+          enabled?: boolean
+          incoming?: boolean
+          save_transcripts?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      call_turns: {
+        Row: {
+          action_id: string | null
+          audio_seconds: number
+          call_id: string
+          finished_at: string | null
+          id: string
+          latency_ms: number | null
+          reserved_at: string
+          reserved_cents: number
+          status: string
+          user_id: string
+          user_message_id: string | null
+        }
+        Insert: {
+          action_id?: string | null
+          audio_seconds: number
+          call_id: string
+          finished_at?: string | null
+          id: string
+          latency_ms?: number | null
+          reserved_at: string
+          reserved_cents: number
+          status: string
+          user_id: string
+          user_message_id?: string | null
+        }
+        Update: {
+          action_id?: string | null
+          audio_seconds?: number
+          call_id?: string
+          finished_at?: string | null
+          id?: string
+          latency_ms?: number | null
+          reserved_at?: string
+          reserved_cents?: number
+          status?: string
+          user_id?: string
+          user_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_turns_user_id_call_id_fkey"
+            columns: ["user_id", "call_id"]
+            isOneToOne: false
+            referencedRelation: "phone_calls"
             referencedColumns: ["user_id", "id"]
           },
         ]
@@ -635,6 +706,105 @@ export type Database = {
           name?: string
           relation?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      phone_calls: {
+        Row: {
+          answered_at: string | null
+          character_key: string
+          conversation_id: string
+          direction: string
+          duration_seconds: number
+          ended_at: string | null
+          expires_at: string
+          id: string
+          last_failure: string | null
+          last_latency_ms: number | null
+          offered_at: string
+          outcome: string
+          reason: string
+          reserved_cents: number
+          ring_until: string
+          source_record_id: string | null
+          state: string
+          summary: string
+          turns: number
+          user_id: string
+        }
+        Insert: {
+          answered_at?: string | null
+          character_key: string
+          conversation_id: string
+          direction: string
+          duration_seconds?: number
+          ended_at?: string | null
+          expires_at: string
+          id: string
+          last_failure?: string | null
+          last_latency_ms?: number | null
+          offered_at: string
+          outcome: string
+          reason: string
+          reserved_cents?: number
+          ring_until: string
+          source_record_id?: string | null
+          state: string
+          summary?: string
+          turns?: number
+          user_id: string
+        }
+        Update: {
+          answered_at?: string | null
+          character_key?: string
+          conversation_id?: string
+          direction?: string
+          duration_seconds?: number
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          last_failure?: string | null
+          last_latency_ms?: number | null
+          offered_at?: string
+          outcome?: string
+          reason?: string
+          reserved_cents?: number
+          ring_until?: string
+          source_record_id?: string | null
+          state?: string
+          summary?: string
+          turns?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phone_calls_character_key_fkey"
+            columns: ["character_key"]
+            isOneToOne: false
+            referencedRelation: "phone_contacts"
+            referencedColumns: ["entity_key"]
+          },
+          {
+            foreignKeyName: "phone_calls_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phone_contacts: {
+        Row: {
+          entity_key: string
+          extension: number
+        }
+        Insert: {
+          entity_key: string
+          extension: number
+        }
+        Update: {
+          entity_key?: string
+          extension?: number
         }
         Relationships: []
       }
@@ -1749,7 +1919,7 @@ export type Database = {
     Views: {
       [_ in never]: never
     }
-    Functions: import("./phone-types").PhoneFunctions & {
+    Functions: {
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number
@@ -1779,6 +1949,17 @@ export type Database = {
       }
       interactive_world_status: { Args: never; Returns: number }
       media_profile_status: { Args: never; Returns: number }
+      phone_command: {
+        Args: {
+          p_command: string
+          p_id: string
+          p_now: string
+          p_payload: Json
+          p_user: string
+        }
+        Returns: Json
+      }
+      phone_status: { Args: never; Returns: number }
       record_npc_introduction: {
         Args: { p_message: string; p_npc: string; p_user: string }
         Returns: boolean

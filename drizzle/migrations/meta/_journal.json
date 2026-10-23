@@ -169,6 +169,13 @@
       "when": 1792771200012,
       "tag": "0023_phone_calls",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792771200013,
+      "tag": "0024_verify_phone_calls",
+      "breakpoints": true
     }
   ]
 }

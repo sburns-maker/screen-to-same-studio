@@ -11,7 +11,7 @@ import { voiceConfiguration, recognizeSpeech, synthesizeSpeech } from "./voice-p
 import { waveSeconds } from "./phone-audio";
 type Client = SupabaseClient<Database>;
 export async function phoneAvailable(db: Client) {
-  const r = await db.rpc("phone_status", {});
+  const r = await db.rpc("phone_status", {} as never);
   if (r.error && ["42883", "PGRST202"].includes(r.error.code)) return false;
   if (r.error) throw new Error("Calls unavailable");
   return r.data === 23;
@@ -186,7 +186,7 @@ export async function processVoiceTurn(
     )?.plan;
     if (job.error || !plan?.rows.length) throw new Error("Voice reply unavailable");
     const text = plan.rows.map((r) => r.body).join(" "),
-      audio = await synthesizeSpeech(text, c.character_key);
+      audio = await synthesizeSpeech(text, c.character_key as never);
     await ownedCall(db, user, callId).then((c) => {
       if (c.state !== "connected" || Date.parse(c.expires_at) <= Date.now())
         throw new Error("Call ended");
