@@ -9,6 +9,15 @@ import {
   type AuditionState,
   type AuditionTrace,
 } from "@/lib/voice-studio-audition";
+import {
+  deleteSample,
+  loadSample,
+  sampleFilename,
+  sampleVerdict,
+  saveSample,
+  startSampleRecording,
+  type StoredSample,
+} from "@/lib/voice-sample-recorder";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import {
   VOICE_DESIGNS,
@@ -103,6 +112,10 @@ function VoiceStudio() {
   const draftKey = `${character}:${variant}`;
   const draft: Draft = drafts[draftKey] ?? presetDraft(character, variant);
   const invalid = validateVoiceRequest(draft.prompt, draft.name);
+  const [sample, setSample] = useState<StoredSample | null>(null);
+  const [sampleUrl, setSampleUrl] = useState("");
+  const [sampleNote, setSampleNote] = useState("");
+  const [recording, setRecording] = useState(false);
 
   useEffect(() => {
     try {
@@ -111,7 +124,16 @@ function VoiceStudio() {
     } catch {
       /* ignore */
     }
+    void loadSample()
+      .then((s) => s && setSample(s))
+      .catch(() => {});
   }, []);
+  useEffect(() => {
+    if (!sample) return setSampleUrl("");
+    const url = URL.createObjectURL(sample.blob);
+    setSampleUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [sample]);
 
   function saveDrafts(next: Record<string, Draft>) {
     setDrafts(next);
@@ -224,6 +246,46 @@ function VoiceStudio() {
     setTrace([]);
     setLevel(0);
     let auditionId: string | null = null;
+    let recorder: ReturnType<typeof startSampleRecording> | null = null;
+    let heard = false;
+    const cand = candidates.find((c) => c.id === selected);
+    const meta = {
+      character,
+      candidate: cand?.name ?? `${title(character)} ${cand?.variant ?? "voice"}`,
+      voiceId: selected,
+    };
+    let endedCleanly = false;
+    const finishRecording = () => {
+      const r = recorder;
+      recorder = null;
+      if (!r) return;
+      r.stop();
+      setRecording(false);
+      void r.done.then(async ({ blob, mime, durationMs, failed }) => {
+        const verdict = sampleVerdict({ size: blob.size, audible: heard });
+        if (verdict === "empty") return setSampleNote("Recording captured no audio.");
+        const s: StoredSample = {
+          ...meta,
+          blob,
+          mime,
+          durationMs,
+          audible: heard,
+          partial: failed || !endedCleanly,
+          recordedAt: new Date().toISOString(),
+        };
+        setSample(s);
+        setSampleNote(
+          verdict === "silent"
+            ? "Recording saved, but no audible speech was detected — it's probably silent."
+            : "",
+        );
+        try {
+          await saveSample(s);
+        } catch {
+          setSampleNote("Recording kept for this visit only; this device's storage refused it.");
+        }
+      });
+    };
     const release = () => {
       if (!auditionId) return;
       const id = auditionId;
@@ -242,18 +304,76 @@ function VoiceStudio() {
       },
       onState: (state) => {
         setAuditionState(state);
+        if (state === "stopping" || state === "closed") finishRecording();
         if (state === "closed") {
           player.current = null;
           release();
         }
       },
-      onError: setError,
-      onLevel: (l) => setLevel(l),
-      onTranscript: setSpoken,
+      onError: (m) => {
+        endedCleanly = false;
+        setError(m);
+      },
+      onLevel: (l, audible) => {
+        setLevel(l);
+        if (audible && recorder) heard = true;
+      },
+      onTranscript: (t) => {
+        endedCleanly = true;
+        setSpoken(t);
+      },
       onTrace: (t) => setTrace((prev) => [...prev.slice(-29), t]),
+      onRecordableStream: (stream) => {
+        if (recorder || typeof MediaRecorder === "undefined") {
+          if (!recorder) setSampleNote("This browser can't record samples.");
+          return;
+        }
+        try {
+          recorder = startSampleRecording(stream);
+          setRecording(true);
+          setSampleNote("");
+        } catch (e) {
+          setSampleNote((e as Error).message);
+        }
+      },
     });
     player.current = session;
     void session.start();
+  }
+
+  async function removeSample() {
+    if (!window.confirm("Delete the saved sample from this device?")) return;
+    setSample(null);
+    setSampleNote("");
+    await deleteSample().catch(() => {});
+  }
+  function sampleFile(s: StoredSample) {
+    return new File([s.blob], sampleFilename(s.character, s.candidate, new Date(s.recordedAt), s.mime), {
+      type: s.mime.split(";")[0],
+    });
+  }
+  function downloadSample(s: StoredSample) {
+    const f = sampleFile(s);
+    const url = URL.createObjectURL(f);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = f.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  }
+  async function shareSample(s: StoredSample) {
+    const f = sampleFile(s);
+    if (navigator.canShare?.({ files: [f] })) {
+      try {
+        await navigator.share({ files: [f], title: f.name });
+        return;
+      } catch (e) {
+        if ((e as DOMException).name === "AbortError") return;
+      }
+    }
+    downloadSample(s);
   }
   const current = candidates.filter((c) => c.character === character);
   const canCreate =
