@@ -104,9 +104,9 @@ describe("per-contact initiation tuning", () => {
   });
 
   it("a shorter minGapHours makes a contact eligible sooner", () => {
-    const tessLike = decideInitiation(input({ gapHours: 4 }), () => 0.99);
+    const tessLike = decideInitiation(input({ gapHours: 1.5 }), () => 0.99);
     expect(tessLike.eligible).toBe(false);
-    const mayaLike = decideInitiation(input({ gapHours: 4, minGapHours: 3 }), () => 0.99);
+    const mayaLike = decideInitiation(input({ gapHours: 1.5, minGapHours: 1 }), () => 0.99);
     expect(mayaLike.eligible).toBe(true);
   });
 
