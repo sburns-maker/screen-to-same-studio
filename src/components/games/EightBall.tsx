@@ -4,7 +4,7 @@ import { Maximize2, Minimize2, RotateCcw } from "lucide-react";
 type Ball={x:number;y:number;vx:number;vy:number;number:number;active:boolean};
 const W=720,H=360,R=11,LEFT=34,RIGHT=686,TOP=28,BOTTOM=332;
 const COLORS=["#f6d83d","#4478ca","#dc4344","#9454b8","#fa8c2e","#248a64","#873336"];
-const POCKETS=[[LEFT,TOP],[(LEFT+RIGHT)/2,TOP],[RIGHT,TOP],[LEFT,BOTTOM],[(LEFT+RIGHT)/2,BOTTOM],[RIGHT,BOTTOM]];
+const POCKETS:[number,number][]=[[LEFT,TOP],[(LEFT+RIGHT)/2,TOP],[RIGHT,TOP],[LEFT,BOTTOM],[(LEFT+RIGHT)/2,BOTTOM],[RIGHT,BOTTOM]];
 function startBalls():Ball[]{
  const a:Ball[]=[{x:LEFT+165,y:H/2,vx:0,vy:0,number:0,active:true}];
  let n=1;for(let row=0;row<5;row++)for(let j=0;j<=row;j++){a.push({x:RIGHT-190+row*20,y:H/2-row*11+j*22,vx:0,vy:0,number:n++,active:true});}
@@ -36,7 +36,7 @@ function paint(ctx:CanvasRenderingContext2D,balls:Ball[],aim:{x:number;y:number}
  for(const [x,y] of POCKETS){ctx.beginPath();ctx.arc(x,y,19,0,Math.PI*2);ctx.fillStyle="#151515";ctx.fill();}
  for(const b of balls){
   if(!b.active)continue;
-  const n=b.number,stripe=n>=9,base=n===0?"#fff":n===8?"#171717":COLORS[(n<=7?n-1:n-9)%7];
+  const n=b.number,stripe=n>=9,base=n===0?"#fff":n===8?"#171717":COLORS[(n<=7?n-1:n-9)%7]!;
   ctx.save();ctx.translate(b.x,b.y);ctx.beginPath();ctx.arc(0,0,R,0,Math.PI*2);ctx.fillStyle=stripe?"#fff":base;ctx.fill();ctx.clip();
   if(stripe){ctx.fillStyle=base;ctx.fillRect(-R,-R*.56,R*2,R*1.12);}
   const gloss=ctx.createRadialGradient(-R*.35,-R*.43,1,0,0,R*1.6);gloss.addColorStop(0,"#ffffff55");gloss.addColorStop(1,"#00000044");ctx.fillStyle=gloss;ctx.fillRect(-R,-R,R*2,R*2);
@@ -64,7 +64,7 @@ export function EightBall({onFinish,onReset}:{onFinish?:(won:boolean,shots:numbe
     }
     rules.current=result;setRuleDisplay(result);setMessage(result.status);
     if(result.winner!==null&&!finishedNotice.current){finishedNotice.current=true;onFinish?.(result.winner===1,shots.current);}
-    if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
+    if(!balls.current[0]!.active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
     if(result.ballInHand && result.turn===1){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};setPlacingCue(true);}
     if(result.winner===null&&result.turn===2){
       if(opponentTimer.current)clearTimeout(opponentTimer.current);
@@ -95,7 +95,7 @@ export function EightBall({onFinish,onReset}:{onFinish?:(won:boolean,shots:numbe
  function pos(e:PointerEvent<HTMLCanvasElement>){const box=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-box.left)*W/box.width,y:(e.clientY-box.top)*H/box.height}}
  function reset(){onReset?.();finishedNotice.current=false;if(opponentTimer.current)clearTimeout(opponentTimer.current);rules.current=initialRules();setRuleDisplay(rules.current);setIsSafety(false);setPlacingCue(false);balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
  function release(e:PointerEvent<HTMLCanvasElement>){
-  if(!aim.current)return;const p=pos(e),cue=balls.current[0];const dx=cue.x-p.x,dy=cue.y-p.y;const dist=Math.hypot(dx,dy);aim.current=null;
+  if(!aim.current)return;const p=pos(e),cue=balls.current[0]!;const dx=cue.x-p.x,dy=cue.y-p.y;const dist=Math.hypot(dx,dy);aim.current=null;
   if(placingCue||dist<12||!cue.active||!stationary(balls.current)||rules.current.turn!==1||rules.current.winner!==null)return;
   rules.current={...rules.current,safety:!rules.current.breakShot&&isSafety};
   before.current=balls.current.filter(b=>b.active&&b.number>0).map(b=>b.number);events.current={firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0};

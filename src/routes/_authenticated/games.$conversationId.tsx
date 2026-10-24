@@ -31,8 +31,8 @@ function winner(board: number[]): number | null {
   for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) {
     const n = board[index(r, c)];
     if (!n) continue;
-    for (const [dr, dc] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
-      if (Array.from({ length: 4 }, (_, k) => [r + k * dr, c + k * dc]).every(([rr, cc]) =>
+    for (const [dr, dc] of [[1, 0], [0, 1], [1, 1], [1, -1]] as [number, number][]) {
+      if (Array.from({ length: 4 }, (_, k) => [r + k * dr, c + k * dc] as [number, number]).every(([rr, cc]) =>
         rr >= 0 && rr < 6 && cc >= 0 && cc < 7 && board[index(rr, cc)] === n)) return n;
     }
   }
@@ -95,7 +95,7 @@ function GameRoom() {
         if(Array.isArray(p.moves)&&p.moves.every(n=>Number.isInteger(n)&&n>=0&&n<=6)&&Number.isSafeInteger(round)){
           const board=Array(42).fill(0) as number[];
           p.moves.forEach((c,i)=>{for(let row=5;row>=0;row--){const idx=index(row,c);if(!board[idx]){board[idx]=i%2===0?1:2;break;}}});
-          setSaved(old=>({...old,game:"four",fourRound:round,four:{board,ended:winner(board),moves:p.moves}}));
+          setSaved(old=>({...old,game:"four",fourRound:round,four:{board,ended:winner(board),moves:p.moves!}}));
         }
       }
       setReady(true);
@@ -124,7 +124,7 @@ function GameRoom() {
       return { ...s, four: { board, ended: outcome, moves } };
     });
   }
-  const deck = saved.trivia.deck.map((i) => QUESTION_BANK[i]).filter(Boolean);
+  const deck = saved.trivia.deck.map((i) => QUESTION_BANK[i]).filter((q): q is NonNullable<typeof q> => Boolean(q));
   const total = saved.trivia.answers.length;
   const playerScore = saved.trivia.answers.filter((a, i) => deck[i] && a === deck[i].correct).length;
   const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q, i, character.key)).length;
