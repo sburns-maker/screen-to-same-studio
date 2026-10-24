@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { QUESTION_BANK, nextTriviaDeck, type TriviaQuestion } from "@/lib/game-trivia";
 import { WordHunt } from "@/components/games/WordHunt";
 import { EightBall } from "@/components/games/EightBall";
+import { GameChat } from "@/components/games/GameChat";
 
 export const Route = createFileRoute("/_authenticated/games/$conversationId")({
   component: GameRoom,
@@ -112,7 +113,7 @@ function GameRoom() {
           {finished ? (
             <div className="space-y-4 rounded-xl border bg-card p-5 text-center">
               <h2 className="text-2xl font-semibold">{playerScore > computerScore ? "You win!" : playerScore < computerScore ? `${character.preferredName} wins!` : "It's a tie!"}</h2>
-              <p className="text-muted-foreground">The result is from the actual answers. This prototype does not yet alter relationship state.</p>
+              <p className="text-muted-foreground">Answer scores are computed from the actual question bank. Chat during games uses the same relationship engine as Messages.</p>
               <button type="button" className="w-full rounded-xl bg-primary p-3 text-primary-foreground" onClick={() => setSaved((s) => ({ ...s, trivia: { answers: [], deck: nextTriviaDeck(s.trivia.deck), previous: s.trivia.deck, round: s.trivia.round + 1 } }))}>Rematch</button>
             </div>
           ) : (
@@ -132,6 +133,7 @@ function GameRoom() {
           <button type="button" onClick={() => setSaved((s) => ({ ...s, four: { board: Array(42).fill(0), ended: null } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
         </section>
       )}
+      <GameChat conversationId={conversationId} name={character.preferredName} game={saved.game} />
       <p className="mt-8 text-center text-xs text-muted-foreground">Playable prototypes · Trivia and Four in a Row save locally · Multiplayer and AI-driven characters coming next</p>
     </main>
   );
