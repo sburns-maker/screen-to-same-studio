@@ -211,6 +211,13 @@
       "when": 1792825284451,
       "tag": "0029_relationship_evaluations",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792836315206,
+      "tag": "0030_allow_riley_character_voice",
+      "breakpoints": true
     }
   ]
 }

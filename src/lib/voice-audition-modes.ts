@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VOICE_DESIGNS, type VoiceDesignKey } from "./live-voice-design";
+import { VOICE_DESIGNS, VOICE_DESIGN_KEYS, type VoiceDesignKey } from "./live-voice-design";
 
 export type AuditionMode = "scripted" | "conversational";
 
@@ -32,7 +32,7 @@ const HUMAN =
   " Sounds like a real person on a private phone call: natural breaths, connected words, small hesitations and genuine laughs; never announcer-like, robotic, sing-song or overacted.";
 
 /** One-tap, personality-based voice-creation presets for every contact. */
-export const CHARACTER_VOICE_PRESETS: Record<string, { name: string; prompt: string }> = {
+export const CHARACTER_VOICE_PRESETS: Record<VoiceDesignKey, { name: string; prompt: string }> = {
   tess: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT },
   maya: {
     name: "Maya — Flirty & Bubbly",
@@ -60,6 +60,13 @@ export const CHARACTER_VOICE_PRESETS: Record<string, { name: string; prompt: str
     prompt:
       "An adult American man in his thirties, a laid-back friend from central Pennsylvania. Relaxed, friendly baritone with a casual General American accent. " +
       "Easy, natural pace, good-natured humour, frequent chuckles and a supportive, buddy-like tone; platonic and down-to-earth, never flirtatious, gravelly, booming or salesy." +
+      HUMAN,
+  },
+  riley: {
+    name: "Riley — Warm & Witty Night Shift",
+    prompt:
+      "An adult American woman, 28, a hospital laboratory technician from Altoona, Pennsylvania. Clearly feminine, warm, clear mid-to-light register and a relaxed General American accent. " +
+      "Easy conversational pacing, understated dry humour, small spontaneous amused reactions and a gentle smile in the voice. Comfortable with silence, observant and occasionally thoughtful; a believable hint of overnight tiredness without sounding bored, monotone or whispery. Never exaggeratedly husky, breathy, artificially bubbly or theatrical." +
       HUMAN,
   },
 };
@@ -98,7 +105,7 @@ export function auditionReinforcement(mode: AuditionMode, scriptedPrompt: string
 }
 
 export const auditionRequestSchema = z.object({
-  character: z.enum(["tess", "maya", "claire", "jordan", "ben"]),
+  character: z.enum(VOICE_DESIGN_KEYS),
   voiceId: z.string().regex(/^voice_[a-zA-Z0-9_-]{3,120}$/),
   sdp: z.string().min(10).max(200000),
   mode: z.enum(["scripted", "conversational"]).default("scripted"),

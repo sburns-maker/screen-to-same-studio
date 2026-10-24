@@ -1,0 +1,2 @@
+ALTER TABLE public.character_voices DROP CONSTRAINT character_voices_character_key_check;
+ALTER TABLE public.character_voices ADD CONSTRAINT character_voices_character_key_check CHECK (character_key = ANY (ARRAY['tess'::text, 'maya'::text, 'claire'::text, 'jordan'::text, 'ben'::text, 'riley'::text]));

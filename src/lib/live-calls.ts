@@ -1,7 +1,8 @@
 // Pure, client-safe rules for live character phone calls (GPT-Live voice).
 import { z } from "zod";
+import { VOICE_DESIGN_KEYS } from "./live-voice-design";
 
-export const LIVE_CALL_CHARACTERS = ["tess", "maya", "claire", "jordan", "ben"] as const;
+export const LIVE_CALL_CHARACTERS = VOICE_DESIGN_KEYS;
 export type LiveCallCharacter = (typeof LIVE_CALL_CHARACTERS)[number];
 
 export const LIVE_CALL_DEFAULT_SECONDS = 300;

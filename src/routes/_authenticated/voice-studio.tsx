@@ -25,6 +25,7 @@ import { VoiceReferenceMatcher } from "@/components/VoiceReferenceMatcher";
 import { characterVoices, setCharacterVoice } from "@/lib/live-calls.functions";
 import {
   VOICE_DESIGNS,
+  VOICE_DESIGN_KEYS,
   VOICE_NAME_MAX,
   VOICE_PRESETS,
   VOICE_PROMPT_MAX,
@@ -73,7 +74,7 @@ function presetDraft(c: VoiceDesignKey, v: Variant): Draft {
     name: defaultVoiceName(c, v),
   };
 }
-const characters = Object.keys(VOICE_DESIGNS) as VoiceDesignKey[];
+const characters = VOICE_DESIGN_KEYS;
 const STORE = "voice-studio-candidates-v1";
 const title = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
 
@@ -529,10 +530,10 @@ function VoiceStudio() {
                 disabled={busy !== null}
                 onClick={() => {
                   setVariant("custom");
-                  saveDrafts({ ...drafts, [`${character}:custom`]: { ...CHARACTER_VOICE_PRESETS[character]! } });
+                  saveDrafts({ ...drafts, [`${character}:custom`]: { ...CHARACTER_VOICE_PRESETS[character] } });
                 }}
               >
-                {CHARACTER_VOICE_PRESETS[character]!.name.split(" — ")[0]} voice (fill everything in)
+                {CHARACTER_VOICE_PRESETS[character].name.split(" — ")[0]} voice (fill everything in)
               </Button>
             )}
             <div className="mt-3 grid grid-cols-4 gap-2">

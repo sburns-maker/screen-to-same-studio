@@ -4,3 +4,4 @@
 - [x] Fixed stale front-camera test wording from Sunburst merge; full suite green (625 passed)
 - [x] Audit all saved database updates: all 29 migrations (0000–0028) match installed hashes; separately installed live-call tables/function and private media buckets are present.
 - [x] Apply the missing Riley character registration; verify her new thread, initial state, opening message, inbox entry, and contacts entry through the signed-in app.
+- [x] Add Riley to Voice Studio, voice creation, scripted auditions and live-call voice assignment; verified signed-in preset persistence, 51 tests and clean build without paid audio or changing existing voices. Applied migration 0030 to extend the existing phone-voice constraint to Riley.

@@ -22,9 +22,16 @@ describe("editable scripted audition", () => {
 import { CHARACTER_VOICE_PRESETS } from "@/lib/voice-audition-modes";
 describe("character voice presets", () => {
   it("every contact has a valid preset", () => {
-    for (const k of ["tess", "maya", "claire", "jordan", "ben"]) {
-      const p = CHARACTER_VOICE_PRESETS[k]!;
+    for (const k of ["tess", "maya", "claire", "jordan", "ben", "riley"] as const) {
+      const p = CHARACTER_VOICE_PRESETS[k];
       expect(validateVoiceRequest(p.prompt, p.name)).toBeNull();
     }
+  });
+  it("accepts Riley for an explicitly confirmed scripted audition using her saved voice", () => {
+    const request = auditionRequestSchema.parse({ ...base, character: "riley", script: "Hey. You awake?" });
+    const config = auditionSessionConfig(request.character, request.voiceId, request.mode, scriptedSpeakPrompt(request.script ?? ""));
+    expect(config.audio.output.voice.id).toBe("voice_abc123");
+    expect(auditionRequestSchema.safeParse({ ...base, character: "riley", confirmation: "" }).success).toBe(false);
+    expect(auditionRequestSchema.safeParse({ ...base, character: "riley", mode: "conversational" }).success).toBe(false);
   });
 });
