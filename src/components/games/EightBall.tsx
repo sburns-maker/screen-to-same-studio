@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 type Ball={x:number;y:number;vx:number;vy:number;number:number;active:boolean};
 const W=720,H=360,R=10,LEFT=34,RIGHT=686,TOP=28,BOTTOM=332;
 const POCKETS=[[LEFT,TOP],[(LEFT+RIGHT)/2,TOP],[RIGHT,TOP],[LEFT,BOTTOM],[(LEFT+RIGHT)/2,BOTTOM],[RIGHT,BOTTOM]];
@@ -46,9 +46,9 @@ export function EightBall(){
   }
   loop();return()=>{alive=false;if(frame.current!==undefined)cancelAnimationFrame(frame.current)};
  },[]);
- function pos(e:React.PointerEvent<HTMLCanvasElement>){const box=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-box.left)*W/box.width,y:(e.clientY-box.top)*H/box.height}}
+ function pos(e:PointerEvent<HTMLCanvasElement>){const box=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-box.left)*W/box.width,y:(e.clientY-box.top)*H/box.height}}
  function reset(){balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
- function release(e:React.PointerEvent<HTMLCanvasElement>){
+ function release(e:PointerEvent<HTMLCanvasElement>){
   if(!aim.current)return;const p=pos(e),cue=balls.current[0];const dx=cue.x-p.x,dy=cue.y-p.y;const dist=Math.hypot(dx,dy);aim.current=null;
   if(dist<12||!cue.active||!stationary(balls.current))return;
   const speed=Math.min(12,dist*.065);cue.vx=dx/dist*speed;cue.vy=dy/dist*speed;shots.current++;setShotCount(shots.current);setRunning(true);setMessage("Balls in motion…");
