@@ -175,7 +175,7 @@ export function recognizePlan(
 ): CalendarPatch {
   const text = message.body.trim(),
     places = venueFromText(text),
-    cat = category(text) ?? (places.length===1 && places[0]?.kind==="park" ? "walk" : null),
+    cat = places.length===1 && places[0]?.kind==="park" && ["meetup",null].includes(category(text)) ? "walk" : category(text),
     date = resolveDate(text, new Date(message.created_at)),
     time = resolveTime(text) ?? resolveAfternoonTime(text,new Date(message.created_at));
   const open = plans.filter(
