@@ -45,6 +45,21 @@ export function EightBall(){
     const result=adjudicate(rules.current,events.current,before.current);rules.current=result;setRuleDisplay(result);setMessage(result.status);
     if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
     if(result.ballInHand && result.turn===1)balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};
+    if(result.winner===null&&result.turn===2){
+      if(opponentTimer.current)clearTimeout(opponentTimer.current);
+      opponentTimer.current=setTimeout(()=>{
+        if(!alive||rules.current.turn!==2||rules.current.winner!==null)return;
+        const cue=balls.current[0];if(!cue.active)return;
+        const eligible=balls.current.filter(b=>b.active&&b.number>0&&b.number!==8&&(!rules.current.groups[2]||(rules.current.groups[2]==="solids"?b.number<=7:b.number>=9)));
+        const targets=eligible.length?eligible:balls.current.filter(b=>b.active&&b.number===8);
+        const target=targets.sort((a,b)=>Math.hypot(a.x-cue.x,a.y-cue.y)-Math.hypot(b.x-cue.x,b.y-cue.y))[0];
+        if(!target)return;
+        const dx=target.x-cue.x,dy=target.y-cue.y,dist=Math.hypot(dx,dy)||1;
+        before.current=balls.current.filter(b=>b.active&&b.number>0).map(b=>b.number);
+        events.current={firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0};
+        cue.vx=(dx/dist)*7.8;cue.vy=(dy/dist)*7.8;setRunning(true);setMessage("Opponent shoots…");
+      },700);
+    }
    }
    const ctx=canvas.current?.getContext("2d");if(ctx)paint(ctx,balls.current,aim.current);frame.current=requestAnimationFrame(loop);
   }
