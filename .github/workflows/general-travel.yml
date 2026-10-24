@@ -1,0 +1,16 @@
+name: General Travel
+on:
+  pull_request:
+    paths:
+      - "src/lib/travel-experiences.ts"
+      - "src/test/travel-experiences.test.ts"
+      - ".github/workflows/general-travel.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/travel-experiences.test.ts src/test/travel-milestones.test.ts
+      - run: bun run build
