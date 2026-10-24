@@ -635,7 +635,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             now,
             gapHours,
             lastInitiatedAt: life?.last_initiated_at ?? null,
-            context: lifeEvent?.summary ?? schedule.detail,
+            context: (await import("./calendar-commitment")).photoContextConflicts(schedule,lifeEvent?.summary??"") ? schedule.detail : lifeEvent?.summary ?? schedule.detail,
           });
           const photoDecisionId = worldReady
             ? await recordPhotoDecision(admin, {
@@ -646,7 +646,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               eligible: photoChance.eligible,
               selected: photoChance.selected,
               reason: photoChance.reason,
-              trigger: lifeEvent?.summary ?? schedule.detail ?? null,
+              trigger: (await import("./calendar-commitment")).photoContextConflicts(schedule,lifeEvent?.summary??"") ? schedule.detail : lifeEvent?.summary ?? schedule.detail ?? null,
               now,
             })
             : null;
