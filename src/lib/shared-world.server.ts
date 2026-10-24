@@ -133,7 +133,7 @@ export async function sharedPlanContext(db: Client, user: string, character: str
     if (["42P01", "PGRST205"].includes(error.code)) return null;
     throw new Error("Shared presence unavailable");
   }
-  if (!data) return null;
+  if (!data) return (await import("./calendar-commitment.server")).commitmentFor(db, user, character, now);
   const { data: plan, error: planError } = await db
     .from("social_plans")
     .select("*")

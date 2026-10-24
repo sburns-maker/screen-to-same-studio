@@ -1,5 +1,6 @@
 import { CANON_NPCS, hashSeed, mulberry32, type PlannedEvent, type LinkRow } from "./social-logic";
 import type { LifeEvent, TessActivity } from "./tess-life";
+import { physicalStoryAllowed } from "./calendar-commitment";
 
 export const STORY_LIMIT = 1; // per character, including shared involvement
 export const STORY_STEPS_PER_TICK = 10;
@@ -74,16 +75,22 @@ export function readStory(value: unknown): StoryState | null {
   return s as StoryState;
 }
 export function storyActive(s: StoryState): boolean { return s.nextAt !== null; }
+/** Workplace milestones wait while any participant is off work or on a calendar outing. */
+export function storyMayAdvance(s: StoryState, now: Date, committed: ReadonlySet<string>): boolean {
+  const t = STORY_TEMPLATES.find(x => x.key === s.template);
+  if (!t) return true;
+  return s.characters.every(c => physicalStoryAllowed(t.location, t.start, now, committed.has(c)));
+}
 
 /** Tenant-specific, non-repeating topic selection; never reads user conversations. */
-export function beginStories(userId: string, now: Date, existing: StoryState[], links: LinkRow[]): { id: string; state: StoryState }[] {
+export function beginStories(userId: string, now: Date, existing: StoryState[], links: LinkRow[], committed: ReadonlySet<string> = new Set()): { id: string; state: StoryState }[] {
   const out: { id: string; state: StoryState }[] = [];
   for (const owner of ["tess", "maya", "claire", "jordan", "ben"]) {
     const all = [...existing, ...out.map(x => x.state)];
     if (all.filter(s => storyActive(s) && s.characters.includes(owner)).length >= STORY_LIMIT) continue;
     const previous = all.filter(s => s.characters.includes(owner)).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     if (previous && now.getTime() - Date.parse(previous.updatedAt) < STORY_COOLDOWN_DAYS * DAY) continue;
-    const available = STORY_TEMPLATES.filter(t => t.owner === owner && !existing.some(s => s.template === t.key));
+    const available = STORY_TEMPLATES.filter(t => t.owner === owner && !existing.some(s => s.template === t.key) && physicalStoryAllowed(t.location, t.start, now, committed.has(owner)));
     if (!available.length) continue;
     const rng = mulberry32(hashSeed(`${userId}:${owner}:${existing.filter(s => s.owner === owner).length}:${Math.floor(now.getTime()/DAY)}`));
     const t = available[Math.floor(rng() * available.length)];

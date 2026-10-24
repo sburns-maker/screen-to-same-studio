@@ -106,7 +106,7 @@ beforeEach(() => {
     let single = false;
     let photoOnly = false;
     const query: Record<string, unknown> = {};
-    for (const name of ["select", "eq", "lte", "gt", "order", "limit", "is"])
+    for (const name of ["select", "eq", "lte", "gt", "gte", "in", "order", "limit", "is"])
       query[name] = () => query;
     for (const name of ["single", "maybeSingle"])
       query[name] = () => {
