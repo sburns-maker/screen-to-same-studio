@@ -1,0 +1,17 @@
+name: Mutual calendar confirmation
+on:
+  pull_request:
+    paths:
+      - "src/lib/calendar-logic.ts"
+      - "src/test/calendar-mutual-confirmation.test.ts"
+      - "drizzle/migrations/0036_mutual_calendar_confirmation.sql"
+      - ".github/workflows/mutual-calendar.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/calendar-logic.test.ts src/test/calendar-mutual-confirmation.test.ts src/test/interactive-world.integration.test.ts
+      - run: bun run build
