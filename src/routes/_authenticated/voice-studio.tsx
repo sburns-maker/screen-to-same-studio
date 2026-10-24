@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
-import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, TESS_REFERENCE_VOICE_PROMPT, TESS_REFERENCE_VOICE_NAME, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
+import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, CHARACTER_VOICE_PRESETS, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
 import {
   AUDITION_SCRIPT,
   AUDITION_SPEAK_PROMPT,
@@ -522,17 +522,17 @@ function VoiceStudio() {
             <p className="text-xs text-muted-foreground">
               Free: revise this description as often as you like; drafts save on this phone. Paid: create a new voice only when ready. Existing OpenAI voice IDs are not editable in place.
             </p>
-            {character === "tess" && (
+            {CHARACTER_VOICE_PRESETS[character] && (
               <Button
                 type="button"
                 className="mt-3 min-h-12 w-full"
                 disabled={busy !== null}
                 onClick={() => {
                   setVariant("custom");
-                  saveDrafts({ ...drafts, ["tess:custom"]: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT } });
+                  saveDrafts({ ...drafts, [`${character}:custom`]: { ...CHARACTER_VOICE_PRESETS[character]! } });
                 }}
               >
-                Tess voice (fill everything in)
+                {CHARACTER_VOICE_PRESETS[character].name.split(" — ")[0]} voice (fill everything in)
               </Button>
             )}
             <div className="mt-3 grid grid-cols-4 gap-2">
