@@ -6,7 +6,8 @@ import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
 import { KNOWLEDGE_RULES } from "./social-logic";
 import { EVENT_TAG_RULES } from "./event-tags";
-export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;\n
+export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;
+
 
 import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE } from "./tess-voice";
 
