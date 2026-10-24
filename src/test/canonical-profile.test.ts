@@ -5,7 +5,7 @@ import { canonicalProfile, jpegDimensions } from "@/lib/canonical-profile.server
 import { PROFILE_PORTRAITS } from "@/lib/character-portraits";
 import { CHARACTERS } from "@/lib/characters";
 describe("authoritative profile bytes", () => {
-  it.each(["tess", "maya", "claire", "jordan", "ben"] as const)(
+  it.each(["tess", "maya", "claire", "jordan", "ben", "riley"] as const)(
     "%s reference is byte-for-byte the existing displayed portrait",
     async (key) => {
       const reference = await canonicalProfile(key);
@@ -18,16 +18,21 @@ describe("authoritative profile bytes", () => {
   );
   it("different characters have different immutable anchors", async () => {
     const refs = await Promise.all(
-      (["tess", "maya", "claire", "jordan", "ben"] as const).map((key) =>
+      (["tess", "maya", "claire", "jordan", "ben", "riley"] as const).map((key) =>
         canonicalProfile(key),
       ),
     );
-    expect(new Set(refs.map((r) => r.sha256)).size).toBe(5);
+    expect(new Set(refs.map((r) => r.sha256)).size).toBe(6);
     expect(await canonicalProfile("maya")).toMatchObject({ sha256: refs[1]!.sha256 });
   });
   it("fails safely for unknown, missing or malformed references", async () => {
     await expect(canonicalProfile("unknown" as "maya")).rejects.toThrow("not registered");
-    await expect(canonicalProfile("riley")).rejects.toThrow("JPEG is malformed");
     expect(() => jpegDimensions(new Uint8Array([1, 2, 3]))).toThrow();
+  });
+  it("keeps Riley's approved full-resolution PNG as her reference", async () => {
+    const ref = await canonicalProfile("riley");
+    expect(ref.blob.type).toBe("image/png");
+    expect(ref.width).toBe(1122);
+    expect(ref.height).toBe(1402);
   });
 });

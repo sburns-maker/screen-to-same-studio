@@ -1,6 +1,6 @@
 # Riley Hart — Canonical Photo Identity (approved October 24, 2026)
 
-The approved high-resolution generated source is delivered as `riley-hart-canonical.png` in the ChatGPT conversation. This GitHub PR cannot embed the binary source automatically from the conversation file; **the avatar is still a placeholder** until the supplied PNG is added to `src/assets/avatars/riley-canon.png` and `src/lib/character-portraits.ts` imports that file instead of `night-shift.svg`.
+The user supplied `Warm_Night_Shift_Portrait.png` on October 24, 2026 as Riley's approved portrait. The original 1122×1402 PNG is installed unchanged at `src/assets/avatars/riley-canon.png`, used for both her displayed avatar and bundled immutable canonical reference. It replaces the malformed placeholder JPEG; no new face was generated.
 
 When installing the asset:
 - Keep the original full-resolution image unmodified as the primary face reference for future image generations.
