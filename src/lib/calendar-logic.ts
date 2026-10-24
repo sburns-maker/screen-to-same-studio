@@ -186,6 +186,7 @@ export function recognizePlan(
             (date ||
               time ||
               places.length ||
+              /\b(?:move|moved|reschedule|change|switch|push|instead|at|around)\b.{0,35}\b(?:[1-9]|1[0-2]):[0-5]\d\b/i.test(text) ||
               /\b(?:address|meet me there|send.*time|venue|pick you up|confirm|what time|where)\b/i.test(
                 text,
               ))
@@ -272,7 +273,7 @@ export function recognizePlan(
   if (
     target &&
     (date ||
-      time ||
+      patch.time ||
       places.length === 1 ||
       /\b(?:send (?:you )?the address|send (?:you )?the time|confirm with the host|meet me there|meet you there)\b/i.test(
         text,
