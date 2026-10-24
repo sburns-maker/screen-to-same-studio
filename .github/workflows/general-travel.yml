@@ -6,6 +6,8 @@ on:
       - "src/test/travel-experiences.test.ts"
       - "src/lib/travel.functions.ts"
       - "src/lib/travel-ai.server.ts"
+      - "src/lib/travel-photos.server.ts"
+      - "src/lib/tess.functions.ts"
       - "src/routes/_authenticated/travel.tsx"
       - "src/routes/_authenticated/plans.tsx"
       - "docs/sql/20261024_travel_trips.sql"
