@@ -227,7 +227,7 @@ export function previewWorld(def: CharacterDef, now: Date, hours = 6) {
 export async function reserveWorldAi(admin: Admin, userId: string) {
   const { data, error } = await admin.rpc("reserve_world_ai", {
     p_user_id: userId,
-    p_limit: limit("AUTONOMOUS_AI_DAILY_LIMIT", 12, 100),
+    p_limit: limit("AUTONOMOUS_AI_DAILY_LIMIT", 100, 300),
   });
   if (error) throw new Error("Autonomous AI budget unavailable");
   return data === true;
