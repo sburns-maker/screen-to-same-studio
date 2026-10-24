@@ -176,8 +176,9 @@ export function recognizePlan(
   const text = message.body.trim(),
     places = venueFromText(text),
     cat = places.length===1 && places[0]?.kind==="park" && ["meetup",null].includes(category(text)) ? "walk" : category(text),
-    date = resolveDate(text, new Date(message.created_at)),
-    time = resolveTime(text) ?? resolveAfternoonTime(text,new Date(message.created_at));
+    inferredTime = resolveAfternoonTime(text,new Date(message.created_at)),
+    time = resolveTime(text) ?? inferredTime,
+    date = resolveDate(text, new Date(message.created_at)) ?? (inferredTime && Number(inferredTime.slice(0,2)) > Number(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"}).format(new Date(message.created_at))) ? easternDate(new Date(message.created_at)) : undefined);
   const open = plans.filter(
     (p) =>
       p.conversation_id === message.conversation_id &&
