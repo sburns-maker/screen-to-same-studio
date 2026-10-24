@@ -39,6 +39,7 @@ describe("reply schema memory layers", () => {
       tone: "neutral",
       event_tags: [],
       photo_boundary_decision: "unchanged",
+      character_perspective: null,
     };
     for (const memory_type of ["relationship", "personal", "fact"]) {
       const r = replySchema.safeParse({ ...base, memory_candidates: [{ memory_type, summary: "x", importance: 3 }] });
