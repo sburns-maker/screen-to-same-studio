@@ -8,7 +8,7 @@ describe("server game validation",()=>{
  });
  it("grades answers from the canonical question bank",()=>{
   const deck=Array.from({length:10},(_,i)=>i);
-  const result=trivia({deck,answers:deck.map(i=>QUESTION_BANK[i].correct),characterKey:"tess"});
+  const result=trivia({deck,answers:deck.map(i=>QUESTION_BANK[i]!.correct),characterKey:"tess"});
   expect(result?.player).toBe(10);
   expect(result?.outcome).not.toBe("loss");
  });

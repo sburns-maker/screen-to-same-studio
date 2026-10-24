@@ -16,7 +16,7 @@ export const saveGameMatch=createServerFn({method:"POST"})
   const {supabase,userId}=context;
   const {data:conv,error:convError}=await supabase.from("conversations").select("id,character:characters(key)").eq("id",data.conversationId).eq("user_id",userId).maybeSingle();
   if(convError||!conv)throw new Error("Conversation not found");
-  if(!process.env.SUPABASE_SERVICE_ROLE_KEY)throw new Error("Game storage database is not configured");
+  if(!process.env["SUPABASE_SERVICE_ROLE_KEY"])throw new Error("Game storage database is not configured");
   const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
   const admin=supabaseAdmin as unknown as SupabaseClient<any>;
   const charKey=(conv.character as {key?:string}|null)?.key??"";

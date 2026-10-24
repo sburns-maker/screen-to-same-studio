@@ -547,6 +547,56 @@ export type Database = {
         }
         Relationships: []
       }
+      game_matches: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          effects_applied: boolean
+          game: string
+          id: string
+          match_key: string
+          progress: Json
+          result: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          effects_applied?: boolean
+          game: string
+          id?: string
+          match_key: string
+          progress?: Json
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          effects_applied?: boolean
+          game?: string
+          id?: string
+          match_key?: string
+          progress?: Json
+          result?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_matches_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generated_images: {
         Row: {
           camera_angle: string | null
@@ -1179,6 +1229,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      relationship_evaluations: {
+        Row: {
+          character_perspective: string | null
+          context_summary: string | null
+          conversation_id: string
+          delta: Json
+          evaluated_at: string
+          event_tags: string[]
+          id: string
+          message_id: string
+          observed_tone: string | null
+          source_kind: string
+          stage_after: string
+          stage_before: string
+          state_after: Json
+          state_before: Json
+          user_id: string
+        }
+        Insert: {
+          character_perspective?: string | null
+          context_summary?: string | null
+          conversation_id: string
+          delta: Json
+          evaluated_at?: string
+          event_tags?: string[]
+          id?: string
+          message_id: string
+          observed_tone?: string | null
+          source_kind?: string
+          stage_after: string
+          stage_before: string
+          state_after: Json
+          state_before: Json
+          user_id: string
+        }
+        Update: {
+          character_perspective?: string | null
+          context_summary?: string | null
+          conversation_id?: string
+          delta?: Json
+          evaluated_at?: string
+          event_tags?: string[]
+          id?: string
+          message_id?: string
+          observed_tone?: string | null
+          source_kind?: string
+          stage_after?: string
+          stage_before?: string
+          state_after?: Json
+          state_before?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relationship_evaluations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "relationship_evaluations_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shared_events: {
         Row: {
@@ -2320,6 +2439,10 @@ export type Database = {
         Returns: number
       }
       experience_status: { Args: never; Returns: number }
+      finalize_game_match: {
+        Args: { p_id: string; p_summary: string; p_user_id: string }
+        Returns: undefined
+      }
       interactive_world_status: { Args: never; Returns: number }
       living_experience_action_v25: {
         Args: {
