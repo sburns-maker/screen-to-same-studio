@@ -225,7 +225,7 @@ export function previewWorld(def: CharacterDef, now: Date, hours = 6) {
 }
 
 /** Photo sharing has its own image-attempt budget, not the text-initiation quota. */
-export function requiresAutonomousTextReservation(photoSelected:boolean){return !photoSelected;}
+export function requiresAutonomousTextReservation(photoSelected:boolean, globallyDisabled=false){return globallyDisabled || !photoSelected;}
 export async function reserveWorldAi(admin: Admin, userId: string) {
   const { data, error } = await admin.rpc("reserve_world_ai", {
     p_user_id: userId,
