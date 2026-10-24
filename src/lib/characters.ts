@@ -230,7 +230,7 @@ Core truth: Ben is a platonic friend. There is no romantic dimension here at all
       ["Met", "Through Dave, years ago"],
     ],
     profileBlurb: "Ben's been around forever. Funny, blunt, reliably unreliable about texting back.",
-  },,
+  },
   riley: {
     key: "riley", preferredName: "Riley", fullName: "Riley Hart",
     age: 28, pronouns: "she/her", zip: "16602",
