@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
-import { CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
+import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, TESS_REFERENCE_VOICE_PROMPT, TESS_REFERENCE_VOICE_NAME, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
 import {
   AUDITION_SCRIPT,
   AUDITION_SPEAK_PROMPT,
@@ -72,7 +72,6 @@ function presetDraft(c: VoiceDesignKey, v: Variant): Draft {
     name: defaultVoiceName(c, v),
   };
 }
-const script = AUDITION_SCRIPT;
 const characters = Object.keys(VOICE_DESIGNS) as VoiceDesignKey[];
 const STORE = "voice-studio-candidates-v1";
 const title = (c: string) => c.charAt(0).toUpperCase() + c.slice(1);
@@ -108,9 +107,15 @@ function VoiceStudio() {
   const [selected, setSelected] = useState("");
   const [auditionMode, setAuditionMode] = useState<AuditionMode>("scripted");
   const [conversationalOptions, setConversationalOptions] = useState<ConversationalOptions>(DEFAULT_CONVERSATIONAL_OPTIONS);
+  const [script, setScript] = useState(AUDITION_SCRIPT);
+  const scriptInvalid = !script.trim() ? "Enter a script." : script.length > SCRIPT_MAX ? `Script must be at most ${SCRIPT_MAX} characters.` : undefined;
+  function saveScript(v: string) {
+    setScript(v);
+    try { localStorage.setItem(SCRIPT_DRAFT_STORE, v); } catch { /* ignore */ }
+  }
   const conversationalValidation = conversationalOptionsSchema.safeParse(conversationalOptions);
   const auditionInvalid = auditionMode === "conversational" && !conversationalValidation.success
-    ? conversationalValidation.error.issues[0]?.message : undefined;
+    ? conversationalValidation.error.issues[0]?.message : auditionMode === "scripted" ? scriptInvalid : undefined;
   const [copied, setCopied] = useState("");
   const [level, setLevel] = useState(0);
   const [spoken, setSpoken] = useState("");
@@ -127,6 +132,8 @@ function VoiceStudio() {
 
   useEffect(() => {
     try {
+      const savedScript = localStorage.getItem(SCRIPT_DRAFT_STORE);
+      if (savedScript && savedScript.trim() && savedScript.length <= SCRIPT_MAX) setScript(savedScript);
       setConversationalOptions(restoreConversationalDraft(localStorage.getItem(CONVERSATIONAL_DRAFT_STORE)));
       const raw = localStorage.getItem(DRAFT_STORE);
       if (raw) setDrafts(JSON.parse(raw) as Record<string, Draft>);
@@ -325,9 +332,10 @@ function VoiceStudio() {
       audio: audioRef.current,
       mode: auditionMode,
       conversationalOptions: auditionOptions,
+      scriptedPrompt: auditionMode === "scripted" ? scriptedSpeakPrompt(script) : undefined,
       connect: async (sdp) => {
         const r = await auditionFn({
-          data: { character, voiceId: selected, sdp, mode: auditionMode, ...auditionOptions, confirmation: "START PAID VOICE AUDITION" },
+          data: { character, voiceId: selected, sdp, mode: auditionMode, ...auditionOptions, ...(auditionMode === "scripted" ? { script: script.trim() } : {}), confirmation: "START PAID VOICE AUDITION" },
         });
         auditionId = r.auditionId;
         return r;
@@ -484,6 +492,19 @@ function VoiceStudio() {
             <p className="text-xs text-muted-foreground">
               Free: revise this description as often as you like; drafts save on this phone. Paid: create a new voice only when ready. Existing OpenAI voice IDs are not editable in place.
             </p>
+            {character === "tess" && (
+              <Button
+                type="button"
+                className="mt-3 min-h-12 w-full"
+                disabled={busy !== null}
+                onClick={() => {
+                  setVariant("custom");
+                  saveDrafts({ ...drafts, ["tess:custom"]: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT } });
+                }}
+              >
+                Tess voice (fill everything in)
+              </Button>
+            )}
             <div className="mt-3 grid grid-cols-4 gap-2">
               {[...variants, "custom" as const].map((v) => (
                 <button
@@ -561,7 +582,26 @@ function VoiceStudio() {
               ))}
             </div>
             {auditionMode === "scripted" ? (
-              <p className="mt-3 rounded-lg bg-background p-3 text-sm">{script}</p>
+              <div className="mt-3 space-y-2">
+                <label className="block text-sm font-medium">
+                  Script (spoken word for word)
+                  <textarea
+                    className="mt-1 min-h-28 w-full rounded-lg border bg-background p-3 text-sm"
+                    value={script}
+                    aria-label="Audition script"
+                    maxLength={SCRIPT_MAX}
+                    disabled={playing || busy !== null}
+                    onChange={(e) => saveScript(e.target.value)}
+                  />
+                </label>
+                <p className="text-xs text-muted-foreground">{script.trim().length}/{SCRIPT_MAX} characters</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" disabled={playing || busy !== null} onClick={() => saveScript(AUDITION_SCRIPT)}>Reset script</Button>
+                  <Button type="button" variant="outline" disabled={playing || busy !== null} onClick={() => saveScript(CONVERSATIONAL_CUE)}>Use reference line</Button>
+                </div>
+                {auditionInvalid && <p role="alert" className="text-sm text-destructive">{auditionInvalid}</p>}
+                <VoiceReferenceMatcher disabled={playing || busy !== null || !status} onApply={(o) => { saveConversationalOptions(o); saveScript(o.conversationalCue.slice(0, SCRIPT_MAX)); }} />
+              </div>
             ) : (
               <div className="mt-3 space-y-3">
                 <label className="block text-sm font-medium">
