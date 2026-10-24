@@ -1970,6 +1970,107 @@ export type Database = {
         }
         Relationships: []
       }
+      travel_trip_moments: {
+        Row: {
+          body: string
+          created_at: string
+          day: number
+          id: string
+          photo_caption: string | null
+          photo_path: string | null
+          stop_id: string
+          trip_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          day: number
+          id: string
+          photo_caption?: string | null
+          photo_path?: string | null
+          stop_id: string
+          trip_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          day?: number
+          id?: string
+          photo_caption?: string | null
+          photo_path?: string | null
+          stop_id?: string
+          trip_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "travel_trip_moments_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "travel_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      travel_trips: {
+        Row: {
+          companions: Json
+          created_at: string
+          destination: string
+          end_date: string | null
+          id: string
+          itinerary: Json
+          mode: string
+          notes: Json
+          origin: string
+          purpose: string
+          revision: number
+          start_date: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          companions?: Json
+          created_at?: string
+          destination: string
+          end_date?: string | null
+          id: string
+          itinerary?: Json
+          mode: string
+          notes?: Json
+          origin: string
+          purpose: string
+          revision?: number
+          start_date?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          companions?: Json
+          created_at?: string
+          destination?: string
+          end_date?: string | null
+          id?: string
+          itinerary?: Json
+          mode?: string
+          notes?: Json
+          origin?: string
+          purpose?: string
+          revision?: number
+          start_date?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profile: {
         Row: {
           key: string

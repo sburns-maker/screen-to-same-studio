@@ -218,6 +218,13 @@
       "when": 1792836315206,
       "tag": "0030_allow_riley_character_voice",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1792856687389,
+      "tag": "0031_travel_trips_and_private_journal",
+      "breakpoints": true
     }
   ]
 }
