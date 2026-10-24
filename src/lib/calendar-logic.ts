@@ -103,6 +103,7 @@ export function resolveDate(text: string, at: Date) {
   return addDays(today, delta);
 }
 export function resolveTime(text: string, knownEveningPlan = false) {
+  if (/\b(?:noon|midday|12\s*p\.?m\.?)\b/i.test(text)) return "12:00";
   const m = /\b(1[0-2]|[1-9])(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)\b/i.exec(text);
   if (m) {
     const h = (Number(m[1]) % 12) + (/^p/i.test(m[3]!) ? 12 : 0);
@@ -147,7 +148,7 @@ export function easternInstant(date: string | null, time: string | null) {
 function category(text: string) {
   return /book\s*club/i.test(text)
     ? "book_club"
-    : /\b(?:dinner|restaurant)\b/i.test(text)
+    : /\b(?:lunch|dinner|restaurant)\b/i.test(text)
       ? "dinner"
       : /\bcoffee\b/i.test(text)
         ? "coffee"
@@ -194,9 +195,10 @@ export function recognizePlan(
           : undefined);
   const inviting =
     !!cat &&
+    (/\b(?:here['’]s my (?:revised )?(?:formal )?(?:offer|proposal)|my (?:revised )?(?:formal )?(?:offer|proposal))\b/i.test(text) ||
     /\b(?:want to|would you like|come (?:along|with|to)|join me|let['’]s|shall we|can we|how about|what about|would you|invite you|meet me)\b/i.test(
       text,
-    ) &&
+    )) &&
     !/\b(?:don't|do not|cannot|can't|not interested|maybe someday|used to)\b/i.test(text);
   const patch: CalendarPatch = {
     action: "none",
