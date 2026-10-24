@@ -66,6 +66,7 @@ function Plans() {
         Existing historical dates and memories are preserved; older chat is not automatically
         backfilled.
       </p>
+      <Link to="/travel" className="mb-5 block rounded-2xl border bg-surface p-4 text-center font-medium text-primary">Explore Travel · Road trips, flights, vacations & work trips →</Link>
       <CalendarBoard />
       {decision && (
         <p role="status" className={`${card} mb-4 text-sm`}>
