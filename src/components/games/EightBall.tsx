@@ -1,3 +1,4 @@
+import { adjudicate, initialRules, type RulesState, type ShotEvents } from "@/lib/eight-ball-rules";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 type Ball={x:number;y:number;vx:number;vy:number;number:number;active:boolean};
 const W=720,H=360,R=10,LEFT=34,RIGHT=686,TOP=28,BOTTOM=332;
@@ -8,16 +9,17 @@ function startBalls():Ball[]{
  return a;
 }
 function stationary(a:Ball[]){return a.every(b=>!b.active||Math.hypot(b.vx,b.vy)<.15);}
-function integrate(a:Ball[]):Ball[]{
+function integrate(a:Ball[], events:ShotEvents):Ball[]{
  const balls=a.map(b=>({...b}));
  for(const b of balls){if(!b.active)continue;b.x+=b.vx;b.y+=b.vy;b.vx*=.985;b.vy*=.985;if(Math.abs(b.vx)<.035)b.vx=0;if(Math.abs(b.vy)<.035)b.vy=0;
-  if(POCKETS.some(([x,y])=>Math.hypot(b.x-x,b.y-y)<19)){b.active=false;b.vx=0;b.vy=0;continue;}
-  if(b.x<LEFT+R||b.x>RIGHT-R){b.x=Math.min(RIGHT-R,Math.max(LEFT+R,b.x));b.vx*=-.86;}
-  if(b.y<TOP+R||b.y>BOTTOM-R){b.y=Math.min(BOTTOM-R,Math.max(TOP+R,b.y));b.vy*=-.86;}
+  if(POCKETS.some(([x,y])=>Math.hypot(b.x-x,b.y-y)<19)){b.active=false;b.vx=0;b.vy=0;events.pocketed.push(b.number);if(b.number===0)events.cueScratch=true;continue;}
+  if(b.x<LEFT+R||b.x>RIGHT-R){if(events.firstContact!==null)events.railAfterContact=true;else if(b.number!==0)events.breakRails++;b.x=Math.min(RIGHT-R,Math.max(LEFT+R,b.x));b.vx*=-.86;}
+  if(b.y<TOP+R||b.y>BOTTOM-R){if(events.firstContact!==null)events.railAfterContact=true;else if(b.number!==0)events.breakRails++;b.y=Math.min(BOTTOM-R,Math.max(TOP+R,b.y));b.vy*=-.86;}
  }
  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
   const a=balls[i],b=balls[j];if(!a.active||!b.active)continue;
   const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<=0||d>=R*2)continue;
+  if(events.firstContact===null && (a.number===0||b.number===0)){events.firstContact=a.number===0?b.number:a.number;}
   const nx=dx/d,ny=dy/d,overlap=(R*2-d)/2;a.x-=nx*overlap;a.y-=ny*overlap;b.x+=nx*overlap;b.y+=ny*overlap;
   const relative=(b.vx-a.vx)*nx+(b.vy-a.vy)*ny;
   if(relative<0){const force=relative*.94;a.vx+=nx*force;a.vy+=ny*force;b.vx-=nx*force;b.vy-=ny*force;}
@@ -34,32 +36,35 @@ function paint(ctx:CanvasRenderingContext2D,balls:Ball[],aim:{x:number;y:number}
 }
 export function EightBall(){
  const canvas=useRef<HTMLCanvasElement|null>(null),balls=useRef<Ball[]>(startBalls()),aim=useRef<{x:number;y:number}|null>(null),frame=useRef<number|undefined>(undefined),shots=useRef(0);
- const [shotCount,setShotCount]=useState(0),[remaining,setRemaining]=useState(15),[running,setRunning]=useState(false),[message,setMessage]=useState("Drag backward from the cue ball to aim and set power.");
+ const rules=useRef<RulesState>(initialRules()),events=useRef<ShotEvents>({firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0}),before=useRef<number[]>([]),opponentTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const [ruleDisplay,setRuleDisplay]=useState<RulesState>(initialRules()),[shotCount,setShotCount]=useState(0),[remaining,setRemaining]=useState(15),[running,setRunning]=useState(false),[message,setMessage]=useState("Drag backward from the cue ball to aim and set power.");
  useEffect(()=>{
   let alive=true;let ticks=0;
-  function loop(){if(!alive)return;const b=balls.current;if(!stationary(b)){for(let k=0;k<3;k++)balls.current=integrate(balls.current);ticks++;}
+  function loop(){if(!alive)return;const b=balls.current;if(!stationary(b)){for(let k=0;k<3;k++)balls.current=integrate(balls.current,events.current);ticks++;}
    if(ticks>0&&stationary(balls.current)){ticks=0;setRunning(false);setRemaining(balls.current.filter(x=>x.active&&x.number!==0).length);
-    if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};setMessage("Scratch! Cue ball returned to the table.");}
-    else setMessage("Balls stopped. Line up your next shot.");
+    const result=adjudicate(rules.current,events.current,before.current);rules.current=result;setRuleDisplay(result);setMessage(result.status);
+    if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
+    if(result.ballInHand && result.turn===1)balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};
    }
    const ctx=canvas.current?.getContext("2d");if(ctx)paint(ctx,balls.current,aim.current);frame.current=requestAnimationFrame(loop);
   }
-  loop();return()=>{alive=false;if(frame.current!==undefined)cancelAnimationFrame(frame.current)};
+  loop();return()=>{alive=false;if(frame.current!==undefined)cancelAnimationFrame(frame.current);if(opponentTimer.current)clearTimeout(opponentTimer.current)};
  },[]);
  function pos(e:PointerEvent<HTMLCanvasElement>){const box=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-box.left)*W/box.width,y:(e.clientY-box.top)*H/box.height}}
- function reset(){balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
+ function reset(){if(opponentTimer.current)clearTimeout(opponentTimer.current);rules.current=initialRules();setRuleDisplay(rules.current);balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
  function release(e:PointerEvent<HTMLCanvasElement>){
   if(!aim.current)return;const p=pos(e),cue=balls.current[0];const dx=cue.x-p.x,dy=cue.y-p.y;const dist=Math.hypot(dx,dy);aim.current=null;
-  if(dist<12||!cue.active||!stationary(balls.current))return;
+  if(dist<12||!cue.active||!stationary(balls.current)||rules.current.turn!==1||rules.current.winner!==null)return;
+  before.current=balls.current.filter(b=>b.active&&b.number>0).map(b=>b.number);events.current={firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0};
   const speed=Math.min(12,dist*.065);cue.vx=dx/dist*speed;cue.vy=dy/dist*speed;shots.current++;setShotCount(shots.current);setRunning(true);setMessage("Balls in motion…");
   if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
  }
  return <section className="mt-6 space-y-4" aria-label="8 Ball pool">
   <div className="rounded-xl bg-muted p-4"><h2 className="font-semibold">8 Ball · Pool table</h2><p className="text-sm text-muted-foreground">Interactive physics practice table. Aim by pulling back from the white cue ball and release to shoot.</p><div className="mt-2 flex justify-between text-sm"><span>Shots: {shotCount}</span><span>Object balls left: {remaining}</span></div></div>
   <div className="overflow-hidden rounded-xl border bg-[#75482b]"><canvas ref={canvas} width={W} height={H} aria-label="Interactive billiards table; drag to take a shot" className="block w-full touch-none"
-   onPointerDown={e=>{if(!running&&stationary(balls.current)){aim.current=pos(e);e.currentTarget.setPointerCapture(e.pointerId)}}}
+   onPointerDown={e=>{if(!running&&stationary(balls.current)&&rules.current.turn===1&&rules.current.winner===null){aim.current=pos(e);e.currentTarget.setPointerCapture(e.pointerId)}}}
    onPointerMove={e=>{if(aim.current)aim.current=pos(e)}} onPointerUp={release} onPointerCancel={()=>{aim.current=null;}}/></div>
-  <p className="min-h-9 text-center text-sm">{remaining===0?"Rack cleared!":message}</p>
+  <div className="rounded-lg border p-3 text-sm"><p className="font-semibold">{ruleDisplay.winner!==null?(ruleDisplay.winner===1?"You win!":"Opponent wins!"):(ruleDisplay.turn===1?"Your turn":"Opponent turn")}</p><p>Yours: {ruleDisplay.groups[1]??"open table"} · Opponent: {ruleDisplay.groups[2]??"open table"}</p><p>{ruleDisplay.ballInHand?"Ball in hand · ":""}{message}</p></div>
   <button type="button" className="min-h-12 w-full rounded-xl border" onClick={reset}>Re-rack balls</button>
   <p className="text-xs text-muted-foreground">Physics practice prototype only: simplified collisions and pockets. Full 8 Ball rules, fouls, turn-taking and AI opponent are not implemented yet.</p>
  </section>;
