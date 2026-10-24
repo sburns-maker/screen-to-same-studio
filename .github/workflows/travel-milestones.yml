@@ -1,0 +1,17 @@
+name: Travel milestone checks
+on:
+  pull_request:
+    paths:
+      - "src/lib/travel-milestones.ts"
+      - "src/lib/tess.server.ts"
+      - "src/test/travel-milestones.test.ts"
+      - ".github/workflows/travel-milestones.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/travel-milestones.test.ts
+      - run: bun run build
