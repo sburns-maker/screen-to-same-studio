@@ -1,0 +1,19 @@
+name: Mini Games Validation
+on:
+  pull_request:
+    paths:
+      - "src/components/games/**"
+      - "src/lib/game-*"
+      - "src/routes/_authenticated/games.*"
+      - "src/test/game-match-validation.test.ts"
+      - ".github/workflows/mini-games-check.yml"
+  workflow_dispatch:
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/game-match-validation.test.ts
+      - run: bun run build
