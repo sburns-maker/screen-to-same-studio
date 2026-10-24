@@ -12,7 +12,7 @@ export function adjudicate(state:RulesState,shot:ShotEvents,remainingBefore:numb
  let foul:string|null=null;
  if(shot.cueScratch)foul="Cue-ball scratch";
  else if(shot.offTable?.some(n=>n!==8))foul="Ball driven off the table";
- else if(shot.foulReasons?.length)foul=shot.foulReasons[0];
+ else if(shot.foulReasons?.length)foul=shot.foulReasons[0]??null;
  else if(first===null)foul="No object ball contacted";
  else if(state.breakShot){
   if(!shot.pocketed.some(n=>n!==0)&&(shot.railBalls?.length??shot.breakRails)<4)foul="Illegal break (fewer than four rail contacts)";

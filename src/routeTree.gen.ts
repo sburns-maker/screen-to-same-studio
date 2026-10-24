@@ -27,6 +27,7 @@ import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_a
 import { Route as AuthenticatedDebriefConversationIdRouteImport } from './routes/_authenticated/debrief.$conversationId'
 import { Route as AuthenticatedDebugConversationIdRouteImport } from './routes/_authenticated/debug.$conversationId'
 import { Route as AuthenticatedEncounterNpcKeyRouteImport } from './routes/_authenticated/encounter.$npcKey'
+import { Route as AuthenticatedGamesConversationIdRouteImport } from './routes/_authenticated/games.$conversationId'
 import { Route as AuthenticatedHistoryConversationIdRouteImport } from './routes/_authenticated/history.$conversationId'
 import { Route as AuthenticatedLiveCallConversationIdRouteImport } from './routes/_authenticated/live-call.$conversationId'
 import { Route as AuthenticatedPhotosConversationIdRouteImport } from './routes/_authenticated/photos.$conversationId'
@@ -130,6 +131,12 @@ const AuthenticatedEncounterNpcKeyRoute =
     path: '/encounter/$npcKey',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGamesConversationIdRoute =
+  AuthenticatedGamesConversationIdRouteImport.update({
+    id: '/games/$conversationId',
+    path: '/games/$conversationId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedHistoryConversationIdRoute =
   AuthenticatedHistoryConversationIdRouteImport.update({
     id: '/history/$conversationId',
@@ -189,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
   '/encounter/$npcKey': typeof AuthenticatedEncounterNpcKeyRoute
+  '/games/$conversationId': typeof AuthenticatedGamesConversationIdRoute
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/live-call/$conversationId': typeof AuthenticatedLiveCallConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
@@ -215,6 +223,7 @@ export interface FileRoutesByTo {
   '/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
   '/encounter/$npcKey': typeof AuthenticatedEncounterNpcKeyRoute
+  '/games/$conversationId': typeof AuthenticatedGamesConversationIdRoute
   '/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/live-call/$conversationId': typeof AuthenticatedLiveCallConversationIdRoute
   '/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
@@ -243,6 +252,7 @@ export interface FileRoutesById {
   '/_authenticated/debrief/$conversationId': typeof AuthenticatedDebriefConversationIdRoute
   '/_authenticated/debug/$conversationId': typeof AuthenticatedDebugConversationIdRoute
   '/_authenticated/encounter/$npcKey': typeof AuthenticatedEncounterNpcKeyRoute
+  '/_authenticated/games/$conversationId': typeof AuthenticatedGamesConversationIdRoute
   '/_authenticated/history/$conversationId': typeof AuthenticatedHistoryConversationIdRoute
   '/_authenticated/live-call/$conversationId': typeof AuthenticatedLiveCallConversationIdRoute
   '/_authenticated/photos/$conversationId': typeof AuthenticatedPhotosConversationIdRoute
@@ -271,6 +281,7 @@ export interface FileRouteTypes {
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
     | '/encounter/$npcKey'
+    | '/games/$conversationId'
     | '/history/$conversationId'
     | '/live-call/$conversationId'
     | '/photos/$conversationId'
@@ -297,6 +308,7 @@ export interface FileRouteTypes {
     | '/debrief/$conversationId'
     | '/debug/$conversationId'
     | '/encounter/$npcKey'
+    | '/games/$conversationId'
     | '/history/$conversationId'
     | '/live-call/$conversationId'
     | '/photos/$conversationId'
@@ -324,6 +336,7 @@ export interface FileRouteTypes {
     | '/_authenticated/debrief/$conversationId'
     | '/_authenticated/debug/$conversationId'
     | '/_authenticated/encounter/$npcKey'
+    | '/_authenticated/games/$conversationId'
     | '/_authenticated/history/$conversationId'
     | '/_authenticated/live-call/$conversationId'
     | '/_authenticated/photos/$conversationId'
@@ -469,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEncounterNpcKeyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/games/$conversationId': {
+      id: '/_authenticated/games/$conversationId'
+      path: '/games/$conversationId'
+      fullPath: '/games/$conversationId'
+      preLoaderRoute: typeof AuthenticatedGamesConversationIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/history/$conversationId': {
       id: '/_authenticated/history/$conversationId'
       path: '/history/$conversationId'
@@ -537,6 +557,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDebriefConversationIdRoute: typeof AuthenticatedDebriefConversationIdRoute
   AuthenticatedDebugConversationIdRoute: typeof AuthenticatedDebugConversationIdRoute
   AuthenticatedEncounterNpcKeyRoute: typeof AuthenticatedEncounterNpcKeyRoute
+  AuthenticatedGamesConversationIdRoute: typeof AuthenticatedGamesConversationIdRoute
   AuthenticatedHistoryConversationIdRoute: typeof AuthenticatedHistoryConversationIdRoute
   AuthenticatedLiveCallConversationIdRoute: typeof AuthenticatedLiveCallConversationIdRoute
   AuthenticatedPhotosConversationIdRoute: typeof AuthenticatedPhotosConversationIdRoute
@@ -561,6 +582,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedDebriefConversationIdRoute,
   AuthenticatedDebugConversationIdRoute: AuthenticatedDebugConversationIdRoute,
   AuthenticatedEncounterNpcKeyRoute: AuthenticatedEncounterNpcKeyRoute,
+  AuthenticatedGamesConversationIdRoute: AuthenticatedGamesConversationIdRoute,
   AuthenticatedHistoryConversationIdRoute:
     AuthenticatedHistoryConversationIdRoute,
   AuthenticatedLiveCallConversationIdRoute:
