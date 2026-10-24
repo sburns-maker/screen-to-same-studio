@@ -99,7 +99,6 @@ function GameRoom() {
   const finished = total === deck.length;
   const question = deck[total];
   const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
-  const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
   const result = saved.game === "trivia" && finished
     ? {key:"trivia:"+saved.trivia.round+":"+saved.trivia.deck.join("-"),description:"We just finished a 10-question trivia match. I scored "+playerScore+" and you scored "+computerScore+". "+(playerScore>computerScore?"I won.":playerScore<computerScore?"You won.":"It was a tie.")+" (Game result from AI Town.)"}
     : saved.game === "four" && saved.four.ended !== null
