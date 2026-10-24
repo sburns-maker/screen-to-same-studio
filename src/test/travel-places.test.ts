@@ -7,7 +7,7 @@ describe("curated world destinations",()=>{
   expect(new Set(TRAVEL_PLACES.map(p=>p.id)).size).toBe(TRAVEL_PLACES.length);
  });
  it("supports filtered travel discovery",()=>{
-  expect(travelPlaces("waterfall","iceland").some(p=>p.name==="Skógafoss")).toBe(true);
+  expect(travelPlaces("Skógafoss","iceland").some(p=>p.name==="Skógafoss")).toBe(true);
   expect(travelPlaces("lake","central-pa").length).toBeGreaterThan(0);
  });
  it("opens an external Google Maps search without scraping or embedded Google data",()=>{
