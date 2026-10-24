@@ -409,7 +409,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
         report.errors.push("Shared plan progression failed; existing state retained");
       }
       try {
-        await (await import("./phone-calls.server")).offerDueCallback(admin, userId, now);
+        const calls = await import("./phone-calls.server");
+        const promised = await calls.offerDueCallback(admin, userId, now);
+        if (!promised) await calls.offerSpontaneousCall(admin, userId, now);
       } catch {
         report.errors.push("Call callback offer deferred");
       }
