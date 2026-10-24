@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { QUESTION_BANK } from "./game-trivia";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
 
 const gameSchema = z.object({
  conversationId:z.string().uuid(), key:z.string().min(4).max(160),
@@ -29,7 +28,13 @@ function boardVerdict(p:unknown):Verdict|null {
  const won=()=>{for(let r=0;r<6;r++)for(let c=0;c<7;c++){const v=b[at(r,c)];if(!v)continue;for(const [dr,dc] of [[1,0],[0,1],[1,1],[1,-1]])if(Array.from({length:4},(_,k)=>[r+k*dr,c+k*dc]).every(([rr,cc])=>rr>=0&&rr<6&&cc>=0&&cc<7&&b[at(rr,cc)]===v))return v;}return b.every(Boolean)?3:0;};
  const place=(col:number,player:number)=>{for(let r=5;r>=0;r--)if(!b[at(r,col)]){b[at(r,col)]=player;return true;}return false;};
  let end=0;
- for(let i=0;i<s.moves.length;i++){if(end!==0||!place(s.moves[i],i%2===0?1:2))return null;end=won();}
+ const candidate=(column:number,player:number)=>{const copy=[...b];for(let r=5;r>=0;r--)if(!copy[at(r,column)]){copy[at(r,column)]=player;break;}for(let r=0;r<6;r++)for(let c=0;c<7;c++){const v=copy[at(r,c)];if(!v)continue;for(const [dr,dc] of [[1,0],[0,1],[1,1],[1,-1]])if(Array.from({length:4},(_,k)=>[r+k*dr,c+k*dc]).every(([rr,cc])=>rr>=0&&rr<6&&cc>=0&&cc<7&&copy[at(rr,cc)]===v))return v;}return 0;};
+ const computerMove=()=>{const legal=[3,2,4,1,5,0,6].filter(c=>b.some((v,i)=>i%7===c&&v===0));for(const player of [2,1]){const c=legal.find(col=>candidate(col,player)===player);if(c!==undefined)return c;}return legal[0]??-1;};
+ for(let i=0;i<s.moves.length;i++){
+  const player=i%2===0?1:2;
+  if(end!==0 || (player===2 && s.moves[i]!==computerMove()) || !place(s.moves[i],player))return null;
+  end=won();
+ }
  if(!end)return null;
  return {outcome:end===3?"draw":end===1?"win":"loss",player:end===1?1:0,opponent:end===2?1:0};
 }
