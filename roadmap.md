@@ -7,5 +7,5 @@
 - [x] Add Riley to Voice Studio, voice creation, scripted auditions and live-call voice assignment; verified signed-in preset persistence, 51 tests and clean build without paid audio or changing existing voices. Applied migration 0030 to extend the existing phone-voice constraint to Riley.
 - [x] Fix merged travel compile errors and apply travel storage migration without changing existing histories; clean preview build and signed-in destination selection verified.
 - [x] Secure internal installation and phone directory tables; verify permissions and calls/calendar/world compatibility. Full suite: 678 passed, 5 skipped; signed-in Plans and Calls load without runtime errors. No paid calls or experience actions executed.
-- [ ] Restore Riley's Living Experience eligibility and calendar safeguards; add regression tests and verify her outing button without starting or completing it.
-- [ ] Diagnose and restore access to Tess's noon outing today; preserve its attendance, history and experience state.
+- [x] Restore Riley's Living Experience eligibility and all four calendar/venue safeguards; her scheduled coffee entry and outing link are present. No Riley experience started.
+- [x] Restore Tess's noon lunch access by correcting its companion from user to Tess, preserving times and attendance. Verified the now-active lunch has Continue and Pause controls; 52 focused tests passed and build is clean. No start/finish action executed by verification.
