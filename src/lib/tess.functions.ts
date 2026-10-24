@@ -701,6 +701,7 @@ async function runTurnUnlocked(
       initiation: !!initiation, pendingBefore: nowIso, rows, generated: generatedRow,
       state: { ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone },
       stage, boundary, memories: memRows,
+      relationshipHistory: { before: state, after: next, delta: Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]])), previousStage:deriveStage(state), stage, tone: reply.tone??null, tags: reply.event_tags??[] },
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
     } as unknown as import("@/integrations/supabase/types").Json, voice ? {callId:voice.callId,turnId:voice.turnId} : undefined);
