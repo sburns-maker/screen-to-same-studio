@@ -235,7 +235,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     !snap.preferences.save_transcripts ||
     snap.calls.some(
       (c) =>
-        ACTIVE_CALL_STATES.includes(c.state) || now.getTime() - Date.parse(c.offered_at) < 86400000,
+        ACTIVE_CALL_STATES.includes(c.state),
     )
   )
     return false;
@@ -262,8 +262,9 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     if (!/\b(?:call you|phone you|give you a call|call back)\b/i.test(r.source_quote)) continue;
     const key = r.character_key as CallRow["character_key"];
     if (
-      !["tess", "maya", "claire", "jordan", "ben"].includes(key) ||
-      callAvailability(key, now).outcome !== "answer"
+      !["tess", "maya", "claire", "jordan", "ben", "riley"].includes(key) ||
+      callAvailability(key, now).outcome !== "answer" ||
+      snap.calls.some(c => c.character_key === key && now.getTime() - Date.parse(c.offered_at) < 6 * 3_600_000)
     )
       continue;
     const conv = await db
@@ -314,6 +315,50 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     } catch {
       return false;
     }
+  }
+  return false;
+}
+
+
+/** Independent, optional character-initiated in-app calls.
+ * No account-wide daily quota: each available contact makes their own choice.
+ * An hourly stable draw plus per-character history prevents worker poll spam.
+ * Promised callbacks remain separate and have priority in the world worker.
+ */
+export async function offerSpontaneousCall(db: Client, user: string, now: Date) {
+  if (!voiceConfiguration().ready || process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" || !(await phoneAvailable(db))) return false;
+  const snap = await phoneSnapshot(db, user);
+  if (!snap.preferences.enabled || !snap.preferences.incoming || !snap.preferences.save_transcripts ||
+      snap.calls.some(c=>ACTIVE_CALL_STATES.includes(c.state))) return false;
+  const {data: quiet}=await db.from("user_profile").select("value").eq("user_id",user).eq("key","quiet_hours").maybeSingle();
+  const {inQuietHours,parseQuietHours}=await import("./world.server");
+  const q=parseQuietHours(quiet?.value);
+  if(inQuietHours(now,q.start,q.end)) return false;
+  const {data: conversations,error}=await db.from("conversations").select("id,muted,real_time_mode,character:characters(key)").eq("user_id",user);
+  if(error || !conversations?.length) return false;
+  const {CHARACTERS}=await import("./characters");
+  const {currentActivity}=await import("./world-continuity");
+  const slot=Math.floor(now.getTime()/3_600_000);
+  for(const conv of conversations){
+    const key=(conv.character as {key?:string}|null)?.key as keyof typeof CHARACTERS|undefined;
+    if(!key || !CHARACTERS[key] || conv.muted || !conv.real_time_mode) continue;
+    if(snap.calls.some(c=>c.character_key===key && now.getTime()-Date.parse(c.offered_at)<6*3_600_000)) continue;
+    const activity=currentActivity(CHARACTERS[key],now);
+    if(activity.availability!=="free") continue;
+    const {data:presence}=await db.from("social_presence").select("character_key").eq("user_id",user).eq("character_key",key).gt("until_at",now.toISOString()).maybeSingle();
+    if(presence)continue;
+    // Stable low-probability choice: a character can call on her own without
+    // every worker invocation rerolling, and other characters have independent draws.
+    let h=2166136261;
+    for(const ch of `${user}:${key}:${slot}`)h=Math.imul(h^ch.charCodeAt(0),16777619);
+    if((h>>>0)/4294967296 > 0.12 * CHARACTERS[key].initiation.scoreMultiplier)continue;
+    const reason=`I had a free moment and wanted to catch up. ${activity.detail}`.slice(0,200);
+    try{
+      await phoneCommand(db,user,crypto.randomUUID(),"start",{
+        conversation:conv.id,direction:"incoming",outcome:"answer",reason,ring:25
+      },now);
+      return true;
+    }catch(e){console.warn("[spontaneous-call] Offer deferred",e);return false;}
   }
   return false;
 }

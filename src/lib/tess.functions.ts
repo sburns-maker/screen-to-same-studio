@@ -425,7 +425,9 @@ async function runTurnUnlocked(
   if (lastPhotoError) throw new Error("Photo frequency history unavailable");
   const pacing = photoPacing({character:def.key,frequency:freq,now,lastPhotoAt:lastPhoto?.created_at??null,ownSinceLastPhoto,
     userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",context:initiation?.reason??schedule.detail,developerOverride:!!initiation?.developerPhoto});
-  const cooldown = !pacing.allowed;
+  // Report pacing for diagnostics only. A grounded spontaneous moment does not
+  // wait for an arbitrary message-count or minute-based cooldown.
+  const cooldown = false;
   const photoCompatible = schedule.availability !== "asleep" && schedule.availability !== "busy"
     && !/\b(?:driv(?:e|es|ing)|surgery|emergency|patients?|phone (?:down|away))\b/i.test(schedule.detail);
   let generateTypes = cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
