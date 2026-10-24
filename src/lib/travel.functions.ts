@@ -111,13 +111,13 @@ export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([r
  const db=await getDb();const {data:row,error}=await (db as any).from("travel_trips").select("*").eq("id",data.id).eq("user_id",context.userId).single();
  if(error||!row)throw new Error("Trip not found");let trip=fromRow(row);
  if(!["idea","proposed"].includes(trip.status))throw new Error("Trip not open for invitations");
- if(trip.companions.some(c=>c.characterKey===data.character))throw new Error("Character already invited");
+ if(trip.companions.some(c=>c.characterKey===data.character&&c.response!=="invited"))throw new Error("Character has already decided about this trip");
  const {data:convRows}=await db.from("conversations").select("id,relationship_stage,character:characters(key)").eq("user_id",context.userId);
  const conv=convRows?.find(c=>(c.character as {key?:string}|null)?.key===data.character);
  const {data:state}=conv?await db.from("tess_state").select("comfort,trust,emotional_intimacy,romantic_intent").eq("user_id",context.userId).eq("conversation_id",conv.id).maybeSingle():{data:null};
  const result=await (await import("./travel-ai.server")).characterTripDecision(data.character,trip,{stage:conv?.relationship_stage,stats:state??null});
- const companion={characterKey:data.character,response:result.decision==="accept"?"accepted":"declined"};
- const {data:updated,error:write}=await (db as any).from("travel_trips").update({companions:[...trip.companions,companion],revision:(trip.revision??0)+1,updated_at:new Date().toISOString()})
+ const companion={characterKey:data.character,response:result.decision==="accept"?"accepted":result.decision==="decline"?"declined":"invited"};
+ const {data:updated,error:write}=await (db as any).from("travel_trips").update({companions:[...trip.companions.filter(c=>c.characterKey!==data.character),companion],revision:(trip.revision??0)+1,updated_at:new Date().toISOString()})
  .eq("user_id",context.userId).eq("id",data.id).eq("revision",trip.revision).select("id").maybeSingle();
  if(write||!updated)throw new Error(write?.message??"Concurrent update; retry");
  return {decision:result.decision,reply:result.reply};
