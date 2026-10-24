@@ -38,3 +38,8 @@ drop policy if exists travel_trip_moments_owner on public.travel_trip_moments;
 create policy travel_trip_moments_owner on public.travel_trip_moments for all to authenticated
  using(user_id = (select auth.uid()) and exists(select 1 from public.travel_trips t where t.id=trip_id and t.user_id=(select auth.uid())))
  with check(user_id = (select auth.uid()) and exists(select 1 from public.travel_trips t where t.id=trip_id and t.user_id=(select auth.uid())));
+
+-- Travel scene images are stored in the existing canonical-character photo bucket.
+-- Paths stay private; signed URLs are generated only for authenticated owners.
+alter table public.travel_trip_moments add column if not exists photo_path text;
+alter table public.travel_trip_moments add column if not exists photo_caption text;
