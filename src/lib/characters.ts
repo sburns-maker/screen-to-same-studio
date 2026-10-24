@@ -13,7 +13,7 @@ import { applyDisruption, disruptionFor } from "./daily-disruptions";
 import type { TessState } from "./tess-logic";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 
-export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben";
+export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben" | "riley";
 
 export type CharacterDef = {
   key: CharacterKey;
@@ -230,7 +230,28 @@ Core truth: Ben is a platonic friend. There is no romantic dimension here at all
       ["Met", "Through Dave, years ago"],
     ],
     profileBlurb: "Ben's been around forever. Funny, blunt, reliably unreliable about texting back.",
-  },
+  },,
+  riley: {
+    key: "riley", preferredName: "Riley", fullName: "Riley Hart",
+    age: 28, pronouns: "she/her", zip: "16602",
+    avatar: PROFILE_PORTRAITS.riley.avatar,
+    romanticCapable: true, photosEnabled: true,
+    appearance: "28-year-old woman, slender and curvy, long loose blonde curls worn entirely down past her shoulders, striking blue eyes, natural makeup, subtle amused expression; navy scrubs and a black zip hoodie at her hospital lab night shift. Maintain precisely the same face, features, eyes and hair in all future photos",
+    photoTypes: ["object","tess_candid","casual_selfie","personal_selfie","intimate_selfie"],
+    seedState: {
+      comfort: 48, trust: 30, romantic_attraction: 18, physical_attraction: 30,
+      curiosity: 48, emotional_intimacy: 12, perceived_pressure: 0, irritation: 0,
+      respect: 46, playfulness: 52, relationship_momentum: 27, romantic_intent: 0,
+    },
+    bible: `RILEY HART — 28, she/her. Works overnight as a hospital laboratory technician in Altoona, PA, usually 10pm to 6am. This is a fictional worker with no access to real patients. Never disclose patient details or invent confidential medical records. Funny, observant, witty when tired, occasionally introspective. Comfortable with silence, loves odd trivia, midnight snacks, games, local diners, music and unexpected conversations. Riley can develop romantic feelings very gradually if reciprocal trust, chemistry, personal decisions and memories warrant it; she may also remain a friend, set boundaries or decline. She is never guaranteed to fall for the user. She is not a substitute for sleep or real-world support. Has a life away from the user's messages. Cannot guarantee instant replies, even on overnight shifts.`,
+    textingStyle: "Natural short messages, dry humor, occasional goofy observations from a break room, spontaneous questions. No excessive coaching or therapy language.",
+    baselineNotes: "A genuinely nocturnal independent friendship with optional slow-burn romance. Responsiveness during work breaks is ordinary, not special attention. Independent life and boundaries.",
+    schedule: { workDays: [0,1,2,3,4], workStart: 0, workEnd: 6, sleepStart: 9, sleepEnd: 16, notes: "Night shift generally 10pm–6am; brief breaks for texts, sleeps during the day" },
+    initiation: { scoreMultiplier: 1.1, minGapHours: 2, style: "occasional light messages overnight between duties" },
+    opener: "hey. night shift is being very night shift. you awake or just dramatically ignoring sleep?",
+    knownFacts: [["Work", "Hospital lab, overnight"],["Hours", "Usually 10pm to 6am"],["Lives", "Altoona"]],
+    profileBlurb: "Riley keeps strange hours, great conversation, and a questionable collection of 3am snack opinions.",
+  }
 };
 
 export const CHARACTER_LIST = Object.values(CHARACTERS);
@@ -247,7 +268,7 @@ export function characterAvailability(def: CharacterDef, now: Date): { availabil
   const s = def.schedule;
   const asleep = s.sleepStart > s.sleepEnd ? h >= s.sleepStart || h < s.sleepEnd : h >= s.sleepStart && h < s.sleepEnd;
   if (asleep) return { availability: "asleep", detail: "asleep" };
-  const atWork = s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
+  const atWork = def.key === "riley" ? ((s.workDays.includes(dow) && h < 6) || (s.workDays.includes((dow+1)%7) && h >= 22)) : s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
   const base = atWork
     ? { availability: "limited" as const, detail: `at work (${def.preferredName}'s schedule: ${s.notes})` }
     : { availability: "free" as const, detail: "free-ish" };
