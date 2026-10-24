@@ -5,6 +5,7 @@ import {
   continuityContext,
   deferIntention,
   recordPhotoDecision,
+  recordPhotoDecisionOutcome,
   reserveWorldAi,
 } from "./world-runtime.server";
 import { claimMessagePush, messagePushBody } from "./message-notifications.server";
@@ -635,8 +636,8 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             lastInitiatedAt: life?.last_initiated_at ?? null,
             context: lifeEvent?.summary ?? schedule.detail,
           });
-          if (worldReady)
-            await recordPhotoDecision(admin, {
+          const photoDecisionId = worldReady
+            ? await recordPhotoDecision(admin, {
               userId,
               conversationId: conv.id,
               character: def.key,
@@ -644,8 +645,14 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               eligible: photoChance.eligible,
               selected: photoChance.selected,
               reason: photoChance.reason,
+              trigger: lifeEvent?.summary ?? schedule.detail ?? null,
               now,
-            });
+            })
+            : null;
+          const photoOutcome = async (outcome: "message_sent" | "not_sent" | "blocked", why?: string | null) => {
+            if (photoDecisionId && photoChance.selected)
+              await recordPhotoDecisionOutcome(admin, { id: photoDecisionId, userId, outcome, reason: why ?? null }).catch(() => undefined);
+          };
           const followUp =
             !!dueIntention &&
             gapHours >= 0.5 &&
@@ -675,6 +682,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           };
           if (blockedBy.length) {
             await recordOutcome(false, blockedBy);
+            await photoOutcome("blocked", blockedBy.join("; "));
             continue;
           }
 
@@ -688,6 +696,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           try {
             if (worldReady && !(await reserveWorldAi(admin, userId))) {
               await recordOutcome(false, ["per-user daily autonomous AI limit"]);
+              await photoOutcome("blocked", "per-user daily autonomous AI limit");
               continue;
             }
             report.aiCalls++;
@@ -706,6 +715,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
                   ? { photoKey: photoChance.key }
                   : {}),
             });
+            if (!followUp)
+              await photoOutcome(result.count > 0 ? "message_sent" : "not_sent",
+                "reason" in result ? (result.reason ?? null) : result.count > 0 ? null : "no message produced");
             if (followUp && dueIntention && worldReady) {
               if ("reason" in result && result.reason?.includes("will not be recharged")) {
                 await admin
