@@ -17,11 +17,12 @@ type Game = "trivia" | "four" | "words" | "pool";
 type Question = TriviaQuestion;
 type TriviaProgress = { answers: number[]; deck: number[]; previous: number[]; round: number };
 type FourState = { board: number[]; ended: number | null };
-type Saved = { game: Game; trivia: TriviaProgress; four: FourState };
+type Saved = { game: Game; trivia: TriviaProgress; four: FourState; fourRound?: number };
 const fresh = (): Saved => ({
   game: "trivia",
   trivia: { answers: [], deck: nextTriviaDeck(), previous: [], round: 0 },
   four: { board: Array(42).fill(0), ended: null },
+  fourRound: 0,
 });
 const index = (r: number, c: number) => r * 7 + c;
 function winner(board: number[]): number | null {
@@ -97,6 +98,12 @@ function GameRoom() {
   const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q, i, character.key)).length;
   const finished = total === deck.length;
   const question = deck[total];
+  const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
+  const result = saved.game === "trivia" && finished
+    ? {key:"trivia:"+saved.trivia.round+":"+saved.trivia.deck.join("-"),description:"We just finished a 10-question trivia match. I scored "+playerScore+" and you scored "+computerScore+". "+(playerScore>computerScore?"I won.":playerScore<computerScore?"You won.":"It was a tie.")+" (Game result from AI Town.)"}
+    : saved.game === "four" && saved.four.ended !== null
+    ? {key:"four:"+(saved.fourRound??0)+":"+saved.four.board.join(""),description:"We just finished a Four in a Row match. "+(saved.four.ended===0?"It was a draw.":saved.four.ended===1?"I won.":"You won.")+" (Game result from AI Town.)"}
+    : extraResult?.game===saved.game ? extraResult : null;
   return (
     <main className="mx-auto min-h-dvh max-w-xl bg-background px-4 pb-24 pt-safe">
       <header className="flex h-16 items-center gap-3">
@@ -130,10 +137,10 @@ function GameRoom() {
             {saved.four.board.map((piece, i) => <button type="button" key={i} onClick={() => drop(i % 7)} disabled={saved.four.ended !== null} aria-label={`Drop in column ${(i % 7) + 1}`} className="aspect-square min-w-0 rounded-full bg-blue-900/40 p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:cursor-default"><span className={`block h-full w-full rounded-full ${piece === 1 ? "bg-red-400" : piece === 2 ? "bg-yellow-300" : "bg-background"}`} /></button>)}
           </div>
           <p className="text-center text-sm text-muted-foreground">Tap any hole in a column to drop a red piece. {character.preferredName} plays yellow.</p>
-          <button type="button" onClick={() => setSaved((s) => ({ ...s, four: { board: Array(42).fill(0), ended: null } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
+          <button type="button" onClick={() => setSaved((s) => ({ ...s, fourRound: (s.fourRound??0)+1, four: { board: Array(42).fill(0), ended: null } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
         </section>
       )}
-      <GameChat conversationId={conversationId} name={character.preferredName} game={saved.game} />
+      <GameChat conversationId={conversationId} name={character.preferredName} game={saved.game} result={result} />
       <p className="mt-8 text-center text-xs text-muted-foreground">Playable prototypes · Trivia and Four in a Row save locally · Multiplayer and AI-driven characters coming next</p>
     </main>
   );
