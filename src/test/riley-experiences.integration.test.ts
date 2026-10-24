@@ -47,4 +47,19 @@ describe("Riley outing access and ownership", () => {
       await expect(db.query("SELECT experience_seed($1,now())", [user])).rejects.toThrow("service role required");
     } finally { await db.exec("RESET request.jwt.claim.role"); }
   });
+  it("restores Tess's noon outing by correcting only the companion and leaving it unstarted", async () => {
+    await db.exec(`UPDATE conversations SET character_id=(SELECT id FROM characters WHERE key='tess') WHERE id='${conv}';
+      UPDATE social_plans SET organizer='user',title='Lunch',status='in_progress',starts_at='2026-10-24T16:00:00Z',ends_at='2026-10-24T17:30:00Z',date_local='2026-10-24',time_local='12:00' WHERE id='${plan}';`);
+    await db.query("SELECT experience_seed($1,'2026-10-24T16:15:00Z')", [user]);
+    expect((await db.query("SELECT count(*)::int AS n FROM living_experiences")).rows).toEqual([{ n: 0 }]);
+    await db.query(`UPDATE social_plans p SET organizer=ch.key FROM conversations c JOIN characters ch ON ch.id=c.character_id
+      WHERE p.id=$1 AND p.user_id=$2 AND p.conversation_id=c.id AND c.user_id=p.user_id AND ch.key='tess' AND p.organizer='user'`, [plan, user]);
+    await db.query("SELECT experience_seed($1,'2026-10-24T16:15:00Z')", [user]);
+    expect((await db.query("SELECT organizer,status,time_local,user_attendance FROM social_plans")).rows).toEqual([
+      { organizer: "tess", status: "in_progress", time_local: "12:00", user_attendance: "not_reported" },
+    ]);
+    expect((await db.query("SELECT state,claimed_at,revision FROM living_experiences")).rows).toEqual([
+      { state: "scheduled", claimed_at: null, revision: 0 },
+    ]);
+  });
 });
