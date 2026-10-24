@@ -71,6 +71,13 @@ describe("grounded conversational calendar", () => {
       recognizePlan(m("Yes! Want me to pick you up or meet you there?", "user"), [plan], "invite"),
     ).toMatchObject({ action: "accept", planId: "plan" });
   });
+  it("recognizes Riley accepting a specific coffee outing even with a playful if clause", () => {
+    const coffee = { ...plan, id: "riley-coffee", category: "coffee", status: "proposed",
+      user_response: "accepted", character_response: "invited", date_local: "2026-10-26",
+      time_local: "07:00", place_key: "coffee:local" } as CalendarPlan;
+    expect(recognizePlan(m("Coffee, yes. You can call it a date if you promise not to use my post-shift brain as an easy target 😁"), [coffee], "invite")).toMatchObject({ action: "accept", planId: "riley-coffee" });
+    expect(recognizePlan(m("Coffee, maybe, if I'm not too tired"), [coffee], "invite").action).not.toBe("accept");
+  });
   it("tracks missing address follow-through without inventing a venue", () => {
     expect(
       recognizePlan(m("Meet me there. I'll send you the address."), [plan], "invite"),
