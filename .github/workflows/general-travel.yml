@@ -8,6 +8,7 @@ on:
       - "src/lib/travel-ai.server.ts"
       - "src/lib/travel-photos.server.ts"
       - "src/lib/travel-world.server.ts"
+      - "src/lib/travel-memory.server.ts"
       - "src/lib/world.server.ts"
       - "src/lib/tess.functions.ts"
       - "src/routes/_authenticated/travel.tsx"
