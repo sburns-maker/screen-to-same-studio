@@ -2,6 +2,8 @@ import { CalendarBoard } from "@/components/CalendarBoard";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { listTravelTrips } from "@/lib/travel.functions";
 import { toast } from "sonner";
 import { useTown } from "@/lib/town-queries";
 import { suggestGathering } from "@/lib/town.functions";
@@ -17,6 +19,8 @@ export const Route = createFileRoute("/_authenticated/plans")({
     { name: "twitter:card", content: "summary" },
   ] }), component: Plans });
 function Plans() {
+  const travelFn=useServerFn(listTravelTrips);
+  const tripQuery=useQuery({queryKey:["travel-trips"],queryFn:()=>travelFn()});
   const q = useTown(),
     suggest = useServerFn(suggestGathering),
     [show, setShow] = useState(false),
@@ -66,6 +70,8 @@ function Plans() {
         Existing historical dates and memories are preserved; older chat is not automatically
         backfilled.
       </p>
+      <Link to="/travel" className="mb-5 block rounded-2xl border bg-surface p-4 text-center font-medium text-primary">Explore Travel · Road trips, flights, vacations & work trips →</Link>
+      {(tripQuery.data??[]).filter(t=>!["cancelled","completed"].includes(t.status)).slice(0,4).map(t=><Link key={t.id} to="/travel" className="mb-2 block rounded-xl border p-3 text-sm"><strong>{t.title}</strong><span className="block text-muted-foreground">{t.startDate??"Dates undecided"} · {t.destination} · {t.status}</span></Link>)}
       <CalendarBoard />
       {decision && (
         <p role="status" className={`${card} mb-4 text-sm`}>
