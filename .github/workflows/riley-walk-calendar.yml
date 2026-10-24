@@ -1,0 +1,16 @@
+name: Riley conversational walk calendar
+on:
+  pull_request:
+    paths:
+      - "src/lib/calendar-logic.ts"
+      - "src/test/riley-walk-calendar.test.ts"
+      - ".github/workflows/riley-walk-calendar.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/calendar-logic.test.ts src/test/riley-walk-calendar.test.ts
+      - run: bun run build
