@@ -1,6 +1,6 @@
 /** Curated snapshot of arena-published listings; verify schedule on the venue site before describing a future event as current. */
 export const PPG_ARENA = {id:"pittsburgh:ppg-paints-arena",name:"PPG Paints Arena",address:"1001 Fifth Avenue, Pittsburgh, PA 15219",timezone:"America/New_York",website:"https://www.ppgpaintsarena.com",calendarUrl:"https://www.ppgpaintsarena.com/events",verifiedOn:"2026-10-24"} as const;
-export type ArenaEvent={id:string;venueId:string;date:string;time:string|null;title:string;kind:"concert"|"sports"|"comedy";source:"official_calendar_snapshot";sourceUrl:string};
+export type ArenaEvent={id:string;venueId:string;date:string;time:string|null;title:string;kind:"concert"|"sports"|"comedy";source:"official_calendar_snapshot"|"fictional_game_event";sourceUrl:string};
 export const PPG_ARENA_EVENTS:ArenaEvent[]=[
   {
     "id": "ppg:2026-10-24:pittsburgh-penguins-vs-nashville-predators",
@@ -163,5 +163,13 @@ export const PPG_ARENA_EVENTS:ArenaEvent[]=[
     "sourceUrl": "https://www.ppgpaintsarena.com/events"
   }
 ] as ArenaEvent[];
-export function eventsForVenue(venueId:string,from="2026-10-24"){return venueId===PPG_ARENA.id?PPG_ARENA_EVENTS.filter(e=>e.date>=from).sort((a,b)=>a.date.localeCompare(b.date)||String(a.time).localeCompare(String(b.time))):[];}
+/** Alternate-universe game concert; deliberately NOT on the arena's real calendar. */
+export const FICTIONAL_PPG_EVENTS:ArenaEvent[]=[{
+ id:"ppg:2026-10-26:green-day-fictional",
+ venueId:PPG_ARENA.id,
+ date:"2026-10-26",time:"19:30",title:"Green Day — Fictional Concert",
+ kind:"concert",source:"fictional_game_event",sourceUrl:""
+}];
+export const ALL_PPG_GAME_EVENTS=[...PPG_ARENA_EVENTS,...FICTIONAL_PPG_EVENTS];
+export function eventsForVenue(venueId:string,from="2026-10-24"){return venueId===PPG_ARENA.id?ALL_PPG_GAME_EVENTS.filter(e=>e.date>=from).sort((a,b)=>a.date.localeCompare(b.date)||String(a.time).localeCompare(String(b.time))):[];}
 export function nextArenaEvent(date:string){return PPG_ARENA_EVENTS.find(e=>e.date===date);}
