@@ -1,3 +1,4 @@
+import {Link} from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
@@ -74,14 +75,14 @@ function Travel(){
  <select className="w-full rounded-xl border bg-background p-2" aria-label="Travel region" value={region} onChange={e=>setRegion(e.target.value)}><option value="">All regions</option>{TRAVEL_REGIONS.map(r=><option key={r.id} value={r.id}>{r.label} · {r.country}</option>)}</select>
  <input className="w-full rounded-xl border bg-background p-2" aria-label="Search destinations" placeholder="Search park, museum, town, waterfall…" value={placeQuery} onChange={e=>setPlaceQuery(e.target.value)}/>
  {(region==="pittsburgh"||/ppg|arena|jonas/i.test(placeQuery))&&<section className="space-y-2 rounded-xl border p-3">
- <h3 className="font-semibold">PPG Paints Arena · Upcoming published events</h3>
+ <h3 className="font-semibold">PPG Paints Arena · Upcoming published events</h3><Link to="/ppg-arena" className="block text-sm font-medium underline">Open arena schedule & invite a character →</Link>
  <p className="text-xs text-muted-foreground">{PPG_ARENA.address}. Real schedule snapshot checked {PPG_ARENA.verifiedOn}; fictional concerts are game-only.</p>
  <div className="max-h-64 space-y-2 overflow-y-auto">{ALL_PPG_GAME_EVENTS.map(e=><article key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm"><div><strong>{e.title}</strong><p className="text-xs text-muted-foreground">{e.date} · {e.time??"time unconfirmed"} · {e.kind} {e.source==="fictional_game_event"?"· FICTIONAL GAME EVENT":"· Real listing"}</p></div><button type="button" disabled={busy} className="underline disabled:opacity-50" onClick={()=>void planArenaEvent(e.id)}>Add event to Travel</button></article>)}</div>
  <a href={PPG_ARENA.calendarUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">Official venue calendar ↗</a>
  </section>}
  <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
  <p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.city} · {p.regionLabel} · {p.kind}</p><p className="mt-1 text-xs">{p.ideas.join(" · ")}</p>
- <div className="mt-2 flex flex-wrap gap-3 text-sm"><button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Destination and itinerary stop selected below")}}>Plan a trip here</button>
+ <div className="mt-2 flex flex-wrap gap-3 text-sm">{p.id==="pittsburgh:ppg-paints-arena"&&<Link to="/ppg-arena" className="underline">View arena event calendar & invite Maya →</Link>}<button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Destination and itinerary stop selected below")}}>Plan a trip here</button>
  <button type="button" className="underline" onClick={()=>{setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Stop selected; add it to your active itinerary below")}}>Select as stop</button>
  <a href={realWorldMapSearchUrl(p)} target="_blank" rel="noopener noreferrer" className="underline">View on Google Maps ↗</a></div></article>)}</div>
  </section>

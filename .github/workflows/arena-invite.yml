@@ -1,0 +1,17 @@
+name: Arena invites
+on:
+  pull_request:
+    paths:
+      - "src/routes/_authenticated/ppg-arena.tsx"
+      - "src/routes/_authenticated/plans.tsx"
+      - "src/routes/_authenticated/travel.tsx"
+      - ".github/workflows/arena-invite.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/arena-events.test.ts
+      - run: bun run build
