@@ -81,7 +81,7 @@ function GameRoom() {
     let active = true;
     void loadMatches({data:{conversationId}}).then((rows)=>{
       if(!active)return;
-      const matches=rows as Array<{game:string;status:string;match_key:string;progress:unknown;updated_at:string}>;
+      const matches=rows as unknown as Array<{game:string;status:string;match_key:string;progress:unknown;updated_at:string}>;
       const last=(matches??[]).find(m=>m.status==="active"&&(m.game==="trivia"||m.game==="four"));
       if(last?.game==="trivia"){
         const p=last.progress as {deck?:number[];answers?:number[]};
