@@ -17,7 +17,8 @@ beforeAll(async () => {
 }, 30000);
 afterAll(async () => { await db?.close(); });
 beforeEach(async () => {
-  await db.exec(`TRUNCATE conversations CASCADE; TRUNCATE world_places CASCADE;
+  await db.exec(`SET request.jwt.claim.role='service_role';
+    TRUNCATE conversations CASCADE; TRUNCATE world_places CASCADE;
     UPDATE experience_settings SET enabled=true, installed_at='2026-10-24T00:00:00Z';
     INSERT INTO conversations(id,user_id,character_id,real_time_mode) SELECT '${conv}','${user}',id,true FROM characters WHERE key='riley';
     INSERT INTO world_places(user_id,key,label,kind,metadata) VALUES('${user}','coffee:local','Switchyard Coffee','cafe','{}');
