@@ -9,9 +9,9 @@ describe("authoritative profile bytes", () => {
     "%s reference is byte-for-byte the existing displayed portrait",
     async (key) => {
       const reference = await canonicalProfile(key);
-      expect(new Uint8Array(await reference.blob.arrayBuffer())).toEqual(
-        new Uint8Array(readFileSync(PROFILE_PORTRAITS[key].asset)),
-      );
+      expect(Buffer.from(await reference.blob.arrayBuffer()).equals(
+        readFileSync(PROFILE_PORTRAITS[key].asset),
+      )).toBe(true);
       expect(CHARACTERS[key].avatar).toBe(PROFILE_PORTRAITS[key].avatar);
       expect(reference.width).toBeGreaterThanOrEqual(256);
     },
