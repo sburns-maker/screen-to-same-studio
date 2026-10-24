@@ -5,7 +5,7 @@ import { addCompanion, respondCompanion, acceptTrip, validateTrip, type TripPlan
 const uuid=z.string().uuid();
 const input=z.object({id:uuid,title:z.string().trim().min(1).max(120),origin:z.string().trim().min(1).max(160),destination:z.string().trim().min(1).max(160),
  mode:z.enum(["road_trip","flight","rail","local"]),purpose:z.enum(["vacation","work","family","adventure"]),
- startDate:z.string().nullable(),endDate:z.string().nullable()});
+ startDate:z.string().nullable(),endDate:z.string().nullable(),venueEventId:z.string().max(120).optional()});
 const getDb=async()=> (await import("@/integrations/supabase/client.server")).supabaseAdmin;
 type TripRow=TripPlan & { revision?:number };
 function fromRow(r:Record<string,unknown>):TripRow{
@@ -25,7 +25,11 @@ export const createTravelTrip=createServerFn({method:"POST"}).middleware([requir
 .inputValidator((v:unknown)=>input.parse(v)).handler(async({context,data})=>{
  const db=await getDb();
  const iceland=data.destination.trim().toLowerCase()==="iceland" && data.title.trim().toLowerCase()==="iceland in winter";
- const p:TripPlan={...data,status:"idea",companions:[],itinerary:iceland?(await import("./travel-experiences")).icelandTripIdea(data.origin).itinerary:[],notes:[]};
+ const arenaEvent=data.venueEventId?(await import("./arena-events")).PPG_ARENA_EVENTS.find(e=>e.id===data.venueEventId):null;
+ if(data.venueEventId&&!arenaEvent)throw new Error("Unknown arena event");
+ const itinerary=arenaEvent?[{id:crypto.randomUUID(),day:1,label:arenaEvent.title,location:"PPG Paints Arena, 1001 Fifth Avenue, Pittsburgh, PA",kind:"activity" as const,completed:false}]:iceland?(await import("./travel-experiences")).icelandTripIdea(data.origin).itinerary:[];
+ const p:TripPlan={...data,status:"idea",companions:[],itinerary,notes:arenaEvent?["Officially listed arena event; verify before attending.", "Event begins "+(arenaEvent.time??"at an unconfirmed time")+" America/New_York."]:[]};
+ if(arenaEvent&&(data.startDate!==arenaEvent.date||data.endDate!==arenaEvent.date))throw new Error("Event trip dates must match the listing");
  const errors=validateTrip(p);if(errors.length)throw new Error(errors.join("; "));
  const {error}=await (db as any).from("travel_trips").insert({id:p.id,user_id:context.userId,title:p.title,origin:p.origin,destination:p.destination,mode:p.mode,purpose:p.purpose,start_date:p.startDate,end_date:p.endDate,itinerary:p.itinerary,notes:p.notes});
  if(error)throw new Error(error.message);
