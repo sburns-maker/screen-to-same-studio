@@ -268,7 +268,7 @@ export function characterAvailability(def: CharacterDef, now: Date): { availabil
   const s = def.schedule;
   const asleep = s.sleepStart > s.sleepEnd ? h >= s.sleepStart || h < s.sleepEnd : h >= s.sleepStart && h < s.sleepEnd;
   if (asleep) return { availability: "asleep", detail: "asleep" };
-  const atWork = s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
+  const atWork = def.key === "riley" ? ((s.workDays.includes(dow) && h < 6) || (s.workDays.includes((dow+1)%7) && h >= 22)) : s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
   const base = atWork
     ? { availability: "limited" as const, detail: `at work (${def.preferredName}'s schedule: ${s.notes})` }
     : { availability: "free" as const, detail: "free-ish" };
