@@ -7,6 +7,7 @@ on:
       - "src/lib/travel.functions.ts"
       - "src/lib/travel-ai.server.ts"
       - "src/routes/_authenticated/travel.tsx"
+      - "src/routes/_authenticated/plans.tsx"
       - "docs/sql/20261024_travel_trips.sql"
       - ".github/workflows/general-travel.yml"
 jobs:
