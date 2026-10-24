@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { debugSnapshot, developerPhotoOpportunity, developerResetPhotoBoundary } from "@/lib/tess.functions";
 import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
+import { mindSummary, recentMindChanges, datedMemories } from "@/lib/character-mind-insights";
 
 export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
   head: () => ({
@@ -223,28 +224,38 @@ function Debug() {
               })}
             </div>}
 
-            {activeTab === "mind" && snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
-              <p className="text-xs text-muted-foreground">Developer diagnostic, not hidden thoughts. These are the engine's saved relationship variables and observed response tags, not a private monologue or proof of why a gesture happened.</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div><div className="text-muted-foreground">Relationship stage</div><strong>{snap.stage}</strong></div>
-                <div><div className="text-muted-foreground">Recent tone</div><strong>{snap.lastTone ?? "not recorded"}</strong></div>
-                <div><div className="text-muted-foreground">Romantic intent</div><strong>{s.romantic_intent}/100</strong></div>
-                <div><div className="text-muted-foreground">Perceived pressure</div><strong>{s.perceived_pressure}/100</strong></div>
-                <div><div className="text-muted-foreground">Comfort</div><strong>{s.comfort}/100</strong></div>
-                <div><div className="text-muted-foreground">Emotional intimacy</div><strong>{s.emotional_intimacy}/100</strong></div>
+            {activeTab === "mind" && <Section title="Character mind · relationship intelligence">
+              <p className="text-xs text-muted-foreground">Based on saved game state, changes from the latest evaluated turn, and dated memories. This is a simulation diagnostic, not secret thoughts or certainty about motives.</p>
+              <div className="mt-3 rounded-xl border bg-background p-3">
+                <p className="text-xs text-muted-foreground">Current relationship stage</p>
+                <strong className="text-lg">{snap.stage}</strong>
+                <p className="mt-1 text-xs text-muted-foreground">Latest observed tone: {snap.lastTone ?? "not recorded"}</p>
+                <div className="mt-3 space-y-2">
+                  {mindSummary(s,snap.stage).notes.map((note,i)=><p key={i} className="text-sm">• {note}</p>)}
+                </div>
               </div>
-              <p className="mt-3 text-xs text-muted-foreground">Latest recorded change tags: {tags.length ? tags.join(", ") : "none"}. An action such as putting hands in pockets can have multiple explanations; never infer its cause from these scores alone.</p>
-              <div className="mt-3 border-t pt-3 text-sm">
-                <div className="font-semibold">Evidence versus interpretation</div>
-                <p className="mt-1 text-xs text-muted-foreground">The following is extracted from saved relationship memories, not a window into ungenerated private thoughts. Interpretations are deliberately not assigned confidence scores.</p>
-                {snap.recentMemories.filter((m) => m.memory_type === "relationship").slice(0, 3).map((m, i) => (
-                  <div key={i} className="mt-2 rounded-lg border p-2">
-                    <span className="text-xs text-muted-foreground">Recorded memory · importance {m.importance}</span>
-                    <p className="mt-1 text-sm">{m.summary}</p>
+              <div className="mt-4">
+                <h4 className="font-semibold">What changed in the last evaluated turn?</h4>
+                {recentMindChanges(delta).length ? <div className="mt-2 grid grid-cols-2 gap-2">
+                  {recentMindChanges(delta).map(({key,value})=><div key={key} className="rounded-lg border bg-background p-2">
+                    <div className="text-xs text-muted-foreground">{key.replace(/_/g," ")}</div>
+                    <strong className={value>0?"text-emerald-700 dark:text-emerald-400":"text-amber-700 dark:text-amber-400"}>{value>0?"+":""}{value}</strong>
+                  </div>)}
+                </div> : <p className="mt-1 text-sm text-muted-foreground">No numerical changes were recorded in the latest evaluation. That does not mean nothing happened.</p>}
+                <p className="mt-2 text-xs text-muted-foreground">Event tags: {tags.length?tags.join(", "):"none recorded"}. Changes are limited to the latest evaluation; older turn-by-turn changes are not available in this snapshot.</p>
+              </div>
+              <div className="mt-4 border-t pt-3">
+                <h4 className="font-semibold">Relationship events · newest first</h4>
+                <p className="mt-1 text-xs text-muted-foreground">Dated, saved memories across categories. These show what the system retained and may explain later references. Plans remain plans until completed.</p>
+                {datedMemories(snap.recentMemories).length ? datedMemories(snap.recentMemories).slice(0,12).map((m,i)=><div key={i} className="mt-2 rounded-lg border bg-background p-3">
+                  <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
+                    <span>{m.memory_type.replace(/_/g," ")} · importance {m.importance}</span>
+                    <time dateTime={m.created_at}>{new Date(m.created_at).toLocaleString([],{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}</time>
                   </div>
-                ))}
-                <p className="mt-2 text-xs text-muted-foreground">Schedule source: regular/shared-world activity, not necessarily the latest completed outing. Do not equate generic labels such as “home after work” with proof that an outing was forgotten. Await event-aware schedule reconciliation.</p>
+                  <p className="mt-1 text-sm">{m.summary}</p>
+                </div>):<p className="mt-2 text-sm text-muted-foreground">No saved memories for this character yet.</p>}
               </div>
+              <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">The timeline dates show when memories were saved, not necessarily when an event occurred. An actual date, invitation or outing needs corresponding world-event evidence to be marked completed.</p>
             </Section>}
 
             {activeTab === "world" && <Section title="Their world right now">
