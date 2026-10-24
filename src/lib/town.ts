@@ -175,6 +175,18 @@ export const TOWN_PLACES = [
     opens: 11,
     closes: 22,
   },
+  {
+    key: "bar:4ds",
+    label: "4D's Lounge",
+    kind: "bar",
+    community: "Altoona",
+    latitude: 40.4985,
+    longitude: -78.4105,
+    description:
+      "A casual neighborhood bar on Logan Avenue: drinks, music and easy socializing. Staff, guests and nightly happenings in scenes are invented.",
+    opens: 16,
+    closes: 2,
+  },
 ] as const;
 export type TownNpc = {
   key: string;
@@ -341,7 +353,10 @@ export function npcPresent(npc: TownNpc, now: Date) {
 }
 export function placeOpen(place: (typeof TOWN_PLACES)[number], now: Date) {
   const { hour } = easternClock(now);
-  return hour >= place.opens && hour < place.closes;
+  // Closing hour below opening hour means the place stays open past midnight.
+  return place.closes > place.opens
+    ? hour >= place.opens && hour < place.closes
+    : hour >= place.opens || hour < place.closes;
 }
 export function travelMinutes(
   from: (typeof TOWN_PLACES)[number] | undefined,

@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
+import { TOWN_PLACES } from "@/lib/town";
 import { useTown } from "@/lib/town-queries";
 import { suggestGathering } from "@/lib/town.functions";
 import { TownLayout, card } from "@/components/TownLayout";
@@ -25,7 +26,7 @@ function Plans() {
     [guest, setGuest] = useState<CharacterKey>("claire"),
     [date, setDate] = useState(""),
     [title, setTitle] = useState("Coffee and a catch-up"),
-    [place, setPlace] = useState<"coffee:local" | "park:local">("coffee:local"),
+    [place, setPlace] = useState<string>("coffee:local"),
     [id, setId] = useState(() => crypto.randomUUID()),
     [decision, setDecision] = useState("");
   async function propose() {
@@ -143,8 +144,11 @@ function Plans() {
               onChange={(e) => setPlace(e.target.value as typeof place)}
               className="mt-1 w-full rounded-xl border bg-background p-3"
             >
-              <option value="coffee:local">Switchyard Coffee</option>
-              <option value="park:local">Juniper Commons</option>
+              {TOWN_PLACES.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="block text-sm">

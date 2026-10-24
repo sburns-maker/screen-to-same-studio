@@ -3,7 +3,7 @@ export const PLACE_CATEGORIES = {
   all: "Everything",
   cafe: "Coffee",
   restaurant: "Food",
-  bar: "Trivia",
+  bar: "Bars & Nightlife",
   library: "Books",
   park: "Outdoors",
   community: "Community",

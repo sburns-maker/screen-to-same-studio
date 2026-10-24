@@ -62,7 +62,7 @@ beforeEach(() => {
 describe("mobile-friendly discovery and venue controls", () => {
   it("filters places by a tappable activity and exposes an honest empty saved-place state", () => {
     render(<ExplorePlaces />);
-    fireEvent.click(screen.getByRole("button", { name: "Trivia" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bars & Nightlife" }));
     expect(screen.getByRole("heading", { name: "Foundry Table" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Switchyard Coffee" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Show"), { target: { value: "favorites" } });

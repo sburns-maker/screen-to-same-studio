@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { TOWN_PLACES } from "./town";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const loadTown = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -49,7 +50,7 @@ export const suggestGathering = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         organizer: z.enum(["tess", "maya", "claire", "jordan", "ben"]),
         invitee: z.enum(["tess", "maya", "claire", "jordan", "ben"]),
-        place: z.enum(["coffee:local", "park:local"]),
+        place: z.string().refine((k) => TOWN_PLACES.some((p) => p.key === k), "Unknown place"),
         title: z.string().trim().min(1).max(120),
         startsAt: z.string().datetime({ offset: true }),
       })
