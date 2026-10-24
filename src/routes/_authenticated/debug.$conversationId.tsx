@@ -202,7 +202,7 @@ function Debug() {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
 
             {activeTab === "mind" && <div className="mt-4 space-y-2.5 rounded-2xl bg-surface p-4">
               {STATE_KEYS.map((k) => {
@@ -257,7 +257,7 @@ function Debug() {
                 v={snap.weather ? `${snap.weather.condition}, ${snap.weather.temperature_f}°F, wind ${snap.weather.wind_mph}mph (${snap.weather.weather_region})` : "unavailable"}
               />
               {snap.weatherFlavor && <KV k="weather flavor" v={snap.weatherFlavor} />}
-            </Section>
+            </Section>}
 
             {activeTab === "social" && <Section title="Initiation">
               <KV k="gap since last msg" v={`${snap.gapHours}h`} />
@@ -280,18 +280,18 @@ function Debug() {
               {!!snap.initiation.lastCheck && (
                 <details className="mt-2 border-t pt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Last initiation check · technical data</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[11px]">{JSON.stringify(snap.initiation.lastCheck, null, 2)}</pre></details>
               )}
-            </Section>
+            </Section>}
 
             {activeTab === "photos" && <Section title="Photo eligibility">
               <KV k="eligible" v={snap.photo.eligible ? "yes" : "no"} />
               <KV k="why" v={snap.photo.reason} />
               <KV k="curated available" v={snap.photo.curatedCount} />
               <KV k="generated types" v={snap.photo.generatedTypes.join(", ") || "none"} />
-            </Section>
+            </Section>}
 
             {activeTab === "technical" && <Section title="Last response delay">
               <p className="font-mono text-xs text-muted-foreground">{snap.latencyReason ?? "—"}</p>
-            </Section>
+            </Section>}
 
             {activeTab === "mind" && <Section title="Recent memories" collapsible>
               {(snap.recentMemories ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
@@ -308,7 +308,7 @@ function Debug() {
                   </li>
                 ))}
               </ul>
-            </Section>
+            </Section>}
           </>
         )}
       </Screen>
