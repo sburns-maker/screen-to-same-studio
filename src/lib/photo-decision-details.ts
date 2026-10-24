@@ -11,7 +11,7 @@ export type PhotoDecisionDetails = {
   legacy: boolean;
 };
 const LABELS: Record<PhotoDecisionStatus, string> = {
-  sent: "Sent", generated: "Generated", deferred: "Deferred", skipped: "Skipped",
+  sent: "Message sent", generated: "Generated", deferred: "Deferred", skipped: "Skipped",
   blocked: "Blocked", failed: "Failed", offered: "Offered to character",
 };
 export const isPhotoEvent = (kind: string) => kind.startsWith("photo_");
