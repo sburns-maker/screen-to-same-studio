@@ -136,7 +136,8 @@ export const replySchema = z.object({
     .nullable(),
   tone: z.string(),
   event_tags: z.array(z.string()),
-  character_perspective: z.string().max(700).nullable().optional(),
+  // Required + nullable: OpenAI strict JSON schema rejects optional fields (HTTP 400). Length is capped when saved.
+  character_perspective: z.string().nullable(),
   photo_boundary_decision: z.enum(["unchanged", "selfies", "all_photos", "mature", "reopen"]),
 });
 export type TessReply = z.infer<typeof replySchema>;
