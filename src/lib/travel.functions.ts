@@ -90,8 +90,13 @@ export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requir
 });
 export const listTravelMoments=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
 .inputValidator((v:unknown)=>z.object({id:uuid}).parse(v)).handler(async({context,data})=>{
- const db=await getDb();const {data:rows,error}=await (db as any).from("travel_trip_moments").select("id,stop_id,day,body,created_at").eq("user_id",context.userId).eq("trip_id",data.id).order("created_at");
- if(error)throw new Error(error.message);return rows??[];
+ const db=await getDb();const {data:rows,error}=await (db as any).from("travel_trip_moments").select("id,stop_id,day,body,created_at,photo_path,photo_caption").eq("user_id",context.userId).eq("trip_id",data.id).order("created_at");
+ if(error)throw new Error(error.message);
+ return Promise.all((rows??[]).map(async (m:any)=>{
+  if(!m.photo_path || !m.photo_path.startsWith(context.userId+"/"))return {...m,photoUrl:null};
+  const {data:signed,error:signError}=await db.storage.from("tess-photos").createSignedUrl(m.photo_path,3600);
+  return {...m,photoUrl:signError?null:(signed?.signedUrl??null)};
+ }));
 });
 
 const momentInput=z.object({id:uuid,stopId:z.string().min(1).max(100),day:z.number().int().min(1).max(90),text:z.string().trim().min(1).max(1500),character:z.enum(["tess","maya","claire","jordan","ben","riley"]).optional()});
