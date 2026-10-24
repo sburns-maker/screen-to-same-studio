@@ -8,6 +8,8 @@ import { QUESTION_BANK, nextTriviaDeck, type TriviaQuestion } from "@/lib/game-t
 import { WordHunt } from "@/components/games/WordHunt";
 import { EightBall } from "@/components/games/EightBall";
 import { GameChat } from "@/components/games/GameChat";
+import { useServerFn } from "@tanstack/react-start";
+import { saveGameMatch } from "@/lib/game-matches.functions";
 
 export const Route = createFileRoute("/_authenticated/games/$conversationId")({
   component: GameRoom,
@@ -16,12 +18,12 @@ export const Route = createFileRoute("/_authenticated/games/$conversationId")({
 type Game = "trivia" | "four" | "words" | "pool";
 type Question = TriviaQuestion;
 type TriviaProgress = { answers: number[]; deck: number[]; previous: number[]; round: number };
-type FourState = { board: number[]; ended: number | null };
+type FourState = { board: number[]; ended: number | null; moves?: number[] };
 type Saved = { game: Game; trivia: TriviaProgress; four: FourState; fourRound?: number };
 const fresh = (): Saved => ({
   game: "trivia",
   trivia: { answers: [], deck: nextTriviaDeck(), previous: [], round: 0 },
-  four: { board: Array(42).fill(0), ended: null },
+  four: { board: Array(42).fill(0), ended: null, moves: [] },
   fourRound: 0,
 });
 const index = (r: number, c: number) => r * 7 + c;
@@ -65,6 +67,9 @@ function GameRoom() {
   const storageKey = `aitown:games:prototype:${conversationId}`;
   const [saved, setSaved] = useState<Saved>(fresh);
   const [ready, setReady] = useState(false);
+  const saveMatch = useServerFn(saveGameMatch);
+  const [verified, setVerified] = useState<string[]>([]);
+  const [syncError, setSyncError] = useState<string | null>(null);
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(storageKey) || "null");
@@ -84,12 +89,14 @@ function GameRoom() {
       const first = place(s.four.board, column, 1);
       if (!first) return s;
       let outcome = winner(first), board = first;
+      const moves = [...(s.four.moves ?? []), column];
       if (outcome === null) {
         const response = computerColumn(first);
         board = response < 0 ? first : place(first, response, 2)!;
+        if (response >= 0) moves.push(response);
         outcome = winner(board);
       }
-      return { ...s, four: { board, ended: outcome } };
+      return { ...s, four: { board, ended: outcome, moves } };
     });
   }
   const deck = saved.trivia.deck.map((i) => QUESTION_BANK[i]).filter(Boolean);
@@ -98,10 +105,29 @@ function GameRoom() {
   const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q, i, character.key)).length;
   const finished = total === deck.length;
   const question = deck[total];
+  // Every turn is saved to the user's protected match record. Completion is
+  // independently verified on the server before the result can be shared.
+  const activeKey = saved.game === "trivia"
+    ? "trivia:" + saved.trivia.round + ":" + saved.trivia.deck.join("-")
+    : saved.game === "four" ? "four:" + (saved.fourRound ?? 0) : null;
+  const activeCompleted = saved.game === "trivia"
+    ? saved.trivia.answers.length === saved.trivia.deck.length
+    : saved.game === "four" ? saved.four.ended !== null : false;
+  useEffect(() => {
+    if (!ready || !conv.data || !activeKey || !["trivia", "four"].includes(saved.game)) return;
+    const progress = saved.game === "trivia"
+      ? { deck: saved.trivia.deck, answers: saved.trivia.answers }
+      : { moves: saved.four.moves ?? [] };
+    let canceled = false;
+    void saveMatch({data:{conversationId,key:activeKey,game:saved.game,progress,complete:activeCompleted}})
+      .then(() => {if(!canceled){setSyncError(null);if(activeCompleted)setVerified(v=>v.includes(activeKey)?v:[...v,activeKey]);}})
+      .catch(e=>{if(!canceled)setSyncError(e instanceof Error?e.message:"Could not save match");});
+    return ()=>{canceled=true;};
+  }, [ready, conv.data, activeKey, activeCompleted, saved.trivia.answers, saved.four.moves, saved.game, saveMatch, conversationId]);
   const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
-  const result = saved.game === "trivia" && finished
+  const result = saved.game === "trivia" && finished && !!activeKey && verified.includes(activeKey)
     ? {key:"trivia:"+saved.trivia.round+":"+saved.trivia.deck.join("-"),description:"We just finished a 10-question trivia match. I scored "+playerScore+" and you scored "+computerScore+". "+(playerScore>computerScore?"I won.":playerScore<computerScore?"You won.":"It was a tie.")+" (Game result from AI Town.)"}
-    : saved.game === "four" && saved.four.ended !== null
+    : saved.game === "four" && saved.four.ended !== null && !!activeKey && verified.includes(activeKey)
     ? {key:"four:"+(saved.fourRound??0)+":"+saved.four.board.join(""),description:"We just finished a Four in a Row match. "+(saved.four.ended===0?"It was a draw.":saved.four.ended===1?"I won.":"You won.")+" (Game result from AI Town.)"}
     : extraResult?.game===saved.game ? extraResult : null;
   return (
@@ -137,9 +163,10 @@ function GameRoom() {
             {saved.four.board.map((piece, i) => <button type="button" key={i} onClick={() => drop(i % 7)} disabled={saved.four.ended !== null} aria-label={`Drop in column ${(i % 7) + 1}`} className="aspect-square min-w-0 rounded-full bg-blue-900/40 p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:cursor-default"><span className={`block h-full w-full rounded-full ${piece === 1 ? "bg-red-400" : piece === 2 ? "bg-yellow-300" : "bg-background"}`} /></button>)}
           </div>
           <p className="text-center text-sm text-muted-foreground">Tap any hole in a column to drop a red piece. {character.preferredName} plays yellow.</p>
-          <button type="button" onClick={() => setSaved((s) => ({ ...s, fourRound: (s.fourRound??0)+1, four: { board: Array(42).fill(0), ended: null } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
+          <button type="button" onClick={() => setSaved((s) => ({ ...s, fourRound: (s.fourRound??0)+1, four: { board: Array(42).fill(0), ended: null, moves: [] } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
         </section>
       )}
+      {syncError && <p role="alert" className="mt-4 text-sm text-destructive">Game sync: {syncError}. Results cannot be shared until verified.</p>}
       <GameChat conversationId={conversationId} name={character.preferredName} game={saved.game} result={result} />
       <p className="mt-8 text-center text-xs text-muted-foreground">Playable prototypes · Trivia and Four in a Row save locally · Multiplayer and AI-driven characters coming next</p>
     </main>
