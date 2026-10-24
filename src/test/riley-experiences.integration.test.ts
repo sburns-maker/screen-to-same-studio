@@ -26,6 +26,20 @@ beforeEach(async () => {
     VALUES('${user}','${plan}','riley','coffee:local','Coffee together','2026-10-26T11:00:00Z','2026-10-26T12:00:00Z','accepted','conversation','${conv}','coffee','2026-10-26','07:00','accepted','accepted');`);
 });
 describe("Riley outing access and ownership", () => {
+  it("makes the agreed October 24 5 PM Juniper Commons walk claimable without starting it", async () => {
+    await db.exec(`UPDATE world_places SET key='park:local',label='Juniper Commons',kind='park' WHERE user_id='${user}';
+      UPDATE social_plans SET place_key='park:local',title='A walk',category='walk',date_local='2026-10-24',time_local='17:00',
+        starts_at='2026-10-24T21:00:00Z',ends_at='2026-10-24T22:00:00Z' WHERE user_id='${user}' AND id='${plan}';`);
+    await db.query("SELECT experience_seed($1,'2026-10-24T21:54:00Z')", [user]);
+    expect((await db.query(`SELECT state,claimed_at,mode,start_at='2026-10-24T21:00:00Z'::timestamptz AS agreed_start,
+      claim_deadline>'2026-10-24T21:54:00Z'::timestamptz AS claimable FROM living_experiences WHERE user_id=$1 AND plan_id=$2`, [user, plan])).rows).toEqual([
+      {state:"scheduled",claimed_at:null,mode:null,agreed_start:true,claimable:true},
+    ]);
+    expect((await db.query("SELECT user_attendance,user_response,character_response FROM social_plans WHERE id=$1", [plan])).rows).toEqual([
+      {user_attendance:"not_reported",user_response:"accepted",character_response:"accepted"},
+    ]);
+    expect((await db.query("SELECT count(*)::int AS n FROM living_experience_moments")).rows).toEqual([{n:0}]);
+  });
   it("creates exactly one unstarted Riley experience without changing attendance or history", async () => {
     await db.query("SELECT experience_seed($1,'2026-10-24T16:00:00Z')", [user]);
     await db.query("SELECT experience_seed($1,'2026-10-24T16:00:00Z')", [user]);
