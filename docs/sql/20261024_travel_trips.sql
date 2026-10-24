@@ -1,7 +1,7 @@
 -- Apply once to the same production Supabase project used by the app.
 create table if not exists public.travel_trips (
  id uuid primary key,
- user_id uuid not null references auth.users(id) on delete cascade,
+ user_id uuid not null,
  title text not null,
  origin text not null,
  destination text not null,
@@ -18,6 +18,8 @@ create table if not exists public.travel_trips (
  created_at timestamptz not null default now(),
  constraint valid_travel_dates check(end_date is null or start_date is null or end_date >= start_date)
 );
+grant select, insert, update, delete on public.travel_trips to authenticated;
+grant all on public.travel_trips to service_role;
 create index if not exists travel_trips_user_idx on public.travel_trips(user_id, updated_at desc);
 alter table public.travel_trips enable row level security;
 drop policy if exists travel_trips_owner on public.travel_trips;
@@ -25,13 +27,15 @@ create policy travel_trips_owner on public.travel_trips for all to authenticated
  using(user_id = (select auth.uid())) with check(user_id = (select auth.uid()));
 create table if not exists public.travel_trip_moments (
  id uuid primary key,
- user_id uuid not null references auth.users(id) on delete cascade,
+ user_id uuid not null,
  trip_id uuid not null references public.travel_trips(id) on delete cascade,
  stop_id text not null,
  day integer not null check(day>0),
  body text not null,
  created_at timestamptz not null default now()
 );
+grant select, insert, update, delete on public.travel_trip_moments to authenticated;
+grant all on public.travel_trip_moments to service_role;
 create index if not exists travel_trip_moments_owner_idx on public.travel_trip_moments(user_id,trip_id,created_at);
 alter table public.travel_trip_moments enable row level security;
 drop policy if exists travel_trip_moments_owner on public.travel_trip_moments;

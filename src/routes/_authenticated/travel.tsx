@@ -7,7 +7,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
 import {TRAVEL_REGIONS,travelPlaces,realWorldMapSearchUrl,type TravelPlace} from "@/lib/travel-places";
-export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · AI Town"}]})});
+export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · Tess"},{name:"description",content:"Plan trips and explore destinations in Tess's fictional world."},{property:"og:title",content:"Travel · Tess"},{property:"og:description",content:"Plan trips and explore destinations in Tess's fictional world."},{property:"og:type",content:"website"},{name:"twitter:card",content:"summary"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
 const purposes=["vacation","work","family","adventure"] as const;
 const kinds=["travel","activity","lodging","meal","work","rest"] as const;
@@ -23,7 +23,7 @@ function Travel(){
  const suggestions=travelPlaces(placeQuery,region).slice(0,80);
  const trips=(q.data??[]) as (TripPlan&{revision:number})[];
  const current=trips.find(t=>t.id===selected)??trips[0];
- const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>getMoments({data:{id:current!.id}}),enabled:!!current?.id});
+ const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>current?getMoments({data:{id:current.id}}):Promise.resolve([]),enabled:!!current?.id});
  async function save(idea=false){
   setBusy(true);try{
    const p=idea?icelandTripIdea(origin):null;
@@ -54,7 +54,7 @@ function Travel(){
  }
  const field="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm";
  const btn="rounded-full border border-border px-4 py-2 text-sm disabled:opacity-50";
- return <Screen><ScreenHeader title="Travel" subtitle="Road trips, vacations and work adventures"/>
+ return <Screen><ScreenHeader title="Travel"/>
  <main className="mx-auto max-w-3xl space-y-6 px-4 pb-28 pt-4">
  <p className="text-sm text-muted-foreground">Plan fictional travel and record what happens. Destinations and travel are in-game: no tickets or lodging are actually booked.</p>
  <section className="space-y-3 rounded-2xl border p-4">

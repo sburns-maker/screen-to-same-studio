@@ -9,10 +9,10 @@ const input=z.object({id:uuid,title:z.string().trim().min(1).max(120),origin:z.s
 const getDb=async()=> (await import("@/integrations/supabase/client.server")).supabaseAdmin;
 type TripRow=TripPlan & { revision?:number };
 function fromRow(r:Record<string,unknown>):TripRow{
- return {id:String(r.id),title:String(r.title),origin:String(r.origin),destination:String(r.destination),
- mode:r.mode as TripPlan["mode"],purpose:r.purpose as TripPlan["purpose"],startDate:r.start_date as string|null,
- endDate:r.end_date as string|null,status:r.status as TripPlan["status"],companions:r.companions as TripPlan["companions"],
- itinerary:r.itinerary as TripPlan["itinerary"],notes:r.notes as string[],revision:Number(r.revision||0)};
+ return {id:String(r['id']),title:String(r['title']),origin:String(r['origin']),destination:String(r['destination']),
+ mode:r['mode'] as TripPlan["mode"],purpose:r['purpose'] as TripPlan["purpose"],startDate:r['start_date'] as string|null,
+ endDate:r['end_date'] as string|null,status:r['status'] as TripPlan["status"],companions:r['companions'] as TripPlan["companions"],
+ itinerary:r['itinerary'] as TripPlan["itinerary"],notes:r['notes'] as string[],revision:Number(r['revision']||0)};
 }
 export const listTravelTrips=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
 .handler(async({context})=>{
@@ -84,7 +84,7 @@ export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requir
  if(data.action==="complete_stop") {
   const {error:me}=await (db as any).from("travel_trip_moments").insert({id:crypto.randomUUID(),trip_id:p.id,user_id:context.userId,stop_id:data.stopId,day:p.itinerary.find(s=>s.id===data.stopId)?.day,body:data.body});
   if(me)throw new Error("Stop marked complete, but travel journal failed: "+me.message);
-  await (await import("./travel-memory.server")).rememberTravelStop(db,context.userId,p,data.stopId!,data.body!);
+  if (data.stopId && data.body) await (await import("./travel-memory.server")).rememberTravelStop(db,context.userId,p,data.stopId,data.body);
  }
  return {revision:data.revision+1,status:p.status};
 });
