@@ -21,8 +21,8 @@ const schedule = {
 const plan = (character = "tess", override: Partial<Parameters<typeof planPhotography>[0]> = {}) =>
   planPhotography({ character, key: "stable-action", now, schedule, ...override });
 describe("typed character photography", () => {
-  it("keeps all five profiles distinct while preserving existing spontaneity and pacing", () => {
-    expect(Object.keys(PHOTOGRAPHY_PROFILES)).toHaveLength(5);
+  it("keeps all six profiles distinct while preserving existing spontaneity and pacing", () => {
+    expect(Object.keys(PHOTOGRAPHY_PROFILES)).toHaveLength(6);
     expect(photographyProfile("tess").expressions).toContain("deadpan");
     expect(photographyProfile("maya").expressions.join(" ")).toContain("tired");
     expect(photographyProfile("tess").captionVoice).not.toBe(
