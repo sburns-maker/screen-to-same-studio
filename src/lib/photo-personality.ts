@@ -32,6 +32,20 @@ export type PhotographyProfile = {
   scenarios: Partial<Record<PhotoScenario, number>>;
 };
 export const PHOTOGRAPHY_PROFILES = {
+  riley: {
+    key: "riley",
+    styles: ["realistic late-night snapshots", "candid friendly front camera"],
+    expressions: ["wry grin", "soft sleepy smile", "amused raised eyebrow"],
+    settings: ["hospital staff break room without patient details", "apartment kitchen at noon", "local cafe", "Altoona night streets"],
+    wardrobe: ["navy medical scrubs with a black unzipped hoodie", "casual cardigan and jeans", "soft oversized sweater", "simple fitted casual blouse"],
+    hairstyles: ["long blonde curly hair fully down", "loose blonde curls worn over both shoulders"],
+    selfies: ["front camera selfie", "break-room candid", "casual mirror photo"],
+    captionVoice: "Playfully sarcastic, warm, naturally funny, independent; never imply attraction that has not developed.",
+    spontaneity: 0.34, hours: 9, messages: 5,
+    subjects: "night-shift observations, coffee, odd dreams, music, ordinary local life, a rare sleepy selfie",
+    scenarios: { coffee_break: 1.5, reaction_selfie: 1.2, post_work: 1.4, playful_reply: 1.2 }
+  },
+
   tess: {
     key: "tess",
     styles: ["deadpan visual humor", "restrained, casual phone framing"],
