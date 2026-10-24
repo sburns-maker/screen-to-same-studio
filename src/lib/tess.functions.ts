@@ -395,6 +395,8 @@ async function runTurnUnlocked(
   worldKnowledge.push(...altoonaContext(def.key,now));
   const { townPopulationContext } = await import("./blair-town-npcs");
   worldKnowledge.push(...townPopulationContext(def.key,now));
+  const { scheduledPopulationContext } = await import("./npc-schedules");
+  worldKnowledge.push(...scheduledPopulationContext(def.key,now));
   const schedule = shared ?? storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
   const realTime = !!conv.real_time_mode;
   // Never charge for an image or mutate relationship state before the sleep boundary.
