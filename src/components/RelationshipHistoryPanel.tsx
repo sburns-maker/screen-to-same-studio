@@ -1,7 +1,7 @@
 import {useEffect,useMemo,useState} from "react";
 import {useServerFn} from "@tanstack/react-start";
 import {relationshipHistory,type Evaluation} from "@/lib/relationship-history.functions";
-import {STATE_KEYS} from "@/lib/tess-logic";
+import {STATE_KEYS,type TessState} from "@/lib/tess-logic";
 type Plan={id:string;title:string;status:string;date_local:string|null;starts_at:string|null;ends_at:string|null;place_key:string|null};
 type Event={id:string;kind:string;summary:string;occurs_at:string;processed_at:string|null};
 const localDay=(d:string)=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(d));
@@ -21,11 +21,11 @@ function perspective(e:Evaluation):string {
  if(!parts.length)parts.push("My feelings haven't shifted much from this interaction, at least in the saved simulation state.");
  return parts.slice(0,3).join(" ");
 }
-export function RelationshipHistoryPanel({conversationId}:{conversationId:string}){
+export function RelationshipHistoryPanel({conversationId,state,stage}:{conversationId:string;state?:TessState;stage?:string}){
  const get=useServerFn(relationshipHistory);
  const [data,setData]=useState<{evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean}|null>(null);
  const [error,setError]=useState<string|null>(null);
- const [selected,setSelected]=useState("");
+ const [selected,setSelected]=useState(()=>localDay(new Date().toISOString()));
  const [showPerspective,setShowPerspective]=useState(false);
  useEffect(()=>{let alive=true;void get({data:{conversationId}}).then(r=>{if(alive){setData(r as {evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean});setError(null);}}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"History unavailable");});return()=>{alive=false;};},[get,conversationId]);
  const dates=useMemo(()=>{
@@ -33,7 +33,7 @@ export function RelationshipHistoryPanel({conversationId}:{conversationId:string
   const all=[...data.evaluations.map(e=>localDay(e.evaluated_at)),...data.events.map(e=>localDay(e.occurs_at)),...data.plans.map(p=>p.date_local??(p.starts_at?localDay(p.starts_at):""))].filter(Boolean);
   return [...new Set(all)].sort().reverse().slice(0,45);
  },[data]);
- const day=selected&&dates.includes(selected)?selected:dates[0]??"";
+ const day=selected || localDay(new Date().toISOString());
  const evaluations=(data?.evaluations??[]).filter(e=>localDay(e.evaluated_at)===day);
  const events=(data?.events??[]).filter(e=>localDay(e.occurs_at)===day);
  const plans=(data?.plans??[]).filter(p=>(p.date_local??(p.starts_at?localDay(p.starts_at):""))===day);
@@ -44,7 +44,7 @@ export function RelationshipHistoryPanel({conversationId}:{conversationId:string
   <p className="mt-1 text-xs text-muted-foreground">Review recorded decisions, dates and interaction changes. Times are shown in Altoona's Eastern time zone. Older interactions cannot be reconstructed retroactively.</p>
   {error&&<p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
   {data?.historyUnavailable&&<p className="mt-2 rounded-lg border p-2 text-sm">Apply the relationship evaluation migration to activate the detailed history. Existing outings and world events still appear below.</p>}
-  {!!dates.length&&<label className="mt-3 block text-xs font-medium">Select date<select value={day} onChange={e=>setSelected(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2">{dates.map(d=><option key={d} value={d}>{d}</option>)}</select></label>}
+  {!!dates.length&&<label className="mt-3 block text-xs font-medium">Select date<select value={day} onChange={e=>setSelected(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2">{!dates.includes(day)&&<option value={day}>{day} · today / no records</option>}{dates.map(d=><option key={d} value={d}>{d}</option>)}</select></label>}
   {data&&!dates.length&&<p className="mt-3 text-sm text-muted-foreground">No dated events or evaluations recorded yet.</p>}
   {!!day&&<>
    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -56,6 +56,15 @@ export function RelationshipHistoryPanel({conversationId}:{conversationId:string
    {!!events.length&&<div className="mt-4"><h4 className="font-semibold text-sm">World events</h4>{events.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><strong>{e.kind.replace(/_/g," ")}</strong><p>{e.summary}</p><p className="text-xs text-muted-foreground">{e.processed_at?"Recorded as processed":"Recorded, not marked processed"}</p></div>)}</div>}
    {!!evaluations.length&&<div className="mt-4"><h4 className="font-semibold text-sm">Evaluated interactions</h4>{evaluations.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><div className="flex justify-between gap-2 text-xs text-muted-foreground"><span>{e.source_kind.replace(/_/g," ")}</span><time dateTime={e.evaluated_at}>{new Date(e.evaluated_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})}</time></div><p className="mt-1">{e.context_summary??"Conversation evaluation"}</p><p className="mt-1 text-xs text-muted-foreground">{e.stage_before} → {e.stage_after} · {e.observed_tone??"tone unrecorded"}</p><div className="mt-1 flex flex-wrap gap-1">{Object.entries(e.delta??{}).filter(([,v])=>Number(v)!==0).map(([k,v])=><span key={k} className="text-xs">{k.replace(/_/g," ")} {Number(v)>0?"+":""}{v};</span>)}</div>{showPerspective&&<blockquote className="mt-2 rounded-lg bg-muted p-2 italic">{perspective(e)}</blockquote>}</div>)}</div>}
    <label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={showPerspective} onChange={e=>setShowPerspective(e.target.checked)}/><span>Show fictional inner perspective <span className="block text-xs text-muted-foreground">An in-character interpretation generated from saved score changes, not the model's hidden thoughts or proof of actual intentions.</span></span></label>
+   {showPerspective&&!evaluations.length&&<blockquote className="mt-3 rounded-xl border bg-background p-3 text-sm italic">
+     {state ? (Number(state.comfort??0)>=75 && Number(state.romantic_intent??0)<25
+       ? "I feel comfortable talking with this person, but I'm still deciding what kind of connection this is. I don't have to rush it."
+       : Number(state.playfulness??0)>=50
+       ? "I enjoy our playful conversations. I'm curious where things go, without making promises I haven't decided on."
+       : "I'm taking this connection one conversation at a time. There isn't enough recorded here to explain a specific change today.")
+     : "No evaluation is saved for this day. An example perspective will appear once relationship state is available."}
+     <p className="mt-2 text-xs not-italic text-muted-foreground">Illustrative present-state reflection{stage?" · "+stage:""}. Not a saved diary entry or historical event.</p>
+   </blockquote>}
   </>}
  </section>;
 }
