@@ -27,7 +27,7 @@ beforeEach(async () => {
 });
 describe("Riley outing access and ownership", () => {
   it("makes the agreed October 24 5 PM Juniper Commons walk claimable without starting it", async () => {
-    await db.exec(`UPDATE world_places SET key='park:local',label='Juniper Commons',kind='park' WHERE user_id='${user}';
+    await db.exec(`INSERT INTO world_places(user_id,key,label,kind,metadata) VALUES('${user}','park:local','Juniper Commons','park','{}');
       UPDATE social_plans SET place_key='park:local',title='A walk',category='walk',date_local='2026-10-24',time_local='17:00',
         starts_at='2026-10-24T21:00:00Z',ends_at='2026-10-24T22:00:00Z' WHERE user_id='${user}' AND id='${plan}';`);
     await db.query("SELECT experience_seed($1,'2026-10-24T21:54:00Z')", [user]);
