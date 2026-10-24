@@ -9,11 +9,11 @@ describe("8 Ball rules",()=>{
  it("allows a legal eight ball after clearing the group",()=>{const r=adjudicate({...initialRules(),breakShot:false,groups:{1:"solids",2:"stripes"},},event({firstContact:8,pocketed:[8],pocketEvents:[{ball:8,pocket:0}]}),[8,9]);expect(r.winner).toBe(1);});
  it("penalizes wrong first contact",()=>{const r=adjudicate({...initialRules(),breakShot:false,groups:{1:"solids",2:"stripes"}},event({firstContact:10}),[1,8,10]);expect(r.ballInHand).toBe(true);});
  it("allows continuation without called pockets",()=>{
- const start={...initialRules(),breakShot:false,groups:{1:"solids" as const,2:"stripes" as const},calledBall:1,calledPocket:0};
+ const start={...initialRules(),breakShot:false,groups:{1:"solids" as const,2:"stripes" as const},};
  const result=adjudicate(start,event({pocketed:[1],pocketEvents:[{ball:1,pocket:2}]}),[1,8]);
  expect(result.turn).toBe(1);expect(result.ballInHand).toBe(false);
  });
- it("passes turn on a declared safety even when the called ball is made",()=>{
+ it("passes turn on a declared safety even when a ball is made",()=>{
  const start={...initialRules(),breakShot:false,groups:{1:"solids" as const,2:"stripes" as const},safety:true};
  const result=adjudicate(start,event({pocketed:[1],pocketEvents:[{ball:1,pocket:0}]}),[1,8]);
  expect(result.turn).toBe(2);
@@ -23,7 +23,7 @@ describe("8 Ball rules",()=>{
  expect(result.ballInHand).toBe(true);
  });
  it("allows eight ball in any pocket after clearing group",()=>{
- const result=adjudicate({...initialRules(),breakShot:false,groups:{1:"solids",2:"stripes"},calledBall:8,calledPocket:0},event({firstContact:8,pocketed:[8],pocketEvents:[{ball:8,pocket:1}]}),[8,9]);
- expect(result.winner).toBe(2);
+ const result=adjudicate({...initialRules(),breakShot:false,groups:{1:"solids",2:"stripes"},},event({firstContact:8,pocketed:[8],pocketEvents:[{ball:8,pocket:1}]}),[8,9]);
+ expect(result.winner).toBe(1);
  });
 });
