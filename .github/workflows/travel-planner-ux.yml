@@ -1,0 +1,16 @@
+name: Travel planning UX
+on:
+  pull_request:
+    paths:
+      - "src/routes/_authenticated/travel.tsx"
+      - "src/routes/_authenticated/plans.tsx"
+      - ".github/workflows/travel-planner-ux.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/travel-experiences.test.ts src/test/arena-events.test.ts
+      - run: bun run build

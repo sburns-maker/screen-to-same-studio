@@ -77,8 +77,9 @@ function Travel(){
  return <Screen><ScreenHeader title="Travel"/>
  <main className="mx-auto max-w-3xl space-y-6 px-4 pb-28 pt-4">
  <p className="text-sm text-muted-foreground">Plan fictional outings, invite friends, and play what happens. Nothing is booked in real life.</p>
+ <div className="rounded-2xl border p-4 space-y-2"><p className="font-semibold">Plan around an event</p><p className="text-sm text-muted-foreground">Choose a concert first, then invite someone. Fictional events are labeled and no tickets are purchased.</p><Link to="/ppg-arena" className="inline-block rounded-full bg-primary px-4 py-3 text-sm text-primary-foreground">Browse Pittsburgh arena events →</Link></div>
  <nav aria-label="Travel sections" className="grid grid-cols-3 gap-2">{([["trips","My trips"],["discover","Explore"],["create","New trip"]] as const).map(([key,label])=><button key={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)} className={tab===key?"rounded-xl bg-primary px-2 py-3 text-sm text-primary-foreground":"rounded-xl border px-2 py-3 text-sm"}>{label}</button>)}</nav>
- <section className="space-y-3 rounded-2xl border p-4">
+ {tab==="discover"&&<section className="space-y-3 rounded-2xl border p-4">
  <h2 className="font-semibold">Explore the real-world-inspired destination guide</h2>
  <p className="text-sm text-muted-foreground">Independent curated geographic places, not a Google Maps database. Opening hours and access require checking.</p>
  <select className="w-full rounded-xl border bg-background p-2" aria-label="Travel region" value={region} onChange={e=>setRegion(e.target.value)}><option value="">All regions</option>{TRAVEL_REGIONS.map(r=><option key={r.id} value={r.id}>{r.label} · {r.country}</option>)}</select>
@@ -91,11 +92,11 @@ function Travel(){
  </section>}
  <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
  <p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.city} · {p.regionLabel} · {p.kind}</p><p className="mt-1 text-xs">{p.ideas.join(" · ")}</p>
- <div className="mt-2 flex flex-wrap gap-3 text-sm">{p.id==="pittsburgh:ppg-paints-arena"&&<Link to="/ppg-arena" className="underline">View arena event calendar & invite Maya →</Link>}<button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("create");toast.info("Destination selected. Choose dates and invite someone.")}}>Plan a trip here</button>
+ <div className="mt-2 flex flex-wrap gap-3 text-sm">{p.id==="pittsburgh:ppg-paints-arena"&&<Link to="/ppg-arena" className="underline">View arena event calendar & invite Maya →</Link>}<button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Visit "+p.name);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("create");toast.info("Destination selected. Choose dates and invite someone.")}}>Plan a trip here</button>
  <button type="button" className="underline" onClick={()=>{setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("trips");toast.info("Stop selected. Add it to your current itinerary below.")}}>Select as stop</button>
  <a href={realWorldMapSearchUrl(p)} target="_blank" rel="noopener noreferrer" className="underline">View on Google Maps ↗</a></div></article>)}</div>
- </section>
- <section className="space-y-3 rounded-2xl border p-4">
+ </section>}
+ {tab==="create"&&<section className="space-y-3 rounded-2xl border p-4">
  <h2 className="font-semibold">New adventure</h2>
  <button className={btn} disabled={busy} onClick={()=>void save(true)}>Save Tess's Iceland dream</button>
  <input aria-label="Trip title" className={field} value={title} placeholder="Trip name" onChange={e=>setTitle(e.target.value)}/>
@@ -105,7 +106,7 @@ function Travel(){
  <select aria-label="Reason for travel" className={field} value={purpose} onChange={e=>setPurpose(e.target.value as typeof purpose)}>{purposes.map(x=><option key={x} value={x}>{pretty(x)}</option>)}</select>
  <input aria-label="Departure date" type="date" className={field} value={start} onChange={e=>setStart(e.target.value)}/><input aria-label="Return date" type="date" className={field} value={end} onChange={e=>setEnd(e.target.value)}/>
  </div><div className="space-y-2 rounded-xl bg-muted/40 p-3"><label className="block text-sm font-semibold" htmlFor="new-trip-companion">Go with someone?</label><select id="new-trip-companion" className={field} value={companion} onChange={e=>setCompanion(e.target.value as typeof companion)}>{(["maya","tess","claire","jordan","ben","riley"] as const).map(c=><option value={c} key={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>)}</select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={inviteOnCreate} onChange={e=>setInviteOnCreate(e.target.checked)}/> Invite this character after saving (they choose whether to accept)</label></div><button disabled={busy||!title.trim()||!destination.trim()||(!!start&&!!end&&end<start)} className="w-full rounded-full bg-primary px-5 py-3 text-primary-foreground disabled:opacity-50" onClick={()=>void save()}>{busy?"Creating…":"Create trip"+(inviteOnCreate?" & ask "+companion:"")}</button>
- </section>
+ </section>}
  {tab==="trips"&&<><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Your adventures</h2><button type="button" className={btn} onClick={()=>setTab("create")}>+ Plan trip</button></div>\n {q.isLoading&&<p>Loading trips…</p>}{q.error&&<p role="alert" className="text-destructive">{String((q.error as Error).message)}</p>}
  {trips.length>0&&<section className="space-y-3"><label className="text-sm font-semibold" htmlFor="trip-choice">Your trips</label><select id="trip-choice" value={current?.id??""} onChange={e=>setSelected(e.target.value)} className={field}>{trips.map(t=><option key={t.id} value={t.id}>{t.title} · {pretty(t.status)}</option>)}</select></section>}
  {current&&<section className="space-y-4 rounded-2xl border p-4">
