@@ -1,0 +1,16 @@
+name: Spontaneous photo quota separation
+on:
+  pull_request:
+    paths:
+      - "src/lib/world.server.ts"
+      - "src/lib/world-runtime.server.ts"
+      - ".github/workflows/spontaneous-photo-quota.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/photo-turn.test.ts src/test/world.test.ts src/test/world-offline.integration.test.ts
+      - run: bun run build
