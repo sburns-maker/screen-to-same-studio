@@ -8,3 +8,4 @@
 - [x] Fix merged travel compile errors and apply travel storage migration without changing existing histories; clean preview build and signed-in destination selection verified.
 - [x] Secure internal installation and phone directory tables; verify permissions and calls/calendar/world compatibility. Full suite: 678 passed, 5 skipped; signed-in Plans and Calls load without runtime errors. No paid calls or experience actions executed.
 - [ ] Restore Riley's Living Experience eligibility and calendar safeguards; add regression tests and verify her outing button without starting or completing it.
+- [ ] Diagnose and restore access to Tess's noon outing today; preserve its attendance, history and experience state.
