@@ -195,7 +195,7 @@ export function recognizePlan(
           : undefined);
   const inviting =
     !!cat &&
-    (/\b(?:here['’]s my (?:revised )?(?:offer|proposal)|my (?:revised )?(?:offer|proposal))\b/i.test(text) ||
+    (/\b(?:here['’]s my (?:revised )?(?:formal )?(?:offer|proposal)|my (?:revised )?(?:formal )?(?:offer|proposal))\b/i.test(text) ||
     /\b(?:want to|would you like|come (?:along|with|to)|join me|let['’]s|shall we|can we|how about|what about|would you|invite you|meet me)\b/i.test(
       text,
     )) &&
