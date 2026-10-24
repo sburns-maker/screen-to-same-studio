@@ -31,11 +31,11 @@ export const createTravelTrip=createServerFn({method:"POST"}).middleware([requir
  if(error)throw new Error(error.message);
  return {id:p.id};
 });
-const action=z.object({id:uuid,revision:z.number().int().min(0),action:z.enum(["invite","companion_accept","companion_decline","propose","confirm","start","complete_stop","finish","cancel","add_stop"]),
+const action=z.object({id:uuid,revision:z.number().int().min(0),action:z.enum(["invite","companion_accept","companion_decline","propose","confirm","start","complete_stop","finish","cancel","add_stop","set_dates"]),
  character:z.string().regex(/^[a-z_]{2,40}$/).optional(),stopId:z.string().max(100).optional(),
  label:z.string().trim().max(180).optional(),location:z.string().trim().max(180).optional(),day:z.number().int().min(1).max(90).optional(),
  kind:z.enum(["travel","activity","lodging","meal","work","rest"]).optional(),
- body:z.string().trim().max(1500).optional()});
+ body:z.string().trim().max(1500).optional(),startDate:z.string().nullable().optional(),endDate:z.string().nullable().optional()});
 export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
 .inputValidator((v:unknown)=>action.parse(v)).handler(async({context,data})=>{
  const db=await getDb();const table=(db as any).from("travel_trips");
@@ -59,6 +59,9 @@ export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requir
  case "start":
   if(p.status!=="accepted")throw new Error("Trip must be confirmed first");
   p={...p,status:"in_progress"};break;
+ case "set_dates":
+  if(!["idea","proposed"].includes(p.status))throw new Error("Dates are locked once confirmed");
+  p={...p,startDate:data.startDate??null,endDate:data.endDate??null};break;
  case "add_stop":
   if(!data.label||!data.location||!data.day||!data.kind)throw new Error("Stop needs day, title, place and type");
   if(!["idea","proposed","accepted","in_progress"].includes(p.status))throw new Error("Trip is closed");
@@ -75,7 +78,7 @@ export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requir
  case "cancel":p={...p,status:"cancelled"};break;
  }
  const errs=validateTrip(p);if(errs.length)throw new Error(errs.join("; "));
- const {data:updated,error}=await (db as any).from("travel_trips").update({status:p.status,companions:p.companions,itinerary:p.itinerary,notes:p.notes,revision:data.revision+1,updated_at:new Date().toISOString()})
+ const {data:updated,error}=await (db as any).from("travel_trips").update({status:p.status,start_date:p.startDate,end_date:p.endDate,companions:p.companions,itinerary:p.itinerary,notes:p.notes,revision:data.revision+1,updated_at:new Date().toISOString()})
   .eq("id",p.id).eq("user_id",context.userId).eq("revision",data.revision).select("id").maybeSingle();
  if(error||!updated)throw new Error(error?.message??"Concurrent update; refresh and retry");
  if(data.action==="complete_stop") {
