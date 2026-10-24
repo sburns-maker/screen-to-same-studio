@@ -74,9 +74,16 @@ async function loadConversations(supabase: Sb, userId: string): Promise<ConvRow[
 
 async function seedConversation(supabase: Sb, userId: string, character: CharacterRow) {
   const def = characterFor(character.key);
+  // New contacts inherit existing global simulation and messaging preferences.
+  const { data: prefs } = await supabase.from("conversations")
+    .select("show_sim_data,real_time_mode,typing_indicator,read_receipts")
+    .eq("user_id",userId).order("created_at",{ascending:true}).limit(1).maybeSingle();
   const { data: conv, error } = await supabase
     .from("conversations")
-    .insert({ user_id: userId, character_id: character.id })
+    .insert({ user_id: userId, character_id: character.id, ...(prefs ? {
+      show_sim_data:prefs.show_sim_data,real_time_mode:prefs.real_time_mode,
+      typing_indicator:prefs.typing_indicator,read_receipts:prefs.read_receipts
+    } : {}) })
     .select("*")
     .single();
   if (error) throw new Error(error.message);
