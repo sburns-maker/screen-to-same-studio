@@ -18,3 +18,13 @@ describe("editable scripted audition", () => {
     expect(validateVoiceRequest(TESS_REFERENCE_VOICE_PROMPT, "Tess — Reference Tuned")).toBeNull();
   });
 });
+
+import { CHARACTER_VOICE_PRESETS } from "@/lib/voice-audition-modes";
+describe("character voice presets", () => {
+  it("every contact has a valid preset", () => {
+    for (const k of ["tess", "maya", "claire", "jordan", "ben"]) {
+      const p = CHARACTER_VOICE_PRESETS[k];
+      expect(validateVoiceRequest(p.prompt, p.name)).toBeNull();
+    }
+  });
+});
