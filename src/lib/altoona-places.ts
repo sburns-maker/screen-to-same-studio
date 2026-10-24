@@ -2,6 +2,7 @@
  * Verify public hours and scheduled events at runtime before making definite claims. */
 export type AltoonaPlace={name:string;area:string;kind:string;address:string;ideas:string[];seasonal?:boolean};
 export const ALTOONA_PLACES:AltoonaPlace[]=[
+{name:"4D's Lounge",area:"Altoona",kind:"nightlife",address:"1801 Logan Avenue, Altoona, PA",ideas:["drinks","music","casual night out","date night"]},
 {name:"Mishler Theatre",area:"Downtown Altoona",kind:"arts",address:"1212 12th Avenue, Altoona, PA",ideas:["theater performances","concerts","evening plans"]},
 {name:"Railroaders Memorial Museum",area:"Downtown Altoona",kind:"museum",address:"1200 9th Avenue, Altoona, PA",ideas:["railroad history","museum visit"]},
 {name:"Horseshoe Curve",area:"West of Altoona",kind:"landmark",address:"2400 Veterans Memorial Highway, Altoona, PA",ideas:["train watching","railroad history","scenic overlook"]},

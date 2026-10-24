@@ -36,14 +36,18 @@ export const ACTION_LABELS: Record<VenueAction, string> = {
   discuss: "Participate in discussion",
   leave: "Leave this visit",
 };
+// Street addresses supplied by the owner; all other venues keep the virtual map meeting point.
+const VERIFIED_ADDRESSES: Record<string, string> = {
+  "bar:4ds": "1801 Logan Avenue, Altoona, PA",
+};
 export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   ...p,
   designation:
-    p.key === "hope:drop-in" || p.key === "dinner:fanellis"
+    p.key === "hope:drop-in" || p.key === "dinner:fanellis" || p.key === "bar:4ds"
       ? ("unverified_real_name_fictional_scene" as const)
       : ("fictional" as const),
-  address: null as string | null,
-  addressStatus: "unverified" as const,
+  address: (VERIFIED_ADDRESSES[p.key] ?? null) as string | null,
+  addressStatus: (VERIFIED_ADDRESSES[p.key] ? "verified" : "unverified") as "verified" | "unverified",
   state: "PA",
   zip: null as string | null,
   coordinatesStatus: "illustrative_fictional" as const,
@@ -64,8 +68,10 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   eventCategories:
     p.kind === "library" || p.kind === "bookshop"
       ? ["book_club", "meetup"]
-      : p.kind === "bar"
-        ? ["trivia", "meetup"]
+      : p.key === "bar:4ds"
+        ? ["drinks", "date", "meetup"]
+        : p.kind === "bar"
+          ? ["trivia", "meetup"]
         : p.kind === "restaurant"
           ? ["dinner", "meetup"]
           : ["coffee", "walk", "meetup"],
@@ -94,6 +100,7 @@ export const placeByKey = (key: string | null | undefined) =>
 // Short names people actually type for a registered venue, including common misspellings.
 const VENUE_ALIASES: Record<string, readonly string[]> = {
   "dinner:fanellis": ["fanelli", "finelli"],
+  "bar:4ds": ["4d's", "4ds", "4d", "four d's"],
 };
 const normalizeVenueText = (text: string) =>
   text.toLocaleLowerCase().replace(/[’‘`]/g, "'");
@@ -110,7 +117,7 @@ export function placeKnowledge() {
     "PUBLIC VIRTUAL VENUE REGISTRY (fictional activities, never GPS): " +
     PLACE_REGISTRY.map(
       (p) =>
-        `${p.key}: ${p.label}, ${p.community}, ${p.designation}, virtual hours ${p.opens}–${p.closes} Eastern, ${p.eventCategories.join("/")}; ${p.address ? "verified address " + p.address : "NO VERIFIED STREET ADDRESS; offer the virtual map meeting point, never invent an address"}`,
+        `${p.key}: ${p.label}, ${p.community}, ${p.designation}, hours ${p.opens}:00–${p.closes}:00 Eastern${p.closes < p.opens ? " (past midnight)" : ""}, ${p.eventCategories.join("/")}; ${p.address ? "verified address " + p.address : "NO VERIFIED STREET ADDRESS; offer the virtual map meeting point, never invent an address"}`,
     ).join("\n") +
     "\nChoose a venue only when it fits; leave details undecided if not agreed. Never claim bookings, emails, reservations or host confirmations that are unavailable. Fictional H.O.P.E. encounters never describe real clients, records or staff."
   );
