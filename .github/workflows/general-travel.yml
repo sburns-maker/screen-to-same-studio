@@ -1,5 +1,5 @@
 name: General Travel
-# Arena schedule and travel venue changes are validated below.
+# Arena schedule (including fictional game listings) and travel venue changes are validated below.
 on:
   pull_request:
     paths:
