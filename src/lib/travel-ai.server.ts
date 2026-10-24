@@ -3,7 +3,7 @@ import { CHARACTERS,type CharacterKey } from "./characters";
 import { runStructured } from "./text-ai.server";
 import { tripScenePrompt,type TripPlan } from "./travel-experiences";
 const inviteSchema=z.object({decision:z.enum(["accept","decline","discuss"]),reply:z.string().max(360)});
-const sceneSchema=z.object({narration:z.string().max(1200),dialogue:z.string().max(700),newDetail:z.string().max(240).nullable()});
+const sceneSchema=z.object({narration:z.string().max(1200),dialogue:z.string().max(700),newDetail:z.string().max(240).nullable(),photo:z.object({send:z.boolean(),scene:z.string().max(360),caption:z.string().max(180),kind:z.enum(["selfie","scenery","moment"])}).nullable()});
 export async function characterTripDecision(character:string,trip:TripPlan,relationship:Record<string,unknown>={}){
  const def=CHARACTERS[character as CharacterKey];
  if(!def)throw new Error("Unknown character");
@@ -15,6 +15,6 @@ export async function generateTravelScene(trip:TripPlan,day:number,stopId:string
  if(character && (!chosen||!trip.companions.some(c=>c.characterKey===character&&c.response==="accepted")))throw new Error("Companion has not accepted this trip");
  const stop=trip.itinerary.find(s=>s.id===stopId && s.day===day && !s.completed);
  if(!stop||trip.status!=="in_progress")throw new Error("Choose an active unfinished travel stop");
- return runStructured(sceneSchema,`Fictional interactive travel scene. The player controls only their own actions, never invent choices, intimacy, agreement or dialogue for the player. ${tripScenePrompt(trip,day)}. The current scene is ${stop.label} at ${stop.location}. Keep narration brief and distinct, introduce a realistic sensory detail or small unexpected event, and continue rather than finish the stop. ${chosen?`The companion is ${chosen.fullName}. Canon: ${chosen.bible}. Their dialogue, preferences, boundaries and choices should be consistent with their personality. They can disagree or opt out.`:"The player is traveling solo; do not invent a companion."} This is an in-game scene, not evidence of real travel.`,
+ return runStructured(sceneSchema,`Fictional interactive travel scene. The player controls only their own actions, never invent choices, intimacy, agreement or dialogue for the player. ${tripScenePrompt(trip,day)}. The current scene is ${stop.label} at ${stop.location}. Keep narration brief and distinct, introduce a realistic sensory detail or small unexpected event, and continue rather than finish the stop. ${chosen?`The companion is ${chosen.fullName}. Canon: ${chosen.bible}. Their dialogue, preferences, boundaries and choices should be consistent with their personality. They can disagree or opt out.`:"The player is traveling solo; do not invent a companion."} A traveler may independently decide to photograph a striking, funny, touching, surprising or ordinary moment and send it. Photos are NOT required each turn: choose send=false if nothing naturally inspires one. For a companion photo choose a safe casual selfie or scene; for solo travel choose scenery only. Return a short grounded visual description and human caption when chosen. This is an in-game scene, not evidence of real travel.`,
  JSON.stringify({playerAction,moments:moments.slice(-8)}),"reply");
 }
