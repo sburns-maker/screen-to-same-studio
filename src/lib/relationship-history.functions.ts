@@ -10,7 +10,7 @@ export const relationshipHistory=createServerFn({method:"POST"}).middleware([req
  const {data:conv}=await supabase.from("conversations").select("id").eq("id",data.conversationId).eq("user_id",userId).maybeSingle();
  if(!conv)throw new Error("Conversation unavailable");
  const [{data:events,error:eventsError},{data:plans,error:plansError},{data:evaluations,error:evaluationsError}]=await Promise.all([
- supabase.from("world_events").select("id,kind,summary,occurs_at,processed_at,payload").eq("user_id",userId).eq("conversation_id",data.conversationId).order("occurs_at",{ascending:false}).limit(80),.eq("user_id",userId).eq("conversation_id",data.conversationId).order("occurs_at",{ascending:false}).limit(80),
+ supabase.from("world_events").select("id,kind,summary,occurs_at,processed_at,payload").eq("user_id",userId).eq("conversation_id",data.conversationId).order("occurs_at",{ascending:false}).limit(80),
  supabase.from("social_plans").select("id,title,status,date_local,starts_at,ends_at,place_key,followthrough").eq("user_id",userId).eq("conversation_id",data.conversationId).order("created_at",{ascending:false}).limit(60),
  supabase.from("relationship_evaluations" as "memories").select("*").eq("user_id",userId).eq("conversation_id",data.conversationId).order("evaluated_at",{ascending:false}).limit(250),
  ]);
