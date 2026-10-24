@@ -59,6 +59,11 @@ export function EightBall(){
       opponentTimer.current=setTimeout(()=>{
         if(!alive||rules.current.turn!==2||rules.current.winner!==null)return;
         const cue=balls.current[0];if(!cue.active)return;
+        if(rules.current.ballInHand){
+          const chosen=[{x:LEFT+160,y:H/2},{x:LEFT+130,y:H/2-70},{x:LEFT+130,y:H/2+70}].find(p=>balls.current.every(b=>!b.active||b.number===0||Math.hypot(b.x-p.x,b.y-p.y)>R*2+2));
+          if(chosen){cue.x=chosen.x;cue.y=chosen.y;}
+          rules.current={...rules.current,ballInHand:false};setRuleDisplay(rules.current);
+        }
         const eligible=balls.current.filter(b=>b.active&&b.number>0&&b.number!==8&&(!rules.current.groups[2]||(rules.current.groups[2]==="solids"?b.number<=7:b.number>=9)));
         const targets=eligible.length?eligible:balls.current.filter(b=>b.active&&b.number===8);
         const target=targets.sort((a,b)=>Math.hypot(a.x-cue.x,a.y-cue.y)-Math.hypot(b.x-cue.x,b.y-cue.y))[0];
