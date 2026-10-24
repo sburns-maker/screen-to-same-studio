@@ -112,7 +112,8 @@ export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([r
  if(error||!row)throw new Error("Trip not found");let trip=fromRow(row);
  if(!["idea","proposed"].includes(trip.status))throw new Error("Trip not open for invitations");
  if(trip.companions.some(c=>c.characterKey===data.character))throw new Error("Character already invited");
- const {data:conv}=await db.from("conversations").select("id,relationship_stage").eq("user_id",context.userId).eq("character_key",data.character).maybeSingle();
+ const {data:convRows}=await db.from("conversations").select("id,relationship_stage,character:characters(key)").eq("user_id",context.userId);
+ const conv=convRows?.find(c=>(c.character as {key?:string}|null)?.key===data.character);
  const {data:state}=conv?await db.from("tess_state").select("comfort,trust,emotional_intimacy,romantic_intent").eq("user_id",context.userId).eq("conversation_id",conv.id).maybeSingle():{data:null};
  const result=await (await import("./travel-ai.server")).characterTripDecision(data.character,trip,{stage:conv?.relationship_stage,stats:state??null});
  const companion={characterKey:data.character,response:result.decision==="accept"?"accepted":"declined"};
