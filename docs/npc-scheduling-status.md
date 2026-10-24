@@ -10,8 +10,8 @@
 
 ## Riley image
 - Approved full-resolution portrait is in the current ChatGPT conversation: `riley-hart-canonical.png`.
-- Avatar import still resolves to `night-shift.svg` because the repository connector could not commit the image binary; photo is NOT live in Riley's profile.
-- Installation: add approved file as `src/assets/avatars/riley-canon.png`, update `src/lib/character-portraits.ts` to `import riley from "@/assets/avatars/riley-canon.png";`, then run the build.
+- The GitHub branch now contains an optimized 72×90 JPG thumbnail derived from the approved original at `src/assets/avatars/riley-canon.jpg`. It is imported into Riley’s app profile.
+- The original full-resolution image has NOT been imported into the app’s image-generation reference storage; it is available as `riley-hart-canonical.png` in the ChatGPT conversation. Preserve it for future image continuity.
 - Store the full-resolution original for canonical image generation and use a separately optimized thumbnail for chat/avatar performance.
 
 Run `npm test -- src/test/npc-schedules.test.ts` and `npm run build` before merging. The SQL migration for Riley must also be applied.
