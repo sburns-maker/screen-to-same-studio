@@ -104,9 +104,11 @@ export const travelSceneTurn=createServerFn({method:"POST"}).middleware([require
  const {data:prior}=await (db as any).from("travel_trip_moments").select("body").eq("user_id",context.userId).eq("trip_id",trip.id).eq("stop_id",data.stopId).order("created_at",{ascending:false}).limit(8);
  const ai=await (await import("./travel-ai.server")).generateTravelScene(trip,data.day,data.stopId,data.text,(prior??[]).map((m:{body:string})=>m.body).reverse(),data.character);
  const body="You: "+data.text+"\nScene: "+ai.narration+(ai.dialogue?"\n"+(data.character??"Guide")+": "+ai.dialogue:"");
- const {error:write}=await (db as any).from("travel_trip_moments").insert({id:crypto.randomUUID(),trip_id:trip.id,user_id:context.userId,stop_id:data.stopId,day:data.day,body});
+ const travelTurnId=crypto.randomUUID();
+ const {error:write}=await (db as any).from("travel_trip_moments").insert({id:travelTurnId,trip_id:trip.id,user_id:context.userId,stop_id:data.stopId,day:data.day,body});
  if(write)throw new Error("Scene could not be saved: "+write.message);
- return {body,detail:ai.newDetail};
+ const photo=await (await import("./travel-photos.server")).deliverTravelPhoto(db,context.userId,trip,data.stopId,travelTurnId,data.character,ai.photo);
+ return {body,detail:ai.newDetail,photo};
 });
 const askInput=z.object({id:uuid,character:z.enum(["tess","maya","claire","jordan","ben","riley"])});
 export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
