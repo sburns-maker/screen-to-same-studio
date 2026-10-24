@@ -3,6 +3,8 @@ import { Calendar } from "./ui/calendar";
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { listTravelTrips } from "@/lib/travel.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useInteractiveWorld } from "@/lib/use-interactive-world";
@@ -11,7 +13,9 @@ import { placeByKey } from "@/lib/place-registry";
 import { easternDate } from "@/lib/calendar-logic";
 import { card } from "./TownLayout";
 export function CalendarBoard() {
-  const q = useInteractiveWorld(),
+  const travelList=useServerFn(listTravelTrips),
+    travel=useQuery({queryKey:["travel-trips"],queryFn:()=>travelList()}),
+    q = useInteractiveWorld(),
     respond = useServerFn(respondToCalendarPlan),
     cache = useQueryClient(),
     navigate = useNavigate();
@@ -63,8 +67,9 @@ export function CalendarBoard() {
         (view === "history" &&
           ["completed", "missed", "cancelled", "declined"].includes(p.status))),
   );
+  const travelPlans=(travel.data??[]).filter(t=>t.startDate&&t.status!=="cancelled"&&(!day||t.startDate<=day&&(t.endDate??t.startDate)>=day)&& (view==="all" || view==="history"&&t.status==="completed" || view==="upcoming"&&["accepted","in_progress"].includes(t.status) || view==="attention"&&["idea","proposed"].includes(t.status)));
   const dates = [
-    ...new Set(q.data.plans.flatMap((p) => (p.date_local ? [p.date_local] : []))),
+    ...new Set([...q.data.plans.flatMap((p) => (p.date_local ? [p.date_local] : [])),...(travel.data??[]).flatMap(t=>t.startDate?[t.startDate]:[])]),
   ].sort();
   return (
     <section className="mb-8 space-y-4" aria-label="Conversation calendar">
@@ -97,9 +102,7 @@ export function CalendarBoard() {
           selected={day ? new Date(`${day}T12:00:00-04:00`) : undefined}
           onSelect={(d) => setDay(d ? easternDate(d) : "")}
           modifiers={{
-            planned: q.data.plans.flatMap((p) =>
-              p.date_local ? [new Date(`${p.date_local}T12:00:00Z`)] : [],
-            ),
+            planned: [...q.data.plans.flatMap((p) => p.date_local ? [new Date(`${p.date_local}T12:00:00Z`)] : []),...(travel.data??[]).flatMap(t=>t.startDate?[new Date(`${t.startDate}T12:00:00Z`)]:[])],
           }}
           modifiersClassNames={{
             planned: "font-bold underline decoration-primary underline-offset-4",
@@ -133,7 +136,8 @@ export function CalendarBoard() {
           ))}
         </div>
       </div>
-      {!plans.length && (
+      {travelPlans.map(t=><article key={t.id} className={`${card} space-y-2`}><h3 className="font-display text-xl">{t.title}</h3><p className="text-sm">{t.startDate} · {t.destination} · {t.status}</p><p className="text-sm">{t.companions.length?t.companions.map(c=>`${c.characterKey}: ${c.response}`).join(" · "):"Solo trip"}</p><p className="text-xs text-muted-foreground">Travel itinerary · fictional plans, not tickets or reservations</p><Link to="/travel" className="text-sm underline">Open trip and invitations →</Link></article>)}
+      {!plans.length && !travelPlans.length && (
         <p className="text-sm text-muted-foreground">
           No conversation plans in this view. A clear new invitation will appear automatically.
         </p>
