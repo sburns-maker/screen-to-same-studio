@@ -127,27 +127,56 @@ export async function preparePhotoDelivery(
   return deliverPhotoTurn(admin, id);
 }
 
+type HistoryDetail = {
+  userId?: string;
+  conversationId?: string;
+  plan?: {
+    rows?: Array<{ id: string; body?: string }>;
+    relationshipHistory?: {
+      before: unknown; after: unknown; delta: unknown; previousStage: string; stage: string;
+      tone?: string | null; tags?: string[]; sourceKind?: string; contextSummary?: string;
+      perspective?: string | null; evaluatedAt?: string;
+    };
+  };
+};
+
+/** Pure: build the evaluation row from the job detail captured before delivery. */
+export function evaluationFromDetail(detail: HistoryDetail | null | undefined, delivered: number) {
+  const h = detail?.plan?.relationshipHistory;
+  const messageId = detail?.plan?.rows?.[0]?.id;
+  if (!(delivered > 0) || !detail?.userId || !detail.conversationId || !messageId || !h) return null;
+  return {
+    user_id: detail.userId, conversation_id: detail.conversationId, message_id: messageId,
+    ...(h.evaluatedAt ? { evaluated_at: h.evaluatedAt } : {}),
+    source_kind: h.sourceKind ?? "photo_delivery",
+    state_before: h.before, state_after: h.after, delta: h.delta,
+    stage_before: h.previousStage, stage_after: h.stage,
+    observed_tone: h.tone ?? null, event_tags: h.tags ?? [],
+    context_summary: (h.contextSummary ?? "Photo and associated character response delivered").slice(0, 300),
+    character_perspective: h.perspective?.trim().slice(0, 700) || null,
+  };
+}
+
 async function deliverPhotoTurn(admin: Admin, id: string): Promise<DeliveryResult> {
+  // The delivery RPC replaces job detail with its result, so capture the
+  // evaluation plan first. Reading it afterwards always found nothing.
+  let detail: HistoryDetail | undefined;
+  try {
+    const { data: job } = await admin.from("job_runs").select("detail").eq("id", id).maybeSingle();
+    detail = job?.detail as HistoryDetail | undefined;
+  } catch (e) { console.warn("[relationship-history] Could not read pending evaluation:", e); }
   const { data, error } = await admin.rpc("deliver_photo_turn", { p_job_id: id });
   if (error) throw new Error("Photo delivery deferred; retry delivery without regenerating");
   const result=data as unknown as DeliveryResult;
   // Only record after the delivery RPC has committed. A missing history
   // migration must never cause image regeneration or block its delivery.
   try {
-    const {data:job}=await admin.from("job_runs").select("detail").eq("id",id).maybeSingle();
-    const detail=job?.detail as {userId?:string;conversationId?:string;plan?:{rows?:Array<{id:string;body?:string}>;relationshipHistory?:{before:unknown;after:unknown;delta:unknown;previousStage:string;stage:string;tone?:string|null;tags?:string[]}}}|undefined;
-    const h=detail?.plan?.relationshipHistory;
-    const messageId=detail?.plan?.rows?.[0]?.id;
-    if(result.count>0 && detail?.userId && detail.conversationId && messageId && h){
-      const {error:historyError}=await admin.from("relationship_evaluations" as "memories").upsert({
-        user_id:detail.userId,conversation_id:detail.conversationId,message_id:messageId,
-        source_kind:"photo_delivery",state_before:h.before,state_after:h.after,
-        delta:h.delta,stage_before:h.previousStage,stage_after:h.stage,
-        observed_tone:h.tone??null,event_tags:h.tags??[],
-        context_summary:"Photo and associated character response delivered",
-        character_perspective:null
-      } as never,{onConflict:"conversation_id,message_id"});
+    const row = evaluationFromDetail(detail, result.count);
+    if (row) {
+      const {error:historyError}=await admin.from("relationship_evaluations" as "memories").upsert(row as never,{onConflict:"conversation_id,message_id"});
       if(historyError)console.warn("[relationship-history] Photo history pending:",historyError.message);
+    } else if (result.count > 0) {
+      console.warn("[relationship-history] Delivered turn had no evaluation plan:", id);
     }
   }catch(e){console.warn("[relationship-history] Photo history pending:",e);}
   return result;
