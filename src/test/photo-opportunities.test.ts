@@ -109,15 +109,11 @@ describe("independent contextual photo opportunities", () => {
       ...base, schedule: { ...base.schedule, detail: "working with patients in a private room" },
     }).reason).toBe("current activity is incompatible with a photo");
   });
-  it("honors absolute time and message cooldowns even after many texts or in accelerated practice", () => {
-    const lastPhotoAt = "2026-10-22T14:00:00Z";
-    expect(photoOpportunity({ ...base, lastPhotoAt, ownSinceLastPhoto: 100 }).reason).toContain(
-      "time cooldown",
-    );
-    expect(
-      photoOpportunity({ ...base, lastPhotoAt: "2026-10-20T14:00:00Z", ownSinceLastPhoto: 2 })
-        .reason,
-    ).toContain("message cooldown");
+  it("allows fresh grounded photo moments without clock or message cooldowns", () => {
+    const justSent = photoOpportunity({ ...base, lastPhotoAt: "2026-10-22T14:00:00Z", ownSinceLastPhoto: 0 });
+    expect(justSent.eligible).toBe(true);
+    const again = photoOpportunity({ ...base, lastPhotoAt: "2026-10-22T14:00:00Z", ownSinceLastPhoto: 0 });
+    expect(again.selected).toBe(justSent.selected);
   });
   it("respects no-photo boundaries and preserves ordinary object photos below selfie thresholds", () => {
     const c = CHARACTERS.tess;
