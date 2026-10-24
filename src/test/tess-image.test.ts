@@ -42,7 +42,9 @@ describe("image prompt builder", () => {
 
   it("selfie types fall back to arm's-length front camera", () => {
     expect(buildImagePrompt("casual_selfie", "Tess in the snow", null)).toContain("front-camera selfie");
-    expect(buildImagePrompt("tess_candid", "Tess laughing at trivia", null)).not.toContain("front-camera selfie");
+    expect(buildImagePrompt("tess_candid", "Tess laughing at trivia", null)).toContain(
+      "rather than reflexively making a centered chest-up front-camera selfie",
+    );
   });
 
   it("type classification is unchanged", () => {
