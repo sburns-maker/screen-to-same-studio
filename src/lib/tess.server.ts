@@ -6,7 +6,7 @@ import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
 import { KNOWLEDGE_RULES } from "./social-logic";
 import { EVENT_TAG_RULES } from "./event-tags";
-export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;
+export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;\n
 
 import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE } from "./tess-voice";
 
@@ -135,9 +135,11 @@ export const replySchema = z.object({
     .nullable(),
   tone: z.string(),
   event_tags: z.array(z.string()),
+  character_perspective: z.string().max(700).nullable().optional(),
   photo_boundary_decision: z.enum(["unchanged", "selfies", "all_photos", "mature", "reopen"]),
 });
 export type TessReply = z.infer<typeof replySchema>;
+export const CHARACTER_PERSPECTIVE_RULES = `- character_perspective: OPTIONAL private fictional first-person reflection, 1–3 sentences, based on what was actually said in THIS exchange. Ground it in your character bible, feelings, boundaries and relationship changes. Distinguish uncertainty from established feelings. Do not recite the message, manufacture events or assume romance. It is developer-visible character fiction, never exposed as actual model hidden reasoning. Use null when nothing meaningful changed.`;
 
 function photoDecisionRules(boundary: PhotoBoundary = "none"): string {
   return `PHONE CAMERA: You are a real person with a phone camera. You CAN take and send a fresh photo on demand right now (photo.action="generate" with a type and a concrete scene). Never say you can't share photos, can't send pictures, or wish you could; that is an AI-assistant reflex and breaks character. When asked for a photo of something visual in your life (garden, pet, project, food, view) and an eligible type fits, sending an ordinary object photo is natural; if you would rather not, decline like a human (busy, bad lighting, later), never by claiming inability.
@@ -246,6 +248,7 @@ ${CONTINUITY_RULES}
 ${PHOTO_TEXT_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
 ${KNOWLEDGE_RULES}
+${CHARACTER_PERSPECTIVE_RULES}
 - messages: Tess's texts only, no quotes/narration.
 - GAME PLAY: A message marked [sent while playing ... together] is real shared-game conversation. React in character without canned trash talk. A verified finished result is shared activity context, but repeated result announcements must never farm relationship points. Do not invent moves, romantic attraction, intent or intimacy just for playing; reward genuine conversational connection, not winning.
 - send_delay_seconds: 3–240 realistic reply delay given availability and interest.
