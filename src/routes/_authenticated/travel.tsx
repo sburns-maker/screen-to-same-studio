@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
+import {TRAVEL_REGIONS,travelPlaces,realWorldMapSearchUrl,type TravelPlace} from "@/lib/travel-places";
 export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · AI Town"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
 const purposes=["vacation","work","family","adventure"] as const;
@@ -18,6 +19,8 @@ function Travel(){
  const [busy,setBusy]=useState(false),[title,setTitle]=useState(""),[origin,setOrigin]=useState("Altoona, PA"),[destination,setDestination]=useState(""),[mode,setMode]=useState<typeof modes[number]>("road_trip"),[purpose,setPurpose]=useState<typeof purposes[number]>("vacation"),[start,setStart]=useState(""),[end,setEnd]=useState("");
  const [companion,setCompanion]=useState<"tess"|"maya"|"claire"|"jordan"|"ben"|"riley">("tess"),[sceneText,setSceneText]=useState(""),[sceneCharacter,setSceneCharacter]=useState(""),[sceneResult,setSceneResult]=useState(""),[inviteReply,setInviteReply]=useState("");
  const [stopTitle,setStopTitle]=useState(""),[stopPlace,setStopPlace]=useState(""),[day,setDay]=useState(1),[kind,setKind]=useState<typeof kinds[number]>("activity"),[note,setNote]=useState(""),[selected,setSelected]=useState("");
+ const [region,setRegion]=useState(""),[placeQuery,setPlaceQuery]=useState("");
+ const suggestions=travelPlaces(placeQuery,region).slice(0,80);
  const trips=(q.data??[]) as (TripPlan&{revision:number})[];
  const current=trips.find(t=>t.id===selected)??trips[0];
  const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>getMoments({data:{id:current!.id}}),enabled:!!current?.id});
@@ -54,6 +57,17 @@ function Travel(){
  return <Screen><ScreenHeader title="Travel" subtitle="Road trips, vacations and work adventures"/>
  <main className="mx-auto max-w-3xl space-y-6 px-4 pb-28 pt-4">
  <p className="text-sm text-muted-foreground">Plan fictional travel and record what happens. Destinations and travel are in-game: no tickets or lodging are actually booked.</p>
+ <section className="space-y-3 rounded-2xl border p-4">
+ <h2 className="font-semibold">Explore the real-world-inspired destination guide</h2>
+ <p className="text-sm text-muted-foreground">Independent curated geographic places, not a Google Maps database. Opening hours and access require checking.</p>
+ <select className="w-full rounded-xl border bg-background p-2" aria-label="Travel region" value={region} onChange={e=>setRegion(e.target.value)}><option value="">All regions</option>{TRAVEL_REGIONS.map(r=><option key={r.id} value={r.id}>{r.label} · {r.country}</option>)}</select>
+ <input className="w-full rounded-xl border bg-background p-2" aria-label="Search destinations" placeholder="Search park, museum, town, waterfall…" value={placeQuery} onChange={e=>setPlaceQuery(e.target.value)}/>
+ <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
+ <p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.city} · {p.regionLabel} · {p.kind}</p><p className="mt-1 text-xs">{p.ideas.join(" · ")}</p>
+ <div className="mt-2 flex flex-wrap gap-3 text-sm"><button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Destination and itinerary stop selected below")}}>Plan a trip here</button>
+ <button type="button" className="underline" onClick={()=>{setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Stop selected; add it to your active itinerary below")}}>Select as stop</button>
+ <a href={realWorldMapSearchUrl(p)} target="_blank" rel="noopener noreferrer" className="underline">View on Google Maps ↗</a></div></article>)}</div>
+ </section>
  <section className="space-y-3 rounded-2xl border p-4">
  <h2 className="font-semibold">New adventure</h2>
  <button className={btn} disabled={busy} onClick={()=>void save(true)}>Save Tess's Iceland dream</button>
