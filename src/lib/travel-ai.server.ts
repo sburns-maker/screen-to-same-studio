@@ -18,3 +18,12 @@ export async function generateTravelScene(trip:TripPlan,day:number,stopId:string
  return runStructured(sceneSchema,`Fictional interactive travel scene. The player controls only their own actions, never invent choices, intimacy, agreement or dialogue for the player. ${tripScenePrompt(trip,day)}. The current scene is ${stop.label} at ${stop.location}. Keep narration brief and distinct, introduce a realistic sensory detail or small unexpected event, and continue rather than finish the stop. ${chosen?`The companion is ${chosen.fullName}. Canon: ${chosen.bible}. Their dialogue, preferences, boundaries and choices should be consistent with their personality. They can disagree or opt out.`:"The player is traveling solo; do not invent a companion."} A traveler may independently decide to photograph a striking, funny, touching, surprising or ordinary moment and send it. Photos are NOT required each turn: choose send=false if nothing naturally inspires one. For a companion photo choose a safe casual selfie or scene; for solo travel choose scenery only. Return a short grounded visual description and human caption when chosen. This is an in-game scene, not evidence of real travel.`,
  JSON.stringify({playerAction,moments:moments.slice(-8)}),"reply");
 }
+
+const travelPostSchema=z.object({send:z.boolean(),caption:z.string().max(200),scene:z.string().max(350),kind:z.enum(["selfie","scenery","moment"])});
+export async function travelCharacterMoment(trip:TripPlan,character:string,stopId:string){
+ const def=CHARACTERS[character as CharacterKey];
+ const stop=trip.itinerary.find(s=>s.id===stopId);
+ if(!def||!stop||!trip.companions.some(c=>c.characterKey===character&&c.response==="accepted"))throw new Error("Character is not accompanying this trip");
+ return runStructured(travelPostSchema,`You are ${def.fullName} while traveling with a friend. Character canon: ${def.bible}. Decide independently whether something in this specific stop would make you take and send a spontaneous photo. It's normal to take none. Favor candid, varied real-world moments (funny sign, unexpected meal, messy hair, scenery, weather, street detail, selfie) rather than constant posed shots. If not inspired, return send=false. If inspired, caption must sound like a casual human text, no meta commentary. This is a fictional story. Safe fully clothed imagery, no real clients or other identifiable strangers.`,
+ JSON.stringify({destination:trip.destination,purpose:trip.purpose,stop:stop.label,place:stop.location}),"autonomous");
+}
