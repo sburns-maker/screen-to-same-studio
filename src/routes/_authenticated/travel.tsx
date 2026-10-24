@@ -7,6 +7,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
 import {TRAVEL_REGIONS,travelPlaces,realWorldMapSearchUrl,type TravelPlace} from "@/lib/travel-places";
+import {PPG_ARENA,ALL_PPG_GAME_EVENTS} from "@/lib/arena-events";
 export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · Tess"},{name:"description",content:"Plan trips and explore destinations in Tess's fictional world."},{property:"og:title",content:"Travel · Tess"},{property:"og:description",content:"Plan trips and explore destinations in Tess's fictional world."},{property:"og:type",content:"website"},{name:"twitter:card",content:"summary"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
 const purposes=["vacation","work","family","adventure"] as const;
@@ -24,6 +25,16 @@ function Travel(){
  const trips=(q.data??[]) as (TripPlan&{revision:number})[];
  const current=trips.find(t=>t.id===selected)??trips[0];
  const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>current?getMoments({data:{id:current.id}}):Promise.resolve([]),enabled:!!current?.id});
+ async function planArenaEvent(eventId:string){
+  const event=ALL_PPG_GAME_EVENTS.find(e=>e.id===eventId);if(!event)return;
+  setBusy(true);
+  try{
+   const id=crypto.randomUUID();
+   await create({data:{id,title:event.title+" at PPG Paints Arena",origin,destination:"Pittsburgh, PA",mode:"road_trip",purpose:"adventure",startDate:event.date,endDate:event.date,venueEventId:event.id}});
+   setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});
+   toast.success("Arena event added to Travel with its scheduled date");
+  }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
+ }
  async function save(idea=false){
   setBusy(true);try{
    const p=idea?icelandTripIdea(origin):null;
@@ -62,6 +73,12 @@ function Travel(){
  <p className="text-sm text-muted-foreground">Independent curated geographic places, not a Google Maps database. Opening hours and access require checking.</p>
  <select className="w-full rounded-xl border bg-background p-2" aria-label="Travel region" value={region} onChange={e=>setRegion(e.target.value)}><option value="">All regions</option>{TRAVEL_REGIONS.map(r=><option key={r.id} value={r.id}>{r.label} · {r.country}</option>)}</select>
  <input className="w-full rounded-xl border bg-background p-2" aria-label="Search destinations" placeholder="Search park, museum, town, waterfall…" value={placeQuery} onChange={e=>setPlaceQuery(e.target.value)}/>
+ {(region==="pittsburgh"||/ppg|arena|jonas/i.test(placeQuery))&&<section className="space-y-2 rounded-xl border p-3">
+ <h3 className="font-semibold">PPG Paints Arena · Upcoming published events</h3>
+ <p className="text-xs text-muted-foreground">{PPG_ARENA.address}. Real schedule snapshot checked {PPG_ARENA.verifiedOn}; fictional concerts are game-only.</p>
+ <div className="max-h-64 space-y-2 overflow-y-auto">{ALL_PPG_GAME_EVENTS.map(e=><article key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm"><div><strong>{e.title}</strong><p className="text-xs text-muted-foreground">{e.date} · {e.time??"time unconfirmed"} · {e.kind} {e.source==="fictional_game_event"?"· FICTIONAL GAME EVENT":"· Real listing"}</p></div><button type="button" disabled={busy} className="underline disabled:opacity-50" onClick={()=>void planArenaEvent(e.id)}>Add event to Travel</button></article>)}</div>
+ <a href={PPG_ARENA.calendarUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">Official venue calendar ↗</a>
+ </section>}
  <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
  <p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.city} · {p.regionLabel} · {p.kind}</p><p className="mt-1 text-xs">{p.ideas.join(" · ")}</p>
  <div className="mt-2 flex flex-wrap gap-3 text-sm"><button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Destination and itinerary stop selected below")}}>Plan a trip here</button>
