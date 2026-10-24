@@ -4,7 +4,7 @@ import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn } from "@/lib/travel.functions";
+import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
 export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · AI Town"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
@@ -12,7 +12,7 @@ const purposes=["vacation","work","family","adventure"] as const;
 const kinds=["travel","activity","lodging","meal","work","rest"] as const;
 const pretty=(s:string)=>s.replaceAll("_"," ");
 function Travel(){
- const list=useServerFn(listTravelTrips),create=useServerFn(createTravelTrip),change=useServerFn(changeTravelTrip),invite=useServerFn(inviteTravelCompanion),scene=useServerFn(travelSceneTurn);
+ const list=useServerFn(listTravelTrips),create=useServerFn(createTravelTrip),change=useServerFn(changeTravelTrip),invite=useServerFn(inviteTravelCompanion),scene=useServerFn(travelSceneTurn),getMoments=useServerFn(listTravelMoments);
  const cache=useQueryClient();
  const q=useQuery({queryKey:["travel-trips"],queryFn:()=>list()});
  const [busy,setBusy]=useState(false),[title,setTitle]=useState(""),[origin,setOrigin]=useState("Altoona, PA"),[destination,setDestination]=useState(""),[mode,setMode]=useState<typeof modes[number]>("road_trip"),[purpose,setPurpose]=useState<typeof purposes[number]>("vacation"),[start,setStart]=useState(""),[end,setEnd]=useState("");
@@ -20,6 +20,7 @@ function Travel(){
  const [stopTitle,setStopTitle]=useState(""),[stopPlace,setStopPlace]=useState(""),[day,setDay]=useState(1),[kind,setKind]=useState<typeof kinds[number]>("activity"),[note,setNote]=useState(""),[selected,setSelected]=useState("");
  const trips=(q.data??[]) as (TripPlan&{revision:number})[];
  const current=trips.find(t=>t.id===selected)??trips[0];
+ const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>getMoments({data:{id:current!.id}}),enabled:!!current?.id});
  async function save(idea=false){
   setBusy(true);try{
    const p=idea?icelandTripIdea(origin):null;
@@ -33,7 +34,7 @@ function Travel(){
   try{await change({data:{id:current.id,revision:current.revision,action:type,...(stopId?{stopId}:{}),
    ...(type==="add_stop"?{label:stopTitle,location:stopPlace,day,kind}:{}),
    ...(type==="complete_stop"?{body:note}:{})}});
-   await cache.invalidateQueries({queryKey:["travel-trips"]});setNote("");setStopTitle("");toast.success("Trip updated")
+   await cache.invalidateQueries({queryKey:["travel-trips"]});await cache.invalidateQueries({queryKey:["travel-moments",current.id]});setNote("");setStopTitle("");toast.success("Trip updated")
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
  async function inviteCharacter(){
@@ -44,7 +45,7 @@ function Travel(){
  async function turn(stopId:string,day:number){
   if(!current||!sceneText.trim())return;setBusy(true);try{const r=await scene({data:{id:current.id,stopId,day,text:sceneText,
    ...(sceneCharacter?{character:sceneCharacter as "tess"|"maya"|"claire"|"jordan"|"ben"|"riley"}:{})}});
-   setSceneResult(r.body);setSceneText("");toast.success("Scene saved");
+   setSceneResult(r.body);setSceneText("");await cache.invalidateQueries({queryKey:["travel-moments",current.id]});toast.success("Scene saved");
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
  const field="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm";
@@ -85,6 +86,7 @@ function Travel(){
  <button className={btn} disabled={busy||!sceneText.trim()} onClick={()=>void turn(s.id,s.day)}>Play next scene</button>
  {sceneResult&&<p role="status" className="whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm">{sceneResult}</p>}
  <textarea aria-label={"Experience notes for "+s.label} className={field} value={note} onChange={e=>setNote(e.target.value)} placeholder="What happened on this stop?"/><button className={btn} disabled={busy||!note.trim()} onClick={()=>void action("complete_stop",s.id)}>Save moment and complete stop</button></div>}</article>)}
+ <div className="space-y-2"><h3 className="font-semibold">Saved travel journal</h3>{journal.isLoading&&<p className="text-sm">Loading moments…</p>}{journal.error&&<p role="alert" className="text-sm text-destructive">{String((journal.error as Error).message)}</p>}{(journal.data??[]).map((m:{id:string;body:string;day:number;created_at:string})=><article key={m.id} className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm"><p className="mb-1 text-xs text-muted-foreground">Day {m.day} · {new Date(m.created_at).toLocaleString()}</p>{m.body}</article>)}</div>
  {["idea","proposed","accepted","in_progress"].includes(current.status)&&<div className="space-y-2 rounded-xl bg-muted/40 p-3"><p className="font-semibold">Add a stop</p><div className="grid grid-cols-2 gap-2"><input className={field} aria-label="Stop name" placeholder="Activity" value={stopTitle} onChange={e=>setStopTitle(e.target.value)}/><input className={field} aria-label="Stop location" placeholder="Place" value={stopPlace} onChange={e=>setStopPlace(e.target.value)}/><input className={field} type="number" min={1} max={90} aria-label="Trip day" value={day} onChange={e=>setDay(Number(e.target.value))}/><select className={field} aria-label="Stop category" value={kind} onChange={e=>setKind(e.target.value as typeof kind)}>{kinds.map(k=><option key={k}>{k}</option>)}</select></div><button className={btn} disabled={busy||!stopTitle.trim()||!stopPlace.trim()} onClick={()=>void action("add_stop")}>Add itinerary stop</button></div>}
  </section>}
  </main></Screen>;
