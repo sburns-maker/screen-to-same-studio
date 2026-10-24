@@ -27,8 +27,8 @@ function winner(board: number[]): number | null {
   for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) {
     const n = board[index(r, c)];
     if (!n) continue;
-    for (const [dr, dc] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
-      if (Array.from({ length: 4 }, (_, k) => [r + k * dr, c + k * dc]).every(([rr, cc]) =>
+    for (const [dr, dc] of [[1, 0], [0, 1], [1, 1], [1, -1]] as [number, number][]) {
+      if (Array.from({ length: 4 }, (_, k) => [r + k * dr, c + k * dc] as [number, number]).every(([rr, cc]) =>
         rr >= 0 && rr < 6 && cc >= 0 && cc < 7 && board[index(rr, cc)] === n)) return n;
     }
   }
@@ -93,9 +93,9 @@ function GameRoom() {
   const deck = saved.trivia.deck.map((i) => QUESTION_BANK[i]).filter(Boolean);
   const total = saved.trivia.answers.length;
   const playerScore = saved.trivia.answers.filter((a, i) => deck[i] && a === deck[i].correct).length;
-  const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q, i, character.key)).length;
+  const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q!, i, character.key)).length;
   const finished = total === deck.length;
-  const question = deck[total];
+  const question = deck[total]!;
   return (
     <main className="mx-auto min-h-dvh max-w-xl bg-background px-4 pb-24 pt-safe">
       <header className="flex h-16 items-center gap-3">
