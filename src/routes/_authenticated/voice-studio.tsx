@@ -21,6 +21,7 @@ import {
   type StoredSample,
 } from "@/lib/voice-sample-recorder";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
+import { VoiceReferenceMatcher } from "@/components/VoiceReferenceMatcher";
 import {
   VOICE_DESIGNS,
   VOICE_NAME_MAX,
@@ -589,6 +590,7 @@ function VoiceStudio() {
                   onClick={() => saveConversationalOptions({ ...DEFAULT_CONVERSATIONAL_OPTIONS })}>
                   Reset to Default
                 </Button>
+                <VoiceReferenceMatcher disabled={playing || busy !== null || !status} onApply={saveConversationalOptions} />
                 {auditionInvalid && <p role="alert" className="text-sm text-destructive">{auditionInvalid}</p>}
                 {conversationalValidation.success && (
                   <details className="text-sm">
