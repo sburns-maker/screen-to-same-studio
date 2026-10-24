@@ -52,7 +52,7 @@ export function photoOpportunity(args: {
       `Unavailable right now: ${args.schedule.detail} (${args.schedule.availability}). Wait for a compatible break.`,
     );
   if (
-    /\b(?:driv(?:e|es|ing)|surgery|emergency|phone (?:down|away)|patients?|private|winding down)\b/i.test(
+    /\b(?:driv(?:e|es|ing)|surgery|emergency|phone (?:down|away)|patients?|private)\b/i.test(
       args.schedule.detail,
     )
   )
