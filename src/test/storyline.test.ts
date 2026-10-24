@@ -95,11 +95,11 @@ describe("multi-week life developments", () => {
     let transitions = 0;
     for (let day=0;day<30;day++) {
       const now = new Date(START.getTime()+day*DAY);
-      const report = await runStorylineTick(db.client,"alice",now,links);
+      const report = await runStorylineTick(db.client,"alice",now,links,new Set());
       expect(report.advanced).toBeLessThanOrEqual(STORY_STEPS_PER_TICK);
       transitions += report.advanced;
       const before = JSON.stringify(db.tables);
-      expect(await runStorylineTick(db.client,"alice",now,links)).toEqual({ started:0, advanced:0 });
+      expect(await runStorylineTick(db.client,"alice",now,links,new Set())).toEqual({ started:0, advanced:0 });
       expect(JSON.stringify(db.tables)).toBe(before);
     }
     expect(transitions).toBeGreaterThanOrEqual(15);
@@ -117,13 +117,13 @@ describe("multi-week life developments", () => {
   });
   it("recovers interrupted milestone writes without duplicating facts or outcomes", async () => {
     const db = database();
-    await runStorylineTick(db.client,"alice",START,links);
+    await runStorylineTick(db.client,"alice",START,links,new Set());
     db.fail("character_knowledge");
     const later = new Date(START.getTime()+40*DAY);
-    await expect(runStorylineTick(db.client,"alice",later,links)).rejects.toThrow("interrupted write");
-    for(let i=0;i<4;i++) await runStorylineTick(db.client,"alice",later,links);
+    await expect(runStorylineTick(db.client,"alice",later,links,new Set())).rejects.toThrow("interrupted write");
+    for(let i=0;i<4;i++) await runStorylineTick(db.client,"alice",later,links,new Set());
     const before = JSON.stringify(db.tables);
-    await runStorylineTick(db.client,"alice",later,links);
+    await runStorylineTick(db.client,"alice",later,links,new Set());
     expect(JSON.stringify(db.tables)).toBe(before);
     const memories = db.tables['memories'] ?? [];
     expect(memories.length).toBe(5);
@@ -131,10 +131,10 @@ describe("multi-week life developments", () => {
   });
   it("preserves outcome context weeks later and isolates application users", async () => {
     const db = database();
-    await runStorylineTick(db.client,"alice",START,links);
+    await runStorylineTick(db.client,"alice",START,links,new Set());
     const later = new Date(START.getTime()+80*DAY);
-    for(let i=0;i<4;i++) await runStorylineTick(db.client,"alice",later,links);
-    await runStorylineTick(db.client,"bob",later,links);
+    for(let i=0;i<4;i++) await runStorylineTick(db.client,"alice",later,links,new Set());
+    await runStorylineTick(db.client,"bob",later,links,new Set());
     const context = await storylineContext(db.client,"alice","tess",later);
     expect(context.lines.some(l=>l.includes("remembered history"))).toBe(true);
     const alice = (db.tables['shared_events']??[]).filter(r=>r['user_id']==="alice").map(r=>r['id']);
