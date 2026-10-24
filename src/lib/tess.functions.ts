@@ -701,6 +701,7 @@ async function runTurnUnlocked(
       initiation: !!initiation, pendingBefore: nowIso, rows, generated: generatedRow,
       state: { ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone },
       stage, boundary, memories: memRows,
+      relationshipHistory: { before: state, after: next, delta: Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]])), previousStage:deriveStage(state), stage, tone: reply.tone??null, tags: reply.event_tags??[] },
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
     } as unknown as import("@/integrations/supabase/types").Json, voice ? {callId:voice.callId,turnId:voice.turnId} : undefined);
@@ -724,6 +725,26 @@ async function runTurnUnlocked(
     if (error) throw new Error("Could not save memories");
   }
 
+  // Append-only audited evaluation. Do not make normal replies depend on a debug migration.
+  // Existing photographs are delivered through a separate transactional path and
+  // must be instrumented separately rather than pretending they were evaluated here.
+  const evaluationMessageId = rows[0]?.id ?? recent.find(m=>m.sender==="user")?.id;
+  if(evaluationMessageId && process.env["SUPABASE_SERVICE_ROLE_KEY"]){
+    try{
+      const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+      const numericChange=Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]]));
+      const {error:historyError}=await supabaseAdmin.from("relationship_evaluations" as "memories").upsert({
+        user_id:userId,conversation_id:conv.id,message_id:evaluationMessageId,
+        evaluated_at:nowIso,source_kind:initiation?"autonomous_message":voice?"voice":"conversation",
+        context_summary:(recent.find(m=>m.sender==="user")?.body??initiation?.reason??"Autonomous character interaction").slice(0,300),
+        state_before:state,state_after:next,delta:numericChange,
+        stage_before:deriveStage(state),stage_after:stage,
+        observed_tone:reply.tone??null,event_tags:reply.event_tags??[],
+        character_perspective:null
+      } as never,{onConflict:"conversation_id,message_id"});
+      if(historyError)console.warn("[relationship-history] Evaluation could not be recorded:",historyError.message);
+    }catch(error){console.warn("[relationship-history] Recording deferred:",error);}
+  }
   return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null, notificationGroup };
 }
 

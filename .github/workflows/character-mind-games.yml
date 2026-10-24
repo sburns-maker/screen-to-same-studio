@@ -1,0 +1,24 @@
+name: Character Mind and Games checks
+on:
+  pull_request:
+    paths:
+      - 'src/lib/tess.functions.ts'
+      - 'src/lib/photo-delivery.server.ts'
+      - 'src/lib/relationship-*'
+      - 'src/lib/character-mind-*'
+      - 'src/components/RelationshipHistoryPanel.tsx'
+      - 'src/components/games/**'
+      - 'src/routes/_authenticated/games.*'
+      - 'src/routes/_authenticated/debug.*'
+      - 'docs/sql/20261024_relationship_evaluations.sql'
+      - '.github/workflows/character-mind-games.yml'
+  workflow_dispatch:
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run
+      - run: bun run build
