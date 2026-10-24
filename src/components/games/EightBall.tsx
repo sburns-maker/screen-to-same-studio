@@ -35,7 +35,7 @@ function paint(ctx:CanvasRenderingContext2D,balls:Ball[],aim:{x:number;y:number}
  for(const b of balls){if(!b.active)continue;ctx.beginPath();ctx.arc(b.x,b.y,R,0,Math.PI*2);ctx.fillStyle=b.number===0?"#fff":b.number===8?"#222":b.number<=7?["#f6d83d","#4478ca","#d94444","#9b65b9","#ff912e","#37a86e","#832e2e"][(b.number-1)%7]:["#f6d83d","#4478ca","#d94444","#9b65b9","#ff912e","#37a86e","#832e2e"][(b.number-9)%7];ctx.fill();ctx.lineWidth=1;ctx.strokeStyle="#2228";ctx.stroke();if(b.number!==0){ctx.font="8px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=b.number===8?"white":"#191919";ctx.fillText(String(b.number),b.x,b.y);}}
  const cue=balls[0];if(aim&&cue?.active&&stationary(balls)){ctx.save();ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle="#fff9";ctx.beginPath();ctx.moveTo(cue.x,cue.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();ctx.restore();}
 }
-export function EightBall({onFinish}:{onFinish?:(won:boolean,shots:number)=>void}){
+export function EightBall({onFinish,onReset}:{onFinish?:(won:boolean,shots:number)=>void;onReset?:()=>void}){
  const finishedNotice=useRef(false),canvas=useRef<HTMLCanvasElement|null>(null),balls=useRef<Ball[]>(startBalls()),aim=useRef<{x:number;y:number}|null>(null),frame=useRef<number|undefined>(undefined),shots=useRef(0);
  const rules=useRef<RulesState>(initialRules()),events=useRef<ShotEvents>({firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0}),before=useRef<number[]>([]),opponentTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const [placingCue,setPlacingCue]=useState(false),[isSafety,setIsSafety]=useState(false);
@@ -82,7 +82,7 @@ export function EightBall({onFinish}:{onFinish?:(won:boolean,shots:number)=>void
   loop();return()=>{alive=false;if(frame.current!==undefined)cancelAnimationFrame(frame.current);if(opponentTimer.current)clearTimeout(opponentTimer.current)};
  },[]);
  function pos(e:PointerEvent<HTMLCanvasElement>){const box=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-box.left)*W/box.width,y:(e.clientY-box.top)*H/box.height}}
- function reset(){finishedNotice.current=false;if(opponentTimer.current)clearTimeout(opponentTimer.current);rules.current=initialRules();setRuleDisplay(rules.current);setIsSafety(false);setPlacingCue(false);balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
+ function reset(){onReset?.();finishedNotice.current=false;if(opponentTimer.current)clearTimeout(opponentTimer.current);rules.current=initialRules();setRuleDisplay(rules.current);setIsSafety(false);setPlacingCue(false);balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
  function release(e:PointerEvent<HTMLCanvasElement>){
   if(!aim.current)return;const p=pos(e),cue=balls.current[0];const dx=cue.x-p.x,dy=cue.y-p.y;const dist=Math.hypot(dx,dy);aim.current=null;
   if(placingCue||dist<12||!cue.active||!stationary(balls.current)||rules.current.turn!==1||rules.current.winner!==null)return;
