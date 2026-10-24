@@ -91,18 +91,18 @@ describe("bounded visual-design and scene screening", () => {
   });
 });
 describe("image model selection", () => {
-  it("defaults OpenAI reference-conditioned images to Flare", () => {
+  it("defaults OpenAI reference-conditioned images to Sunburst", () => {
     vi.stubEnv("OPENAI_API_KEY", "test-only");
     vi.stubEnv("OPENAI_IMAGE_MODEL", "");
-    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-flare");
+    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-sunburst");
     expect(lovableGatewayProvider("unused").referenceConditioning).toBe(true);
   });
   it("permits a deliberate model override without arbitrary model injection", () => {
     vi.stubEnv("OPENAI_API_KEY", "test-only");
-    vi.stubEnv("OPENAI_IMAGE_MODEL", "gpt-image-2.5-sunburst");
-    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-sunburst");
-    vi.stubEnv("OPENAI_IMAGE_MODEL", "unknown-model");
+    vi.stubEnv("OPENAI_IMAGE_MODEL", "gpt-image-2.5-flare");
     expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-flare");
+    vi.stubEnv("OPENAI_IMAGE_MODEL", "unknown-model");
+    expect(lovableGatewayProvider("unused").model).toBe("gpt-image-2.5-sunburst");
   });
 });
 describe("every shared generation path anchors original portraits", () => {

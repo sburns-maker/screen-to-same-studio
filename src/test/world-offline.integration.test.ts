@@ -337,12 +337,12 @@ describe("offline living world through the normal character pipeline (fake paid 
     expect(await count("messages")).toBe(0);
     expect(mocks.text).not.toHaveBeenCalled();
   });
-  it("does not send real-clock background messages in Practice mode", async () => {
+  it("sends background messages in Practice mode when initiation is due", async () => {
     await db.query("update conversations set real_time_mode=false where id=$1", [cid]);
     const report = await runWorldTickWithAdmin(mocks.admin!, now);
     expect(report.errors).toEqual([]);
     expect(await count("character_world_state")).toBe(1);
-    expect(mocks.text).not.toHaveBeenCalled();
+    expect(mocks.text).toHaveBeenCalled();
   });
   it("keeps failed image actions terminal and does not regenerate on the next background tick", async () => {
     mocks.image.mockRejectedValue(new Error("test provider timeout"));

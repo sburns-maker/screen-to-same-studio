@@ -81,6 +81,44 @@ describe("grounded conversational calendar", () => {
       recognizePlan(m("Let's use Lantern Reading Room at 7 PM."), [plan], "invite"),
     ).toMatchObject({ action: "details", planId: "plan", place: "reading:lantern", time: "19:00" });
   });
+  it("recognizes a 'what about' dinner invitation with a venue short name and bare evening hour", () => {
+    const invite = recognizePlan(
+      m("Dinner out tomorrow, just at a civilized hour 😏 What about Fanelli’s around 7?"),
+      [],
+      null,
+    );
+    expect(invite).toMatchObject({
+      action: "invite",
+      category: "dinner",
+      date: "2026-10-23",
+      time: "19:00",
+      place: "dinner:fanellis",
+      planId: null,
+    });
+  });
+  it("accepts mid-message 'that sounds good' and a character's '<venue> at <time> it is'", () => {
+    const dinner = {
+      ...plan,
+      id: "maya-dinner",
+      category: "dinner",
+      status: "proposed",
+      last_message_id: "invite",
+    } as CalendarPlan;
+    expect(
+      recognizePlan(
+        m("Finelli's 7pm. Let the evening decide if we do more after diner. That sounds good to me.", "user"),
+        [dinner],
+        "invite",
+      ),
+    ).toMatchObject({ action: "accept", planId: "maya-dinner", time: "19:00", place: "dinner:fanellis" });
+    expect(
+      recognizePlan(m("Fanelli’s at 7 it is 😏 And yes, we can let the evening make its own decisions 😂"), [dinner], "invite"),
+    ).toMatchObject({ action: "accept", planId: "maya-dinner" });
+  });
+  it("does not treat a bare 'it is' without plan details as a confirmation", () => {
+    const dinner = { ...plan, id: "maya-dinner", category: "dinner", status: "proposed" } as CalendarPlan;
+    expect(recognizePlan(m("It is what it is, honestly."), [dinner], "invite").action).toBe("none");
+  });
   it("does not treat unrelated yes, hypothetical interest or repeated mentions as new invitations", () => {
     expect(recognizePlan(m("Yes, beautiful weather.", "user"), [plan], "unrelated")).toEqual({
       action: "none",

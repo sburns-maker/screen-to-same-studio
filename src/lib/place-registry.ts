@@ -91,10 +91,19 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
 }));
 export const placeByKey = (key: string | null | undefined) =>
   PLACE_REGISTRY.find((p) => p.key === key);
+// Short names people actually type for a registered venue, including common misspellings.
+const VENUE_ALIASES: Record<string, readonly string[]> = {
+  "dinner:fanellis": ["fanelli", "finelli"],
+};
+const normalizeVenueText = (text: string) =>
+  text.toLocaleLowerCase().replace(/[’‘`]/g, "'");
 export function venueFromText(text: string) {
-  return PLACE_REGISTRY.filter((p) =>
-    text.toLocaleLowerCase().includes(p.label.replace(" · virtual scene", "").toLocaleLowerCase()),
-  );
+  const s = normalizeVenueText(text);
+  return PLACE_REGISTRY.filter((p) => {
+    const label = normalizeVenueText(p.label.replace(" · virtual scene", ""));
+    if (s.includes(label)) return true;
+    return (VENUE_ALIASES[p.key] ?? []).some((a) => new RegExp(`\\b${a}\\b`).test(s));
+  });
 }
 export function placeKnowledge() {
   return (
