@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
-import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, TESS_REFERENCE_VOICE_PROMPT, TESS_REFERENCE_VOICE_NAME, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
+import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, CHARACTER_VOICE_PRESETS, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
 import {
   AUDITION_SCRIPT,
   AUDITION_SPEAK_PROMPT,
