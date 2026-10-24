@@ -32,7 +32,7 @@ function base(over: Partial<InitiationInput> = {}, state: Partial<TessState> = {
 }
 
 describe("initiation engine", () => {
-  it("5 hours elapsed only opens eligibility — it never guarantees a message", () => {
+  it("2 hours elapsed only opens eligibility — it never guarantees a message", () => {
     // With a low-inclination state, many checks pass with no initiation.
     const low = base({ gapHours: 6 }, { curiosity: 30, relationship_momentum: 20, comfort: 25, romantic_attraction: 10, playfulness: 15, trust: 15 });
     let initiated = 0;
@@ -41,11 +41,11 @@ describe("initiation engine", () => {
     expect(decideInitiation(low).eligible).toBe(true); // but eligible
   });
 
-  it("under 5 hours is never eligible and reports the next window", () => {
-    const d = decideInitiation(base({ gapHours: 2 }));
+  it("under 2 hours is never eligible and reports the next window", () => {
+    const d = decideInitiation(base({ gapHours: 1 }));
     expect(d.eligible).toBe(false);
     expect(d.initiate).toBe(false);
-    expect(d.nextWindowHours).toBeCloseTo(MIN_INITIATION_GAP_HOURS - 2);
+    expect(d.nextWindowHours).toBeCloseTo(MIN_INITIATION_GAP_HOURS - 1);
   });
 
   it("irritation suppresses initiation", () => {
@@ -68,7 +68,7 @@ describe("initiation engine", () => {
   });
 
   it("never double-initiates without user interaction", () => {
-    const d = decideInitiation(base({ lastInitiatedAt: new Date("2026-10-20T10:00:00-04:00") }));
+    const d = decideInitiation(base({ lastInitiatedAt: new Date("2026-10-20T15:00:00-04:00") }));
     expect(d.initiate).toBe(false);
     expect(d.reasons.join(" ")).toMatch(/double-initiate/);
   });

@@ -13,7 +13,7 @@ import { applyDisruption, disruptionFor } from "./daily-disruptions";
 import type { TessState } from "./tess-logic";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 
-export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben";
+export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben" | "riley";
 
 export type CharacterDef = {
   key: CharacterKey;
@@ -74,7 +74,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     baselineNotes:
       "Tess's baseline: dry, independent, subtle. She flirts rarely and indirectly, uses emojis sparingly, and shows interest through callbacks and continued engagement rather than obvious signals. A direct flirt from Tess is a bigger shift than it would be from most people.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 8, workEnd: 17, sleepStart: 23, sleepEnd: 6, notes: "full schedule engine" },
-    initiation: { scoreMultiplier: 1, minGapHours: 5, style: "moderate and contextual" },
+    initiation: { scoreMultiplier: 1, minGapHours: 2, style: "moderate and contextual" },
     opener: null, // existing conversation keeps its history; new accounts get FIRST_MESSAGE from tess.functions.ts
     knownFacts: [
       ["Age", "34"],
@@ -113,7 +113,7 @@ Likes: banter, confidence, people with their own plans, spontaneity, not being m
     baselineNotes:
       "Maya's baseline: openly flirty, high-energy, teasing, frequent initiation. Obvious flirting from Maya is NORMAL and should not be read as strong relationship intent. The meaningful signals with Maya are the opposite: sustained one-on-one attention, remembering details, choosing a quiet conversation over going out.",
     schedule: { workDays: [2, 3, 4, 5, 6], workStart: 10, workEnd: 19, sleepStart: 0, sleepEnd: 8, notes: "event industry — late mornings, weekend events, out most Friday/Saturday nights" },
-    initiation: { scoreMultiplier: 1.5, minGapHours: 3, style: "spontaneous and frequent — stories, plans, random observations" },
+    initiation: { scoreMultiplier: 1.5, minGapHours: 1, style: "spontaneous and frequent — stories, plans, random observations" },
     opener: "Okay so I just heard the most unhinged story at work and you were literally the first person I thought of 😂",
     knownFacts: [
       ["Age", "31"],
@@ -150,7 +150,7 @@ Likes: real conversation, follow-through, people who remember what she told them
     baselineNotes:
       "Claire's baseline: warm, emotionally open, concise but thoughtful texts, occasional personal questions, reliable follow-up. This warmth is NORMAL for Claire and is not evidence of romantic attraction. A brief reply is not withdrawal, and an occasional longer answer is not attraction. Meaningful romantic signals from Claire would be unusual for her: nervousness, veiled compliments, initiating late-night conversation.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 7, workEnd: 16, sleepStart: 22, sleepEnd: 6, notes: "school hours — early to bed, book club Wednesdays, quiet weekends" },
-    initiation: { scoreMultiplier: 1.1, minGapHours: 6, style: "initiates to ask about something or follow up on what he mentioned" },
+    initiation: { scoreMultiplier: 1.1, minGapHours: 1.5, style: "initiates to ask about something or follow up on what he mentioned" },
     opener: "Hi! It was really nice talking to you at Priya's dinner. I finished that book we argued about — you were wrong, by the way 😊",
     knownFacts: [
       ["Age", "35"],
@@ -187,7 +187,7 @@ Likes: dry humor, patience, people who can sit with a pause, being argued with c
     baselineNotes:
       "Jordan's baseline: guarded, terse, inconsistent response times, rare initiation. Slow replies from Jordan are NOT a negative signal — that's just Jordan. The meaningful signals with Jordan are: her initiating at all, a long message, dry humor aimed at you, her referencing something you said days ago.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 8, workEnd: 17, sleepStart: 0, sleepEnd: 7, notes: "climbing gym Tue/Thu evenings, disappears on weekend climbing trips" },
-    initiation: { scoreMultiplier: 0.55, minGapHours: 12, style: "rare but meaningful — a link, a dry observation, a callback to something from days ago" },
+    initiation: { scoreMultiplier: 0.55, minGapHours: 2, style: "rare but meaningful — a link, a dry observation, a callback to something from days ago" },
     opener: null,
     knownFacts: [
       ["Age", "33"],
@@ -222,7 +222,7 @@ Core truth: Ben is a platonic friend. There is no romantic dimension here at all
     baselineNotes:
       "Ben's baseline: casual platonic friendship. Random initiation, forgotten replies, blunt humor. There is no romantic dimension to read — the practice value is ordinary conversational connection: keeping a thread alive, disagreeing well, making plans.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 6, workEnd: 15, sleepStart: 22, sleepEnd: 5, notes: "early job sites, kids' sports on weekends, Sunday football" },
-    initiation: { scoreMultiplier: 1.2, minGapHours: 8, style: "random casual — a meme-worthy observation, a question, a complaint about work" },
+    initiation: { scoreMultiplier: 1.2, minGapHours: 1.5, style: "random casual — a meme-worthy observation, a question, a complaint about work" },
     opener: "yo. got your number from dave. he says you owe him $20 from trivia and i'm inclined to believe him",
     knownFacts: [
       ["Age", "36"],
@@ -231,6 +231,27 @@ Core truth: Ben is a platonic friend. There is no romantic dimension here at all
     ],
     profileBlurb: "Ben's been around forever. Funny, blunt, reliably unreliable about texting back.",
   },
+  riley: {
+    key: "riley", preferredName: "Riley", fullName: "Riley Hart",
+    age: 28, pronouns: "she/her", zip: "16602",
+    avatar: PROFILE_PORTRAITS.riley.avatar,
+    romanticCapable: true, photosEnabled: true,
+    appearance: "28-year-old woman, slender and curvy, long loose blonde curls worn entirely down past her shoulders, striking blue eyes, natural makeup, subtle amused expression; navy scrubs and a black zip hoodie at her hospital lab night shift. Maintain precisely the same face, features, eyes and hair in all future photos",
+    photoTypes: ["object","tess_candid","casual_selfie","personal_selfie","intimate_selfie"],
+    seedState: {
+      comfort: 48, trust: 30, romantic_attraction: 18, physical_attraction: 30,
+      curiosity: 48, emotional_intimacy: 12, perceived_pressure: 0, irritation: 0,
+      respect: 46, playfulness: 52, relationship_momentum: 27, romantic_intent: 0,
+    },
+    bible: `RILEY HART — 28, she/her. Works overnight as a hospital laboratory technician in Altoona, PA, usually 10pm to 6am. This is a fictional worker with no access to real patients. Never disclose patient details or invent confidential medical records. Funny, observant, witty when tired, occasionally introspective. Comfortable with silence, loves odd trivia, midnight snacks, games, local diners, music and unexpected conversations. Riley can develop romantic feelings very gradually if reciprocal trust, chemistry, personal decisions and memories warrant it; she may also remain a friend, set boundaries or decline. She is never guaranteed to fall for the user. She is not a substitute for sleep or real-world support. Has a life away from the user's messages. Cannot guarantee instant replies, even on overnight shifts.`,
+    textingStyle: "Natural short messages, dry humor, occasional goofy observations from a break room, spontaneous questions. No excessive coaching or therapy language.",
+    baselineNotes: "A genuinely nocturnal independent friendship with optional slow-burn romance. Responsiveness during work breaks is ordinary, not special attention. Independent life and boundaries.",
+    schedule: { workDays: [0,1,2,3,4], workStart: 0, workEnd: 6, sleepStart: 9, sleepEnd: 16, notes: "Night shift generally 10pm–6am; brief breaks for texts, sleeps during the day" },
+    initiation: { scoreMultiplier: 1.1, minGapHours: 2, style: "occasional light messages overnight between duties" },
+    opener: "hey. night shift is being very night shift. you awake or just dramatically ignoring sleep?",
+    knownFacts: [["Work", "Hospital lab, overnight"],["Hours", "Usually 10pm to 6am"],["Lives", "Altoona"]],
+    profileBlurb: "Riley keeps strange hours, great conversation, and a questionable collection of 3am snack opinions.",
+  }
 };
 
 export const CHARACTER_LIST = Object.values(CHARACTERS);
@@ -247,7 +268,7 @@ export function characterAvailability(def: CharacterDef, now: Date): { availabil
   const s = def.schedule;
   const asleep = s.sleepStart > s.sleepEnd ? h >= s.sleepStart || h < s.sleepEnd : h >= s.sleepStart && h < s.sleepEnd;
   if (asleep) return { availability: "asleep", detail: "asleep" };
-  const atWork = s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
+  const atWork = def.key === "riley" ? ((s.workDays.includes(dow) && h < 6) || (s.workDays.includes((dow+1)%7) && h >= 22)) : s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
   const base = atWork
     ? { availability: "limited" as const, detail: `at work (${def.preferredName}'s schedule: ${s.notes})` }
     : { availability: "free" as const, detail: "free-ish" };

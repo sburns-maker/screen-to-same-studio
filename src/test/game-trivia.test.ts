@@ -7,7 +7,7 @@ describe("rotating trivia questions", () => {
     expect(deck).toHaveLength(10);
     expect(new Set(deck).size).toBe(10);
     for (const id of deck) {
-      const q = QUESTION_BANK[id];
+      const q = QUESTION_BANK[id]!;
       expect(q).toBeDefined();
       expect(q.choices).toHaveLength(4);
       expect(q.correct).toBeGreaterThanOrEqual(0);

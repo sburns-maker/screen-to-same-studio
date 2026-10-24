@@ -6,9 +6,10 @@ import maya from "@/assets/avatars/maya.jpg?inline";
 import claire from "@/assets/avatars/claire.jpg?inline";
 import jordan from "@/assets/avatars/jordan.jpg?inline";
 import ben from "@/assets/avatars/ben.jpg?inline";
+import riley from "@/assets/avatars/riley-canon.png?inline";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 import type { CharacterKey } from "./characters";
-const originals: Record<CharacterKey, string> = { tess, maya, claire, jordan, ben };
+const originals: Record<CharacterKey, string> = { tess, maya, claire, jordan, ben, riley };
 export function jpegDimensions(bytes: Uint8Array) {
   if (bytes.length < 4 || bytes.length > 4 * 1024 * 1024 || bytes[0] !== 255 || bytes[1] !== 216)
     throw new Error("Canonical profile is not a supported JPEG");
@@ -33,18 +34,31 @@ export function jpegDimensions(bytes: Uint8Array) {
   }
   throw new Error("Canonical profile dimensions unavailable");
 }
+function pngDimensions(bytes: Uint8Array) {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < 33 || bytes.length > 4 * 1024 * 1024 || signature.some((n, i) => bytes[i] !== n))
+    throw new Error("Canonical profile is not a supported PNG");
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (view.getUint32(8) !== 13 || view.getUint32(12) !== 0x49484452)
+    throw new Error("Canonical profile PNG is malformed");
+  const width = view.getUint32(16), height = view.getUint32(20);
+  if (Math.min(width, height) < 256 || Math.max(width, height) > 8192)
+    throw new Error("Canonical profile resolution is insufficient");
+  return { width, height };
+}
 export const canonicalProfile = createServerOnlyFn(async (key: CharacterKey) => {
   if (!Object.hasOwn(originals, key)) throw new Error("Canonical profile is not registered");
   const url = originals[key];
-  if (!url.startsWith("data:image/jpeg;base64,"))
+  const type = url.startsWith("data:image/png;base64,") ? "image/png" : "image/jpeg";
+  if (!url.startsWith(`data:${type};base64,`))
     throw new Error("Canonical profile bytes unavailable");
   const raw = atob(url.slice(url.indexOf(",") + 1));
   const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
-  const dimensions = jpegDimensions(bytes);
+  const dimensions = type === "image/png" ? pngDimensions(bytes) : jpegDimensions(bytes);
   const sha = await crypto.subtle.digest("SHA-256", bytes);
   const hash = Array.from(new Uint8Array(sha), (n) => n.toString(16).padStart(2, "0")).join("");
   return {
-    blob: new Blob([bytes], { type: "image/jpeg" }),
+    blob: new Blob([bytes], { type }),
     asset: PROFILE_PORTRAITS[key].asset,
     sha256: hash,
     ...dimensions,

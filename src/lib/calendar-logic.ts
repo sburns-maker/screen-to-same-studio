@@ -194,7 +194,7 @@ export function recognizePlan(
           : undefined);
   const inviting =
     !!cat &&
-    /\b(?:want to|would you like|come (?:along|with|to)|join me|let['’]s|shall we|can we|how about|would you|invite you|meet me)\b/i.test(
+    /\b(?:want to|would you like|come (?:along|with|to)|join me|let['’]s|shall we|can we|how about|what about|would you|invite you|meet me)\b/i.test(
       text,
     ) &&
     !/\b(?:don't|do not|cannot|can't|not interested|maybe someday|used to)\b/i.test(text);
@@ -222,15 +222,25 @@ export function recognizePlan(
     (date || patch.time || places.length)
   )
     return { ...patch, action: "reschedule" };
-  const positive =
+  const hedged = /\b(?:but not|can't|cannot|don't|if|maybe|might)\b/i.test(text);
+  const positiveLead =
     /^(?:yes\b|yeah\b|yep\b|absolutely\b|sounds good\b|that works\b|i['’]d love to\b|count me in\b|sure\b|i['’]m in\b)/i.test(
       text,
-    ) && !/\b(?:but not|can't|cannot|don't|if|maybe|might)\b/i.test(text);
+    ) && !hedged;
+  // "That sounds good to me" often closes the details mid-message; an unrelated "if" nearby is not a hedge on it.
+  const positiveInline =
+    /\bthat sounds good\b/i.test(text) &&
+    !/\b(?:but not|can't|cannot|don't|maybe|might)\b/i.test(text);
+  const positive = positiveLead || positiveInline;
+  // Character confirmations: fixed phrases, or "<venue/time> it is" when the message carries plan details.
+  const characterConfirm =
+    /\b(?:works for me|see you there|we['’]re on|it['’]s a date)\b/i.test(text) ||
+    (/\bit is\b/i.test(text) && !!(date || time || places.length));
   if (
     target &&
     (positive ||
       (message.sender === "tess" &&
-        /\b(?:works for me|see you there|we['’]re on|it['’]s a date)\b/i.test(text) &&
+        characterConfirm &&
         !/\b(?:not|can't|cannot|if|maybe)\b/i.test(text)))
   )
     return { ...patch, action: "accept" };

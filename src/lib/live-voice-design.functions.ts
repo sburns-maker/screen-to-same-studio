@@ -163,7 +163,7 @@ export const voiceStudioStatus = createServerFn({ method: "POST" })
     return {
       creationEnabled: process.env["ENABLE_VOICE_DESIGN"] === "true",
       apiConfigured: !!process.env["OPENAI_API_KEY"],
-      liveEnabled: process.env["ENABLE_GPT_LIVE_CALLS"] === "true",
+      liveEnabled: (await import("./live-calls")).liveCallsEnabled(process.env),
       auditionsEnabled:
         process.env["ENABLE_VOICE_STUDIO_AUDITIONS"] === "true" && AUDITION_SERVER_SAFEGUARDS_READY,
       auditionBlocker: AUDITION_SERVER_SAFEGUARDS_READY

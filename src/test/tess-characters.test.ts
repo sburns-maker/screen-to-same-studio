@@ -4,8 +4,8 @@ import { decideInitiation, scheduleFor } from "@/lib/tess-life";
 import { SEED_STATE } from "@/lib/tess-logic";
 
 describe("character roster", () => {
-  it("has exactly the five V1 contacts", () => {
-    expect(CHARACTER_LIST.map((c) => c.key).sort()).toEqual(["ben", "claire", "jordan", "maya", "tess"]);
+  it("includes the five original contacts and Riley", () => {
+    expect(CHARACTER_LIST.map((c) => c.key).sort()).toEqual(["ben", "claire", "jordan", "maya", "riley", "tess"]);
   });
 
   it("every character lives in or near ZIP 16602", () => {
@@ -76,10 +76,10 @@ describe("contact availability", () => {
     expect(ben.availability).not.toBe("free"); // job site
   });
 
-  it("everyone is asleep in the small hours", () => {
+  it("daytime contacts are asleep in the small hours", () => {
     const night = new Date("2026-10-21T07:00:00Z"); // 03:00 EDT
     for (const c of CHARACTER_LIST) {
-      if (c.key === "tess") continue;
+      if (c.key === "tess" || c.key === "riley") continue;
       expect(characterAvailability(c, night).availability).toBe("asleep");
     }
   });
@@ -104,9 +104,9 @@ describe("per-contact initiation tuning", () => {
   });
 
   it("a shorter minGapHours makes a contact eligible sooner", () => {
-    const tessLike = decideInitiation(input({ gapHours: 4 }), () => 0.99);
+    const tessLike = decideInitiation(input({ gapHours: 1.5 }), () => 0.99);
     expect(tessLike.eligible).toBe(false);
-    const mayaLike = decideInitiation(input({ gapHours: 4, minGapHours: 3 }), () => 0.99);
+    const mayaLike = decideInitiation(input({ gapHours: 1.5, minGapHours: 1 }), () => 0.99);
     expect(mayaLike.eligible).toBe(true);
   });
 

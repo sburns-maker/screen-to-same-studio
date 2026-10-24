@@ -7,6 +7,8 @@ describe("image prompt builder", () => {
     expect(p).toContain("defines the woman's identity only");
     expect(p).toContain("Do not recreate the reference image's pose or composition");
     expect(p).toContain("varied personal smartphone photos rather than repeated professional portraits");
+    expect(p).toContain("WARDROBE AND POSE VARIETY");
+    expect(p).toContain("Avoid making black or charcoal tops the habitual default");
   });
 
   it("weaves pose, angle, crop, hair, expression and clothing into the prompt", () => {
@@ -40,7 +42,9 @@ describe("image prompt builder", () => {
 
   it("selfie types fall back to arm's-length front camera", () => {
     expect(buildImagePrompt("casual_selfie", "Tess in the snow", null)).toContain("front-camera selfie");
-    expect(buildImagePrompt("tess_candid", "Tess laughing at trivia", null)).not.toContain("front-camera selfie");
+    expect(buildImagePrompt("tess_candid", "Tess laughing at trivia", null)).toContain(
+      "rather than reflexively making a centered chest-up front-camera selfie",
+    );
   });
 
   it("type classification is unchanged", () => {

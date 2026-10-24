@@ -27,6 +27,42 @@ export const TESS_REFERENCE_VOICE_PROMPT =
   "Unhurried, measured pace of about 100 words per minute with relaxed pauses between thoughts. Dry, self-assured, subtly teasing and intimate, with understated amusement and quiet warmth underneath. " +
   "Speaks like a real person in a private conversation: connected words, gentle melodic rises, small hesitations, never announcer-like, robotic, perky or breathy.";
 export const TESS_REFERENCE_VOICE_NAME = "Tess — Reference Tuned";
+
+const HUMAN =
+  " Sounds like a real person on a private phone call: natural breaths, connected words, small hesitations and genuine laughs; never announcer-like, robotic, sing-song or overacted.";
+
+/** One-tap, personality-based voice-creation presets for every contact. */
+export const CHARACTER_VOICE_PRESETS: Record<string, { name: string; prompt: string }> = {
+  tess: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT },
+  maya: {
+    name: "Maya — Flirty & Bubbly",
+    prompt:
+      "An adult American woman, 31, from central Pennsylvania. Warm, bright, clearly feminine voice in a mid-to-high register with a soft, slightly smoky edge when she teases. General American accent, relaxed and casual. " +
+      "Quick, lively pace with bursts of energy, playful upward lilts, easy smiles you can hear and frequent light laughter. Confident, flirty and openly teasing, with an inviting, sultry warmth when she lowers her voice; bubbly but never squeaky, childish or valley-girl." +
+      HUMAN,
+  },
+  claire: {
+    name: "Claire — Warm & Thoughtful",
+    prompt:
+      "An adult American woman, 35, a school librarian in Pennsylvania. Soft, warm, gentle mid-register voice with a calm, reassuring quality. Clear General American accent. " +
+      "Unhurried, conversational pace around 140 words per minute, attentive pauses as if really listening, gentle humour and a kind smile in the voice. Emotionally intelligent and sincere, never syrupy, breathy or whispery." +
+      HUMAN,
+  },
+  jordan: {
+    name: "Jordan — Dry & Guarded",
+    prompt:
+      "An adult American woman, 33, an engineering drafter and rock climber. Low-to-mid register, slightly husky, even and controlled voice. Plain, understated General American accent. " +
+      "Economical, measured delivery with short sentences, deadpan timing and dry sarcasm; little vocal fluctuation, occasional quiet exhale-laugh when something actually amuses her. Guarded and private but intelligent and quietly warm underneath; never bored-sounding, monotone or cold." +
+      HUMAN,
+  },
+  ben: {
+    name: "Ben — Easygoing Friend",
+    prompt:
+      "An adult American man in his thirties, a laid-back friend from central Pennsylvania. Relaxed, friendly baritone with a casual General American accent. " +
+      "Easy, natural pace, good-natured humour, frequent chuckles and a supportive, buddy-like tone; platonic and down-to-earth, never flirtatious, gravelly, booming or salesy." +
+      HUMAN,
+  },
+};
 export const conversationalOptionsSchema = z.object({
   performanceInstructions: z.string().max(PERFORMANCE_MAX).refine((v) => v.trim().length > 0, "Enter performance instructions.").default(TESS_CONVERSATIONAL_DIRECTION),
   conversationalCue: z.string().max(CUE_MAX).refine((v) => v.trim().length > 0, "Enter a conversational cue.").default(CONVERSATIONAL_CUE),

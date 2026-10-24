@@ -249,7 +249,7 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(download).not.toHaveBeenCalled(); // No independent storage alias can override the profile.
     const [url, request] = fetchMock.mock.calls[0]!;
     expect(url).toBe("https://api.openai.com/v1/images/edits");
-    expect(request.body.get("model")).toBe("gpt-image-2.5-flare");
+    expect(request.body.get("model")).toBe("gpt-image-2.5-sunburst");
     expect(request.body.get("prompt")).toContain(
       "Preserve the exact same recognizable fictional woman",
     );

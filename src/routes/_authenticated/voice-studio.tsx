@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Square } from "lucide-react";
-import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, TESS_REFERENCE_VOICE_PROMPT, TESS_REFERENCE_VOICE_NAME, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
+import { SCRIPT_MAX, SCRIPT_DRAFT_STORE, scriptedSpeakPrompt, CHARACTER_VOICE_PRESETS, CONVERSATIONAL_DRAFT_STORE, DEFAULT_CONVERSATIONAL_OPTIONS, CONVERSATIONAL_CUE, PERFORMANCE_MAX, CUE_MAX, conversationalOptionsSchema, restoreConversationalDraft, auditionSessionConfig, auditionReinforcement, type ConversationalOptions, type AuditionMode } from "@/lib/voice-audition-modes";
 import {
   AUDITION_SCRIPT,
   AUDITION_SPEAK_PROMPT,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/voice-sample-recorder";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { VoiceReferenceMatcher } from "@/components/VoiceReferenceMatcher";
+import { characterVoices, setCharacterVoice } from "@/lib/live-calls.functions";
 import {
   VOICE_DESIGNS,
   VOICE_NAME_MAX,
@@ -105,6 +106,10 @@ function VoiceStudio() {
   const [busy, setBusy] = useState<Variant | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [selected, setSelected] = useState("");
+  const voicesFn = useServerFn(characterVoices);
+  const setVoiceFn = useServerFn(setCharacterVoice);
+  const [voices, setVoices] = useState<{ character_key: string; voice_id: string; label: string }[]>([]);
+  const [settingVoice, setSettingVoice] = useState(false);
   const [auditionMode, setAuditionMode] = useState<AuditionMode>("scripted");
   const [conversationalOptions, setConversationalOptions] = useState<ConversationalOptions>(DEFAULT_CONVERSATIONAL_OPTIONS);
   const [script, setScript] = useState(AUDITION_SCRIPT);
@@ -188,6 +193,9 @@ function VoiceStudio() {
       /* ignore */
     }
     let active = true;
+    void voicesFn()
+      .then((v) => active && setVoices(v.voices))
+      .catch(() => {});
     void statusFn()
       .then((v) => {
         if (active) setStatus(v);
@@ -414,6 +422,23 @@ function VoiceStudio() {
     downloadSample(s);
   }
   const current = candidates.filter((c) => c.character === character);
+  const activeVoice = voices.find((v) => v.character_key === character) ?? null;
+  async function useForCalls() {
+    const cand = candidates.find((c) => c.id === selected && c.character === character);
+    if (!cand) return;
+    setSettingVoice(true);
+    try {
+      await setVoiceFn({
+        data: { character, voiceId: cand.id, label: (cand.name || `${title(character)} — ${cand.variant}`).slice(0, 80) },
+      });
+      const v = await voicesFn();
+      setVoices(v.voices);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSettingVoice(false);
+    }
+  }
   const canCreate =
     !!status?.creationEnabled && !!status.apiConfigured && busy === null && !playing;
 
@@ -484,7 +509,12 @@ function VoiceStudio() {
               {VOICE_DESIGNS[character].description}
             </p>
             <p className="mt-3 text-xs text-muted-foreground">
-              Active phone voice: {status?.approved[character] ? "Set" : "None yet"}
+              Phone voice:{" "}
+              {activeVoice
+                ? `${activeVoice.label || "Unnamed voice"} (${activeVoice.voice_id.slice(0, 12)}…)`
+                : status?.approved[character]
+                  ? "Set on the server"
+                  : "None yet"}
             </p>
           </section>
 
@@ -492,17 +522,17 @@ function VoiceStudio() {
             <p className="text-xs text-muted-foreground">
               Free: revise this description as often as you like; drafts save on this phone. Paid: create a new voice only when ready. Existing OpenAI voice IDs are not editable in place.
             </p>
-            {character === "tess" && (
+            {CHARACTER_VOICE_PRESETS[character] && (
               <Button
                 type="button"
                 className="mt-3 min-h-12 w-full"
                 disabled={busy !== null}
                 onClick={() => {
                   setVariant("custom");
-                  saveDrafts({ ...drafts, ["tess:custom"]: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT } });
+                  saveDrafts({ ...drafts, [`${character}:custom`]: { ...CHARACTER_VOICE_PRESETS[character]! } });
                 }}
               >
-                Tess voice (fill everything in)
+                {CHARACTER_VOICE_PRESETS[character]!.name.split(" — ")[0]} voice (fill everything in)
               </Button>
             )}
             <div className="mt-3 grid grid-cols-4 gap-2">
@@ -819,7 +849,10 @@ function VoiceStudio() {
                       onChange={() => setSelected(c.id)}
                     />
                     <span className="min-w-0 flex-1">
-                      <strong className="break-words">{c.name || `${title(character)} — ${c.variant}`}</strong>\n                      <span className="block text-xs capitalize text-muted-foreground">{c.variant} · Saved candidate</span>
+                      <strong className="break-words">{c.name || `${title(character)} — ${c.variant}`}</strong>
+                      <span className="block text-xs capitalize text-muted-foreground">
+                        {c.variant} · {activeVoice?.voice_id === c.id ? "Phone voice" : "Saved candidate"}
+                      </span>
                       <code className="mt-1 block select-all break-all text-xs">{c.id}</code>
                     </span>
                     <button
@@ -835,21 +868,27 @@ function VoiceStudio() {
             )}
           </Step>
 
-          <Step n={4} title="Activate for phone calls (manual)">
+          <Step n={4} title="Use for phone calls">
             <p className="text-sm">
-              Nothing is activated automatically. When you've chosen, save the ID as server setting{" "}
-              <code className="break-all">GPT_LIVE_VOICE_{character.toUpperCase()}</code>. Calls
-              stay off until live calling is separately enabled and tested.
+              Current {title(character)} phone voice:{" "}
+              <strong>{activeVoice ? activeVoice.label || "Unnamed voice" : "None yet"}</strong>
             </p>
-            {selected && (
-              <button
-                type="button"
-                className="mt-3 min-h-11 rounded-lg border px-3 text-sm"
-                onClick={() => void copy(selected, "sel")}
-              >
-                {copied === "sel" ? "Copied" : "Copy chosen ID"}
-              </button>
-            )}
+            {activeVoice && <code className="mt-1 block break-all text-xs">{activeVoice.voice_id}</code>}
+            <p className="mt-2 text-xs text-muted-foreground">
+              Pick a voice in My voices above, then tap the button. Everyone who calls {title(character)} hears this voice. Free; nothing is charged.
+            </p>
+            <Button
+              type="button"
+              className="mt-3 min-h-12 w-full"
+              disabled={!selected || settingVoice || activeVoice?.voice_id === selected}
+              onClick={() => void useForCalls()}
+            >
+              {activeVoice?.voice_id === selected && selected
+                ? `This is ${title(character)}'s phone voice`
+                : settingVoice
+                  ? "Saving…"
+                  : `Use chosen voice for ${title(character)}'s calls`}
+            </Button>
           </Step>
 
           <Link to="/calls" className="block text-sm underline">
