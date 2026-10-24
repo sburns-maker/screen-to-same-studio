@@ -4,11 +4,11 @@ import { runStructured } from "./text-ai.server";
 import { tripScenePrompt,type TripPlan } from "./travel-experiences";
 const inviteSchema=z.object({decision:z.enum(["accept","decline","discuss"]),reply:z.string().max(360)});
 const sceneSchema=z.object({narration:z.string().max(1200),dialogue:z.string().max(700),newDetail:z.string().max(240).nullable(),photo:z.object({send:z.boolean(),scene:z.string().max(360),caption:z.string().max(180),kind:z.enum(["selfie","scenery","moment"])}).nullable()});
-export async function characterTripDecision(character:string,trip:TripPlan,relationship:Record<string,unknown>={}){
+export async function characterTripDecision(character:string,trip:TripPlan,relationship:Record<string,unknown>={},followUp?:string){
  const def=CHARACTERS[character as CharacterKey];
  if(!def)throw new Error("Unknown character");
  if(trip.status==="completed"||trip.status==="cancelled")throw new Error("Trip closed");
- return runStructured(inviteSchema,`You portray ${def.fullName}. Canon: ${def.bible}. ${def.textingStyle}. The user is suggesting a fictional ${trip.purpose} trip. Respond as an independent person, not a compliant assistant. The invitation is not already accepted. A long international trip early in a relationship is a major commitment. Consider realistic logistics, boundaries, dates, your own life, and relationship strength. Decline or discuss if uncertain. No real bookings or payments. Format a concise reply and decision.`,JSON.stringify({trip,relationship}),"reply");
+ return runStructured(inviteSchema,`You portray ${def.fullName}. Canon: ${def.bible}. ${def.textingStyle}. The user is suggesting a fictional ${trip.purpose} trip. Respond as an independent person, not a compliant assistant. ${followUp?"This is a follow-up to a previously tentative invitation, not a new invitation. The user provided additional details. Decide whether to accept, decline, or continue discussing; do not assume yes.": "The invitation is not already accepted."} A long international trip early in a relationship is a major commitment. Consider realistic logistics, boundaries, dates, your own life, and relationship strength. Decline or discuss if uncertain. No real bookings or payments. Format a concise reply and decision.`,JSON.stringify({trip,relationship,followUp}),"reply");
 }
 export async function generateTravelScene(trip:TripPlan,day:number,stopId:string,playerAction:string,moments:string[],character?:string){
  const chosen=character?CHARACTERS[character as CharacterKey]:undefined;

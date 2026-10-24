@@ -19,7 +19,7 @@ function Travel(){
  const cache=useQueryClient();
  const q=useQuery({queryKey:["travel-trips"],queryFn:()=>list()});
  const [busy,setBusy]=useState(false),[title,setTitle]=useState(""),[origin,setOrigin]=useState("Altoona, PA"),[destination,setDestination]=useState(""),[mode,setMode]=useState<typeof modes[number]>("road_trip"),[purpose,setPurpose]=useState<typeof purposes[number]>("vacation"),[start,setStart]=useState(""),[end,setEnd]=useState("");
- const [companion,setCompanion]=useState<"tess"|"maya"|"claire"|"jordan"|"ben"|"riley">("tess"),[sceneText,setSceneText]=useState(""),[sceneCharacter,setSceneCharacter]=useState(""),[sceneResult,setSceneResult]=useState(""),[inviteReply,setInviteReply]=useState("");
+ const [companion,setCompanion]=useState<"tess"|"maya"|"claire"|"jordan"|"ben"|"riley">("tess"),[sceneText,setSceneText]=useState(""),[sceneCharacter,setSceneCharacter]=useState(""),[sceneResult,setSceneResult]=useState(""),[inviteReply,setInviteReply]=useState(""),[tripFollowUp,setTripFollowUp]=useState("");
  const [stopTitle,setStopTitle]=useState(""),[stopPlace,setStopPlace]=useState(""),[day,setDay]=useState(1),[kind,setKind]=useState<typeof kinds[number]>("activity"),[note,setNote]=useState(""),[selected,setSelected]=useState("");
  const [region,setRegion]=useState(""),[placeQuery,setPlaceQuery]=useState(""),[tab,setTab]=useState<"trips"|"discover"|"create">("trips"),[showAdvanced,setShowAdvanced]=useState(false),[inviteOnCreate,setInviteOnCreate]=useState(true),[tripStart,setTripStart]=useState(""),[tripEnd,setTripEnd]=useState("");
  const suggestions=travelPlaces(placeQuery,region).slice(0,placeQuery.trim()||region?24:8);
@@ -47,7 +47,7 @@ function Travel(){
    setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});setTab("trips");
    toast.success("Trip created");
    if(inviteOnCreate){
-    try{const result=await invite({data:{id,character:companion}});setInviteReply(result.reply);await cache.invalidateQueries({queryKey:["travel-trips"]});}
+    try{const result=await invite({data:{id,character:companion}});setInviteReply(result.reply);setTripFollowUp("");await cache.invalidateQueries({queryKey:["travel-trips"]});}
     catch(e){toast.error("Trip saved, but invitation couldn't be sent: "+(e instanceof Error?e.message:"Unknown error"));}
    }
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
@@ -62,7 +62,7 @@ function Travel(){
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
  async function inviteCharacter(){
-  if(!current)return;setBusy(true);try{const result=await invite({data:{id:current.id,character:companion}});
+  if(!current)return;setBusy(true);try{const result=await invite({data:{id:current.id,character:companion,...(current.companions.some(c=>c.characterKey===companion)?{followUp:tripFollowUp}:{})}});
    setInviteReply(result.reply);await cache.invalidateQueries({queryKey:["travel-trips"]});
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
@@ -119,7 +119,7 @@ function Travel(){
  {!["completed","cancelled"].includes(current.status)&&<button className={btn} disabled={busy} onClick={()=>void action("cancel")}>Cancel</button>}
  </div>
  <div className="space-y-2 rounded-xl border p-3"><h3 className="font-semibold">Who\u2019s coming?</h3><p className="text-sm text-muted-foreground">Characters decide for themselves if they want to travel with you. An invitation is never automatically accepted.</p>
- {["idea","proposed"].includes(current.status)&&<div className="flex flex-wrap gap-2"><select className={field} aria-label="Invite character" value={companion} onChange={e=>setCompanion(e.target.value as typeof companion)}>{(["tess","maya","claire","jordan","ben","riley"] as const).map(c=><option key={c} value={c}>{c}</option>)}</select><button className={btn} disabled={busy} onClick={()=>void inviteCharacter()}>Ask character about trip</button></div>}
+ {["idea","proposed"].includes(current.status)&&<div className="flex flex-wrap gap-2"><select className={field} aria-label="Invite character" value={companion} onChange={e=>setCompanion(e.target.value as typeof companion)}>{(["tess","maya","claire","jordan","ben","riley"] as const).map(c=><option key={c} value={c}>{c}</option>)}</select><button className={btn} disabled={busy||current.companions.some(c=>c.characterKey===companion&&c.response!=="invited")||(current.companions.some(c=>c.characterKey===companion&&c.response==="invited")&&tripFollowUp.trim().length<3)} onClick={()=>void inviteCharacter()}>{current.companions.some(c=>c.characterKey===companion)?"Continue invitation discussion":"Invite character"}</button>{current.companions.some(c=>c.characterKey===companion&&c.response==="invited")&&<textarea aria-label="Follow up about trip" className={field} value={tripFollowUp} onChange={e=>setTripFollowUp(e.target.value)} placeholder="Answer their questions: departure time, drive, work schedule…" />}</div>}
  {inviteReply&&<p role="status" className="rounded-xl bg-muted p-3 text-sm">{inviteReply}</p>}{current.companions.map(c=><p key={c.characterKey}>{c.characterKey} · {c.response}</p>)}</div>
  <h3 className="font-semibold">Your itinerary</h3>
  {[...current.itinerary].sort((a,b)=>a.day-b.day).map(s=><article key={s.id} className="space-y-2 rounded-xl border p-3"><p className="font-medium">Day {s.day} · {s.label} {s.completed?"✓":""}</p><p className="text-sm text-muted-foreground">{s.location} · {s.kind}</p>

@@ -1,0 +1,18 @@
+name: Travel follow-ups and autonomous photos
+on:
+  pull_request:
+    paths:
+      - "src/lib/travel.functions.ts"
+      - "src/lib/travel-ai.server.ts"
+      - "src/routes/_authenticated/travel.tsx"
+      - "src/lib/world-runtime.server.ts"
+      - ".github/workflows/travel-photo-followup.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/travel-experiences.test.ts src/test/travel-photos.test.ts src/test/photo-turn.test.ts
+      - run: bun run build

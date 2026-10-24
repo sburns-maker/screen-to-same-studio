@@ -126,11 +126,14 @@ export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([r
  const db=await getDb();const {data:row,error}=await (db as any).from("travel_trips").select("*").eq("id",data.id).eq("user_id",context.userId).single();
  if(error||!row)throw new Error("Trip not found");let trip=fromRow(row);
  if(!["idea","proposed"].includes(trip.status))throw new Error("Trip not open for invitations");
- if(trip.companions.some(c=>c.characterKey===data.character))throw new Error("Already invited. Continue discussing this trip in the character conversation.");
+ const existing=trip.companions.find(c=>c.characterKey===data.character);
+ if(existing && existing.response!=="invited")throw new Error("Character has already decided about this trip");
+ if(existing && !data.followUp)throw new Error("They are still considering it. Add details to continue the discussion.");
+ if(!existing && data.followUp)throw new Error("Send the initial invitation first");
  const {data:convRows}=await db.from("conversations").select("id,relationship_stage,character:characters(key)").eq("user_id",context.userId);
  const conv=convRows?.find(c=>(c.character as {key?:string}|null)?.key===data.character);
  const {data:state}=conv?await db.from("tess_state").select("comfort,trust,emotional_intimacy,romantic_intent").eq("user_id",context.userId).eq("conversation_id",conv.id).maybeSingle():{data:null};
- const result=await (await import("./travel-ai.server")).characterTripDecision(data.character,trip,{stage:conv?.relationship_stage,stats:state??null});
+ const result=await (await import("./travel-ai.server")).characterTripDecision(data.character,trip,{stage:conv?.relationship_stage,stats:state??null},data.followUp);
  const companion={characterKey:data.character,response:result.decision==="accept"?"accepted":result.decision==="decline"?"declined":"invited"};
  const {data:updated,error:write}=await (db as any).from("travel_trips").update({companions:[...trip.companions.filter(c=>c.characterKey!==data.character),companion],revision:(trip.revision??0)+1,updated_at:new Date().toISOString()})
  .eq("user_id",context.userId).eq("id",data.id).eq("revision",trip.revision).select("id").maybeSingle();
@@ -142,7 +145,7 @@ export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([r
   const when=new Date(),invitationId=crypto.randomUUID(),replyId=crypto.randomUUID();
   const details=[trip.title,trip.destination,trip.startDate??"dates to discuss"].join(" · ");
   const {error:chatError}=await db.from("messages").insert([
-   {id:invitationId,user_id:context.userId,conversation_id:conv.id,sender:"user",body:"Want to go with me? "+details+" (fictional trip)",created_at:when.toISOString(),visible_at:when.toISOString(),metadata:{travel_invitation:true,trip_id:trip.id,decision:"invited"}},
+   {id:invitationId,user_id:context.userId,conversation_id:conv.id,sender:"user",body:data.followUp??("Want to go with me? "+details+" (fictional trip)"),created_at:when.toISOString(),visible_at:when.toISOString(),metadata:{travel_invitation:true,trip_id:trip.id,decision:"invited"}},
    {id:replyId,user_id:context.userId,conversation_id:conv.id,sender:"tess",body:result.reply,created_at:new Date(when.getTime()+1).toISOString(),visible_at:new Date(when.getTime()+1).toISOString(),metadata:{travel_invitation:true,trip_id:trip.id,decision:result.decision}}
   ] as never);
   chatSynced=!chatError;
