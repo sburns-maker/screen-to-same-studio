@@ -95,7 +95,7 @@ function Travel(){
  <div className="mt-2 flex flex-wrap gap-3 text-sm">{p.id==="pittsburgh:ppg-paints-arena"&&<Link to="/ppg-arena" className="underline">View arena event calendar & invite Maya →</Link>}<button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Visit "+p.name);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("create");toast.info("Destination selected. Choose dates and invite someone.")}}>Plan a trip here</button>
  <button type="button" className="underline" onClick={()=>{setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("trips");toast.info("Stop selected. Add it to your current itinerary below.")}}>Select as stop</button>
  <a href={realWorldMapSearchUrl(p)} target="_blank" rel="noopener noreferrer" className="underline">View on Google Maps ↗</a></div></article>)}</div>
- </section>
+ </section>}
  {tab==="create"&&<section className="space-y-3 rounded-2xl border p-4">
  <h2 className="font-semibold">New adventure</h2>
  <button className={btn} disabled={busy} onClick={()=>void save(true)}>Save Tess's Iceland dream</button>
