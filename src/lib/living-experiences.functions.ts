@@ -67,6 +67,17 @@ export const experienceAction = createServerFn({ method: "POST" })
       ).experience,
     };
   });
+export const recoverExperienceOperation = createServerFn({method:"POST"})
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v:unknown)=>z.object({planId:uuid,operationId:uuid}).parse(v))
+  .handler(async({context,data})=>{
+    const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
+    const {data:result,error}=await db.rpc("recover_experience_operation" as never,{
+      p_user:context.userId,p_plan:data.planId,p_operation:data.operationId
+    } as never);
+    if(error)throw new Error("Recovery unavailable: "+error.message+". Apply migration 0034 if missing.");
+    return result;
+  });
 export const experienceDiagnostics = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({ conversationId: uuid }).parse(v))
