@@ -6,6 +6,7 @@ const POCKETS=[[LEFT,TOP],[(LEFT+RIGHT)/2,TOP],[RIGHT,TOP],[LEFT,BOTTOM],[(LEFT+
 function startBalls():Ball[]{
  const a:Ball[]=[{x:LEFT+165,y:H/2,vx:0,vy:0,number:0,active:true}];
  let n=1;for(let row=0;row<5;row++)for(let j=0;j<=row;j++){a.push({x:RIGHT-190+row*18,y:H/2-row*10+j*20,vx:0,vy:0,number:n++,active:true});}
+ const center=a.find(b=>b.number===5);const eight=a.find(b=>b.number===8);if(center&&eight){center.number=8;eight.number=5;}
  return a;
 }
 function stationary(a:Ball[]){return a.every(b=>!b.active||Math.hypot(b.vx,b.vy)<.15);}
