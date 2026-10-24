@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { ArrowLeft, RotateCcw, Trophy } from "lucide-react";
+import { ArrowLeft, RotateCcw, Gamepad2 } from "lucide-react";
 import { conversationQuery } from "@/lib/tess-queries";
 import { characterFor } from "@/lib/characters";
 import { useQuery } from "@tanstack/react-query";
@@ -156,15 +156,18 @@ function GameRoom() {
     ? {key:"four:"+(saved.fourRound??0)+":"+saved.four.board.join(""),description:"We just finished a Four in a Row match. "+(saved.four.ended===0?"It was a draw.":saved.four.ended===1?"You won.":"I won.")+" (Game result from AI Town.)"}
     : null; // Word Hunt and 8 Ball need authoritative server adjudication before result sharing.
   return (
-    <main className="mx-auto min-h-dvh max-w-xl bg-background px-4 pb-24 pt-safe">
-      <header className="flex h-16 items-center gap-3">
-        <Link to="/chat/$conversationId" params={{ conversationId }} aria-label="Back to conversation" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted"><ArrowLeft /></Link>
-        <div className="flex-1"><h1 className="text-xl font-semibold">Game room</h1><p className="text-sm text-muted-foreground">Playing with {character.preferredName}</p></div>
-        <Trophy className="text-primary" />
+    <main className="mx-auto min-h-dvh max-w-2xl bg-background px-3 pb-24 pt-safe sm:px-5">
+      <header className="flex min-h-14 items-center gap-2 border-b py-2">
+        <Link to="/chat/$conversationId" params={{ conversationId }} aria-label="Back to conversation" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-muted"><ArrowLeft size={21}/></Link>
+        <div className="min-w-0 flex-1"><h1 className="text-lg font-semibold leading-tight">Play with {character.preferredName}</h1><p className="text-xs text-muted-foreground">Games & chat · Shared conversation</p></div>
+        <Gamepad2 className="h-5 w-5 text-primary" />
       </header>
-      <div className="mt-4 grid grid-cols-2 gap-2" role="group" aria-label="Choose a game">
-        {(["trivia", "four", "words", "pool"] as const).map((g) => <button key={g} type="button" onClick={() => setSaved((s) => ({ ...s, game: g }))} aria-pressed={saved.game === g} className={`min-h-12 rounded-xl border p-3 font-medium ${saved.game === g ? "border-primary bg-primary/10" : "bg-card"}`}>{g === "trivia" ? "🧠 Trivia" : g === "four" ? "🔴 Four in a Row" : g === "words" ? "🔤 Word Hunt" : "🎱 8 Ball"}</button>)}
-      </div>
+      <nav className="mt-3 grid grid-cols-4 gap-1.5" aria-label="Choose a game">
+        {(["trivia","four","words","pool"] as const).map(g=><button key={g} type="button" onClick={()=>setSaved(s=>({...s,game:g}))} aria-pressed={saved.game===g}
+          className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-center text-[11px] font-medium sm:text-sm ${saved.game===g?"border-primary bg-primary/10 text-primary":"bg-card text-foreground"}`}>
+          <span aria-hidden="true" className="text-xl leading-none">{g==="trivia"?"🧠":g==="four"?"🔴":g==="words"?"🔤":"🎱"}</span><span>{g==="trivia"?"Trivia":g==="four"?"Four in Row":g==="words"?"Word Hunt":"8 Ball"}</span>
+        </button>)}
+      </nav>
       {saved.game === "trivia" ? (
         <section className="mt-6 space-y-5" aria-label="Trivia game">
           <div className="flex justify-between rounded-xl bg-muted p-4 text-center"><div><div className="text-sm">You</div><div className="text-2xl font-bold">{playerScore}</div></div><div className="self-center text-sm text-muted-foreground">Question {Math.min(total + 1, deck.length)}/{deck.length}</div><div><div className="text-sm">{character.preferredName}</div><div className="text-2xl font-bold">{computerScore}</div></div></div>
