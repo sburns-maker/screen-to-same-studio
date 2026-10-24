@@ -73,6 +73,7 @@ function Plans() {
       </p>
       <Link to="/travel" className="mb-5 block rounded-2xl border bg-surface p-4 text-center font-medium text-primary">Explore Travel · Road trips, flights, vacations & work trips →</Link>
       {(tripQuery.data??[]).filter(t=>!["cancelled","completed"].includes(t.status)).slice(0,4).map(t=><Link key={t.id} to="/travel" className="mb-2 block rounded-xl border p-3 text-sm"><strong>{t.title}</strong><span className="block text-muted-foreground">{t.startDate??"Dates undecided"} · {t.destination} · {t.status}</span></Link>)}
+      <Link to="/ppg-arena" className="mb-4 block rounded-2xl border p-4 font-medium">PPG Paints Arena · View concerts and invite someone →</Link>
       <CalendarBoard />
       {decision && (
         <p role="status" className={`${card} mb-4 text-sm`}>
