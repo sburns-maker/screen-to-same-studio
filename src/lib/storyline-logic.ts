@@ -131,7 +131,7 @@ export function storyLifeEvent(s: StoryState, now: Date): LifeEvent | null {
 }
 export function storySchedule(base: TessActivity, event: LifeEvent | null): TessActivity {
   if (!event || base.availability === "asleep") return base;
-  return { ...base, availability: base.availability === "free" && event.availability === "busy" ? "limited" : base.availability, detail: `${base.detail}; ongoing situation: ${event.summary}` };
+  // A clinic storyline may affect Tess emotionally on days off, but does not put her on shift.\n  const offDay = /weekend/i.test(base.activity) || /weekend/i.test(base.detail);\n  const clinicContext = /clinic|rota|shift coverage|staffing|vet practice|work schedule/i.test(event.summary);\n  if (offDay && clinicContext) return { ...base, detail: `${base.detail}; she is off today, even though there is an unresolved workplace storyline` };\n  return { ...base, availability: base.availability === "free" && event.availability === "busy" ? "limited" : base.availability, detail: `${base.detail}; ongoing situation: ${event.summary}` };
 }
 export function storyPrompt(s: StoryState): string {
   const t = STORY_TEMPLATES.find(t => t.key === s.template);
