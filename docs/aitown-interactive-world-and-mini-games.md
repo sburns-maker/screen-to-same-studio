@@ -36,3 +36,15 @@ The first branch adds a standalone **local-device prototype** of interactive Tri
 - Expand questions to moderated categorized packs with replay variation.
 - Add Word Hunt and physics-based 8 Ball as further releases.
 - Later display the same game in first-person immersive environments with the same state and history.
+
+## Game conversations and relationship integration (next implementation)
+- Every active game screen includes a compact text panel tied to the **same character conversation** as Messages; users can expand/collapse it and continue texting while playing. Standard message input/replies must use the existing conversation API and character brain, never a second scripted persona.
+- Game move events (game, match ID, turn ID, active player, validated move, observed outcome) are distinct from chat messages. Only server-validated committed events may affect a match or relationship state.
+- The game engine must write an append-only shared experience event for a completed game, with an idempotency key, to prevent replay, multiple score awards or duplicate memories.
+- Character responses see the validated current game state and recent match events (including misses, fouls, victories, and rematch history) and can naturally banter without inventing impossible shots.
+- Game actions are **not** romantic progress buttons. Ordinary play may nudge playfulness, comfort or curiosity, and optionally momentum; meaningful behavior during play may influence respect, trust or irritation, but attraction and romantic_intent must not auto-increase from winning, sending a message, or repeated games.
+- Apply capped, diminishing-return state changes through the existing canonical state machinery, and prevent farming the same activity repeatedly for relationship points.
+- Character autonomy: accept, decline, postpone, offer a rematch, or initiate a challenge according to schedule, preferences and mood; not a guaranteed yes.
+- Game finished summaries and inside jokes are durable memories, visible to both the in-game chat and normal Messages. A character must never see unrelated private conversation history.
+- A text-only route must remain available for games; future first-person visual experiences reuse the same engine and canonical events.
+- Build this after server-side match storage and authoritative adjudication, with integration tests for double-submit, concurrent turns, app resume, chat context and score changes.
