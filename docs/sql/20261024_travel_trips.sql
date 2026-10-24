@@ -36,4 +36,5 @@ create index if not exists travel_trip_moments_owner_idx on public.travel_trip_m
 alter table public.travel_trip_moments enable row level security;
 drop policy if exists travel_trip_moments_owner on public.travel_trip_moments;
 create policy travel_trip_moments_owner on public.travel_trip_moments for all to authenticated
- using(user_id = (select auth.uid())) with check(user_id = (select auth.uid()));
+ using(user_id = (select auth.uid()) and exists(select 1 from public.travel_trips t where t.id=trip_id and t.user_id=(select auth.uid())))
+ with check(user_id = (select auth.uid()) and exists(select 1 from public.travel_trips t where t.id=trip_id and t.user_id=(select auth.uid())));
