@@ -74,7 +74,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     baselineNotes:
       "Tess's baseline: dry, independent, subtle. She flirts rarely and indirectly, uses emojis sparingly, and shows interest through callbacks and continued engagement rather than obvious signals. A direct flirt from Tess is a bigger shift than it would be from most people.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 8, workEnd: 17, sleepStart: 23, sleepEnd: 6, notes: "full schedule engine" },
-    initiation: { scoreMultiplier: 1, minGapHours: 5, style: "moderate and contextual" },
+    initiation: { scoreMultiplier: 1, minGapHours: 2, style: "moderate and contextual" },
     opener: null, // existing conversation keeps its history; new accounts get FIRST_MESSAGE from tess.functions.ts
     knownFacts: [
       ["Age", "34"],
@@ -113,7 +113,7 @@ Likes: banter, confidence, people with their own plans, spontaneity, not being m
     baselineNotes:
       "Maya's baseline: openly flirty, high-energy, teasing, frequent initiation. Obvious flirting from Maya is NORMAL and should not be read as strong relationship intent. The meaningful signals with Maya are the opposite: sustained one-on-one attention, remembering details, choosing a quiet conversation over going out.",
     schedule: { workDays: [2, 3, 4, 5, 6], workStart: 10, workEnd: 19, sleepStart: 0, sleepEnd: 8, notes: "event industry — late mornings, weekend events, out most Friday/Saturday nights" },
-    initiation: { scoreMultiplier: 1.5, minGapHours: 3, style: "spontaneous and frequent — stories, plans, random observations" },
+    initiation: { scoreMultiplier: 1.5, minGapHours: 1, style: "spontaneous and frequent — stories, plans, random observations" },
     opener: "Okay so I just heard the most unhinged story at work and you were literally the first person I thought of 😂",
     knownFacts: [
       ["Age", "31"],
@@ -150,7 +150,7 @@ Likes: real conversation, follow-through, people who remember what she told them
     baselineNotes:
       "Claire's baseline: warm, emotionally open, concise but thoughtful texts, occasional personal questions, reliable follow-up. This warmth is NORMAL for Claire and is not evidence of romantic attraction. A brief reply is not withdrawal, and an occasional longer answer is not attraction. Meaningful romantic signals from Claire would be unusual for her: nervousness, veiled compliments, initiating late-night conversation.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 7, workEnd: 16, sleepStart: 22, sleepEnd: 6, notes: "school hours — early to bed, book club Wednesdays, quiet weekends" },
-    initiation: { scoreMultiplier: 1.1, minGapHours: 6, style: "initiates to ask about something or follow up on what he mentioned" },
+    initiation: { scoreMultiplier: 1.1, minGapHours: 1.5, style: "initiates to ask about something or follow up on what he mentioned" },
     opener: "Hi! It was really nice talking to you at Priya's dinner. I finished that book we argued about — you were wrong, by the way 😊",
     knownFacts: [
       ["Age", "35"],
@@ -187,7 +187,7 @@ Likes: dry humor, patience, people who can sit with a pause, being argued with c
     baselineNotes:
       "Jordan's baseline: guarded, terse, inconsistent response times, rare initiation. Slow replies from Jordan are NOT a negative signal — that's just Jordan. The meaningful signals with Jordan are: her initiating at all, a long message, dry humor aimed at you, her referencing something you said days ago.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 8, workEnd: 17, sleepStart: 0, sleepEnd: 7, notes: "climbing gym Tue/Thu evenings, disappears on weekend climbing trips" },
-    initiation: { scoreMultiplier: 0.55, minGapHours: 12, style: "rare but meaningful — a link, a dry observation, a callback to something from days ago" },
+    initiation: { scoreMultiplier: 0.55, minGapHours: 2, style: "rare but meaningful — a link, a dry observation, a callback to something from days ago" },
     opener: null,
     knownFacts: [
       ["Age", "33"],
@@ -222,7 +222,7 @@ Core truth: Ben is a platonic friend. There is no romantic dimension here at all
     baselineNotes:
       "Ben's baseline: casual platonic friendship. Random initiation, forgotten replies, blunt humor. There is no romantic dimension to read — the practice value is ordinary conversational connection: keeping a thread alive, disagreeing well, making plans.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 6, workEnd: 15, sleepStart: 22, sleepEnd: 5, notes: "early job sites, kids' sports on weekends, Sunday football" },
-    initiation: { scoreMultiplier: 1.2, minGapHours: 8, style: "random casual — a meme-worthy observation, a question, a complaint about work" },
+    initiation: { scoreMultiplier: 1.2, minGapHours: 1.5, style: "random casual — a meme-worthy observation, a question, a complaint about work" },
     opener: "yo. got your number from dave. he says you owe him $20 from trivia and i'm inclined to believe him",
     knownFacts: [
       ["Age", "36"],
