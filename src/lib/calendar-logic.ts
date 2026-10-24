@@ -178,6 +178,8 @@ export function recognizePlan(
   const explicitId = (message.metadata as { calendar_plan?: string } | null)?.calendar_plan;
   // Prefer the closest active plan for this conversation; never revive completed outings.
   const byRecency = [...open].sort((a,b)=>String(b.last_message_id===previousId).localeCompare(String(a.last_message_id===previousId)));
+  // Never fall back to another plan for an explicit but unowned/unknown plan id.
+  if (explicitId && !open.some(p=>p.id===explicitId)) return {action:"none",planId:null};
   const explicitTarget = explicitId ? open.find((p) => p.id === explicitId) : undefined;
   const target =
     explicitTarget ??
