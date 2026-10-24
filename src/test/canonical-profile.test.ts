@@ -18,8 +18,8 @@ describe("authoritative profile bytes", () => {
   );
   it("different characters have different immutable anchors", async () => {
     const refs = await Promise.all(
-      Object.keys(PROFILE_PORTRAITS).map((key) =>
-        canonicalProfile(key as keyof typeof PROFILE_PORTRAITS),
+      (["tess", "maya", "claire", "jordan", "ben"] as const).map((key) =>
+        canonicalProfile(key),
       ),
     );
     expect(new Set(refs.map((r) => r.sha256)).size).toBe(5);
@@ -27,6 +27,7 @@ describe("authoritative profile bytes", () => {
   });
   it("fails safely for unknown, missing or malformed references", async () => {
     await expect(canonicalProfile("unknown" as "maya")).rejects.toThrow("not registered");
+    await expect(canonicalProfile("riley")).rejects.toThrow("JPEG is malformed");
     expect(() => jpegDimensions(new Uint8Array([1, 2, 3]))).toThrow();
   });
 });
