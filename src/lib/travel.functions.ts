@@ -84,6 +84,7 @@ export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requir
  if(data.action==="complete_stop") {
   const {error:me}=await (db as any).from("travel_trip_moments").insert({id:crypto.randomUUID(),trip_id:p.id,user_id:context.userId,stop_id:data.stopId,day:p.itinerary.find(s=>s.id===data.stopId)?.day,body:data.body});
   if(me)throw new Error("Stop marked complete, but travel journal failed: "+me.message);
+  await (await import("./travel-memory.server")).rememberTravelStop(db,context.userId,p,data.stopId!,data.body!);
  }
  return {revision:data.revision+1,status:p.status};
 });
