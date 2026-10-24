@@ -158,16 +158,26 @@ function category(text: string) {
             ? "meetup"
             : null;
 }
+export function resolveAfternoonTime(text:string,at:Date):string|undefined {
+ const localHour=Number(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"}).format(at));
+ if(localHour<12||localHour>=19)return undefined;
+ const m=/\b(?:at|around|by)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|1[0-2]|[1-9])\b(?!\s*(?:am|pm|a\.m\.|p\.m\.))/i.exec(text);
+ if(!m)return undefined;
+ const names=["one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve"];
+ const raw=m[1]!.toLowerCase();
+ const hour=/^\d+$/.test(raw)?Number(raw):names.indexOf(raw)+1;
+ return hour>=1&&hour<=11?String(hour+12).padStart(2,"0")+":00":undefined;
+}
 export function recognizePlan(
   message: CalendarEvidence,
   plans: CalendarPlan[],
   previousId: string | null,
 ): CalendarPatch {
   const text = message.body.trim(),
-    cat = category(text),
     places = venueFromText(text),
+    cat = category(text) ?? (places.length===1 && places[0]?.kind==="park" ? "walk" : null),
     date = resolveDate(text, new Date(message.created_at)),
-    time = resolveTime(text);
+    time = resolveTime(text) ?? resolveAfternoonTime(text,new Date(message.created_at));
   const open = plans.filter(
     (p) =>
       p.conversation_id === message.conversation_id &&
@@ -247,12 +257,12 @@ export function recognizePlan(
   const positive = positiveLead || positiveInline || (!!target && /\b(?:yes[,! ]+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)|(?:sounds|looks) (?:perfect|great)|(?:that|it) works for me|(?:deal|definitely|absolutely)[!. ]*$)\b/i.test(text) && !hedged);
   // Character confirmations: fixed phrases, or "<venue/time> it is" when the message carries plan details.
   const characterConfirm =
-    /\b(?:works for me|see you there|we['’]re on|it['’]s a date)\b/i.test(text) ||
+    /\b(?:works for me|see you (?:there|at (?:the )?(?:map point|five|\\d{1,2}))|we['’]re on|it['’]s a date)\b/i.test(text) ||
     (/\bit is\b/i.test(text) && !!(date || time || places.length));
   if (
     target &&
     (positive || affirmativePlanNoun ||
-      (message.sender === "tess" &&
+      (message.sender !== "user" &&
         characterConfirm &&
         !/\b(?:not|can't|cannot|if|maybe)\b/i.test(text)))
   )
