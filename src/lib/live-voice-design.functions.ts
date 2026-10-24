@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   VOICE_CREATION_SCRIPT_HINT,
   VOICE_DESIGNS,
+  VOICE_DESIGN_KEYS,
   VOICE_NAME_MAX,
   VOICE_PROMPT_MAX,
   validateVoiceRequest,
@@ -29,7 +30,7 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) =>
     z
       .object({
-        character: z.enum(["tess", "maya", "claire", "jordan", "ben"]),
+        character: z.enum(VOICE_DESIGN_KEYS),
         variant: z.enum(["natural", "refined", "playful", "custom"]),
         prompt: z.string().max(VOICE_PROMPT_MAX + 100),
         name: z.string().max(VOICE_NAME_MAX + 20),

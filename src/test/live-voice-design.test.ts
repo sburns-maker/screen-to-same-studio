@@ -3,6 +3,7 @@ import {
   TESS_VARIANT_DIRECTIONS,
   VOICE_CREATION_SCRIPT_HINT,
   VOICE_DESIGNS,
+  VOICE_DESIGN_KEYS,
   customVoiceId,
   gptLiveSessionConfig,
 } from "@/lib/live-voice-design";
@@ -10,10 +11,11 @@ import { AUDITION_SCRIPT } from "@/lib/voice-studio-audition";
 
 describe("GPT-Live character voice identities", () => {
   it("has distinct non-impersonating designs for all primary contacts", () => {
-    expect(Object.keys(VOICE_DESIGNS)).toEqual(["tess", "maya", "claire", "jordan", "ben"]);
+    expect(Object.keys(VOICE_DESIGNS)).toEqual(["tess", "maya", "claire", "jordan", "ben", "riley"]);
+    expect(VOICE_DESIGN_KEYS).toEqual(Object.keys(VOICE_DESIGNS));
     expect(VOICE_DESIGNS.tess.description).toContain("never");
     expect(VOICE_DESIGNS.tess.description).toContain("never husky");
-    expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(5);
+    expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(6);
   });
   it("refuses missing and arbitrary stock voice names", () => {
     expect(customVoiceId("tess", {})).toBeNull();

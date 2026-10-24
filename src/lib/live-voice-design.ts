@@ -24,8 +24,14 @@ export const VOICE_DESIGNS = {
     name: "Ben — Relaxed",
     description: "An adult American man with a relaxed, friendly and conversational voice. Everyday natural pronunciation, approachable and quietly amused, with subtle changes of pace and emphasis. No radio-announcer performance, strained depth or artificial enthusiasm.",
   },
+  riley: {
+    name: "Riley — Night Shift",
+    description: "An adult American woman, 28, a hospital laboratory technician in Altoona, Pennsylvania. A clearly feminine, warm, clear mid-to-light register with a relaxed General American accent. Funny, observant and quietly witty, comfortable with pauses, with understated dry timing, small amused reactions and occasional reflective warmth. A little tired after an overnight shift without sounding flat or whispery. Natural connected speech, gentle pitch movement and conversational imperfections; never robotic, theatrical, announcer-like, exaggeratedly husky or artificially bubbly.",
+  },
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
+/** Shared cast allowlist for creation, auditions and phone-voice assignment. */
+export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley"] as const satisfies readonly VoiceDesignKey[];
 
 /**
  * Longer script hint used only for custom voice creation (OpenAI rejects short
