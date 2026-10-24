@@ -4,7 +4,7 @@ import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { listTravelTrips,createTravelTrip,changeTravelTrip } from "@/lib/travel.functions";
+import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
 export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · AI Town"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
@@ -12,10 +12,11 @@ const purposes=["vacation","work","family","adventure"] as const;
 const kinds=["travel","activity","lodging","meal","work","rest"] as const;
 const pretty=(s:string)=>s.replaceAll("_"," ");
 function Travel(){
- const list=useServerFn(listTravelTrips),create=useServerFn(createTravelTrip),change=useServerFn(changeTravelTrip);
+ const list=useServerFn(listTravelTrips),create=useServerFn(createTravelTrip),change=useServerFn(changeTravelTrip),invite=useServerFn(inviteTravelCompanion),scene=useServerFn(travelSceneTurn);
  const cache=useQueryClient();
  const q=useQuery({queryKey:["travel-trips"],queryFn:()=>list()});
  const [busy,setBusy]=useState(false),[title,setTitle]=useState(""),[origin,setOrigin]=useState("Altoona, PA"),[destination,setDestination]=useState(""),[mode,setMode]=useState<typeof modes[number]>("road_trip"),[purpose,setPurpose]=useState<typeof purposes[number]>("vacation"),[start,setStart]=useState(""),[end,setEnd]=useState("");
+ const [companion,setCompanion]=useState<"tess"|"maya"|"claire"|"jordan"|"ben"|"riley">("tess"),[sceneText,setSceneText]=useState(""),[sceneCharacter,setSceneCharacter]=useState(""),[sceneResult,setSceneResult]=useState(""),[inviteReply,setInviteReply]=useState("");
  const [stopTitle,setStopTitle]=useState(""),[stopPlace,setStopPlace]=useState(""),[day,setDay]=useState(1),[kind,setKind]=useState<typeof kinds[number]>("activity"),[note,setNote]=useState(""),[selected,setSelected]=useState("");
  const trips=(q.data??[]) as (TripPlan&{revision:number})[];
  const current=trips.find(t=>t.id===selected)??trips[0];
@@ -33,6 +34,17 @@ function Travel(){
    ...(type==="add_stop"?{label:stopTitle,location:stopPlace,day,kind}:{}),
    ...(type==="complete_stop"?{body:note}:{})}});
    await cache.invalidateQueries({queryKey:["travel-trips"]});setNote("");setStopTitle("");toast.success("Trip updated")
+  }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
+ }
+ async function inviteCharacter(){
+  if(!current)return;setBusy(true);try{const result=await invite({data:{id:current.id,character:companion}});
+   setInviteReply(result.reply);await cache.invalidateQueries({queryKey:["travel-trips"]});
+  }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
+ }
+ async function turn(stopId:string,day:number){
+  if(!current||!sceneText.trim())return;setBusy(true);try{const r=await scene({data:{id:current.id,stopId,day,text:sceneText,
+   ...(sceneCharacter?{character:sceneCharacter as "tess"|"maya"|"claire"|"jordan"|"ben"|"riley"}:{})}});
+   setSceneResult(r.body);setSceneText("");toast.success("Scene saved");
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
  const field="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm";
@@ -62,10 +74,17 @@ function Travel(){
  {current.status==="in_progress"&&<button className={btn} disabled={busy} onClick={()=>void action("finish")}>Finish trip</button>}
  {!["completed","cancelled"].includes(current.status)&&<button className={btn} disabled={busy} onClick={()=>void action("cancel")}>Cancel</button>}
  </div>
- <div><h3 className="font-semibold">Travel companions</h3><p className="text-sm text-muted-foreground">Companions must explicitly agree in character; planner actions cannot fabricate their consent. Character-linked invitations are still being integrated.</p>{current.companions.map(c=><p key={c.characterKey}>{c.characterKey} · {c.response}</p>)}</div>
+ <div><h3 className="font-semibold">Travel companions</h3><p className="text-sm text-muted-foreground">Characters decide for themselves if they want to travel with you. An invitation is never automatically accepted.</p>
+ {["idea","proposed"].includes(current.status)&&<div className="flex flex-wrap gap-2"><select className={field} aria-label="Invite character" value={companion} onChange={e=>setCompanion(e.target.value as typeof companion)}>{(["tess","maya","claire","jordan","ben","riley"] as const).map(c=><option key={c} value={c}>{c}</option>)}</select><button className={btn} disabled={busy} onClick={()=>void inviteCharacter()}>Ask character about trip</button></div>}
+ {inviteReply&&<p role="status" className="rounded-xl bg-muted p-3 text-sm">{inviteReply}</p>}{current.companions.map(c=><p key={c.characterKey}>{c.characterKey} · {c.response}</p>)}</div>
  <h3 className="font-semibold">Itinerary</h3>
  {[...current.itinerary].sort((a,b)=>a.day-b.day).map(s=><article key={s.id} className="space-y-2 rounded-xl border p-3"><p className="font-medium">Day {s.day} · {s.label} {s.completed?"✓":""}</p><p className="text-sm text-muted-foreground">{s.location} · {s.kind}</p>
- {current.status==="in_progress"&&!s.completed&&<div className="space-y-2"><textarea aria-label={"Experience notes for "+s.label} className={field} value={note} onChange={e=>setNote(e.target.value)} placeholder="What happened on this stop?"/><button className={btn} disabled={busy||!note.trim()} onClick={()=>void action("complete_stop",s.id)}>Save moment and complete stop</button></div>}</article>)}
+ {current.status==="in_progress"&&!s.completed&&<div className="space-y-2">
+ <label className="text-sm" htmlFor={"companion-"+s.id}>Travel scene companion</label><select id={"companion-"+s.id} className={field} value={sceneCharacter} onChange={e=>setSceneCharacter(e.target.value)}><option value="">Travel solo</option>{current.companions.filter(c=>c.response==="accepted").map(c=><option key={c.characterKey} value={c.characterKey}>{c.characterKey}</option>)}</select>
+ <textarea className={field} aria-label="Your action in travel scene" placeholder="What do you do or say?" value={sceneText} onChange={e=>setSceneText(e.target.value)}/>
+ <button className={btn} disabled={busy||!sceneText.trim()} onClick={()=>void turn(s.id,s.day)}>Play next scene</button>
+ {sceneResult&&<p role="status" className="whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm">{sceneResult}</p>}
+ <textarea aria-label={"Experience notes for "+s.label} className={field} value={note} onChange={e=>setNote(e.target.value)} placeholder="What happened on this stop?"/><button className={btn} disabled={busy||!note.trim()} onClick={()=>void action("complete_stop",s.id)}>Save moment and complete stop</button></div>}</article>)}
  {["idea","proposed","accepted","in_progress"].includes(current.status)&&<div className="space-y-2 rounded-xl bg-muted/40 p-3"><p className="font-semibold">Add a stop</p><div className="grid grid-cols-2 gap-2"><input className={field} aria-label="Stop name" placeholder="Activity" value={stopTitle} onChange={e=>setStopTitle(e.target.value)}/><input className={field} aria-label="Stop location" placeholder="Place" value={stopPlace} onChange={e=>setStopPlace(e.target.value)}/><input className={field} type="number" min={1} max={90} aria-label="Trip day" value={day} onChange={e=>setDay(Number(e.target.value))}/><select className={field} aria-label="Stop category" value={kind} onChange={e=>setKind(e.target.value as typeof kind)}>{kinds.map(k=><option key={k}>{k}</option>)}</select></div><button className={btn} disabled={busy||!stopTitle.trim()||!stopPlace.trim()} onClick={()=>void action("add_stop")}>Add itinerary stop</button></div>}
  </section>}
  </main></Screen>;
