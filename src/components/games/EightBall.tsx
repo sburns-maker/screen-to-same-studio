@@ -63,6 +63,7 @@ export function EightBall(){
         const target=targets.sort((a,b)=>Math.hypot(a.x-cue.x,a.y-cue.y)-Math.hypot(b.x-cue.x,b.y-cue.y))[0];
         if(!target)return;
         const dx=target.x-cue.x,dy=target.y-cue.y,dist=Math.hypot(dx,dy)||1;
+        rules.current={...rules.current,calledBall:rules.current.breakShot?null:target.number,calledPocket:rules.current.breakShot?null:POCKETS.reduce((best,p,i)=>Math.hypot(p[0]-target.x,p[1]-target.y)<Math.hypot(POCKETS[best][0]-target.x,POCKETS[best][1]-target.y)?i:best,0),safety:false};
         before.current=balls.current.filter(b=>b.active&&b.number>0).map(b=>b.number);
         events.current={firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0};
         cue.vx=(dx/dist)*7.8;cue.vy=(dy/dist)*7.8;setRunning(true);setMessage("Opponent shoots…");
