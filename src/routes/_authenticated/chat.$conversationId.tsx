@@ -337,11 +337,9 @@ function Chat() {
               <DropdownMenuItem asChild>
                 <Link to="/debrief/$conversationId" params={{ conversationId }}>Practice tools</Link>
               </DropdownMenuItem>
-              {conv.data?.show_sim_data && (
-                <DropdownMenuItem asChild>
-                  <Link to="/debug/$conversationId" params={{ conversationId }}>Simulation data</Link>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem asChild>
+                <Link to="/debug/$conversationId" params={{ conversationId }}>Simulation debug</Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
