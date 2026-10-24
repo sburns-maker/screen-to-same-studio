@@ -146,7 +146,7 @@ function Debug() {
         </nav>
         {activeTab === "world" && <Link to="/world" className="mb-4 flex items-center justify-between rounded-2xl bg-surface px-4 py-3 text-[15px]">
           Living world timeline <span className="text-xs text-muted-foreground">events · jobs · push</span>
-        </Link>
+        </Link>}
         {activeTab === "mind" && snap && <section className="rounded-2xl bg-surface p-4" aria-label="Simulation overview"><div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">At a glance</div><div className="mt-2 text-lg font-semibold">{snap.stage}</div><p className="text-sm text-muted-foreground mt-1">Currently {snap.schedule.activity} · {snap.schedule.availability} · Real-Time {snap.realTimeMode ? "on" : "off"}</p><div className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><span className="text-muted-foreground">Messages</span><div className="font-medium">{snap.initiation.eligible ? "Can initiate" : "Waiting"}</div></div><div><span className="text-muted-foreground">Photos</span><div className="font-medium">{snap.photo.eligible ? "Eligible" : "Not eligible"}</div></div></div>{!snap.photo.eligible && <p className="mt-2 text-xs text-muted-foreground">Photo: {snap.photo.reason}</p>}</section>}
         {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Living Experiences" collapsible><LivingExperiencesDebug conversationId={conversationId}/></Section>}
         {activeTab === "social" && snap?.photoDeveloperTools&&<Section title="Calls" collapsible><CallsDebug conversationId={conversationId}/></Section>}
@@ -202,7 +202,7 @@ function Debug() {
                   ))}
                 </div>
               )}
-            </div>
+            </div>}
 
             {activeTab === "mind" && <div className="mt-4 space-y-2.5 rounded-2xl bg-surface p-4">
               {STATE_KEYS.map((k) => {
@@ -221,7 +221,7 @@ function Debug() {
                   </div>
                 );
               })}
-            </div>
+            </div>}
 
             {activeTab === "mind" && snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
               <p className="text-xs text-muted-foreground">Developer diagnostic, not hidden thoughts. These are the engine's saved relationship variables and observed response tags, not a private monologue or proof of why a gesture happened.</p>
@@ -257,7 +257,7 @@ function Debug() {
                 v={snap.weather ? `${snap.weather.condition}, ${snap.weather.temperature_f}°F, wind ${snap.weather.wind_mph}mph (${snap.weather.weather_region})` : "unavailable"}
               />
               {snap.weatherFlavor && <KV k="weather flavor" v={snap.weatherFlavor} />}
-            </Section>
+            </Section>}
 
             {activeTab === "social" && <Section title="Initiation">
               <KV k="gap since last msg" v={`${snap.gapHours}h`} />
@@ -266,7 +266,7 @@ function Debug() {
               <KV k="chance this check" v={`${Math.round(snap.initiation.chance * 100)}%`} />
               {snap.initiation.nextWindowHours != null && <KV k="next window" v={`in ~${snap.initiation.nextWindowHours.toFixed(1)}h`} />}
               <KV k="last initiated" v={snap.initiation.lastInitiatedAt ? new Date(snap.initiation.lastInitiatedAt).toLocaleString() : "never"} />
-              {snap.initiation.lastCheck?.initiated === true && typeof snap.initiation.lastCheck.at === "string" && (!snap.initiation.lastInitiatedAt || Date.parse(snap.initiation.lastInitiatedAt) < Date.parse(snap.initiation.lastCheck.at)) && (
+              {snap.initiation.lastCheck?.["initiated"] === true && typeof snap.initiation.lastCheck["at"] === "string" && (!snap.initiation.lastInitiatedAt || Date.parse(snap.initiation.lastInitiatedAt) < Date.parse(snap.initiation.lastCheck["at"])) && (
                 <p role="status" className="mt-2 rounded-lg border p-2 text-xs">The latest initiation check selected an attempt, but there is no newer successful initiation timestamp. This is not proof that a message was delivered. Check pending visibility, generation limits and worker results before concluding that the character ignored you.</p>
               )}
               <div className="mt-2 border-t pt-2">
@@ -280,18 +280,18 @@ function Debug() {
               {!!snap.initiation.lastCheck && (
                 <details className="mt-2 border-t pt-2 text-xs text-muted-foreground"><summary className="cursor-pointer">Last initiation check · technical data</summary><pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap font-mono text-[11px]">{JSON.stringify(snap.initiation.lastCheck, null, 2)}</pre></details>
               )}
-            </Section>
+            </Section>}
 
             {activeTab === "photos" && <Section title="Photo eligibility">
               <KV k="eligible" v={snap.photo.eligible ? "yes" : "no"} />
               <KV k="why" v={snap.photo.reason} />
               <KV k="curated available" v={snap.photo.curatedCount} />
               <KV k="generated types" v={snap.photo.generatedTypes.join(", ") || "none"} />
-            </Section>
+            </Section>}
 
             {activeTab === "technical" && <Section title="Last response delay">
               <p className="font-mono text-xs text-muted-foreground">{snap.latencyReason ?? "—"}</p>
-            </Section>
+            </Section>}
 
             {activeTab === "mind" && <Section title="Recent memories" collapsible>
               {(snap.recentMemories ?? []).length === 0 && <p className="text-sm text-muted-foreground">Nothing saved yet.</p>}
@@ -308,7 +308,7 @@ function Debug() {
                   </li>
                 ))}
               </ul>
-            </Section>
+            </Section>}
           </>
         )}
       </Screen>
