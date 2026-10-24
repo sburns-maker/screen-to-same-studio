@@ -1,7 +1,8 @@
+import { calendarStatus } from "@/lib/calendar-view";
 import { Link } from "@tanstack/react-router";
-import { useInteractiveWorld } from "@/lib/use-interactive-world";
+import { useSchedule } from "@/lib/use-schedule";
 export function ConversationPlans({ conversationId }: { conversationId: string }) {
-  const q = useInteractiveWorld();
+  const q = useSchedule();
   if (q.error)
     return (
       <Link to="/plans" className="mx-auto w-full max-w-xl px-3 py-2 text-xs underline">
@@ -9,7 +10,7 @@ export function ConversationPlans({ conversationId }: { conversationId: string }
       </Link>
     );
   if (!q.data?.available) return null;
-  const plans = q.data.plans
+  const plans = q.data.events
     .filter(
       (p) =>
         p.conversation_id === conversationId &&
@@ -29,7 +30,7 @@ export function ConversationPlans({ conversationId }: { conversationId: string }
           hash={`plan-${p.id}`}
           className="shrink-0 rounded-full border bg-surface px-3 py-2 text-xs"
         >
-          {p.title} · {p.status.replaceAll("_", " ")}
+          {p.title} · {calendarStatus(p)}
           {p.missing_details.length ? " · details needed" : ""}
         </Link>
       ))}

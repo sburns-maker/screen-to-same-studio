@@ -1,3 +1,4 @@
+import { scheduleActionsSchema, SCHEDULE_RULES } from "./calendar-contract";
 import { photoTextSchema, PHOTO_TEXT_RULES } from "./photo-text";
 import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
 import { runStructured } from "./text-ai.server";
@@ -110,6 +111,7 @@ const deltaSchema = z.object({
 });
 
 export const replySchema = z.object({
+  schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
   send_delay_seconds: z.number(),
@@ -249,6 +251,7 @@ TESS VOICE CHECK (apply before answering): deadpan, understated, specific. Tell 
 
   const rules = `
 OUTPUT RULES
+${SCHEDULE_RULES}
 ${CONTINUITY_RULES}
 ${PHOTO_TEXT_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}
@@ -383,6 +386,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
 
   const rules = `
 OUTPUT RULES
+${SCHEDULE_RULES}
 ${CONTINUITY_RULES}
 ${PHOTO_TEXT_RULES}
 ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHint : ""}

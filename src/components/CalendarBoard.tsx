@@ -1,41 +1,58 @@
-import { ExperienceEntry } from "./ExperienceEntry";
-import { Calendar } from "./ui/calendar";
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { listTravelTrips } from "@/lib/travel.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useInteractiveWorld } from "@/lib/use-interactive-world";
+import { Calendar } from "./ui/calendar";
+import { ExperienceEntry } from "./ExperienceEntry";
+import { useSchedule, invalidateSchedule } from "@/lib/use-schedule";
 import { respondToCalendarPlan } from "@/lib/interactive-world.functions";
-import { placeByKey } from "@/lib/place-registry";
+import { createPlanDraft } from "@/lib/scheduling.functions";
+import { PLACE_REGISTRY } from "@/lib/place-registry";
 import { easternDate } from "@/lib/calendar-logic";
+import { calendarWeek, eventDay, eventTime, calendarStatus } from "@/lib/calendar-view";
 import { card } from "./TownLayout";
+const views = [
+  ["upcoming", "Upcoming"],
+  ["invitations", "Invitations"],
+  ["active", "Active"],
+  ["completed", "Recent history"],
+] as const;
 export function CalendarBoard() {
-  const travelList=useServerFn(listTravelTrips),
-    travel=useQuery({queryKey:["travel-trips"],queryFn:()=>travelList()}),
-    q = useInteractiveWorld(),
+  const q = useSchedule(),
     respond = useServerFn(respondToCalendarPlan),
+    create = useServerFn(createPlanDraft),
     cache = useQueryClient(),
     navigate = useNavigate();
-  const pendingIds = useRef(new Map<string, string>());
-  const [busy, setBusy] = useState(false),
+  const [mode, setMode] = useState<"month" | "week" | "agenda">("month"),
+    [filter, setFilter] = useState("upcoming"),
     [day, setDay] = useState(""),
-    [view, setView] = useState("all");
+    [selected, setSelected] = useState(""),
+    [busy, setBusy] = useState(false),
+    [manual, setManual] = useState(false);
+  const [contact, setContact] = useState(""),
+    [title, setTitle] = useState("Coffee together"),
+    [category, setCategory] = useState("coffee"),
+    [date, setDate] = useState(""),
+    [time, setTime] = useState(""),
+    [place, setPlace] = useState(""),
+    [duration, setDuration] = useState(60);
+  const pending = useRef(new Map<string, string>());
+  function actionId(key: string) {
+    const id = pending.current.get(key) ?? crypto.randomUUID();
+    pending.current.set(key, id);
+    return id;
+  }
   async function act(
     planId: string,
-    action: "accept" | "decline" | "cancel" | "details" | "reschedule",
+    action: "accept" | "decline" | "cancel" | "reschedule" | "details",
   ) {
     setBusy(true);
-    const key = JSON.stringify([planId, action]);
-    const id = pendingIds.current.get(key) ?? crypto.randomUUID();
-    pendingIds.current.set(key, id);
+    const key = planId + action;
     try {
-      const r = await respond({ data: { id, planId, action } });
-      pendingIds.current.delete(key);
-      await cache.invalidateQueries({ queryKey: ["interactive-world"] });
-      await cache.invalidateQueries({ queryKey: ["messages", r.conversationId] });
+      const r = await respond({ data: { id: actionId(key), planId, action } });
+      pending.current.delete(key);
+      await invalidateSchedule(cache);
       await navigate({ to: "/chat/$conversationId", params: { conversationId: r.conversationId } });
     } catch (e) {
       toast.error((e as Error).message);
@@ -43,244 +60,458 @@ export function CalendarBoard() {
       setBusy(false);
     }
   }
-  if (q.isLoading) return <p role="status">Checking conversation invitations…</p>;
+  async function draft(ev: React.FormEvent) {
+    ev.preventDefault();
+    setBusy(true);
+    const key = JSON.stringify([contact, title, date, time, place, duration]);
+    try {
+      const r = await create({
+        data: {
+          id: actionId(key),
+          conversationId: contact,
+          plan: {
+            action: "invite",
+            planId: null,
+            parentPlanId: null,
+            title,
+            description: null,
+            category: category as "coffee" | "dinner" | "walk" | "book_club" | "meetup",
+            date: date || null,
+            time: time || null,
+            timeHint: null,
+            timeZone: "America/New_York",
+            place: place || null,
+            durationMinutes: duration,
+            userQuote: null,
+          },
+        },
+      });
+      pending.current.delete(key);
+      setManual(false);
+      await invalidateSchedule(cache);
+      toast.success(
+        r.replyPending ? "Invitation saved; character reply is pending." : "Invitation saved.",
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (q.isLoading) return <p role="status">Loading your calendar…</p>;
   if (q.error)
     return (
-      <button className={`${card} mb-5 w-full text-left`} onClick={() => void q.refetch()}>
-        Calendar sync unavailable · Retry
-      </button>
+      <div className={card} role="alert">
+        <p>Calendar could not be loaded. Existing plans are safe.</p>
+        <button className="min-h-11 underline" onClick={() => void q.refetch()}>
+          Retry
+        </button>
+      </div>
     );
   if (!q.data?.available)
-    return (
-      <p className={`${card} mb-5 text-sm`}>
-        Conversation invitations and venue activities require reviewed migration 0019. Existing
-        gatherings remain below.
-      </p>
-    );
-  const plans = q.data.plans.filter(
-    (p) =>
-      (!day || p.date_local === day) &&
-      (view === "all" ||
-        (view === "upcoming" && ["accepted", "in_progress"].includes(p.status)) ||
-        (view === "attention" &&
-          ["proposed", "awaiting_details", "rescheduled"].includes(p.status)) ||
-        (view === "history" &&
-          ["completed", "missed", "cancelled", "declined"].includes(p.status))),
+    return <p className={card}>Calendar setup requires reviewed migration 0019.</p>;
+  const events = q.data.events,
+    today = easternDate(new Date()),
+    week = calendarWeek(day || today);
+  const sorted = [...events].sort((a, b) =>
+    String(a.starts_at ?? "9999").localeCompare(String(b.starts_at ?? "9999")),
   );
-  const travelPlans=(travel.data??[]).filter(t=>t.startDate&&t.status!=="cancelled"&&(!day||t.startDate<=day&&(t.endDate??t.startDate)>=day)&& (view==="all" || view==="history"&&t.status==="completed" || view==="upcoming"&&["accepted","in_progress"].includes(t.status) || view==="attention"&&["idea","proposed"].includes(t.status)));
-  const dates = [
-    ...new Set([...q.data.plans.flatMap((p) => (p.date_local ? [p.date_local] : [])),...(travel.data??[]).flatMap(t=>t.startDate?[t.startDate]:[])]),
-  ].sort();
+  const shown = sorted.filter(
+    (e) =>
+      (!day || eventDay(e) === day) &&
+      (filter === "invitations"
+        ? ["proposed", "awaiting_details", "rescheduled"].includes(e.status)
+        : filter === "active"
+          ? ["interactive", "paused"].includes(e.experience?.state ?? "") ||
+            e.status === "in_progress"
+          : filter === "completed"
+            ? ["completed", "cancelled", "declined", "missed"].includes(e.status)
+            : !["completed", "cancelled", "declined", "missed"].includes(e.status)),
+  );
   return (
-    <section className="mb-8 space-y-4" aria-label="Conversation calendar">
+    <section aria-label="Social calendar" className="mb-8 space-y-4">
       <div className={`${card} space-y-3`}>
-        <h2 className="font-display text-2xl">Your social calendar</h2>
-        <p className="text-xs text-muted-foreground">
-          America/New_York · plans are not proof of attendance. Duration uses a clearly estimated
-          one-hour planning window unless stated otherwise.
-        </p>
-        <div className="flex gap-2 overflow-x-auto" aria-label="Plan filters">
-          {[
-            ["all", "All"],
-            ["upcoming", "Upcoming"],
-            ["attention", "Needs attention"],
-            ["history", "History"],
-          ].map(([key, label]) => (
-            <button
-              key={key}
-              aria-pressed={view === key}
-              onClick={() => setView(key!)}
-              className={`min-h-11 shrink-0 rounded-full border px-3 text-xs ${view === key ? "bg-primary text-primary-foreground" : ""}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <Calendar
-          mode="single"
-          timeZone="America/New_York"
-          selected={day ? new Date(`${day}T12:00:00-04:00`) : undefined}
-          onSelect={(d) => setDay(d ? easternDate(d) : "")}
-          modifiers={{
-            planned: [...q.data.plans.flatMap((p) => p.date_local ? [new Date(`${p.date_local}T12:00:00Z`)] : []),...(travel.data??[]).flatMap(t=>t.startDate?[new Date(`${t.startDate}T12:00:00Z`)]:[])],
-          }}
-          modifiersClassNames={{
-            planned: "font-bold underline decoration-primary underline-offset-4",
-          }}
-          className="mx-auto rounded-2xl border"
-        />
-        <label className="block text-sm">
-          Filter by day
-          <input
-            type="date"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-            className="ml-3 rounded-lg border bg-background p-2"
-          />
-        </label>
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-2xl">Your calendar</h2>
+            <p className="text-xs text-muted-foreground">World time · America/New_York</p>
+          </div>
           <button
-            onClick={() => setDay("")}
-            className="shrink-0 rounded-full border px-3 py-2 text-xs"
+            disabled={!q.data.structured}
+            onClick={() => setManual(!manual)}
+            className="min-h-11 rounded-full border px-4 text-sm"
           >
-            All plans
+            New invitation
           </button>
-          {dates.map((d) => (
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Make plans naturally in Messages or during an outing. Mutual agreement confirms them here.
+          A plan is not evidence that it happened.
+        </p>
+        <div className="flex gap-2" aria-label="Calendar views">
+          {(["month", "week", "agenda"] as const).map((v) => (
             <button
-              key={d}
-              onClick={() => setDay(d)}
-              className="shrink-0 rounded-full border px-3 py-2 text-xs"
+              key={v}
+              aria-pressed={mode === v}
+              onClick={() => setMode(v)}
+              className={`min-h-11 rounded-full border px-4 text-sm capitalize ${mode === v ? "bg-primary text-primary-foreground" : ""}`}
             >
-              {d}
+              {v}
             </button>
           ))}
         </div>
+        {mode === "month" && (
+          <Calendar
+            mode="single"
+            timeZone="America/New_York"
+            selected={day ? new Date(day + "T12:00:00Z") : undefined}
+            onSelect={(d) => setDay(d ? easternDate(d) : "")}
+            modifiers={{
+              planned: events.flatMap((e) =>
+                eventDay(e) ? [new Date(eventDay(e) + "T12:00:00Z")] : [],
+              ),
+            }}
+            modifiersClassNames={{
+              planned: "font-bold underline decoration-primary underline-offset-4",
+            }}
+          />
+        )}
+        {mode === "week" && (
+          <>
+            <div className="flex justify-between">
+              <button
+                className="min-h-11 underline"
+                onClick={() =>
+                  setDay(
+                    new Date(Date.parse(week[0]! + "T12:00Z") - 7 * 86400000)
+                      .toISOString()
+                      .slice(0, 10),
+                  )
+                }
+              >
+                Previous week
+              </button>
+              <button
+                className="min-h-11 underline"
+                onClick={() =>
+                  setDay(
+                    new Date(Date.parse(week[0]! + "T12:00Z") + 7 * 86400000)
+                      .toISOString()
+                      .slice(0, 10),
+                  )
+                }
+              >
+                Next week
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <div className="grid min-w-[630px] grid-cols-7 gap-2" aria-label="Weekly calendar">
+                {week.map((d) => (
+                  <div key={d} className="min-h-32 rounded-xl border p-2">
+                    <button
+                      aria-pressed={day === d}
+                      onClick={() => setDay(d)}
+                      className="min-h-11 text-xs font-medium"
+                    >
+                      {new Date(d + "T12:00Z").toLocaleDateString("en-US", {
+                        timeZone: "America/New_York",
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </button>
+                    {sorted
+                      .filter((e) => eventDay(e) === d)
+                      .map((e) => (
+                        <button
+                          key={e.id}
+                          onClick={() => {
+                            setDay(d);
+                            setSelected(e.id);
+                          }}
+                          className="mb-2 block w-full rounded-lg bg-primary/10 p-2 text-left text-xs"
+                        >
+                          <strong className="block">{e.title}</strong>
+                          {eventTime(e)}
+                        </button>
+                      ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        {day && (
+          <button className="min-h-11 text-sm underline" onClick={() => setDay("")}>
+            Clear day filter · {day}
+          </button>
+        )}
       </div>
-      {travelPlans.map(t=><article key={t.id} className={`${card} space-y-2`}><h3 className="font-display text-xl">{t.title}</h3><p className="text-sm">{t.startDate} · {t.destination} · {t.status}</p><p className="text-sm">{t.companions.length?t.companions.map(c=>`${c.characterKey}: ${c.response}`).join(" · "):"Solo trip"}</p><p className="text-xs text-muted-foreground">Travel itinerary · fictional plans, not tickets or reservations</p><Link to="/travel" className="text-sm underline">Open trip and invitations →</Link></article>)}
-      {!plans.length && !travelPlans.length && (
-        <p className="text-sm text-muted-foreground">
-          No conversation plans in this view. A clear new invitation will appear automatically.
+      {manual && (
+        <form
+          onSubmit={(ev) => void draft(ev)}
+          className={`${card} grid gap-3 sm:grid-cols-2`}
+          aria-label="New calendar invitation"
+        >
+          <label className="text-sm">
+            Contact
+            <select
+              required
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            >
+              <option value="">Choose a contact</option>
+              {q.data.contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Activity
+            <input
+              required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              maxLength={120}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            />
+          </label>
+          <label className="text-sm">
+            Type
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            >
+              {["coffee", "dinner", "walk", "book_club", "meetup"].map((c) => (
+                <option key={c} value={c}>
+                  {c.replace("_", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Date
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            />
+          </label>
+          <label className="text-sm">
+            Time · Eastern
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            />
+          </label>
+          <label className="text-sm">
+            Place
+            <select
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            >
+              <option value="">Undecided</option>
+              {PLACE_REGISTRY.filter((p) => p.public).map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Duration · minutes
+            <input
+              type="number"
+              min={15}
+              max={360}
+              step={15}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
+            />
+          </label>
+          <button
+            disabled={busy || !contact}
+            className="min-h-11 rounded-full bg-primary px-4 text-primary-foreground"
+          >
+            Send invitation
+          </button>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            Inviting someone does not assume their acceptance. Missing details remain pending.
+          </p>
+        </form>
+      )}
+      <div className="flex gap-2 overflow-x-auto" aria-label="Agenda filters">
+        {views.map(([v, label]) => (
+          <button
+            key={v}
+            aria-pressed={filter === v}
+            onClick={() => setFilter(v)}
+            className={`min-h-11 shrink-0 rounded-full border px-4 text-sm ${filter === v ? "bg-primary text-primary-foreground" : ""}`}
+          >
+            {label}
+            <span className="sr-only"> events</span>
+          </button>
+        ))}
+      </div>
+      {!shown.length && (
+        <p className="rounded-2xl border p-5 text-sm text-muted-foreground">
+          No {filter === "upcoming" ? "upcoming plans" : filter} for this view. Your saved history
+          is preserved.
         </p>
       )}
-      {plans.map((p) => {
-        const place = placeByKey(p.place_key),
-          terminal = ["completed", "missed", "cancelled", "declined"].includes(p.status);
+      {shown.map((e) => {
+        const active = ["interactive", "paused", "auto_running"].includes(
+          e.experience?.state ?? "",
+        );
         return (
-          <article id={`plan-${p.id}`} key={p.id} className={`${card} space-y-3`}>
+          <article
+            key={e.id}
+            className={`${card} space-y-3`}
+            id={`plan-${e.id}`}
+            data-event-id={e.id}
+          >
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-display text-2xl">{p.title}</h3>
+              <button
+                onClick={() => setSelected(selected === e.id ? "" : e.id)}
+                className="min-h-11 text-left font-display text-xl"
+              >
+                {e.title}
+              </button>
               <span className="rounded-full bg-primary/10 px-3 py-1 text-xs">
-                {p.status.replaceAll("_", " ")}
+                {calendarStatus(e)}
               </span>
             </div>
-            <ExperienceEntry planId={p.id} />
             <p className="text-sm">
-              {p.date_local ?? "Date undecided"} · {p.time_local ?? "Time undecided"} Eastern ·{" "}
-              {place?.label ?? "Venue undecided"}
+              {eventDay(e) ?? "Date undecided"} · {eventTime(e)} · {e.venueLabel}
             </p>
-            <p className="text-xs text-muted-foreground">
-              With {p.organizer} · You: {p.user_response} · {p.organizer}: {p.character_response} ·
-              Attendance: {p.user_attendance.replaceAll("_", " ")}
+            <p className="text-sm text-muted-foreground">
+              {e.participants.map((p) => p.name).join(" · ")}
             </p>
-            {!!p.missing_details.length && (
+            {e.parent_plan_id && (
+              <p className="text-xs text-muted-foreground">
+                Continues{" "}
+                {events.find((p) => p.id === e.parent_plan_id)?.title ?? "an earlier outing"}
+                {e.time_hint === "after_parent" ? " · starts after that outing and travel" : ""}
+              </p>
+            )}
+            {e.missing_details.length > 0 && (
               <p className="rounded-xl bg-muted p-3 text-sm">
-                Still needed: {p.missing_details.join(", ")}
+                Still needed: {e.missing_details.join(", ")}
+                {e.time_hint && e.time_hint !== "after_parent" ? ` (${e.time_hint})` : ""}
               </p>
             )}
-            {!!p.conflicts.length && (
-              <p role="status" className="rounded-xl border border-amber-500/50 p-3 text-sm">
-                Not confirmed:{" "}
-                {p.conflicts
+            {e.conflicts.length > 0 && (
+              <p role="status" className="rounded-xl border border-amber-500/40 p-3 text-sm">
+                Scheduling conflict:{" "}
+                {e.conflicts
                   .map((c) =>
-                    c === "character_schedule_or_venue_hours"
-                      ? "The character or venue is unavailable at that time"
-                      : c === "calendar_or_travel_overlap"
-                        ? "Another commitment overlaps, including travel time"
-                        : "The timing needs review",
+                    c === "calendar_or_travel_overlap"
+                      ? "Another confirmed plan or travel overlaps this time."
+                      : "Character availability or venue hours need another time.",
                   )
-                  .join("; ")}
-                . Discuss a different time; existing commitments have not changed.
+                  .join(" ")}
               </p>
             )}
-            {place && (
-              <div className="text-xs text-muted-foreground">
-                {place.address ??
-                  "No verified street address. Use the fictional virtual map meeting point."}
+            {selected === e.id && (
+              <div className="space-y-2 border-t pt-3 text-sm">
+                <p>{e.description || "Details come from your conversation and shared plans."}</p>
+                <p>
+                  Planned duration: {e.duration_minutes} minutes · {e.time_zone}
+                </p>
+                <ul>
+                  {e.participants.map((p) => (
+                    <li key={p.key}>
+                      {p.name}: {p.response}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground">
+                  Attendance: {e.user_attendance.replaceAll("_", " ")}. Event {e.id}
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {e.conversation_id && (
+                <>
+                  <Link
+                    to="/chat/$conversationId"
+                    params={{ conversationId: e.conversation_id }}
+                    className="min-h-11 rounded-full border px-4 py-3 text-sm"
+                  >
+                    Conversation
+                  </Link>
+                  {!active &&
+                    !["completed", "cancelled", "declined", "missed"].includes(e.status) && (
+                      <>
+                        {e.user_response !== "accepted" && (
+                          <button
+                            disabled={busy}
+                            onClick={() => void act(e.id, "accept")}
+                            className="min-h-11 rounded-full border px-4 text-sm"
+                          >
+                            Accept
+                          </button>
+                        )}
+                        {["proposed", "awaiting_details", "rescheduled"].includes(e.status) && (
+                          <button
+                            disabled={busy}
+                            onClick={() => void act(e.id, "decline")}
+                            className="min-h-11 rounded-full border px-4 text-sm"
+                          >
+                            Decline
+                          </button>
+                        )}
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e.id, "details")}
+                          className="min-h-11 rounded-full border px-4 text-sm"
+                        >
+                          Request details
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e.id, "reschedule")}
+                          className="min-h-11 rounded-full border px-4 text-sm"
+                        >
+                          Reschedule
+                        </button>
+                        <button
+                          disabled={busy}
+                          onClick={() => void act(e.id, "cancel")}
+                          className="min-h-11 rounded-full border px-4 text-sm"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                </>
+              )}
+              {e.place_key && (
                 <Link
                   to="/place/$placeKey"
-                  params={{ placeKey: place.key }}
-                  className="mt-2 block text-sm text-primary underline"
+                  params={{ placeKey: e.place_key }}
+                  className="min-h-11 rounded-full border px-4 py-3 text-sm"
                 >
-                  {["accepted", "in_progress"].includes(p.status)
-                    ? "View destination and travel"
-                    : "View proposed destination"}
+                  View venue / travel
                 </Link>
-              </div>
-            )}
-            {p.conversation_id && (
-              <Link
-                to="/chat/$conversationId"
-                params={{ conversationId: p.conversation_id }}
-                className="block text-sm underline"
-              >
-                Open related conversation
-              </Link>
-            )}
-            {!terminal && (
-              <div className="flex flex-wrap gap-2">
-                {p.user_response !== "accepted" && (
-                  <button
-                    disabled={busy}
-                    onClick={() => void act(p.id, "accept")}
-                    className="rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
-                  >
-                    Accept invitation
-                  </button>
-                )}
-                <button
-                  disabled={busy}
-                  onClick={() => void act(p.id, "details")}
-                  className="rounded-full border px-4 py-2 text-sm"
-                >
-                  Ask for details
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => void act(p.id, "reschedule")}
-                  className="rounded-full border px-4 py-2 text-sm"
-                >
-                  Discuss a change
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() =>
-                    void act(p.id, p.user_response === "accepted" ? "cancel" : "decline")
-                  }
-                  className="rounded-full border px-4 py-2 text-sm"
-                >
-                  {p.user_response === "accepted" ? "Cancel" : "Decline"}
-                </button>
-              </div>
-            )}
-            <details className="text-xs text-muted-foreground">
-              <summary>Event history & follow-through</summary>
-              <p className="mt-2">
-                {p.followthrough &&
-                typeof p.followthrough === "object" &&
-                !Array.isArray(p.followthrough) &&
-                p.followthrough["kind"] === "host_unavailable"
-                  ? "Host confirmation is unavailable. Discuss a known public venue instead."
-                  : p.place_key
-                    ? "A virtual destination is available; a verified street address has not been supplied."
-                    : "Venue details remain undecided."}
+              )}
+            </div>
+            {e.origin === "conversation" && <ExperienceEntry planId={e.id} />}
+            {active && (
+              <p className="text-xs text-muted-foreground">
+                Your experience is protected. Resolve it in the experience screen before changing
+                the outing.
               </p>
-              {q
-                .data!.transitions.filter((t) => t.plan_id === p.id)
-                .map((t, i) => (
-                  <p key={i} className="mt-1">
-                    {new Date(t.created_at).toLocaleString("en-US", {
-                      timeZone: "America/New_York",
-                    })}
-                    : {t.from_status} → {t.to_status} ·{" "}
-                    {(
-                      {
-                        invite: "Invitation proposed",
-                        accept: "Invitation accepted",
-                        details: "Meeting details updated",
-                        reschedule: "A new time was proposed",
-                        cancel: "Plan canceled",
-                        decline: "Invitation declined",
-                        explicit_participation_and_departure:
-                          "Participation and departure recorded",
-                        elapsed_without_recorded_attendance:
-                          "No attendance was recorded before the event ended",
-                        scheduled_character_arrival_user_not_assumed:
-                          "The character arrived for the accepted event",
-                      } as Record<string, string>
-                    )[t.reason] ?? "Plan updated"}
-                  </p>
-                ))}
-            </details>
+            )}
           </article>
         );
       })}

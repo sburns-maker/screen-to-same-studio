@@ -1,3 +1,4 @@
+import { invalidateSchedule } from "@/lib/use-schedule";
 import { CallButton } from "@/components/CallButton";
 import { fictionalNumber } from "@/lib/phone-calls";
 import { ConversationPlans } from "@/components/ConversationPlans";
@@ -121,6 +122,7 @@ function Chat() {
     try {
       await respond({ data: { conversationId, tz: userTz() } });
       await refetch();
+      await invalidateSchedule(qc);
       setNow(Date.now());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't reply right now");
@@ -132,7 +134,7 @@ function Chat() {
         void runRespond();
       }
     }
-  }, [respond, refetch, conversationId]);
+  }, [respond, refetch, conversationId, qc]);
 
   // Opening a thread whose last message is the user's (unanswered) triggers a reply.
   const checkedOrphan = useRef(false);

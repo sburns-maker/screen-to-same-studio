@@ -1,3 +1,4 @@
+import { zonedInstant } from "./calendar-time";
 import type { Json } from "@/integrations/supabase/types";
 import { venueFromText } from "./place-registry";
 export type CalendarEvidence = {
@@ -34,6 +35,10 @@ export type CalendarPlan = {
   duration_minutes: number;
   user_attendance: string;
   created_at: string;
+  parent_plan_id?: string | null;
+  time_zone?: string;
+  description?: string;
+  time_hint?: string | null;
 };
 export type CalendarPatch = {
   action: "invite" | "accept" | "decline" | "cancel" | "details" | "reschedule" | "none";
@@ -45,6 +50,10 @@ export type CalendarPatch = {
   place?: string;
   followthrough?: string;
   reason?: string;
+  parentPlanId?: string;
+  timeHint?: string;
+  durationMinutes?: number;
+  timeZone?: string;
 };
 export function easternDate(at: Date) {
   return new Intl.DateTimeFormat("en-CA", {
@@ -114,41 +123,30 @@ export function resolveTime(text: string, knownEveningPlan = false) {
   // A conversation about dinner tonight often says "8:15" or "815" without PM.
   // Only infer evening when the evidence itself explicitly provides that context.
   const evening = knownEveningPlan || /\b(?:tonight|this evening|dinner|supper)\b/i.test(text);
-  const short = /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to|(?:time\s+is))\s+(1[0-2]|[1-9])(?::([0-5]\d))?\b/i.exec(text);
+  const short =
+    /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to|(?:time\s+is))\s+(1[0-2]|[1-9])(?::([0-5]\d))?\b/i.exec(
+      text,
+    );
   if (evening && short) {
-    const hour = Number(short[1]) % 12 + 12;
+    const hour = (Number(short[1]) % 12) + 12;
     return `${String(hour).padStart(2, "0")}:${short[2] ?? "00"}`;
   }
-  const compact = /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to)\s+(1[0-2]|[1-9])([0-5]\d)\b/i.exec(text);
+  const compact =
+    /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to)\s+(1[0-2]|[1-9])([0-5]\d)\b/i.exec(text);
   if (evening && compact) {
-    const hour = Number(compact[1]) % 12 + 12;
+    const hour = (Number(compact[1]) % 12) + 12;
     return `${String(hour).padStart(2, "0")}:${compact[2]}`;
   }
   return undefined;
 }
-/** Both offset candidates must be checked: ambiguous/nonexistent DST wall time stays unresolved. */
+/** Shared IANA conversion refuses nonexistent and ambiguous wall times. */
 export function easternInstant(date: string | null, time: string | null) {
-  if (!date || !time) return null;
-  const utc = Date.parse(`${date}T${time}:00Z`);
-  if (!Number.isFinite(utc)) return null;
-  const candidates = [4, 5]
-    .map((h) => new Date(utc + h * 3600000))
-    .filter(
-      (d) =>
-        easternDate(d) === date &&
-        new Intl.DateTimeFormat("en-GB", {
-          timeZone: "America/New_York",
-          hour: "2-digit",
-          minute: "2-digit",
-          hourCycle: "h23",
-        }).format(d) === time,
-    );
-  return candidates.length === 1 ? candidates[0]!.toISOString() : null;
+  return zonedInstant(date, time);
 }
-function category(text: string) {
+export function planCategory(text: string) {
   return /book\s*club/i.test(text)
     ? "book_club"
-    : /\b(?:lunch|dinner|restaurant)\b/i.test(text)
+    : /\b(?:lunch|dinner|restaurant|burgers?|supper|meal)\b/i.test(text)
       ? "dinner"
       : /\bcoffee\b/i.test(text)
         ? "coffee"
@@ -158,15 +156,37 @@ function category(text: string) {
             ? "meetup"
             : null;
 }
-export function resolveAfternoonTime(text:string,at:Date):string|undefined {
- const localHour=Number(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"}).format(at));
- if(localHour<12||localHour>=19)return undefined;
- const m=/\b(?:at|around|by)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|1[0-2]|[1-9])\b(?!\s*(?:am|pm|a\.m\.|p\.m\.))/i.exec(text);
- if(!m)return undefined;
- const names=["one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve"];
- const raw=m[1]!.toLowerCase();
- const hour=/^\d+$/.test(raw)?Number(raw):names.indexOf(raw)+1;
- return hour>=1&&hour<=11?String(hour+12).padStart(2,"0")+":00":undefined;
+export function resolveAfternoonTime(text: string, at: Date): string | undefined {
+  const localHour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      hourCycle: "h23",
+    }).format(at),
+  );
+  if (localHour < 12 || localHour >= 19) return undefined;
+  const m =
+    /\b(?:at|around|by)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|1[0-2]|[1-9])\b(?!\s*(?:am|pm|a\.m\.|p\.m\.))/i.exec(
+      text,
+    );
+  if (!m) return undefined;
+  const names = [
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+  ];
+  const raw = m[1]!.toLowerCase();
+  const hour = /^\d+$/.test(raw) ? Number(raw) : names.indexOf(raw) + 1;
+  return hour >= 1 && hour <= 11 ? String(hour + 12).padStart(2, "0") + ":00" : undefined;
 }
 export function recognizePlan(
   message: CalendarEvidence,
@@ -175,10 +195,27 @@ export function recognizePlan(
 ): CalendarPatch {
   const text = message.body.trim(),
     places = venueFromText(text),
-    cat = places.length===1 && places[0]?.kind==="park" && ["meetup",null].includes(category(text)) ? "walk" : category(text),
-    inferredTime = resolveAfternoonTime(text,new Date(message.created_at)),
-    time = resolveTime(text) ?? inferredTime,
-    date = resolveDate(text, new Date(message.created_at)) ?? (inferredTime && Number(inferredTime.slice(0,2)) > Number(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"}).format(new Date(message.created_at))) ? easternDate(new Date(message.created_at)) : undefined);
+    cat =
+      places.length === 1 &&
+      places[0]?.kind === "park" &&
+      ["meetup", null].includes(planCategory(text))
+        ? "walk"
+        : planCategory(text),
+    inferredTime = resolveAfternoonTime(text, new Date(message.created_at)),
+    time = resolveTime(text) ?? resolveDaytimePlanTime(text, cat) ?? inferredTime,
+    date =
+      resolveDate(text, new Date(message.created_at)) ??
+      (inferredTime &&
+      Number(inferredTime.slice(0, 2)) >
+        Number(
+          new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/New_York",
+            hour: "numeric",
+            hourCycle: "h23",
+          }).format(new Date(message.created_at)),
+        )
+        ? easternDate(new Date(message.created_at))
+        : undefined);
   const open = plans.filter(
     (p) =>
       p.conversation_id === message.conversation_id &&
@@ -186,23 +223,44 @@ export function recognizePlan(
   );
   const matching = cat ? open.filter((p) => p.category === cat) : [];
   const adjacent = open.filter((p) => (p.last_message_id ?? p.source_message_id) === previousId);
+  const parentId = (message.metadata as { experience_plan?: string } | null)?.experience_plan;
   const explicitId = (message.metadata as { calendar_plan?: string } | null)?.calendar_plan;
+  const extension =
+    !open.some((p) => p.id === explicitId && p.parent_plan_id === parentId) &&
+    !!parentId &&
+    !!cat &&
+    /\b(?:after(?:ward|wards| that| our| the| this)?|then|next|right now|immediately|grab.*(?:burger|dinner)|(?:burger|dinner).*after)\b/i.test(
+      text,
+    );
+
   // Prefer the closest active plan for this conversation; never revive completed outings.
-  const byRecency = [...open].sort((a,b)=>String(b.last_message_id===previousId).localeCompare(String(a.last_message_id===previousId)));
+  const byRecency = [...open].sort((a, b) =>
+    String(b.last_message_id === previousId).localeCompare(
+      String(a.last_message_id === previousId),
+    ),
+  );
   // Never fall back to another plan for an explicit but unowned/unknown plan id.
-  if (explicitId && !open.some(p=>p.id===explicitId)) return {action:"none",planId:null};
+  if (explicitId && !open.some((p) => p.id === explicitId)) return { action: "none", planId: null };
   const explicitTarget = explicitId ? open.find((p) => p.id === explicitId) : undefined;
+  const wantsMove = /\b(?:reschedule|move (?:it|our|the)|instead|another day)\b/i.test(text);
   const target =
     explicitTarget ??
     (matching.length >= 1
-      ? matching.find(p=>p.date_local===date) ?? matching.find(p=>p.status==="accepted") ?? matching[0]
+      ? (matching.find((p) => p.date_local === date) ??
+        matching.find((p) => p.status !== "accepted" && p.status !== "in_progress") ??
+        (date && matching.every((p) => p.date_local !== date) && !wantsMove
+          ? undefined
+          : matching[0]))
       : adjacent.length === 1
         ? adjacent[0]
         : open.length === 1 &&
             (date ||
               time ||
               places.length ||
-              /\b(?:move|moved|reschedule|change|switch|push|instead|at|around)\b.{0,35}\b(?:[1-9]|1[0-2]):[0-5]\d\b/i.test(text) ||
+              /\b(?:move|moved|reschedule|change|switch|push|instead|at|around)\b.{0,35}\b(?:[1-9]|1[0-2]):[0-5]\d\b/i.test(
+                text,
+              ) ||
+              /^no(?: thanks)?[.!]?$/i.test(text) ||
               /\b(?:address|meet me there|send.*time|venue|pick you up|confirm|what time|where)\b/i.test(
                 text,
               ))
@@ -210,14 +268,20 @@ export function recognizePlan(
           : undefined);
   const inviting =
     !!cat &&
-    (/\b(?:here['’]s my (?:revised )?(?:formal )?(?:offer|proposal)|my (?:revised )?(?:formal )?(?:offer|proposal))\b/i.test(text) ||
-    /\b(?:want to|would you like|come (?:along|with|to)|join me|let['’]s|shall we|can we|how about|what about|would you|invite you|meet me)\b/i.test(
-      text,
-    )) &&
+    (extension ||
+      (/\?\s*$/.test(text) && !!(date || time)) ||
+      /\b(?:here['’]s my (?:revised )?(?:formal )?(?:offer|proposal)|my (?:revised )?(?:formal )?(?:offer|proposal))\b/i.test(
+        text,
+      ) ||
+      /\b(?:want to|would you like|come (?:along|with|to)|join me|let['’]s|shall we|can we|how about|what about|would you|invite you|meet me)\b/i.test(
+        text,
+      )) &&
     !/\b(?:don't|do not|cannot|can't|not interested|maybe someday|used to)\b/i.test(text);
   const patch: CalendarPatch = {
     action: "none",
-    planId: target?.id ?? null,
+    planId: extension ? null : (target?.id ?? null),
+    ...(extension ? { parentPlanId: parentId } : {}),
+    ...(/\bafter lunch\b/i.test(text) ? { timeHint: "after lunch" } : {}),
     ...(date ? { date } : {}),
     ...(time ? { time } : {}),
     ...(places.length === 1 ? { place: places[0]!.key } : {}),
@@ -239,6 +303,10 @@ export function recognizePlan(
     (date || patch.time || places.length)
   )
     return { ...patch, action: "reschedule" };
+  if (!patch.time && target) {
+    const t = resolveDaytimePlanTime(text, target.category);
+    if (t) patch.time = t;
+  }
   const hedged = /\b(?:but not|can't|cannot|don't|if|maybe|might)\b/i.test(text);
   const positiveLead =
     /^(?:yes\b|yeah\b|yep\b|absolutely\b|sounds good\b|that works\b|i['’]d love to\b|count me in\b|sure\b|i['’]m in\b)/i.test(
@@ -251,18 +319,32 @@ export function recognizePlan(
   // Natural replies such as "Coffee, yes. You can call it a date if you promise..."
   // accept the outing even if a separate playful condition follows. The promise
   // does not change venue/date/time; only parse affirmations with a matched plan.
-  const affirmativePlanNoun = !!target && (
-    /^(?:coffee|dinner|walk|meetup)\s*[,—-]?\s*(?:yes|absolutely|sounds good)\b/i.test(text)
-    || /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\s+(?:it\s+is|works|sounds good)\b/i.test(text)
-  ) && !/\b(?:can't make it|cannot make it|not going|cancel|never mind|maybe|might)\b/i.test(text);
-  const positive = positiveLead || positiveInline || (!!target && /\b(?:yes[,! ]+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)|(?:sounds|looks) (?:perfect|great)|(?:that|it) works for me|(?:deal|definitely|absolutely)[!. ]*$)\b/i.test(text) && !hedged);
+  const affirmativePlanNoun =
+    !!target &&
+    (/^(?:coffee|dinner|walk|meetup)\s*[,—-]?\s*(?:yes|absolutely|sounds good)\b/i.test(text) ||
+      /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\s+(?:it\s+is|works|sounds good)\b/i.test(
+        text,
+      )) &&
+    !/\b(?:can't make it|cannot make it|not going|cancel|never mind|maybe|might)\b/i.test(text);
+  const positive =
+    positiveLead ||
+    positiveInline ||
+    (!!target &&
+      /\b(?:yes[,! ]+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)|(?:sounds|looks) (?:perfect|great)|(?:that|it) works for me|(?:deal|definitely|absolutely)[!. ]*$)\b/i.test(
+        text,
+      ) &&
+      !hedged);
   // Character confirmations: fixed phrases, or "<venue/time> it is" when the message carries plan details.
   const characterConfirm =
-    /\b(?:works for me|see you (?:there|at (?:the )?(?:map point|five|\d{1,2}))|we['’]re on|it['’]s a date)\b/i.test(text) ||
+    /\b(?:works for me|see you (?:there|at (?:the )?(?:map point|five|\d{1,2}))|we['’]re on|it['’]s a date)\b/i.test(
+      text,
+    ) ||
     (/\bit is\b/i.test(text) && !!(date || time || places.length));
   if (
+    !extension &&
     target &&
-    (positive || affirmativePlanNoun ||
+    (positive ||
+      affirmativePlanNoun ||
       (message.sender !== "user" &&
         characterConfirm &&
         !/\b(?:not|can't|cannot|if|maybe)\b/i.test(text)))
@@ -283,8 +365,7 @@ export function recognizePlan(
           : "meeting_details",
     };
   if (inviting) {
-    if (target && target.category === cat)
-      return { ...patch, action: "details" };
+    if (!extension && target && target.category === cat) return { ...patch, action: "details" };
     return {
       ...patch,
       action: "invite",
@@ -327,4 +408,36 @@ export function recognizePlan(
         : {}),
     };
   return { action: "none", planId: null };
+}
+
+/** Bare daytime activity times are contextual; vague periods retain their uncertainty. */
+export function resolveDaytimePlanTime(
+  text: string,
+  category: string | null | undefined,
+): string | undefined {
+  if (!category || !/^(walk|coffee|dinner|book_club|meetup)$/.test(category)) return undefined;
+  const m =
+    /\b(?:at|around|for)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|1[0-2]|[1-9])(?::([0-5]\d))?\b(?!\s*(?:am|pm|a\.m|p\.m))/i.exec(
+      text,
+    );
+  if (!m) return undefined;
+  const names = [
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+  ];
+  let h = /^\d+$/.test(m[1]!) ? Number(m[1]) : names.indexOf(m[1]!.toLowerCase()) + 1;
+  if (/\bmorning\b/i.test(text)) h %= 12;
+  else if (h < 8 || /\b(?:evening|tonight|dinner|supper|afternoon)\b/i.test(text))
+    h = (h % 12) + 12;
+  return String(h).padStart(2, "0") + ":" + (m[2] ?? "00");
 }

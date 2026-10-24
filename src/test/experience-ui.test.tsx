@@ -22,6 +22,7 @@ vi.mock("@/components/ScreenHeader", () => ({
   Screen: ({ children }: { children: ReactNode }) => <main>{children}</main>,
   ScreenHeader: () => null,
 }));
+vi.mock("@/lib/use-schedule", () => ({ invalidateSchedule: async () => {} }));
 vi.mock("@/lib/use-experiences", () => ({
   useExperiences: () => ({
     data: {
@@ -50,6 +51,7 @@ vi.mock("@/lib/use-portrait", () => ({
 }));
 vi.mock("@/lib/living-experiences.functions", () => ({
   experienceAction: mocks.act,
+  recoverExperienceOperation: mocks.act,
   experienceMoments: mocks.read,
 }));
 import { Route } from "@/routes/_authenticated/experiences";

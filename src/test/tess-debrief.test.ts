@@ -30,6 +30,7 @@ describe("reply schema memory layers", () => {
   it("accepts relationship, personal and fact memory types", () => {
     const base = {
       continuity: null,
+      schedule_actions: null,
       messages: ["hi"],
       send_delay_seconds: 10,
       state_delta: Object.fromEntries(

@@ -67,7 +67,8 @@ export const startLiveCall = createServerFn({ method: "POST" })
     const { characterFor, characterAvailability } = await import("./characters");
     const def = characterFor(conv.key);
     const now = new Date();
-    const availability = characterAvailability(def, now);
+    const availability = await (await import('./shared-world.server')).sharedPlanContext(db,context.userId,conv.key,now) ?? characterAvailability(def, now);
+    const calendar = await (await import('./interactive-world.server')).calendarContext(db,context.userId,conv.id,conv.key,now);
     if (availability.availability === "asleep")
       return { answered: false as const, reason: `${def.preferredName} didn't pick up. It's late and they're probably asleep.` };
     const voice = await resolveCharacterVoice(db, conv.key);
@@ -96,6 +97,7 @@ export const startLiveCall = createServerFn({ method: "POST" })
       age: def.age,
       pronouns: def.pronouns,
       bible,
+      calendar,
       stage: conv.stage,
       availability,
       localTime: now.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }),

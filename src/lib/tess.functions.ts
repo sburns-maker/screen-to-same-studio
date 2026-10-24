@@ -302,6 +302,10 @@ async function runTurnUnlocked(
   // A source merge cannot install a database function. Keep legacy text replies
   // working during setup, but never charge for photos without durable delivery.
   const photoAdmin = deliveryProbe && !deliveryProbe.error ? configuredPhotoAdmin : null;
+  const calendarAdmin = configuredPhotoAdmin;
+  if (calendarAdmin && await (await import("./calendar-coordinator.server")).calendarContractReady(calendarAdmin)) {
+    await (await import("./interactive-world.server")).syncCalendar(calendarAdmin, userId, new Date());
+  }
   const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
   if (photoAdmin && !voice && initiation?.developerPhoto !== "preview") {
     const { recoverPhotoDelivery } = await import("./photo-delivery.server");
@@ -499,6 +503,10 @@ async function runTurnUnlocked(
   if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character declined the opportunity" };
 
   if (voice) { reply.photo=null;reply.photo_boundary_decision="unchanged";await (await import("./phone-calls.server")).guardVoiceTurn(supabase,userId,conv.id,voice); }
+  const scheduleActions = await (await import("./calendar-coordinator.server")).prepareScheduleActions(
+    calendarAdmin ?? supabase, userId, conv.id, reply, now,
+    { userSourceId: recent.find(m => m.sender === "user")?.id ?? "", userText: recent.find(m => m.sender === "user")?.body ?? "" },
+  );
   const proposedPhoto = !!reply.photo;
   const boundary = nextPhotoBoundary(photoContext.boundary, reply.photo_boundary_decision, !!reply.photo);
   if (reply.photo_boundary_decision === "reopen") reply.photo = null;
@@ -636,8 +644,9 @@ async function runTurnUnlocked(
     // Real-Time Mode sleep boundary: they'll see it in the morning. No fake reply.
     return { count: 0, lastVisibleAt: null, sleep: true, latencyReason: latency.reason };
   }
+  // Calendar actions commit with a visible reply; ordinary pacing remains unchanged.
   // Practice delays stay 3s–4min; real-time delays may run longer (work, events).
-  const delaySec = voice ? 0 : realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
+  const delaySec = voice || scheduleActions.length ? 0 : realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
   let at = Date.now() + delaySec * 1000;
   const notificationGroup = photoAction ?? crypto.randomUUID();
   const rows = bubbles.map((body, i) => {
@@ -710,7 +719,7 @@ async function runTurnUnlocked(
       lastUserId: recent.find((m) => m.sender === "user")?.id ?? null,
       initiation: !!initiation, pendingBefore: nowIso, rows, generated: generatedRow,
       state: { ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone },
-      stage, boundary, memories: memRows,
+      stage, boundary, memories: memRows, scheduleActions,
       relationshipHistory: { before: state, after: next, delta: Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]])), previousStage:deriveStage(state), stage, tone: reply.tone??null, tags: reply.event_tags??[],
         evaluatedAt: nowIso,
         sourceKind: (photo || generated) ? "photo_delivery" : initiation ? "autonomous_message" : voice ? "voice" : "conversation",
@@ -720,6 +729,7 @@ async function runTurnUnlocked(
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
     } as unknown as import("@/integrations/supabase/types").Json, voice ? {callId:voice.callId,turnId:voice.turnId} : undefined);
   }
+  if (scheduleActions.length) throw new Error("Calendar actions require the atomic delivery service");
   // Text-only turns retain the existing persistence path. Never delete a paid pending photo.
   if (!initiation) {
     const { error } = await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso)

@@ -1,3 +1,4 @@
+import { followupCanStart } from "./calendar-view";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { characterFor, CHARACTERS } from "./characters";
@@ -41,9 +42,7 @@ export async function livingSnapshot(db: Client, user: string, now = new Date())
   const [p, e] = await Promise.all([
     db
       .from("social_plans")
-      .select(
-        "id,user_id,title,starts_at,ends_at,place_key,organizer,conversation_id,category,status",
-      )
+      .select("*")
       .eq("user_id", user)
       .in("status", ["accepted", "in_progress", "completed"])
       .order("starts_at", { ascending: false })
@@ -56,7 +55,19 @@ export async function livingSnapshot(db: Client, user: string, now = new Date())
       .limit(100),
   ]);
   if (p.error || e.error) throw new Error("Experience history unavailable");
-  return { available: true, plans: (p.data ?? []) as ExperiencePlan[], scenes: e.data ?? [] };
+  return {
+    available: true,
+    plans: ((p.data ?? []) as ExperiencePlan[]).map((plan) => ({
+      ...plan,
+      followupReady: followupCanStart(
+        plan,
+        (p.data ?? []).find((parent) => parent.id === plan.parent_plan_id),
+        e.data?.find((ex) => ex.plan_id === plan.parent_plan_id),
+        now,
+      ),
+    })),
+    scenes: e.data ?? [],
+  };
 }
 export async function livingHistory(db: Client, user: string, plan: string) {
   const e = await db
@@ -109,9 +120,11 @@ export async function experienceCommand(
   });
   if (r.error)
     throw new Error(
-      r.error.message.includes("limit")
-        ? "Experience usage or retry limit reached. Recorded progress is safe."
-        : "Experience changed or is unavailable. Refresh before retrying.",
+      r.error.message === "Finish the earlier experience before continuing this outing"
+        ? "Finish the earlier experience before continuing this outing"
+        : r.error.message.includes("limit")
+          ? "Experience usage or retry limit reached. Recorded progress is safe."
+          : "Experience changed or is unavailable. Refresh before retrying.",
     );
   return r.data as unknown as {
     experience: ExperienceRow;
@@ -143,6 +156,7 @@ export async function generateExperience(
   const old = await livingHistory(db, user, plan);
   if (
     old.scene.state === "scheduled" &&
+    !(await (await import("./calendar-coordinator.server")).calendarContractReady(db)) &&
     !calendarScheduleAllows(
       p.data.organizer,
       p.data.date_local,
@@ -176,6 +190,9 @@ export async function generateExperience(
   try {
     if (kind === "automatic" && !(await reserveWorldAi(db, user)))
       throw new Error("Autonomous budget unavailable");
+    await (
+      await import("./calendar-coordinator.server")
+    ).syncExperienceScheduling(db, user, plan, now);
     const { scene, moments } = await livingHistory(db, user, plan);
     const def = characterFor(p.data.organizer),
       conv = p.data.conversation_id;
@@ -201,7 +218,7 @@ export async function generateExperience(
         knowledgeForCharacter(db, user, def.key),
         storylineContext(db, user, def.key, new Date(scene.start_at)),
         continuityContext(db, user, conv, new Date(scene.start_at)),
-        calendarContext(db, user, conv, def.key, new Date(scene.start_at)),
+        calendarContext(db, user, conv, def.key, new Date(experienceClock(scene, moments))),
         db
           .from("world_places")
           .select("label,metadata")
@@ -270,6 +287,19 @@ export async function generateExperience(
       def.key === "tess"
         ? await generateTessReply(args)
         : await generateContactReply({ ...args, character: def });
+    const lastUser = moments.filter((m) => m.source === "user").at(-1);
+    const scheduleActions =
+      kind === "turn"
+        ? await (
+            await import("./calendar-coordinator.server")
+          ).prepareScheduleActions(db, user, conv, reply, now, {
+            parentPlanId: plan,
+            userSourceId: lastUser?.id ?? "",
+            userText: lastUser?.body ?? "",
+            sourceKind: "experience",
+            clock: new Date(experienceClock(scene, moments)),
+          })
+        : [];
     phase = "validation";
     const text = reply.messages
       .join("\n\n")
@@ -297,7 +327,11 @@ export async function generateExperience(
           -12,
           Math.min(
             12,
-            (ops.data ?? []).reduce((n, o) => n + ((o.result as { delta?: Record<string, number> } | null)?.delta?.[k] ?? 0), 0),
+            (ops.data ?? []).reduce(
+              (n, o) =>
+                n + ((o.result as { delta?: Record<string, number> } | null)?.delta?.[k] ?? 0),
+              0,
+            ),
           ),
         ),
       ]),
@@ -310,20 +344,33 @@ export async function generateExperience(
       id,
       "commit",
       null,
-      { token: job.token, body: text, delta: (kind === "turn" ? delta : aggregate) as Json },
+      {
+        token: job.token,
+        body: text,
+        scheduleActions,
+        delta: (kind === "turn" ? delta : aggregate) as Json,
+      },
       now,
     );
   } catch (error) {
     const knownReasons = [
-      "Character context unavailable", "Character AI is not configured", "Character AI is paused",
-      "Character AI context limit reached", "Character AI capacity limit reached; try later",
+      "Character context unavailable",
+      "Character AI is not configured",
+      "Character AI is paused",
+      "Character AI context limit reached",
+      "Character AI capacity limit reached; try later",
       "Character AI is temporarily unavailable; please try again later",
-      "Character AI access unavailable (402)", "Character AI access unavailable (403)",
-      "Character did not produce a scene", "Unsafe off-screen outcome",
-      "Experience reconciliation unavailable", "Autonomous budget unavailable",
+      "Character AI access unavailable (402)",
+      "Character AI access unavailable (403)",
+      "Character did not produce a scene",
+      "Unsafe off-screen outcome",
+      "Experience reconciliation unavailable",
+      "Autonomous budget unavailable",
     ];
-    const reason = error instanceof Error && knownReasons.includes(error.message)
-      ? error.message : "Scene step failed";
+    const reason =
+      error instanceof Error && knownReasons.includes(error.message)
+        ? error.message
+        : "Scene step failed";
     // Never log prompts, transcripts, provider bodies, headers or arbitrary errors.
     console.warn("[living-experience]", { operationId: id, phase, reason });
     await experienceCommand(db, user, plan, id, "fail", null, { token: job.token }, now).catch(
