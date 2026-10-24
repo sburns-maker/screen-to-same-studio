@@ -1,0 +1,18 @@
+name: Tess Work Continuity
+on:
+  pull_request:
+    paths:
+      - "src/lib/tess-life.ts"
+      - "src/lib/storyline-logic.ts"
+      - "src/lib/tess.server.ts"
+      - "src/test/tess-weekend-work.test.ts"
+      - ".github/workflows/tess-work-continuity.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/tess-weekend-work.test.ts src/test/tess-life.test.ts
+      - run: bun run build

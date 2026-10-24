@@ -113,6 +113,12 @@ export const LIFE_EVENTS: LifeEvent[] = [
 ];
 
 const EVENT_SPAN_DAYS = 3;
+const WORK_DISRUPTION_IDS = new Set(["staffing", "clinic_emergency", "overtime"]);
+/** Do not turn routine weekends into surprise shifts or recycle the same clinic crisis. */
+export function tessWorkException(now: Date, event: LifeEvent | null): boolean {
+  const {dow}=tessLocalParts(now);
+  return dow !== 0 && dow !== 6 || event?.id === "overtime";
+}
 
 /**
  * The currently active temporary life event. Deterministic per time window so
@@ -128,7 +134,14 @@ export function activeLifeEvent(now: Date, weatherHint?: { snowing?: boolean; ra
   if (weatherHint?.alert || weatherHint?.snowing) {
     pool = LIFE_EVENTS.filter((e) => e.id !== "hike");
   }
-  return pool[(windowIndex * 7 + 3) % pool.length] ?? null;
+  const selected = pool[(windowIndex * 7 + 3) % pool.length] ?? null;
+  if (!selected) return null;
+  const { dow } = tessLocalParts(now);
+  // Staffing headaches happen on ordinary shifts, not every Saturday. Only an
+  // explicit overtime story can justify a weekend shift.
+  if ((dow === 0 || dow === 6) && WORK_DISRUPTION_IDS.has(selected.id) && selected.id !== "overtime") return null;
+  // Work crises can be long-running context but should not occupy every chat.
+  return selected;
 }
 
 /** Weather-flavored one-liners Tess might reference, keyed by condition. */
