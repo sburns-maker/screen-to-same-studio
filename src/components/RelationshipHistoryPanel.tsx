@@ -46,6 +46,9 @@ export function RelationshipHistoryPanel({conversationId,state,stage}:{conversat
   {data?.historyUnavailable&&<p className="mt-2 rounded-lg border p-2 text-sm">Apply the relationship evaluation migration to activate the detailed history. Existing outings and world events still appear below.</p>}
   {!!dates.length&&<label className="mt-3 block text-xs font-medium">Select date<select value={day} onChange={e=>setSelected(e.target.value)} className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2">{!dates.includes(day)&&<option value={day}>{day} · today / no records</option>}{dates.map(d=><option key={d} value={d}>{d}</option>)}</select></label>}
   {data&&!dates.length&&<p className="mt-3 text-sm text-muted-foreground">No dated events or evaluations recorded yet.</p>}
+  {data&&!data.historyUnavailable&&data.evaluations.length===0&&<div role="status" className="mt-3 rounded-lg border border-amber-500/40 bg-background p-3 text-sm"><strong>Saved inner thoughts are not recording.</strong><p className="mt-1 text-muted-foreground">This conversation has no persisted relationship evaluations in the latest 250 records. The text displayed below is only a generic illustration, not the new conversation-specific feature. Check the server logs for [relationship-history] errors and verify the production database migration and server credentials.</p></div>}
+  {data&&data.evaluations.length>0&&!evaluations.length&&<p className="mt-2 text-xs text-muted-foreground">No interaction evaluations saved for this selected day. Select a day with recorded interactions to see actual authored reflections.</p>}
+
   {!!day&&<>
    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
     <div className="rounded-lg border bg-background p-2"><strong>{evaluations.length}</strong><p className="text-xs text-muted-foreground">evaluated interactions</p></div>
