@@ -697,7 +697,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           try {
             // Spontaneous contextual photo sharing is not a generic text-initiation.
             // Image generation still reserves its own bounded provider budget.
-            if (worldReady && (await import("./world-runtime.server")).requiresAutonomousTextReservation(photoChance.selected) && !(await reserveWorldAi(admin, userId))) {
+            if (worldReady && (await import("./world-runtime.server")).requiresAutonomousTextReservation(photoChance.selected, process.env["AUTONOMOUS_AI_DAILY_LIMIT"] === "0") && !(await reserveWorldAi(admin, userId))) {
               await recordOutcome(false, ["per-user daily autonomous AI limit"]);
               await photoOutcome("blocked", "per-user daily autonomous AI limit");
               continue;
