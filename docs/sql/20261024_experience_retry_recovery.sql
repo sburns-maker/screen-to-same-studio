@@ -1,6 +1,9 @@
 -- Fix applied after 0026_complete_living_experiences.sql.
 
--- Keep the entire existing experience_command function; change only the daily cap.
+-- Keep the entire existing experience_command function; remove only the daily cap.
+-- The owner asked to remove the daily experience limit entirely, so the guard is
+-- raised to the maximum integer value (effectively unlimited) while the per-operation
+-- retry limit and all other safeguards stay exactly as they were.
 
 DO $$
 
@@ -16,7 +19,7 @@ BEGIN
 
  END IF;
 
- definition:=replace(definition, '>=40 AND o.id IS NULL', '>=160 AND o.id IS NULL');
+ definition:=replace(definition, '>=40 AND o.id IS NULL', '>=2147483647 AND o.id IS NULL');
 
  EXECUTE definition;
 
