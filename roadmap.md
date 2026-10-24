@@ -1,1 +1,6 @@
-- [x] Sync Maya's Fanelli's date (Oct 25, 7pm) to calendar\n- [x] Patch plan parser: venue aliases, 'what about', 'it is', mid-message 'sounds good'\n- [x] Keep Sunburst image model default (user's deliberate change); updated stale tests\n- [x] Fixed stale front-camera test wording from Sunburst merge; full suite green (625 passed)
+- [x] Sync Maya's Fanelli's date (Oct 25, 7pm) to calendar
+- [x] Patch plan parser: venue aliases, 'what about', 'it is', mid-message 'sounds good'
+- [x] Keep Sunburst image model default (user's deliberate change); updated stale tests
+- [x] Fixed stale front-camera test wording from Sunburst merge; full suite green (625 passed)
+- [ ] Audit all saved database updates against the live database and apply missing setup without resetting data.
+- [ ] Verify Riley registration and contacts availability.
