@@ -149,12 +149,12 @@ function GameRoom() {
       .catch(e=>{if(!canceled)setSyncError(e instanceof Error?e.message:"Could not save match");});
     return ()=>{canceled=true;};
   }, [ready, conv.data, activeKey, activeCompleted, saved.trivia.answers, saved.four.moves, saved.game, saveMatch, conversationId]);
-  const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
+
   const result = saved.game === "trivia" && finished && !!activeKey && verified.includes(activeKey)
     ? {key:"trivia:"+saved.trivia.round+":"+saved.trivia.deck.join("-"),description:"We just finished a 10-question trivia match. I scored "+playerScore+" and you scored "+computerScore+". "+(playerScore>computerScore?"I won.":playerScore<computerScore?"You won.":"It was a tie.")+" (Game result from AI Town.)"}
     : saved.game === "four" && saved.four.ended !== null && !!activeKey && verified.includes(activeKey)
-    ? {key:"four:"+(saved.fourRound??0)+":"+saved.four.board.join(""),description:"We just finished a Four in a Row match. "+(saved.four.ended===0?"It was a draw.":saved.four.ended===1?"I won.":"You won.")+" (Game result from AI Town.)"}
-    : extraResult?.game===saved.game ? extraResult : null;
+    ? {key:"four:"+(saved.fourRound??0)+":"+saved.four.board.join(""),description:"We just finished a Four in a Row match. "+(saved.four.ended===0?"It was a draw.":saved.four.ended===1?"You won.":"I won.")+" (Game result from AI Town.)"}
+    : null; // Word Hunt and 8 Ball need authoritative server adjudication before result sharing.
   return (
     <main className="mx-auto min-h-dvh max-w-xl bg-background px-4 pb-24 pt-safe">
       <header className="flex h-16 items-center gap-3">
@@ -181,7 +181,7 @@ function GameRoom() {
             </div>
           )}
         </section>
-      ) : saved.game === "words" ? <WordHunt character={character.preferredName} onReset={()=>setExtraResult(null)} onFinish={(score,target,round)=>setExtraResult({game:"words",key:"words:"+round+":"+Date.now(),description:"We finished Word Hunt. My score was "+score+" points against your computer benchmark of "+target+" points. (AI Town game result.)"})} /> : saved.game === "pool" ? <EightBall onReset={()=>setExtraResult(null)} onFinish={(won,shots)=>setExtraResult({game:"pool",key:"pool:"+shots+":"+Date.now(),description:"We finished an 8 Ball match. "+(won?"I won.":"You won.")+" I took "+shots+" shots. (AI Town game result.)"})} /> : (
+      ) : saved.game === "words" ? <WordHunt character={character.preferredName} /> : saved.game === "pool" ? <EightBall /> : (
         <section className="mt-6 space-y-4" aria-label="Four in a Row game">
           <div className="rounded-xl bg-muted p-4 text-center font-medium">{saved.four.ended === null ? "Your turn · Red" : saved.four.ended === 0 ? "Draw!" : saved.four.ended === 1 ? "You win!" : `${character.preferredName} wins!`}</div>
           <div className="grid grid-cols-7 gap-1 rounded-2xl bg-blue-700 p-2" role="group" aria-label="Game board">
