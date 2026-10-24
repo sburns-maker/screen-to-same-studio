@@ -6,9 +6,10 @@ import maya from "@/assets/avatars/maya.jpg?inline";
 import claire from "@/assets/avatars/claire.jpg?inline";
 import jordan from "@/assets/avatars/jordan.jpg?inline";
 import ben from "@/assets/avatars/ben.jpg?inline";
+import riley from "@/assets/avatars/riley-canon.jpg?inline";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 import type { CharacterKey } from "./characters";
-const originals: Record<CharacterKey, string> = { tess, maya, claire, jordan, ben };
+const originals: Record<CharacterKey, string> = { tess, maya, claire, jordan, ben, riley };
 export function jpegDimensions(bytes: Uint8Array) {
   if (bytes.length < 4 || bytes.length > 4 * 1024 * 1024 || bytes[0] !== 255 || bytes[1] !== 216)
     throw new Error("Canonical profile is not a supported JPEG");

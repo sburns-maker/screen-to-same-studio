@@ -19,5 +19,6 @@ export function overnightWake(character: string, now: Date): TessActivity | null
   "woke early with a thought from yesterday; may mention it naturally"
  ];
  const detail=scenes[Math.floor(seed/9)%scenes.length];
+ if (detail === undefined) return null;
  return {activity:"unexpectedly awake at night",availability:"limited",detail};
 }

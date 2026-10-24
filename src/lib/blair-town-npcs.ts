@@ -648,12 +648,14 @@ export function npcResidentsFor(area:string,seed:string,count=6):TownNpc[]{
  const locals=TOWN_NPCS.filter(n=>n.area===area);
  const pool=locals.length?locals:TOWN_NPCS;
  const hash=[...seed].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,2166136261);
- return Array.from({length:Math.min(count,pool.length)},(_,i)=>pool[(hash+i*7)%pool.length]);
+ return Array.from({length:Math.min(count,pool.length)},(_,i)=>pool[(hash+i*7)%pool.length]).filter((npc): npc is TownNpc => npc !== undefined);
 }
 export function townPopulationContext(characterKey:string,now:Date):string[]{
  const day=new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
  const hash=[...characterKey+day].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,25);
- const area=[...new Set(TOWN_NPCS.map(n=>n.area))][hash%12];
+ const areas=[...new Set(TOWN_NPCS.map(n=>n.area))];
+ const area=areas[hash%areas.length];
+ if (area === undefined) return [];
  const residents=npcResidentsFor(area,characterKey+day,5);
  return ["FICTIONAL BLAIR COUNTY RESIDENTS in "+area+": "+residents.map(n=>n.name+" ("+n.role+", "+n.temperament+")").join("; ")+". NPCs are invented, not real employees. Reuse the same identity, do not assert a friendship, encounter or gossip as fact until an actual simulated world event records it. Background residents have independent routines and should not all be waiting for the user."];
 }

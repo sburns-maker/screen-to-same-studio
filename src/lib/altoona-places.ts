@@ -90,6 +90,6 @@ export const ALTOONA_PLACES:AltoonaPlace[]=[
 export function altoonaContext(characterKey:string,now:Date):string[]{
  const day=new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
  const h=[...(characterKey+day)].reduce((n,c)=>(n*31+c.charCodeAt(0))>>>0,17);
- const selection=Array.from({length:4},(_,i)=>ALTOONA_PLACES[(h+i*7)%ALTOONA_PLACES.length]);
+ const selection=Array.from({length:4},(_,i)=>ALTOONA_PLACES[(h+i*7)%ALTOONA_PLACES.length]).filter((p): p is AltoonaPlace => p !== undefined);
  return ["LOCAL SETTING: Altoona, Pennsylvania and nearby Blair County, not Altoona, Iowa. Real places for casual suggestions and character life: "+selection.map(p=>p.name+" ("+p.area+"; "+p.ideas.join("/")+")").join("; ")+". These are reference places, not evidence of a booked outing, current business hours, or an event happening tonight. Do not invent live schedules; for real visits verify hours and dates first."];
 }

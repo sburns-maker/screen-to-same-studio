@@ -39,6 +39,7 @@ export const CALL_VOICES: Record<CharacterKey, { style: string }> = {
     style: "Understated, wry and sincere. No automatic emotional tests or deflection.",
   },
   ben: { style: "Relaxed, ordinary, friendly and entirely platonic." },
+  riley: { style: "Natural, understated and observant, with dry humor and occasional tired wit." },
 };
 export const ACTIVE_CALL_STATES = ["calling", "ringing", "connecting", "connected"];
 export type CallRow = {

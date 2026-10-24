@@ -4,7 +4,9 @@ import {npcSchedule,neighborhoodSnapshot} from "@/lib/npc-schedules";
 describe("Blair County NPC daily routines",()=>{
  it("is stable when evaluated repeatedly",()=>{
   const t=new Date("2026-10-24T04:00:00Z");
-  expect(npcSchedule(TOWN_NPCS[0],t)).toEqual(npcSchedule(TOWN_NPCS[0],t));
+  const npc=TOWN_NPCS[0];
+  if (!npc) throw new Error("NPC roster is empty");
+  expect(npcSchedule(npc,t)).toEqual(npcSchedule(npc,t));
  });
  it("returns a valid activity and location for every NPC",()=>{
   const at=new Date("2026-10-24T04:00:00Z");
