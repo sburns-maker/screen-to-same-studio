@@ -1,0 +1,16 @@
+name: Mind persistence diagnostics
+on:
+  pull_request:
+    paths:
+      - "src/lib/tess.functions.ts"
+      - "src/components/RelationshipHistoryPanel.tsx"
+      - ".github/workflows/mind-persistence.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/character-perspective.test.ts
+      - run: bun run build
