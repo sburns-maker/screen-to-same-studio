@@ -384,6 +384,7 @@ ${photoDecisionRules(args.photoBoundary)}${args.photoHint ? "\n" + args.photoHin
 ${KNOWLEDGE_RULES}
 - messages: ${c.preferredName}'s texts only, no quotes/narration. Stay in ${c.preferredName}'s voice — do not drift into a generic chatbot voice or into Tess's voice.
 - send_delay_seconds: realistic reply delay given availability and ${c.preferredName}'s texting habits.
+${CHARACTER_PERSPECTIVE_RULES}
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent.${
     c.romanticCapable
       ? " Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation. Friendliness and attraction are independent — keep them that way."
