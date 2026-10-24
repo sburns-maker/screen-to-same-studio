@@ -15,10 +15,11 @@ export type ReferenceStats = {
   pauseRatio: number;
 };
 
-export function analyzePcm(samples: Float32Array, sampleRate: number, transcript = ""): ReferenceStats {
+export function analyzePcm(input: Float32Array, sampleRate: number, transcript = ""): ReferenceStats {
+  const samples = Array.from(input);
   const durationSec = samples.length / sampleRate;
   let sum = 0;
-  for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+  for (let i = 0; i < samples.length; i++) sum += samples[i]! * samples[i]!;
   const rms = Math.sqrt(sum / Math.max(1, samples.length));
   const frame = Math.floor(sampleRate * 0.04);
   const hop = Math.floor(sampleRate * 0.01);
@@ -30,25 +31,26 @@ export function analyzePcm(samples: Float32Array, sampleRate: number, transcript
   for (let start = 0; start + frame + maxLag < samples.length; start += hop) {
     frames++;
     let e = 0;
-    for (let i = 0; i < frame; i++) e += samples[start + i] ** 2;
+    for (let i = 0; i < frame; i++) e += samples[start + i]! ** 2;
     if (Math.sqrt(e / frame) < rms * 0.2) {
       quiet++;
       continue;
     }
+    const corr: number[] = [];
     let best = 0;
-    let bestLag = 0;
     for (let lag = minLag; lag <= maxLag; lag++) {
       let c = 0;
-      for (let i = 0; i < frame; i++) c += samples[start + i] * samples[start + i + lag];
-      if (c > best) {
-        best = c;
-        bestLag = lag;
-      }
+      for (let i = 0; i < frame; i++) c += samples[start + i]! * samples[start + i + lag]!;
+      corr.push(c);
+      if (c > best) best = c;
     }
+    // First lag near the maximum avoids octave (sub-harmonic) errors.
+    const idx = corr.findIndex((c, i) => c >= 0.9 * best && (i === 0 || c >= corr[i - 1]!) && (i + 1 >= corr.length || c >= corr[i + 1]!));
+    const bestLag = idx >= 0 ? minLag + idx : 0;
     if (bestLag && best > 0.4 * e) f0s.push(sampleRate / bestLag);
   }
   f0s.sort((a, b) => a - b);
-  const pct = (p: number) => (f0s.length ? Math.round(f0s[Math.min(f0s.length - 1, Math.floor(p * f0s.length))]) : null);
+  const pct = (p: number) => (f0s.length ? Math.round(f0s[Math.min(f0s.length - 1, Math.floor(p * f0s.length))]!) : null);
   const words = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
   return {
     durationSec: Math.round(durationSec * 10) / 10,
