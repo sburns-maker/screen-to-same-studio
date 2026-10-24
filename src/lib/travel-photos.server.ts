@@ -26,6 +26,16 @@ export async function deliverTravelPhoto(db:Db,userId:string,trip:TripPlan,stopI
   const messageId=crypto.randomUUID();
   const {error:msgError}=await db.from("messages").insert({id:messageId,user_id:userId,conversation_id:conv.id,sender:"tess",body:photo.caption||"Had to show you this 😂",metadata:{generated_path:generated.path,photo_type:generated.type,photo_source:"travel",travel_trip_id:trip.id,travel_stop_id:stopId,travel_turn_id:turnId,photo_identity:generated.diagnostics},visible_at:new Date().toISOString()});
   if(msgError)throw new Error("Image created but message not saved: "+msgError.message);
+  const {data:state}=await db.from("tess_state").select("*").eq("conversation_id",conv.id).eq("user_id",userId).maybeSingle();
+  const {data:conversation}=await db.from("conversations").select("relationship_stage").eq("id",conv.id).eq("user_id",userId).maybeSingle();
+  const {error:galleryError}=await db.from("generated_images").insert({
+    id:crypto.randomUUID(),user_id:userId,conversation_id:conv.id,message_id:messageId,photo_type:generated.type,
+    scene:generated.scene,includes_tess:generated.tess,is_selfie:generated.selfie,
+    provider:generated.provider,model:generated.model,storage_path:generated.path,
+    relationship_stage:conversation?.relationship_stage??null,state_snapshot:state??{},
+    identity_reference_used:generated.identityReferenceUsed,
+  });
+  if(galleryError)console.warn("[travel-photo] Saved message but photo gallery index is pending",galleryError.message);
   await db.from("media_attempts").update({status:"generated",storage_path:generated.path}).eq("action_id",actionId);
   return {status:"delivered" as const,path:generated.path,caption:photo.caption,messageId};
  }catch(e){
