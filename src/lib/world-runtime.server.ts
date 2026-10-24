@@ -141,12 +141,14 @@ export async function recordPhotoDecision(
     eligible: boolean;
     selected: boolean;
     reason: string;
+    trigger?: string | null;
     now: Date;
   },
 ) {
+  const id = await photoActionId(`decision:${args.key}:${Math.floor(args.now.getTime() / 1_800_000)}`);
   const { error } = await admin.from("world_events").upsert(
     {
-      id: await photoActionId(`decision:${args.key}:${Math.floor(args.now.getTime() / 1_800_000)}`),
+      id,
       user_id: args.userId,
       conversation_id: args.conversationId,
       character_key: args.character,
@@ -154,11 +156,33 @@ export async function recordPhotoDecision(
       summary: args.reason,
       occurs_at: args.now.toISOString(),
       processed_at: args.now.toISOString(),
-      payload: { eligible: args.eligible, selected: args.selected },
+      payload: {
+        eligible: args.eligible,
+        selected: args.selected,
+        trigger: args.trigger?.slice(0, 300) ?? null,
+        source: "world-tick",
+        generationRequested: false,
+      },
     },
     { onConflict: "id", ignoreDuplicates: true },
   );
   if (error) throw new Error("Photo decision history could not be saved");
+  return id;
+}
+
+/** Appends the recorded outcome of a selected opportunity; never rewrites the original decision fields. */
+export async function recordPhotoDecisionOutcome(
+  admin: Admin,
+  args: { id: string; userId: string; outcome: "message_sent" | "not_sent" | "blocked"; reason?: string | null },
+) {
+  const { data } = await admin.from("world_events").select("payload").eq("id", args.id).eq("user_id", args.userId).maybeSingle();
+  const prev = (data?.payload ?? {}) as Record<string, unknown>;
+  if (prev["outcome"]) return;
+  await admin
+    .from("world_events")
+    .update({ payload: { ...prev, outcome: args.outcome, outcomeReason: args.reason?.slice(0, 300) ?? null } })
+    .eq("id", args.id)
+    .eq("user_id", args.userId);
 }
 
 function limit(name: string, fallback: number, max: number) {
