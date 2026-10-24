@@ -52,7 +52,7 @@ export function sharedRsvpDecision(
     return { response: "declined" as const, reason: "invitation_expired" };
   if (!scheduleAllows(character, plan.starts_at, plan.ends_at))
     return { response: "declined" as const, reason: "schedule_or_travel_conflict" };
-  const willingness = { tess: 0.55, maya: 0.8, claire: 0.65, jordan: 0.35, ben: 0.75 }[character];
+  const willingness = { tess: 0.55, maya: 0.8, claire: 0.65, jordan: 0.35, ben: 0.75, riley: 0.55 }[character];
   const chosen =
     mulberry32(hashSeed(`${plan.id}:${character}:rsvp`))() <
     willingness * (channel === "user_relay" ? 1 : 0.8);

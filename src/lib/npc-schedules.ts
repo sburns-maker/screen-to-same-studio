@@ -21,11 +21,12 @@ export function neighborhoodSnapshot(area:string,now:Date,limit=10):NpcSchedule[
  const locals=TOWN_NPCS.filter(n=>n.area===area);
  const roster=locals.length?locals:TOWN_NPCS;
  const seed=hash(area+local(now).day);
- return Array.from({length:Math.min(limit,roster.length)},(_,i)=>npcSchedule(roster[(seed+i*3)%roster.length],now));
+ return Array.from({length:Math.min(limit,roster.length)},(_,i)=>roster[(seed+i*3)%roster.length]).filter((npc): npc is TownNpc => npc !== undefined).map(npc=>npcSchedule(npc,now));
 }
 export function scheduledPopulationContext(characterKey:string,now:Date):string[]{
  const areas=[...new Set(TOWN_NPCS.map(n=>n.area))];
  const day=local(now).day;
  const area=areas[hash(characterKey+day)%areas.length];
+ if (area === undefined) return [];
  return ["SIMULATED NEIGHBORHOOD (fictional residents, timezone Eastern): "+neighborhoodSnapshot(area,now,6).map(s=>s.detail).join("; ")+". These are background schedules, not proof the main character saw or met them. No real-world person is implied. Conversations, relationships and memories require explicit recorded in-world events. Do not force the user into social encounters."];
 }
