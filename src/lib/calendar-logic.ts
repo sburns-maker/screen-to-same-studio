@@ -176,11 +176,13 @@ export function recognizePlan(
   const matching = cat ? open.filter((p) => p.category === cat) : [];
   const adjacent = open.filter((p) => (p.last_message_id ?? p.source_message_id) === previousId);
   const explicitId = (message.metadata as { calendar_plan?: string } | null)?.calendar_plan;
+  // Prefer the closest active plan for this conversation; never revive completed outings.
+  const byRecency = [...open].sort((a,b)=>String(b.last_message_id===previousId).localeCompare(String(a.last_message_id===previousId)));
   const explicitTarget = explicitId ? open.find((p) => p.id === explicitId) : undefined;
   const target =
     explicitTarget ??
-    (matching.length === 1
-      ? matching[0]
+    (matching.length >= 1
+      ? matching.find(p=>p.date_local===date) ?? matching.find(p=>p.status==="accepted") ?? matching[0]
       : adjacent.length === 1
         ? adjacent[0]
         : open.length === 1 &&
@@ -240,7 +242,7 @@ export function recognizePlan(
     /^(?:coffee|dinner|walk|meetup)\s*[,—-]?\s*(?:yes|absolutely|sounds good)\b/i.test(text)
     || /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\s+(?:it\s+is|works|sounds good)\b/i.test(text)
   ) && !/\b(?:can't make it|cannot make it|not going|cancel|never mind|maybe|might)\b/i.test(text);
-  const positive = positiveLead || positiveInline;
+  const positive = positiveLead || positiveInline || (!!target && /\b(?:yes[,! ]+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)|(?:sounds|looks) (?:perfect|great)|(?:that|it) works for me|(?:deal|definitely|absolutely)[!. ]*$)\b/i.test(text) && !hedged);
   // Character confirmations: fixed phrases, or "<venue/time> it is" when the message carries plan details.
   const characterConfirm =
     /\b(?:works for me|see you there|we['’]re on|it['’]s a date)\b/i.test(text) ||
@@ -268,7 +270,7 @@ export function recognizePlan(
           : "meeting_details",
     };
   if (inviting) {
-    if (target && target.category === cat && target.status !== "accepted")
+    if (target && target.category === cat)
       return { ...patch, action: "details" };
     return {
       ...patch,
