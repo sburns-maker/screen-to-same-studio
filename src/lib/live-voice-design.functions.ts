@@ -86,6 +86,74 @@ export const createCharacterVoiceCandidate = createServerFn({ method: "POST" })
     return { id, character: data.character, variant: data.variant, approved: false };
   });
 
+/**
+ * Developer-only reference listening: transcribes a short WAV clip and asks an
+ * audio-capable model to describe its delivery. The clip is not stored and no
+ * voice is created; nothing touches character state.
+ */
+export const analyzeVoiceReference = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) =>
+    z.object({ wavBase64: z.string().min(100).max(4_200_000) }).strict().parse(v),
+  )
+  .handler(async ({ context, data }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer access required");
+    const key = process.env["OPENAI_API_KEY"];
+    if (!key) throw new Error("OpenAI is not configured");
+    const bytes = Uint8Array.from(atob(data.wavBase64), (c) => c.charCodeAt(0));
+    const form = new FormData();
+    form.append("model", "whisper-1");
+    form.append("file", new Blob([bytes], { type: "audio/wav" }), "reference.wav");
+    let transcript = "";
+    try {
+      const t = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}` },
+        body: form,
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!t.ok) throw new Error(`Transcription failed (HTTP ${t.status}).`);
+      transcript = ((await t.json()) as { text?: string }).text?.trim() ?? "";
+    } catch (e) {
+      throw new Error(e instanceof Error && e.message.startsWith("Transcription") ? e.message : "OpenAI could not be reached for transcription.");
+    }
+    let notes = "";
+    try {
+      const r = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gpt-4o-audio-preview",
+          modalities: ["text"],
+          max_tokens: 400,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Listen to this fictional adult voice reference. Write 4-6 short imperative performance directions (one per line, no names, no transcript) a voice actor could follow to reproduce its delivery: accent and how strong it is, tone and attitude, pitch movement, rhythm and pausing, breathiness or texture, articulation, emotional colour. Be specific and concrete.",
+                },
+                { type: "input_audio", input_audio: { data: data.wavBase64, format: "wav" } },
+              ],
+            },
+          ],
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+      if (r.ok) {
+        const j = (await r.json()) as { choices?: { message?: { content?: string } }[] };
+        notes = (j.choices?.[0]?.message?.content ?? "").trim().slice(0, 1500);
+      } else {
+        console.warn("voice reference listening failed", r.status);
+      }
+    } catch {
+      console.warn("voice reference listening unreachable");
+    }
+    return { transcript, notes };
+  });
+
 /** Developer-only read-only setup status; no keys, prompts or paid requests exposed. */
 export const voiceStudioStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

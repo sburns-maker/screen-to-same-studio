@@ -5,9 +5,10 @@ export type AuditionMode = "scripted" | "conversational";
 
 export const TESS_CONVERSATIONAL_DIRECTION =
   "Tess is a naturally feminine woman in her mid-thirties who grew up in England and has lived in Pennsylvania for ten years. Her voice is warm, clear, relatively light, and approachable. Her English accent has softened considerably and sounds contemporary and everyday, not upper-class or aristocratic.\n\n" +
-  "Speak like a real person having a private conversation, not an actor giving a rehearsed performance. Use naturally connected words, fluid pacing, spontaneous intonation, subtle amusement, and understated sarcasm. Keep the pitch comfortably light without sounding squeaky or artificially high. Allow emotions to shift naturally. Avoid overly crisp articulation, theatrical emphasis, formal Received Pronunciation, robotic pauses, and narration-style delivery.";
+  "Speak like a real person having a private conversation, not an actor giving a rehearsed performance. Use naturally connected words, fluid pacing, spontaneous intonation, subtle amusement, and understated sarcasm. Keep the pitch comfortably light without sounding squeaky or artificially high. Allow emotions to shift naturally. Avoid overly crisp articulation, theatrical emphasis, formal Received Pronunciation, robotic pauses, and narration-style delivery.\n\n" +
+  "Speak with an unhurried, measured pace around 100 words per minute. Pitch is centred at a natural, moderately light register near 230 Hz — neither deep nor squeaky. The tone is dry, self-assured, subtly teasing and intimate, with relaxed pauses between thoughts and understated amusement rather than energetic or theatrical enthusiasm.";
 
-export const CONVERSATIONAL_CUE = "How was your day? I could use a little company and your honest take on it.";
+export const CONVERSATIONAL_CUE = "I saw your potion explode. It was impressive, even for you. Details, details. You know, you could just admit you enjoy talking to me.";
 export const PERFORMANCE_MAX = 4000;
 export const CUE_MAX = 2000;
 export const CONVERSATIONAL_DRAFT_STORE = "voice-studio-conversational-draft-v1";
