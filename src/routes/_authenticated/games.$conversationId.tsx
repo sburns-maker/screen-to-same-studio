@@ -9,7 +9,7 @@ import { WordHunt } from "@/components/games/WordHunt";
 import { EightBall } from "@/components/games/EightBall";
 import { GameChat } from "@/components/games/GameChat";
 import { useServerFn } from "@tanstack/react-start";
-import { saveGameMatch } from "@/lib/game-matches.functions";
+import { saveGameMatch, recentGameMatches } from "@/lib/game-matches.functions";
 
 export const Route = createFileRoute("/_authenticated/games/$conversationId")({
   component: GameRoom,
@@ -68,6 +68,7 @@ function GameRoom() {
   const [saved, setSaved] = useState<Saved>(fresh);
   const [ready, setReady] = useState(false);
   const saveMatch = useServerFn(saveGameMatch);
+  const loadMatches = useServerFn(recentGameMatches);
   const [verified, setVerified] = useState<string[]>([]);
   const [syncError, setSyncError] = useState<string | null>(null);
   useEffect(() => {
@@ -75,8 +76,32 @@ function GameRoom() {
       const s = JSON.parse(localStorage.getItem(storageKey) || "null");
       if (s && ["trivia", "four", "words", "pool"].includes(s.game) && Array.isArray(s.four?.board) && s.four.board.length === 42 && Array.isArray(s.trivia?.answers)) setSaved({ ...s, trivia: Array.isArray(s.trivia.deck) && s.trivia.deck.length === 10 ? s.trivia : { answers: [], deck: nextTriviaDeck(), previous: [], round: 0 } });
     } catch { /* damaged local draft: start fresh */ }
-    setReady(true);
-  }, [storageKey]);
+    // Remote progress is authoritative for resume. Do not write the local draft
+    // to the server until restoration finishes.
+    let active = true;
+    void loadMatches({data:{conversationId}}).then((rows)=>{
+      if(!active)return;
+      const matches=rows as Array<{game:string;status:string;match_key:string;progress:unknown;updated_at:string}>;
+      const last=(matches??[]).find(m=>m.status==="active"&&(m.game==="trivia"||m.game==="four"));
+      if(last?.game==="trivia"){
+        const p=last.progress as {deck?:number[];answers?:number[]};
+        const round=Number(last.match_key.split(":")[1]);
+        if(Array.isArray(p.deck)&&p.deck.length===10&&Array.isArray(p.answers)&&p.answers.length<=10&&Number.isSafeInteger(round)){
+          setSaved(old=>({...old,game:"trivia",trivia:{...old.trivia,deck:p.deck!,answers:p.answers!,round}}));
+        }
+      }else if(last?.game==="four"){
+        const p=last.progress as {moves?:number[]};
+        const round=Number(last.match_key.split(":")[1]);
+        if(Array.isArray(p.moves)&&p.moves.every(n=>Number.isInteger(n)&&n>=0&&n<=6)&&Number.isSafeInteger(round)){
+          const board=Array(42).fill(0) as number[];
+          p.moves.forEach((c,i)=>{for(let row=5;row>=0;row--){const idx=index(row,c);if(!board[idx]){board[idx]=i%2===0?1:2;break;}}});
+          setSaved(old=>({...old,game:"four",fourRound:round,four:{board,ended:winner(board),moves:p.moves}}));
+        }
+      }
+      setReady(true);
+    }).catch(()=>{if(active){setSyncError("Cloud resume unavailable; local draft only");setReady(true);}});
+    return ()=>{active=false;};
+  }, [storageKey,conversationId,loadMatches]);
   useEffect(() => { if (ready) localStorage.setItem(storageKey, JSON.stringify(saved)); }, [saved, storageKey, ready]);
   function answer(choice: number) {
     setSaved((s) => s.trivia.answers.length >= s.trivia.deck.length ? s : ({
