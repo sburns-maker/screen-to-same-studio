@@ -19,6 +19,7 @@ import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/h
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
 import { Route as AuthenticatedPlansRouteImport } from './routes/_authenticated/plans'
+import { Route as AuthenticatedPpgArenaRouteImport } from './routes/_authenticated/ppg-arena'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTravelRouteImport } from './routes/_authenticated/travel'
 import { Route as AuthenticatedVoiceStudioRouteImport } from './routes/_authenticated/voice-studio'
@@ -85,6 +86,11 @@ const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
 const AuthenticatedPlansRoute = AuthenticatedPlansRouteImport.update({
   id: '/plans',
   path: '/plans',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPpgArenaRoute = AuthenticatedPpgArenaRouteImport.update({
+  id: '/ppg-arena',
+  path: '/ppg-arena',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof AuthenticatedInboxRoute
   '/people': typeof AuthenticatedPeopleRoute
   '/plans': typeof AuthenticatedPlansRoute
+  '/ppg-arena': typeof AuthenticatedPpgArenaRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/travel': typeof AuthenticatedTravelRoute
   '/voice-studio': typeof AuthenticatedVoiceStudioRoute
@@ -222,6 +229,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof AuthenticatedInboxRoute
   '/people': typeof AuthenticatedPeopleRoute
   '/plans': typeof AuthenticatedPlansRoute
+  '/ppg-arena': typeof AuthenticatedPpgArenaRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/travel': typeof AuthenticatedTravelRoute
   '/voice-studio': typeof AuthenticatedVoiceStudioRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/people': typeof AuthenticatedPeopleRoute
   '/_authenticated/plans': typeof AuthenticatedPlansRoute
+  '/_authenticated/ppg-arena': typeof AuthenticatedPpgArenaRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/travel': typeof AuthenticatedTravelRoute
   '/_authenticated/voice-studio': typeof AuthenticatedVoiceStudioRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/people'
     | '/plans'
+    | '/ppg-arena'
     | '/settings'
     | '/travel'
     | '/voice-studio'
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/people'
     | '/plans'
+    | '/ppg-arena'
     | '/settings'
     | '/travel'
     | '/voice-studio'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inbox'
     | '/_authenticated/people'
     | '/_authenticated/plans'
+    | '/_authenticated/ppg-arena'
     | '/_authenticated/settings'
     | '/_authenticated/travel'
     | '/_authenticated/voice-studio'
@@ -436,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/plans'
       fullPath: '/plans'
       preLoaderRoute: typeof AuthenticatedPlansRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ppg-arena': {
+      id: '/_authenticated/ppg-arena'
+      path: '/ppg-arena'
+      fullPath: '/ppg-arena'
+      preLoaderRoute: typeof AuthenticatedPpgArenaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -568,6 +587,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
   AuthenticatedPlansRoute: typeof AuthenticatedPlansRoute
+  AuthenticatedPpgArenaRoute: typeof AuthenticatedPpgArenaRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTravelRoute: typeof AuthenticatedTravelRoute
   AuthenticatedVoiceStudioRoute: typeof AuthenticatedVoiceStudioRoute
@@ -593,6 +613,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
   AuthenticatedPlansRoute: AuthenticatedPlansRoute,
+  AuthenticatedPpgArenaRoute: AuthenticatedPpgArenaRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTravelRoute: AuthenticatedTravelRoute,
   AuthenticatedVoiceStudioRoute: AuthenticatedVoiceStudioRoute,
