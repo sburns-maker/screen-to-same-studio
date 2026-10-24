@@ -9,3 +9,4 @@
 - [x] Secure internal installation and phone directory tables; verify permissions and calls/calendar/world compatibility. Full suite: 678 passed, 5 skipped; signed-in Plans and Calls load without runtime errors. No paid calls or experience actions executed.
 - [x] Restore Riley's Living Experience eligibility and all four calendar/venue safeguards; her scheduled coffee entry and outing link are present. No Riley experience started.
 - [x] Restore Tess's noon lunch access by correcting its companion from user to Tess, preserving times and attendance. Verified the now-active lunch has Continue and Pause controls; 52 focused tests passed and build is clean. No start/finish action executed by verification.
+- [x] Removed the daily experience cap entirely (user: "Remove the limit for all i care") and added bounded service-role recovery for exhausted failed operations; verified live in the database.
