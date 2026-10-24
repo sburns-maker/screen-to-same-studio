@@ -38,6 +38,22 @@ describe("grounded conversational calendar", () => {
     expect(resolveTime("at 19:15")).toBe("19:15");
     expect(resolveTime("at midnight")).toBeUndefined();
   });
+  it("resolves Maya's 8:15 dinner move without inventing AM/PM for unrelated plans", () => {
+    const dinner = { ...plan, id: "maya-dinner", category: "dinner", status: "awaiting_details", time_local: null };
+    expect(resolveTime("move it to 8:15")).toBeUndefined();
+    expect(resolveTime("move dinner tonight to 8:15")).toBe("20:15");
+    expect(recognizePlan(m("Can we move it to 8:15?", "user"), [dinner], "unrelated")).toMatchObject({
+      action: "reschedule",
+      planId: "maya-dinner",
+      time: "20:15",
+    });
+    expect(recognizePlan(m("Valley Table at 8:15 tonight"), [dinner], "unrelated")).toMatchObject({
+      action: "details",
+      planId: "maya-dinner",
+      time: "20:15",
+    });
+    expect(recognizePlan(m("Move it to 8:15", "user"), [plan], "invite").time).toBeUndefined();
+  });
   it("leaves invalid and ambiguous DST wall times unresolved", () => {
     expect(resolveDate("2026-99-99", at)).toBeUndefined();
     expect(easternInstant("2026-11-01", "01:30")).toBeNull();
