@@ -257,7 +257,7 @@ export function recognizePlan(
   const positive = positiveLead || positiveInline || (!!target && /\b(?:yes[,! ]+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)|(?:sounds|looks) (?:perfect|great)|(?:that|it) works for me|(?:deal|definitely|absolutely)[!. ]*$)\b/i.test(text) && !hedged);
   // Character confirmations: fixed phrases, or "<venue/time> it is" when the message carries plan details.
   const characterConfirm =
-    /\b(?:works for me|see you (?:there|at (?:the )?(?:map point|five|\\d{1,2}))|we['’]re on|it['’]s a date)\b/i.test(text) ||
+    /\b(?:works for me|see you (?:there|at (?:the )?(?:map point|five|\d{1,2}))|we['’]re on|it['’]s a date)\b/i.test(text) ||
     (/\bit is\b/i.test(text) && !!(date || time || places.length));
   if (
     target &&
