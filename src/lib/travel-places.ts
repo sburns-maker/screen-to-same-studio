@@ -5,6 +5,18 @@
 export type TravelPlace={id:string;name:string;city:string;region:string;regionLabel:string;country:string;state:string;kind:string;ideas:string[]};
 export const TRAVEL_PLACES:TravelPlace[]=[
   {
+    "id": "pittsburgh:ppg-paints-arena",
+    "name": "PPG Paints Arena",
+    "city": "Pittsburgh",
+    "region": "pittsburgh",
+    "regionLabel": "Pittsburgh",
+    "country": "US",
+    "state": "PA",
+    "kind": "arena",
+    "ideas": ["live concerts", "Pittsburgh Penguins hockey", "arena events", "concert dates"]
+  },
+
+  {
     "id": "central-pa:horseshoe-curve",
     "name": "Horseshoe Curve",
     "city": "Altoona",
