@@ -4,6 +4,7 @@ on:
     paths:
       - "src/lib/travel-experiences.ts"
       - "src/test/travel-experiences.test.ts"
+      - "src/test/travel-photos.test.ts"
       - "src/lib/travel.functions.ts"
       - "src/lib/travel-ai.server.ts"
       - "src/lib/travel-photos.server.ts"
@@ -22,5 +23,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bunx vitest run src/test/travel-experiences.test.ts src/test/travel-milestones.test.ts
+      - run: bunx vitest run src/test/travel-experiences.test.ts src/test/travel-milestones.test.ts src/test/travel-photos.test.ts
       - run: bun run build
