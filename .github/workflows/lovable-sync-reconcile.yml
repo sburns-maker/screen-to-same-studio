@@ -1,0 +1,20 @@
+name: Lovable sync reconciliation
+on:
+  pull_request:
+    paths:
+      - "src/lib/calendar-commitment*"
+      - "src/lib/storyline*"
+      - "src/lib/shared-world.server.ts"
+      - "src/lib/photo-opportunities.ts"
+      - "src/test/calendar-commitment.test.ts"
+      - "drizzle/migrations/0035_remove_experience_daily_cap.sql"
+      - ".github/workflows/lovable-sync-reconcile.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/calendar-commitment.test.ts src/test/photo-turn.test.ts src/test/storyline.test.ts src/test/living-experiences.integration.test.ts
+      - run: bun run build
