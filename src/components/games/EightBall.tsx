@@ -20,7 +20,7 @@ function integrate(a:Ball[], events:ShotEvents):Ball[]{
   if(b.y<TOP+R||b.y>BOTTOM-R){if(events.firstContact!==null)events.railAfterContact=true;if(b.number>0){events.railBalls??=[];if(!events.railBalls.includes(b.number))events.railBalls.push(b.number);}b.y=Math.min(BOTTOM-R,Math.max(TOP+R,b.y));b.vy*=-.86;}
  }
  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-  const a=balls[i],b=balls[j];if(!a.active||!b.active)continue;
+  const a=balls[i]!,b=balls[j]!;if(!a.active||!b.active)continue;
   const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<=0||d>=R*2)continue;
   if(events.firstContact===null && (a.number===0||b.number===0)){events.firstContact=a.number===0?b.number:a.number;}
   const nx=dx/d,ny=dy/d,overlap=(R*2-d)/2;a.x-=nx*overlap;a.y-=ny*overlap;b.x+=nx*overlap;b.y+=ny*overlap;
@@ -70,7 +70,7 @@ export function EightBall({onFinish,onReset}:{onFinish?:(won:boolean,shots:numbe
       if(opponentTimer.current)clearTimeout(opponentTimer.current);
       opponentTimer.current=setTimeout(()=>{
         if(!alive||rules.current.turn!==2||rules.current.winner!==null)return;
-        const cue=balls.current[0];if(!cue.active)return;
+        const cue=balls.current[0]!;if(!cue.active)return;
         if(rules.current.ballInHand){
           const chosen=[{x:LEFT+160,y:H/2},{x:LEFT+130,y:H/2-70},{x:LEFT+130,y:H/2+70}].find(p=>balls.current.every(b=>!b.active||b.number===0||Math.hypot(b.x-p.x,b.y-p.y)>R*2+2));
           if(chosen){cue.x=chosen.x;cue.y=chosen.y;}
