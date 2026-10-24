@@ -77,7 +77,7 @@ export function createStudioAudition(options: {
   mode?: AuditionMode;
   conversationalOptions?: ConversationalOptions;
   /** Word-for-word prompt for an edited scripted audition; defaults to AUDITION_SPEAK_PROMPT. */
-  scriptedPrompt?: string;
+  scriptedPrompt?: string | undefined;
   connect: (sdp: string) => Promise<{ sdp: string }>;
   onState: (state: AuditionState) => void;
   onError: (message: string) => void;
