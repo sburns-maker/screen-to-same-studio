@@ -235,7 +235,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     !snap.preferences.save_transcripts ||
     snap.calls.some(
       (c) =>
-        ACTIVE_CALL_STATES.includes(c.state) || now.getTime() - Date.parse(c.offered_at) < 86400000,
+        ACTIVE_CALL_STATES.includes(c.state),
     )
   )
     return false;
@@ -262,8 +262,9 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     if (!/\b(?:call you|phone you|give you a call|call back)\b/i.test(r.source_quote)) continue;
     const key = r.character_key as CallRow["character_key"];
     if (
-      !["tess", "maya", "claire", "jordan", "ben"].includes(key) ||
-      callAvailability(key, now).outcome !== "answer"
+      !["tess", "maya", "claire", "jordan", "ben", "riley"].includes(key) ||
+      callAvailability(key, now).outcome !== "answer" ||
+      snap.calls.some(c => c.character_key === key && now.getTime() - Date.parse(c.offered_at) < 6 * 3_600_000)
     )
       continue;
     const conv = await db
