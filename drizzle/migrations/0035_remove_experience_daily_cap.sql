@@ -1,16 +1,14 @@
--- Apply after migration 0034. Remove the per-day experience-operations count cap
--- without changing the retry-recovery limit, ownership checks or other protections.
+-- Apply after 0034. Keep the existing retry recovery and authorization safeguards.
+-- Lovable's change makes the daily limit effectively unlimited (2,147,483,647).
+-- Deliberately modify ONLY the daily count threshold; do not replace 0034.
 DO $$
-DECLARE definition text; before_count int;
+DECLARE definition text;
 BEGIN
  SELECT pg_get_functiondef('public.experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure) INTO definition;
- before_count := length(definition);
- -- Only remove the guard for the exact existing production-compatible revisions.
- definition := regexp_replace(definition,
-  'IF \(SELECT count\(\*\) FROM experience_operations WHERE user_id=p_user AND created_at>=date_trunc\(''day'',p_now\)\)>=([0-9]+) AND o.id IS NULL THEN RAISE EXCEPTION ''Daily experience limit reached''; END IF;',
-  '', 'g');
- IF length(definition)=before_count THEN
-  RAISE EXCEPTION 'Daily guard not found; inspect deployed experience_command before changing it';
+ IF position('>=2147483647 AND o.id IS NULL' in definition)>0 THEN RETURN; END IF;
+ IF position('>=160 AND o.id IS NULL' in definition)=0 THEN
+  RAISE EXCEPTION 'Unexpected experience_command version; daily limit update aborted safely';
  END IF;
+ definition:=replace(definition,'>=160 AND o.id IS NULL','>=2147483647 AND o.id IS NULL');
  EXECUTE definition;
 END $$;
