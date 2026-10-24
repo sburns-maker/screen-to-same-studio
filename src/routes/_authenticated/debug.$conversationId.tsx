@@ -9,6 +9,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { debugSnapshot, developerPhotoOpportunity, developerResetPhotoBoundary } from "@/lib/tess.functions";
 import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
 import { mindSummary, recentMindChanges, datedMemories } from "@/lib/character-mind-insights";
+import { RelationshipHistoryPanel } from "@/components/RelationshipHistoryPanel";
 
 export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
   head: () => ({
@@ -257,6 +258,8 @@ function Debug() {
               </div>
               <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">The timeline dates show when memories were saved, not necessarily when an event occurred. An actual date, invitation or outing needs corresponding world-event evidence to be marked completed.</p>
             </Section>}
+
+            {activeTab === "mind" && <RelationshipHistoryPanel conversationId={conversationId}/>}
 
             {activeTab === "world" && <Section title="Their world right now">
               <KV k="activity" v={snap.schedule.activity} />
