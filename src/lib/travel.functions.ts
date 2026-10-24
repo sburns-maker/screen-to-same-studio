@@ -89,3 +89,35 @@ export const listTravelMoments=createServerFn({method:"POST"}).middleware([requi
  const db=await getDb();const {data:rows,error}=await (db as any).from("travel_trip_moments").select("id,stop_id,day,body,created_at").eq("user_id",context.userId).eq("trip_id",data.id).order("created_at");
  if(error)throw new Error(error.message);return rows??[];
 });
+
+const momentInput=z.object({id:uuid,stopId:z.string().min(1).max(100),day:z.number().int().min(1).max(90),text:z.string().trim().min(1).max(1500),character:z.enum(["tess","maya","claire","jordan","ben","riley"]).optional()});
+export const travelSceneTurn=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
+.inputValidator((v:unknown)=>momentInput.parse(v)).handler(async({context,data})=>{
+ const db=await getDb();
+ const {data:row,error}=await (db as any).from("travel_trips").select("*").eq("id",data.id).eq("user_id",context.userId).single();
+ if(error||!row)throw new Error("Trip not found");
+ const trip=fromRow(row);
+ if(trip.status!=="in_progress"||!trip.itinerary.some(s=>s.id===data.stopId&&s.day===data.day&&!s.completed))throw new Error("Active stop not found");
+ const {data:prior}=await (db as any).from("travel_trip_moments").select("body").eq("user_id",context.userId).eq("trip_id",trip.id).eq("stop_id",data.stopId).order("created_at",{ascending:false}).limit(8);
+ const ai=await (await import("./travel-ai.server")).generateTravelScene(trip,data.day,data.stopId,data.text,(prior??[]).map((m:{body:string})=>m.body).reverse(),data.character);
+ const body="You: "+data.text+"\nScene: "+ai.narration+(ai.dialogue?"\n"+(data.character??"Guide")+": "+ai.dialogue:"");
+ const {error:write}=await (db as any).from("travel_trip_moments").insert({id:crypto.randomUUID(),trip_id:trip.id,user_id:context.userId,stop_id:data.stopId,day:data.day,body});
+ if(write)throw new Error("Scene could not be saved: "+write.message);
+ return {body,detail:ai.newDetail};
+});
+const askInput=z.object({id:uuid,character:z.enum(["tess","maya","claire","jordan","ben","riley"])});
+export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
+.inputValidator((v:unknown)=>askInput.parse(v)).handler(async({context,data})=>{
+ const db=await getDb();const {data:row,error}=await (db as any).from("travel_trips").select("*").eq("id",data.id).eq("user_id",context.userId).single();
+ if(error||!row)throw new Error("Trip not found");let trip=fromRow(row);
+ if(!["idea","proposed"].includes(trip.status))throw new Error("Trip not open for invitations");
+ if(trip.companions.some(c=>c.characterKey===data.character))throw new Error("Character already invited");
+ const {data:conv}=await db.from("conversations").select("id,relationship_stage").eq("user_id",context.userId).eq("character_key",data.character).maybeSingle();
+ const {data:state}=conv?await db.from("tess_state").select("comfort,trust,emotional_intimacy,romantic_intent").eq("user_id",context.userId).eq("conversation_id",conv.id).maybeSingle():{data:null};
+ const result=await (await import("./travel-ai.server")).characterTripDecision(data.character,trip,{stage:conv?.relationship_stage,stats:state??null});
+ const companion={characterKey:data.character,response:result.decision==="accept"?"accepted":"declined"};
+ const {data:updated,error:write}=await (db as any).from("travel_trips").update({companions:[...trip.companions,companion],revision:(trip.revision??0)+1,updated_at:new Date().toISOString()})
+ .eq("user_id",context.userId).eq("id",data.id).eq("revision",trip.revision).select("id").maybeSingle();
+ if(write||!updated)throw new Error(write?.message??"Concurrent update; retry");
+ return {decision:result.decision,reply:result.reply};
+});
