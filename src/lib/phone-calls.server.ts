@@ -335,7 +335,8 @@ export async function offerSpontaneousCall(db: Client, user: string, now: Date) 
   if(inQuietHours(now,q.start,q.end)) return false;
   const {data: conversations,error}=await db.from("conversations").select("id,muted,real_time_mode,character:characters(key)").eq("user_id",user);
   if(error || !conversations?.length) return false;
-  const {CHARACTERS,currentActivity}=await import("./characters");
+  const {CHARACTERS}=await import("./characters");
+  const {currentActivity}=await import("./world-continuity");
   const slot=Math.floor(now.getTime()/3_600_000);
   for(const conv of conversations){
     const key=(conv.character as {key?:string}|null)?.key as keyof typeof CHARACTERS|undefined;
