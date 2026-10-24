@@ -741,7 +741,7 @@ async function runTurnUnlocked(
         state_before:state,state_after:next,delta:numericChange,
         stage_before:deriveStage(state),stage_after:stage,
         observed_tone:reply.tone??null,event_tags:reply.event_tags??[],
-        character_perspective:null
+        character_perspective:reply.character_perspective?.trim().slice(0,700) || null
       } as never,{onConflict:"conversation_id,message_id"});
       if(historyError)console.warn("[relationship-history] Evaluation could not be recorded:",historyError.message);
     }catch(error){console.warn("[relationship-history] Recording deferred:",error);}
