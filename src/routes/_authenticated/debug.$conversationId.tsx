@@ -221,7 +221,7 @@ function Debug() {
                   </div>
                 );
               })}
-            </div>
+            </div>}
 
             {activeTab === "mind" && snap.photoDeveloperTools && <Section title="Character Mind · recorded state" collapsible>
               <p className="text-xs text-muted-foreground">Developer diagnostic, not hidden thoughts. These are the engine's saved relationship variables and observed response tags, not a private monologue or proof of why a gesture happened.</p>
