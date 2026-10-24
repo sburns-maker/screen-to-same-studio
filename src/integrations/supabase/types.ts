@@ -201,6 +201,30 @@ export type Database = {
         }
         Relationships: []
       }
+      character_voices: {
+        Row: {
+          character_key: string
+          label: string
+          set_by: string | null
+          updated_at: string
+          voice_id: string
+        }
+        Insert: {
+          character_key: string
+          label?: string
+          set_by?: string | null
+          updated_at?: string
+          voice_id: string
+        }
+        Update: {
+          character_key?: string
+          label?: string
+          set_by?: string | null
+          updated_at?: string
+          voice_id?: string
+        }
+        Relationships: []
+      }
       character_world_state: {
         Row: {
           activity: string
@@ -657,6 +681,68 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      live_character_calls: {
+        Row: {
+          character_key: string
+          close_reason: string | null
+          conversation_id: string
+          created_at: string
+          deadline_at: string
+          ended_at: string | null
+          id: string
+          lease_until: string
+          reserved_seconds: number
+          session_id: string | null
+          state: string
+          summary_saved: boolean
+          usage_seconds: number | null
+          user_id: string
+          voice_id: string
+        }
+        Insert: {
+          character_key: string
+          close_reason?: string | null
+          conversation_id: string
+          created_at?: string
+          deadline_at: string
+          ended_at?: string | null
+          id?: string
+          lease_until: string
+          reserved_seconds: number
+          session_id?: string | null
+          state?: string
+          summary_saved?: boolean
+          usage_seconds?: number | null
+          user_id: string
+          voice_id: string
+        }
+        Update: {
+          character_key?: string
+          close_reason?: string | null
+          conversation_id?: string
+          created_at?: string
+          deadline_at?: string
+          ended_at?: string | null
+          id?: string
+          lease_until?: string
+          reserved_seconds?: number
+          session_id?: string | null
+          state?: string
+          summary_saved?: boolean
+          usage_seconds?: number | null
+          user_id?: string
+          voice_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_character_calls_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       living_experience_moments: {
         Row: {
@@ -2299,6 +2385,20 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      reserve_live_call: {
+        Args: {
+          p_character: string
+          p_conversation: string
+          p_daily_count: number
+          p_lease_seconds: number
+          p_limit_seconds: number
+          p_monthly_seconds: number
+          p_now: string
+          p_user: string
+          p_voice: string
+        }
+        Returns: Json
       }
       reserve_user_video: {
         Args: {
