@@ -10,14 +10,14 @@ const PREFIXES = new Set<string>();
 for (const word of WORDS) for(let i=1;i<=Math.min(word.length,8);i++) PREFIXES.add(word.slice(0,i));
 function neighbors(a:number,b:number){return a!==b&&Math.abs(Math.floor(a/4)-Math.floor(b/4))<=1&&Math.abs(a%4-b%4)<=1}
 function allWords(board:string){const found=new Set<string>();function walk(path:number[],word:string){if(!PREFIXES.has(word.toLowerCase()))return;if(word.length>=3&&WORDS.has(word.toLowerCase()))found.add(word.toLowerCase());if(path.length>=8)return;for(let i=0;i<16;i++)if(!path.includes(i)&&(path.length===0||neighbors(path[path.length-1],i)))walk([...path,i],word+board[i]);}for(let i=0;i<16;i++)walk([i],board[i]);return [...found]}
-export function WordHunt({character,onFinish}:{character:string;onFinish?:(score:number,target:number,round:number)=>void}){
+export function WordHunt({character,onFinish,onReset}:{character:string;onFinish?:(score:number,target:number,round:number)=>void;onReset?:()=>void}){
  const [round,setRound]=useState(0),[path,setPath]=useState<number[]>([]),[found,setFound]=useState<string[]>([]),[finished,setFinished]=useState(false);
  const board=BOARDS[round%BOARDS.length],valid=useMemo(()=>allWords(board),[board]);
  const selected=path.map(i=>board[i]).join("");
  const points=(s:string)=>Math.max(1,s.length-2);
  function choose(i:number){if(finished)return;if(path.length&&!neighbors(path[path.length-1],i))return;if(path.includes(i))return;setPath(p=>[...p,i]);}
  function submit(){const w=selected.toLowerCase();if(valid.includes(w)&&!found.includes(w))setFound(v=>[...v,w]);setPath([])}
- function restart(){setRound(n=>n+1);setPath([]);setFound([]);setFinished(false)}
+ function restart(){onReset?.();setRound(n=>n+1);setPath([]);setFound([]);setFinished(false)}
  const score=found.reduce((s,w)=>s+points(w),0);
  // A transparent local skill benchmark, not a simulated remote turn.
  const opponent=valid.filter((_,i)=>(i*7+character.length)%5<2).reduce((s,w)=>s+points(w),0);
