@@ -527,7 +527,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               chaos: conv.difficulty === "chaos" ? 2 : 1,
             });
           // Practice conversations retain interactive testing; they never receive real-clock background messages.
-          if (!conv.real_time_mode) continue;
+          // Practice conversations also receive background messages (user choice).
           if (worldReady) {
             const { error: expiryError } = await admin
               .from("world_records")

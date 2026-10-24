@@ -398,7 +398,7 @@ async function runTurnUnlocked(
     return { count: 0, lastVisibleAt: null, reason: "asleep" };
   }
   if (initiation && !initiation.developerPhoto) {
-    if (!conv.real_time_mode || conv.muted) return { count: 0, lastVisibleAt: null, reason: "background initiation disabled for this conversation" };
+    if (conv.muted) return { count: 0, lastVisibleAt: null, reason: "background initiation disabled for this conversation" };
     if (schedule.availability === "busy") return { count: 0, lastVisibleAt: null, reason: "busy" };
     const { data: quiet, error } = await supabase.from("user_profile").select("value").eq("user_id", userId).eq("key", "quiet_hours").maybeSingle();
     if (error) throw new Error("Quiet-hour preferences unavailable");

@@ -171,8 +171,8 @@ export type InitiationDecision = {
   nextWindowHours: number | null; // when eligibility next opens, if known
 };
 
-export const MIN_INITIATION_GAP_HOURS = 5;
-export const MIN_BETWEEN_INITIATIONS_HOURS = 20;
+export const MIN_INITIATION_GAP_HOURS = 2;
+export const MIN_BETWEEN_INITIATIONS_HOURS = 4;
 
 /**
  * Decide whether Tess texts first. The 5-hour gap only opens eligibility —
