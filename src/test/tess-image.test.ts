@@ -7,6 +7,8 @@ describe("image prompt builder", () => {
     expect(p).toContain("defines the woman's identity only");
     expect(p).toContain("Do not recreate the reference image's pose or composition");
     expect(p).toContain("varied personal smartphone photos rather than repeated professional portraits");
+    expect(p).toContain("WARDROBE AND POSE VARIETY");
+    expect(p).toContain("Avoid making black or charcoal tops the habitual default");
   });
 
   it("weaves pose, angle, crop, hair, expression and clothing into the prompt", () => {

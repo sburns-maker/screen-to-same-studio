@@ -58,6 +58,7 @@ export function identityBlock(id?: CharacterIdentity): string {
   return `The supplied canonical ${id.name} reference defines the ${person}'s identity only. Preserve the exact same recognizable fictional ${person}, facial structure, age, eyes, hair and proportions, while allowing natural changes in hairstyle, pose, facial expression, clothing, camera angle, framing and environment appropriate to the requested scene. Do not recreate the reference image's pose or composition unless the scene specifically calls for it. ${id.name} is a real-looking ${id.age}-year-old adult ${person} living an ordinary contemporary life. Images should resemble varied personal smartphone photos rather than repeated professional portraits. The actual profile image overrides all written appearance descriptions. Preserve its defining facial proportions, eyes, nose, mouth, jaw, complexion, approximate age and recognizable features. The same individual, not merely a similar-looking ${person}. Do not beautify them into a different person.`;
 }
 
+const WARDROBE_AND_COMPOSITION = `WARDROBE AND POSE VARIETY: The reference photograph establishes identity ONLY, not a signature wardrobe, hairstyle, pose, crop or room. Do not copy its shirt, colors, posture or selfie angle. When the scene does not specify clothing, choose one distinct, believable, context-appropriate outfit with actual garment and color details; use a varied palette including denim blue, muted teal, olive, warm brown, rust, cream, burgundy, lavender and other ordinary colors. Avoid making black or charcoal tops the habitual default. Bedtime scenes use realistic sleepwear or loungewear; work, outdoor, errands and social photos have context-appropriate changes. Choose a plausible camera position, framing, pose and activity rather than reflexively making a centered chest-up front-camera selfie. Mirror photos only when explicitly requested or clearly part of the scene. If explicit clothing/pose/camera directions or same-day continuity are provided, honor them instead of forcing random changes. Never alter the character's actual identity to make the photo more varied.`;
 const STYLE = `Use ordinary contemporary adult clothing. Avoid school uniforms, fantasy clothing, cosplay, fashion-editorial styling, or glamorous studio photography. Nothing revealing or suggestive. It should look like a real phone photo: imperfect framing, ordinary slightly messy surroundings, natural ambient light, realistic skin texture, maybe slight motion blur or grain. Not professional photography. No text overlays, no watermarks. Never show patient or client identities, medical records, private screens, identifying paperwork or recognizable bystanders. At work, keep the background to ordinary blank or non-identifying surfaces.`;
 const MATURE_STYLE = `A non-explicit romantic personal portrait of one clearly adult fictional person aged 18 or older. Fully covered in opaque elegant sleepwear or ordinary dressy clothing, natural softly lit surroundings and realistic adult skin. No nudity, exposed breasts, genitals, transparent fabric, lingerie, boudoir, sexual activity, erotic posing, minors or age ambiguity. Do not sexualize the subject. Preserve the adult identity and natural phone-photo composition. No text overlays or watermarks. Follow the provider's content policy; do not evade moderation.`;
 
@@ -119,19 +120,19 @@ export function buildImagePrompt(
   }
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
-    !merged.selfie_type && type !== "tess_candid" ? SELFIE_LINES["selfie"] : "";
-  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}${personality}`;
+    !merged.selfie_type && type === "casual_selfie" ? SELFIE_LINES["selfie"] : "";
+  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}\n\n${WARDROBE_AND_COMPOSITION}${personality}`;
 }
 
 export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   const ownKey = process.env["OPENAI_API_KEY"];
   const apiKey = ownKey || gatewayKey;
   const GATEWAY = ownKey ? "https://api.openai.com" : GATEWAY_URL;
-  // New-image default is Flare; deployments can explicitly choose mini or Sunburst.
+  // Sunburst is the default identity-reference photo model; deployments may override explicitly.
   const supported = ["gpt-image-1-mini", "gpt-image-1.5", "gpt-image-2.5-flare", "gpt-image-2.5-sunburst"];
-  const requested = process.env["OPENAI_IMAGE_MODEL"] ?? "gpt-image-2.5-flare";
+  const requested = process.env["OPENAI_IMAGE_MODEL"] ?? "gpt-image-2.5-sunburst";
   const model = ownKey
-    ? (supported.includes(requested) ? requested : "gpt-image-2.5-flare")
+    ? (supported.includes(requested) ? requested : "gpt-image-2.5-sunburst")
     : "openai/gpt-image-2.5-sunburst";
   return {
     name: ownKey ? "openai" : "lovable-ai-gateway",
