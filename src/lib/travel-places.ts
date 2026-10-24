@@ -872,5 +872,5 @@ export function travelPlaces(query:string,region?:string){
 }
 export function realWorldMapSearchUrl(p:TravelPlace){return "https://www.google.com/maps/search/?api=1&query="+encodeURIComponent([p.name,p.city,p.state,p.country].filter(Boolean).join(", "));}
 export function travelDayStop(p:TravelPlace,day:number){
- return {id:crypto.randomUUID(),day,label:p.name,location:[p.name,p.city,p.country].join(", "),kind:(p.kind==="museum"||p.kind==="nature"||p.kind==="landmark"?"activity":"activity") as const,completed:false};
+ return {id:crypto.randomUUID(),day,label:p.name,location:[p.name,p.city,p.country].join(", "),kind:"activity" as const,completed:false};
 }
