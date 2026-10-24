@@ -25,6 +25,22 @@ const plan = {
   last_message_id: "invite",
 } as CalendarPlan;
 describe("grounded conversational calendar", () => {
+  it("creates a noon lunch plan from Tess's formal proposal conversation", () => {
+    const user = {
+      ...m("Alright, Ms. Morgan, here's my revised formal proposal. Today, noon, lunch at Fanelli's. Just the two of us, good food, and no spreadsheets. Think you can escape by 12?", "user"),
+      created_at: "2026-10-24T10:47:00Z",
+      character_key: "tess",
+    };
+    expect(resolveTime(user.body)).toBe("12:00");
+    expect(recognizePlan(user, [], null)).toMatchObject({
+      action: "invite",
+      category: "dinner",
+      date: "2026-10-24",
+      time: "12:00",
+      place: "dinner:fanellis",
+    });
+  });
+
   it("uses Eastern message dates, not the machine timezone", () => {
     expect(resolveDate("tonight", at)).toBe("2026-10-22");
     expect(resolveDate("tomorrow afternoon", at)).toBe("2026-10-23");
