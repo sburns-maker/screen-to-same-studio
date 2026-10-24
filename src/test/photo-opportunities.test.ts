@@ -78,6 +78,19 @@ describe("independent contextual photo opportunities", () => {
       );
     },
   );
+  it("allows optional photos while winding down but not while asleep", () => {
+    const result = photoOpportunity({
+      ...base,
+      schedule: { activity: "winding down", availability: "limited", detail: "winding down for bed" },
+      context: "A quiet nighttime photo of the book she is reading",
+    });
+    expect(result.eligible).toBe(true);
+    expect(result.selected).toBe(true);
+    expect(photoOpportunity({
+      ...base,
+      schedule: { activity: "asleep", availability: "asleep", detail: "asleep — before alarm" },
+    }).eligible).toBe(false);
+  });
   it("allows Jordan's free-ish climbing practice when the detail says patiently", () => {
     const result = photoOpportunity({
       ...base,

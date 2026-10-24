@@ -280,6 +280,8 @@ export async function generateExperience(
       throw new Error("Unsafe off-screen outcome");
     const delta = kind === "turn" && body ? sanitizeDelta(reply.state_delta, difficulty) : {};
     // Completion consumes deltas accumulated ONLY from actual interactive turns, never auto attendance.
+    // The reconciliation cap is per completed experience, not per turn: a multi-hour
+    // date must not discard every meaningful interaction after the first few turns.
     phase = "reconciliation";
     const ops = await db
       .from("experience_operations")
@@ -292,9 +294,9 @@ export async function generateExperience(
       STATE_KEYS.map((k) => [
         k,
         Math.max(
-          -3,
+          -12,
           Math.min(
-            3,
+            12,
             (ops.data ?? []).reduce((n, o) => n + ((o.result as { delta?: Record<string, number> } | null)?.delta?.[k] ?? 0), 0),
           ),
         ),
