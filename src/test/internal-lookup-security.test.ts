@@ -13,11 +13,12 @@ async function asRole<T>(role: "anon" | "authenticated" | "service_role", run: (
 }
 beforeAll(async () => {
   db = await worldDatabase();
-  await db.exec(`create role anon; grant usage on schema public, auth to anon, authenticated, service_role;
+  await db.exec(`grant usage on schema public, auth to anon, authenticated, service_role;
     create or replace function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create function auth.role() returns text language sql as $$ select current_user::text $$;
     grant all on public.interactive_world_installation, public.phone_contacts to anon;`);
   const before = await db.query("select * from interactive_world_installation");
+  await db.exec("drop policy phone_contacts_signed_in_read on phone_contacts");
   await db.exec(readFileSync("docs/sql/20261024_internal_lookup_security.sql", "utf8"));
   expect((await db.query("select * from interactive_world_installation")).rows).toEqual(before.rows);
   await db.exec(readFileSync("docs/sql/20261024_travel_trips.sql", "utf8"));
