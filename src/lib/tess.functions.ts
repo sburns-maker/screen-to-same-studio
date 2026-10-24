@@ -730,7 +730,7 @@ async function runTurnUnlocked(
   // Existing photographs are delivered through a separate transactional path and
   // must be instrumented separately rather than pretending they were evaluated here.
   const evaluationMessageId = rows[0]?.id ?? recent.find(m=>m.sender==="user")?.id;
-  if(evaluationMessageId && process.env["SUPABASE_SERVICE_ROLE_KEY"]){
+  if(evaluationMessageId){
     try{
       const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
       const numericChange=Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]]));
