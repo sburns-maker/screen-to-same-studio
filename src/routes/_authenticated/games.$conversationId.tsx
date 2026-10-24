@@ -7,9 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { QUESTION_BANK, nextTriviaDeck, type TriviaQuestion } from "@/lib/game-trivia";
 import { WordHunt } from "@/components/games/WordHunt";
 import { EightBall } from "@/components/games/EightBall";
-import { GameChat } from "@/components/games/GameChat";
-import { useServerFn } from "@tanstack/react-start";
-import { saveGameMatch, recentGameMatches } from "@/lib/game-matches.functions";
 
 export const Route = createFileRoute("/_authenticated/games/$conversationId")({
   component: GameRoom,
@@ -18,21 +15,20 @@ export const Route = createFileRoute("/_authenticated/games/$conversationId")({
 type Game = "trivia" | "four" | "words" | "pool";
 type Question = TriviaQuestion;
 type TriviaProgress = { answers: number[]; deck: number[]; previous: number[]; round: number };
-type FourState = { board: number[]; ended: number | null; moves?: number[] };
-type Saved = { game: Game; trivia: TriviaProgress; four: FourState; fourRound?: number };
+type FourState = { board: number[]; ended: number | null };
+type Saved = { game: Game; trivia: TriviaProgress; four: FourState };
 const fresh = (): Saved => ({
   game: "trivia",
   trivia: { answers: [], deck: nextTriviaDeck(), previous: [], round: 0 },
-  four: { board: Array(42).fill(0), ended: null, moves: [] },
-  fourRound: 0,
+  four: { board: Array(42).fill(0), ended: null },
 });
 const index = (r: number, c: number) => r * 7 + c;
 function winner(board: number[]): number | null {
   for (let r = 0; r < 6; r++) for (let c = 0; c < 7; c++) {
     const n = board[index(r, c)];
     if (!n) continue;
-    for (const [dr, dc] of [[1, 0], [0, 1], [1, 1], [1, -1]]) {
-      if (Array.from({ length: 4 }, (_, k) => [r + k * dr, c + k * dc]).every(([rr, cc]) =>
+    for (const [dr, dc] of [[1, 0], [0, 1], [1, 1], [1, -1]] as [number, number][]) {
+      if (Array.from({ length: 4 }, (_, k) => [r + k * dr, c + k * dc] as [number, number]).every(([rr, cc]) =>
         rr >= 0 && rr < 6 && cc >= 0 && cc < 7 && board[index(rr, cc)] === n)) return n;
     }
   }
@@ -67,41 +63,13 @@ function GameRoom() {
   const storageKey = `aitown:games:prototype:${conversationId}`;
   const [saved, setSaved] = useState<Saved>(fresh);
   const [ready, setReady] = useState(false);
-  const saveMatch = useServerFn(saveGameMatch);
-  const loadMatches = useServerFn(recentGameMatches);
-  const [verified, setVerified] = useState<string[]>([]);
-  const [syncError, setSyncError] = useState<string | null>(null);
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(storageKey) || "null");
       if (s && ["trivia", "four", "words", "pool"].includes(s.game) && Array.isArray(s.four?.board) && s.four.board.length === 42 && Array.isArray(s.trivia?.answers)) setSaved({ ...s, trivia: Array.isArray(s.trivia.deck) && s.trivia.deck.length === 10 ? s.trivia : { answers: [], deck: nextTriviaDeck(), previous: [], round: 0 } });
     } catch { /* damaged local draft: start fresh */ }
-    // Remote progress is authoritative for resume. Do not write the local draft
-    // to the server until restoration finishes.
-    let active = true;
-    void loadMatches({data:{conversationId}}).then((rows)=>{
-      if(!active)return;
-      const matches=rows as unknown as Array<{game:string;status:string;match_key:string;progress:unknown;updated_at:string}>;
-      const last=(matches??[]).find(m=>m.status==="active"&&(m.game==="trivia"||m.game==="four"));
-      if(last?.game==="trivia"){
-        const p=last.progress as {deck?:number[];answers?:number[]};
-        const round=Number(last.match_key.split(":")[1]);
-        if(Array.isArray(p.deck)&&p.deck.length===10&&Array.isArray(p.answers)&&p.answers.length<=10&&Number.isSafeInteger(round)){
-          setSaved(old=>({...old,game:"trivia",trivia:{...old.trivia,deck:p.deck!,answers:p.answers!,round}}));
-        }
-      }else if(last?.game==="four"){
-        const p=last.progress as {moves?:number[]};
-        const round=Number(last.match_key.split(":")[1]);
-        if(Array.isArray(p.moves)&&p.moves.every(n=>Number.isInteger(n)&&n>=0&&n<=6)&&Number.isSafeInteger(round)){
-          const board=Array(42).fill(0) as number[];
-          p.moves.forEach((c,i)=>{for(let row=5;row>=0;row--){const idx=index(row,c);if(!board[idx]){board[idx]=i%2===0?1:2;break;}}});
-          setSaved(old=>({...old,game:"four",fourRound:round,four:{board,ended:winner(board),moves:p.moves}}));
-        }
-      }
-      setReady(true);
-    }).catch(()=>{if(active){setSyncError("Cloud resume unavailable; local draft only");setReady(true);}});
-    return ()=>{active=false;};
-  }, [storageKey,conversationId,loadMatches]);
+    setReady(true);
+  }, [storageKey]);
   useEffect(() => { if (ready) localStorage.setItem(storageKey, JSON.stringify(saved)); }, [saved, storageKey, ready]);
   function answer(choice: number) {
     setSaved((s) => s.trivia.answers.length >= s.trivia.deck.length ? s : ({
@@ -114,47 +82,20 @@ function GameRoom() {
       const first = place(s.four.board, column, 1);
       if (!first) return s;
       let outcome = winner(first), board = first;
-      const moves = [...(s.four.moves ?? []), column];
       if (outcome === null) {
         const response = computerColumn(first);
         board = response < 0 ? first : place(first, response, 2)!;
-        if (response >= 0) moves.push(response);
         outcome = winner(board);
       }
-      return { ...s, four: { board, ended: outcome, moves } };
+      return { ...s, four: { board, ended: outcome } };
     });
   }
   const deck = saved.trivia.deck.map((i) => QUESTION_BANK[i]).filter(Boolean);
   const total = saved.trivia.answers.length;
   const playerScore = saved.trivia.answers.filter((a, i) => deck[i] && a === deck[i].correct).length;
-  const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q, i, character.key)).length;
+  const computerScore = deck.slice(0, total).filter((q, i) => opponentCorrect(q!, i, character.key)).length;
   const finished = total === deck.length;
-  const question = deck[total];
-  // Every turn is saved to the user's protected match record. Completion is
-  // independently verified on the server before the result can be shared.
-  const activeKey = saved.game === "trivia"
-    ? "trivia:" + saved.trivia.round + ":" + saved.trivia.deck.join("-")
-    : saved.game === "four" ? "four:" + (saved.fourRound ?? 0) : null;
-  const activeCompleted = saved.game === "trivia"
-    ? saved.trivia.answers.length === saved.trivia.deck.length
-    : saved.game === "four" ? saved.four.ended !== null : false;
-  useEffect(() => {
-    if (!ready || !conv.data || !activeKey || !["trivia", "four"].includes(saved.game)) return;
-    const progress = saved.game === "trivia"
-      ? { deck: saved.trivia.deck, answers: saved.trivia.answers }
-      : { moves: saved.four.moves ?? [] };
-    let canceled = false;
-    void saveMatch({data:{conversationId,key:activeKey,game:saved.game,progress,complete:activeCompleted}})
-      .then(() => {if(!canceled){setSyncError(null);if(activeCompleted)setVerified(v=>v.includes(activeKey)?v:[...v,activeKey]);}})
-      .catch(e=>{if(!canceled)setSyncError(e instanceof Error?e.message:"Could not save match");});
-    return ()=>{canceled=true;};
-  }, [ready, conv.data, activeKey, activeCompleted, saved.trivia.answers, saved.four.moves, saved.game, saveMatch, conversationId]);
-
-  const result = saved.game === "trivia" && finished && !!activeKey && verified.includes(activeKey)
-    ? {key:"trivia:"+saved.trivia.round+":"+saved.trivia.deck.join("-"),description:"We just finished a 10-question trivia match. I scored "+playerScore+" and you scored "+computerScore+". "+(playerScore>computerScore?"I won.":playerScore<computerScore?"You won.":"It was a tie.")+" (Game result from AI Town.)"}
-    : saved.game === "four" && saved.four.ended !== null && !!activeKey && verified.includes(activeKey)
-    ? {key:"four:"+(saved.fourRound??0)+":"+saved.four.board.join(""),description:"We just finished a Four in a Row match. "+(saved.four.ended===0?"It was a draw.":saved.four.ended===1?"You won.":"I won.")+" (Game result from AI Town.)"}
-    : null; // Word Hunt and 8 Ball need authoritative server adjudication before result sharing.
+  const question = deck[total]!;
   return (
     <main className="mx-auto min-h-dvh max-w-2xl bg-background px-3 pb-24 pt-safe sm:px-5">
       <header className="flex min-h-14 items-center gap-2 border-b py-2">
@@ -174,7 +115,7 @@ function GameRoom() {
           {finished ? (
             <div className="space-y-4 rounded-xl border bg-card p-5 text-center">
               <h2 className="text-2xl font-semibold">{playerScore > computerScore ? "You win!" : playerScore < computerScore ? `${character.preferredName} wins!` : "It's a tie!"}</h2>
-              <p className="text-muted-foreground">Answer scores are computed from the actual question bank. Chat during games uses the same relationship engine as Messages.</p>
+              <p className="text-muted-foreground">The result is from the actual answers. This prototype does not yet alter relationship state.</p>
               <button type="button" className="w-full rounded-xl bg-primary p-3 text-primary-foreground" onClick={() => setSaved((s) => ({ ...s, trivia: { answers: [], deck: nextTriviaDeck(s.trivia.deck), previous: s.trivia.deck, round: s.trivia.round + 1 } }))}>Rematch</button>
             </div>
           ) : (
@@ -191,11 +132,9 @@ function GameRoom() {
             {saved.four.board.map((piece, i) => <button type="button" key={i} onClick={() => drop(i % 7)} disabled={saved.four.ended !== null} aria-label={`Drop in column ${(i % 7) + 1}`} className="aspect-square min-w-0 rounded-full bg-blue-900/40 p-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white disabled:cursor-default"><span className={`block h-full w-full rounded-full ${piece === 1 ? "bg-red-400" : piece === 2 ? "bg-yellow-300" : "bg-background"}`} /></button>)}
           </div>
           <p className="text-center text-sm text-muted-foreground">Tap any hole in a column to drop a red piece. {character.preferredName} plays yellow.</p>
-          <button type="button" onClick={() => setSaved((s) => ({ ...s, fourRound: (s.fourRound??0)+1, four: { board: Array(42).fill(0), ended: null, moves: [] } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
+          <button type="button" onClick={() => setSaved((s) => ({ ...s, four: { board: Array(42).fill(0), ended: null } }))} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border bg-card"><RotateCcw size={16}/> New game</button>
         </section>
       )}
-      {syncError && <p role="alert" className="mt-4 text-sm text-destructive">Game sync: {syncError}. Results cannot be shared until verified.</p>}
-      <GameChat conversationId={conversationId} name={character.preferredName} game={saved.game} result={result} />
       <p className="mt-8 text-center text-xs text-muted-foreground">Playable prototypes · Trivia and Four in a Row save locally · Multiplayer and AI-driven characters coming next</p>
     </main>
   );
