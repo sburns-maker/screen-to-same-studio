@@ -529,7 +529,7 @@ function VoiceStudio() {
                 disabled={busy !== null}
                 onClick={() => {
                   setVariant("custom");
-                  saveDrafts({ ...drafts, [`${character}:custom`]: CHARACTER_VOICE_PRESETS[character] });
+                  saveDrafts({ ...drafts, [`${character}:custom`]: { ...CHARACTER_VOICE_PRESETS[character]! } });
                 }}
               >
                 {CHARACTER_VOICE_PRESETS[character].name.split(" — ")[0]} voice (fill everything in)
