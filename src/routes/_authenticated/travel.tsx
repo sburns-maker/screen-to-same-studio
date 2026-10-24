@@ -7,7 +7,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
 import {TRAVEL_REGIONS,travelPlaces,realWorldMapSearchUrl,type TravelPlace} from "@/lib/travel-places";
-import {PPG_ARENA,PPG_ARENA_EVENTS} from "@/lib/arena-events";
+import {PPG_ARENA,ALL_PPG_GAME_EVENTS} from "@/lib/arena-events";
 export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · AI Town"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
 const purposes=["vacation","work","family","adventure"] as const;
@@ -26,7 +26,7 @@ function Travel(){
  const current=trips.find(t=>t.id===selected)??trips[0];
  const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>getMoments({data:{id:current!.id}}),enabled:!!current?.id});
  async function planArenaEvent(eventId:string){
-  const event=PPG_ARENA_EVENTS.find(e=>e.id===eventId);if(!event)return;
+  const event=ALL_PPG_GAME_EVENTS.find(e=>e.id===eventId);if(!event)return;
   setBusy(true);
   try{
    const id=crypto.randomUUID();
@@ -75,8 +75,8 @@ function Travel(){
  <input className="w-full rounded-xl border bg-background p-2" aria-label="Search destinations" placeholder="Search park, museum, town, waterfall…" value={placeQuery} onChange={e=>setPlaceQuery(e.target.value)}/>
  {(region==="pittsburgh"||/ppg|arena|jonas/i.test(placeQuery))&&<section className="space-y-2 rounded-xl border p-3">
  <h3 className="font-semibold">PPG Paints Arena · Upcoming published events</h3>
- <p className="text-xs text-muted-foreground">{PPG_ARENA.address}. Schedule snapshot checked {PPG_ARENA.verifiedOn}; verify before attending.</p>
- <div className="max-h-64 space-y-2 overflow-y-auto">{PPG_ARENA_EVENTS.map(e=><article key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm"><div><strong>{e.title}</strong><p className="text-xs text-muted-foreground">{e.date} · {e.time??"time unconfirmed"} · {e.kind}</p></div><button type="button" disabled={busy} className="underline disabled:opacity-50" onClick={()=>void planArenaEvent(e.id)}>Add event to Travel</button></article>)}</div>
+ <p className="text-xs text-muted-foreground">{PPG_ARENA.address}. Real schedule snapshot checked {PPG_ARENA.verifiedOn}; fictional concerts are game-only.</p>
+ <div className="max-h-64 space-y-2 overflow-y-auto">{ALL_PPG_GAME_EVENTS.map(e=><article key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm"><div><strong>{e.title}</strong><p className="text-xs text-muted-foreground">{e.date} · {e.time??"time unconfirmed"} · {e.kind} {e.source==="fictional_game_event"?"· FICTIONAL GAME EVENT":"· Real listing"}</p></div><button type="button" disabled={busy} className="underline disabled:opacity-50" onClick={()=>void planArenaEvent(e.id)}>Add event to Travel</button></article>)}</div>
  <a href={PPG_ARENA.calendarUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">Official venue calendar ↗</a>
  </section>}
  <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
