@@ -33,3 +33,4 @@
 - Approved bundled canonical portraits retain their original JPEG or PNG bytes in source control rather than CDN-only pointers, so server-side identity references remain immutable and available without runtime fetching.
 - Internal world-installation rows remain service-only; the static phone directory is signed-in read-only with RLS, preserving existing service RPC and foreign-key access without allowing client mutations.
 - Travel storage uses owner-scoped RLS and explicit authenticated/service grants with plain user UUIDs; journal access also checks parent-trip ownership to prevent cross-owner writes.
+- Living Experience cast additions must update seed, plan protection and both legacy calendar/venue batch guards together; otherwise a supported character can lose outing access or completion ownership.

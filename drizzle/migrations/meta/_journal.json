@@ -232,6 +232,13 @@
       "when": 1792856743806,
       "tag": "0032_secure_internal_world_and_phone_lookup",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792858414130,
+      "tag": "0033_riley_living_experience_guards",
+      "breakpoints": true
     }
   ]
 }
