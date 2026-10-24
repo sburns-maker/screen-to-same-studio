@@ -234,10 +234,10 @@ export function recognizePlan(
   // Natural replies such as "Coffee, yes. You can call it a date if you promise..."
   // accept the outing even if a separate playful condition follows. The promise
   // does not change venue/date/time; only parse affirmations with a matched plan.
-  const affirmativePlanNoun = target && (
-    new RegExp(`\\b${target.category === "coffee" ? "coffee" : target.category === "dinner" ? "dinner" : target.category === "walk" ? "walk" : "meetup"}\\s*[,—-]?\\s*(?:yes|absolutely|sounds good)\\b`,"i").test(text)
-    || /\\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\s+(?:at\\s+)?\\d{1,2}(?::\\d{2})?\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?\\s+(?:it\\s+is|works|sounds good)\\b/i.test(text)
-  ) && !/\\b(?:can't make it|cannot make it|not going|cancel|never mind|maybe|might)\\b/i.test(text);
+  const affirmativePlanNoun = !!target && (
+    /^(?:coffee|dinner|walk|meetup)\s*[,—-]?\s*(?:yes|absolutely|sounds good)\b/i.test(text)
+    || /\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\s+(?:it\s+is|works|sounds good)\b/i.test(text)
+  ) && !/\b(?:can't make it|cannot make it|not going|cancel|never mind|maybe|might)\b/i.test(text);
   const positive = positiveLead || positiveInline;
   // Character confirmations: fixed phrases, or "<venue/time> it is" when the message carries plan details.
   const characterConfirm =
