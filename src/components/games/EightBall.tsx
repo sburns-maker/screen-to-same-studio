@@ -13,8 +13,8 @@ function integrate(a:Ball[], events:ShotEvents):Ball[]{
  const balls=a.map(b=>({...b}));
  for(const b of balls){if(!b.active)continue;b.x+=b.vx;b.y+=b.vy;b.vx*=.985;b.vy*=.985;if(Math.abs(b.vx)<.035)b.vx=0;if(Math.abs(b.vy)<.035)b.vy=0;
   const pocketIndex=POCKETS.findIndex(([x,y])=>Math.hypot(b.x-x,b.y-y)<19);if(pocketIndex>=0){events.pocketEvents??=[];events.pocketEvents.push({ball:b.number,pocket:pocketIndex});b.active=false;b.vx=0;b.vy=0;events.pocketed.push(b.number);if(b.number===0)events.cueScratch=true;continue;}
-  if(b.x<LEFT+R||b.x>RIGHT-R){if(events.firstContact!==null)events.railAfterContact=true;else if(b.number!==0)events.breakRails++;b.x=Math.min(RIGHT-R,Math.max(LEFT+R,b.x));b.vx*=-.86;}
-  if(b.y<TOP+R||b.y>BOTTOM-R){if(events.firstContact!==null)events.railAfterContact=true;else if(b.number!==0)events.breakRails++;b.y=Math.min(BOTTOM-R,Math.max(TOP+R,b.y));b.vy*=-.86;}
+  if(b.x<LEFT+R||b.x>RIGHT-R){if(events.firstContact!==null)events.railAfterContact=true;if(b.number>0){events.railBalls??=[];if(!events.railBalls.includes(b.number))events.railBalls.push(b.number);}b.x=Math.min(RIGHT-R,Math.max(LEFT+R,b.x));b.vx*=-.86;}
+  if(b.y<TOP+R||b.y>BOTTOM-R){if(events.firstContact!==null)events.railAfterContact=true;if(b.number>0){events.railBalls??=[];if(!events.railBalls.includes(b.number))events.railBalls.push(b.number);}b.y=Math.min(BOTTOM-R,Math.max(TOP+R,b.y));b.vy*=-.86;}
  }
  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
   const a=balls[i],b=balls[j];if(!a.active||!b.active)continue;
