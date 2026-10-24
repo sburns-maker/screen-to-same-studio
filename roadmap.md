@@ -2,5 +2,5 @@
 - [x] Patch plan parser: venue aliases, 'what about', 'it is', mid-message 'sounds good'
 - [x] Keep Sunburst image model default (user's deliberate change); updated stale tests
 - [x] Fixed stale front-camera test wording from Sunburst merge; full suite green (625 passed)
-- [ ] Audit all saved database updates against the live database and apply missing setup without resetting data.
-- [ ] Verify Riley registration and contacts availability.
+- [x] Audit all saved database updates: all 29 migrations (0000–0028) match installed hashes; separately installed live-call tables/function and private media buckets are present.
+- [x] Apply the missing Riley character registration; verify her new thread, initial state, opening message, inbox entry, and contacts entry through the signed-in app.
