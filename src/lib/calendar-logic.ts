@@ -102,7 +102,7 @@ export function resolveDate(text: string, at: Date) {
   if (/\bnext\b/.test(s) && delta === 0) delta = 7;
   return addDays(today, delta);
 }
-export function resolveTime(text: string) {
+export function resolveTime(text: string, knownEveningPlan = false) {
   const m = /\b(1[0-2]|[1-9])(?::([0-5]\d))?\s*(a\.?m\.?|p\.?m\.?)\b/i.exec(text);
   if (m) {
     const h = (Number(m[1]) % 12) + (/^p/i.test(m[3]!) ? 12 : 0);
@@ -112,7 +112,7 @@ export function resolveTime(text: string) {
   if (h) return `${h[1]}:${h[2]}`;
   // A conversation about dinner tonight often says "8:15" or "815" without PM.
   // Only infer evening when the evidence itself explicitly provides that context.
-  const evening = /\b(?:tonight|this evening|dinner|supper)\b/i.test(text);
+  const evening = knownEveningPlan || /\b(?:tonight|this evening|dinner|supper)\b/i.test(text);
   const short = /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to|(?:time\s+is))\s+(1[0-2]|[1-9])(?::([0-5]\d))?\b/i.exec(text);
   if (evening && short) {
     const hour = Number(short[1]) % 12 + 12;
@@ -204,6 +204,10 @@ export function recognizePlan(
     ...(time ? { time } : {}),
     ...(places.length === 1 ? { place: places[0]!.key } : {}),
   };
+  if (!time && target?.category === "dinner") {
+    const clarified = resolveTime(text, true);
+    if (clarified) patch.time = clarified;
+  }
   if (
     target &&
     /\b(?:cancel|call (?:it|this) off|not going|can't make it|cannot make it)\b/i.test(text)
@@ -214,7 +218,7 @@ export function recognizePlan(
   if (
     target &&
     /\b(?:reschedule|move (?:it|our|the)|instead|another day)\b/i.test(text) &&
-    (date || time || places.length)
+    (date || patch.time || places.length)
   )
     return { ...patch, action: "reschedule" };
   const positive =
