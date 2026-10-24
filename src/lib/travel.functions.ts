@@ -25,7 +25,7 @@ export const createTravelTrip=createServerFn({method:"POST"}).middleware([requir
 .inputValidator((v:unknown)=>input.parse(v)).handler(async({context,data})=>{
  const db=await getDb();
  const iceland=data.destination.trim().toLowerCase()==="iceland" && data.title.trim().toLowerCase()==="iceland in winter";
- const arenaEvent=data.venueEventId?(await import("./arena-events")).PPG_ARENA_EVENTS.find(e=>e.id===data.venueEventId):null;
+ const arenaEvent=data.venueEventId?(await import("./arena-events")).ALL_PPG_GAME_EVENTS.find(e=>e.id===data.venueEventId):null;
  if(data.venueEventId&&!arenaEvent)throw new Error("Unknown arena event");
  const itinerary=arenaEvent?[{id:crypto.randomUUID(),day:1,label:arenaEvent.title,location:"PPG Paints Arena, 1001 Fifth Avenue, Pittsburgh, PA",kind:"activity" as const,completed:false}]:iceland?(await import("./travel-experiences")).icelandTripIdea(data.origin).itinerary:[];
  const p:TripPlan={...data,status:"idea",companions:[],itinerary,notes:arenaEvent?["Officially listed arena event; verify before attending.", "Event begins "+(arenaEvent.time??"at an unconfirmed time")+" America/New_York."]:[]};
