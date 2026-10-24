@@ -1,0 +1,16 @@
+name: All character calendar commitments
+on:
+  pull_request:
+    paths:
+      - "drizzle/migrations/0037_all_character_calendar_proposers.sql"
+      - "src/test/all-character-park-plans.test.ts"
+      - ".github/workflows/all-character-calendar.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/calendar-logic.test.ts src/test/riley-walk-calendar.test.ts src/test/all-character-park-plans.test.ts
+      - run: bun run build
