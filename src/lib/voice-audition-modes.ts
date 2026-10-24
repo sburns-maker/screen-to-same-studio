@@ -11,7 +11,22 @@ export const TESS_CONVERSATIONAL_DIRECTION =
 export const CONVERSATIONAL_CUE = "I saw your potion explode. It was impressive, even for you. Details, details. You know, you could just admit you enjoy talking to me.";
 export const PERFORMANCE_MAX = 4000;
 export const CUE_MAX = 2000;
+export const SCRIPT_MAX = 600;
 export const CONVERSATIONAL_DRAFT_STORE = "voice-studio-conversational-draft-v1";
+export const SCRIPT_DRAFT_STORE = "voice-studio-script-draft-v1";
+
+/** Word-for-word scripted prompt for an editable script. */
+export function scriptedSpeakPrompt(script: string) {
+  return `Speak now, in English, the following sample exactly once, word for word, then stay completely silent until the session ends: ${JSON.stringify(script.trim())}`;
+}
+
+/** One-tap Tess voice-creation prompt tuned to the user's reference clip (light ~235 Hz, ~100 wpm, dry tease). */
+export const TESS_REFERENCE_VOICE_PROMPT =
+  "An adult woman in her mid-thirties who grew up in England and has lived in Pennsylvania for ten years. Light, clearly feminine voice in a moderately high register, centred around 230–240 Hz; never deep, heavy, chesty, husky or low. " +
+  "Her accent is a softened, contemporary southern-English lilt blended with relaxed everyday American vowels; natural and consistent, never posh, Received Pronunciation or theatrical. " +
+  "Unhurried, measured pace of about 100 words per minute with relaxed pauses between thoughts. Dry, self-assured, subtly teasing and intimate, with understated amusement and quiet warmth underneath. " +
+  "Speaks like a real person in a private conversation: connected words, gentle melodic rises, small hesitations, never announcer-like, robotic, perky or breathy.";
+export const TESS_REFERENCE_VOICE_NAME = "Tess — Reference Tuned";
 export const conversationalOptionsSchema = z.object({
   performanceInstructions: z.string().max(PERFORMANCE_MAX).refine((v) => v.trim().length > 0, "Enter performance instructions.").default(TESS_CONVERSATIONAL_DIRECTION),
   conversationalCue: z.string().max(CUE_MAX).refine((v) => v.trim().length > 0, "Enter a conversational cue.").default(CONVERSATIONAL_CUE),
@@ -53,6 +68,7 @@ export const auditionRequestSchema = z.object({
   mode: z.enum(["scripted", "conversational"]).default("scripted"),
   performanceInstructions: conversationalOptionsSchema.shape.performanceInstructions,
   conversationalCue: conversationalOptionsSchema.shape.conversationalCue,
+  script: z.string().max(SCRIPT_MAX).refine((v) => v.trim().length > 0, "Enter a script.").optional(),
   confirmation: z.literal("START PAID VOICE AUDITION"),
 }).strict().refine((v) => v.mode !== "conversational" || v.character === "tess", {
   message: "Conversational auditions are available for Tess only.",
