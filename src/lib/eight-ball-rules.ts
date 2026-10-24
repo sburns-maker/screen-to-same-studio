@@ -19,7 +19,7 @@ export function adjudicate(state:RulesState,shot:ShotEvents,remainingBefore:numb
   if(!foul&&!pocket.length&&!shot.railAfterContact)foul="No pocket or rail after contact";
  }
  if(shot.pocketed.includes(8)){
-  if(state.breakShot)return {...state,turn:other,breakShot:false,ballInHand:true,status:"8 ball pocketed on break: spot the 8 and replay is required (prototype adjudication)."};
+  if(state.breakShot)return {...state,turn:other,breakShot:false,ballInHand:true,status:"8 ball pocketed on break: re-rack required (not scored as a win)."};
   if(foul||!legal8)return {...state,winner:other,status:"Loss: 8 ball pocketed illegally."};
   return {...state,winner:you,status:"8 ball pocketed legally. You win!"};
  }
