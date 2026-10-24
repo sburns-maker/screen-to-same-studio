@@ -9,7 +9,15 @@ export const Route = createFileRoute("/api/public/jobs/world-tick")({
         if (authFailure) return authFailure;
         const { runWorldTick } = await import("@/lib/world.server");
         const report = await runWorldTick();
-        return Response.json(report);
+        let liveCallsClosed = 0;
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { sweepOverdueLiveCalls } = await import("@/lib/live-calls.server");
+          liveCallsClosed = await sweepOverdueLiveCalls(supabaseAdmin);
+        } catch {
+          console.warn("live call sweep skipped");
+        }
+        return Response.json({ ...report, liveCallsClosed });
       },
     },
   },
