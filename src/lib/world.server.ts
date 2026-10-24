@@ -394,6 +394,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
 
       try {
         if(!report.paused && !aiPause.paused && report.aiCalls < aiBudget) report.aiCalls += await (await import("./living-experiences.server")).runExperienceTick(admin,userId,now);
+        if(!report.paused && !aiPause.paused && report.aiCalls < aiBudget) { report.aiCalls += await (await import("./travel-world.server")).runTravelMoments(admin,userId,now); }
       } catch {
         report.aiCalls = Math.min(aiBudget, report.aiCalls + 1);
         report.errors.push("Living Experience deferred; recorded progress retained");

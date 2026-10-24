@@ -161,7 +161,7 @@ export const markRead = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-async function createGeneratedPhoto(
+export async function createGeneratedPhoto(
   supabase: Sb,
   userId: string,
   type: string,
