@@ -171,7 +171,7 @@ function GameRoom() {
       {saved.game === "trivia" ? (
         <section className="mt-6 space-y-5" aria-label="Trivia game">
           <div className="flex justify-between rounded-xl bg-muted p-4 text-center"><div><div className="text-sm">You</div><div className="text-2xl font-bold">{playerScore}</div></div><div className="self-center text-sm text-muted-foreground">Question {Math.min(total + 1, deck.length)}/{deck.length}</div><div><div className="text-sm">{character.preferredName}</div><div className="text-2xl font-bold">{computerScore}</div></div></div>
-          {finished ? (
+          {finished || !question ? (
             <div className="space-y-4 rounded-xl border bg-card p-5 text-center">
               <h2 className="text-2xl font-semibold">{playerScore > computerScore ? "You win!" : playerScore < computerScore ? `${character.preferredName} wins!` : "It's a tie!"}</h2>
               <p className="text-muted-foreground">Answer scores are computed from the actual question bank. Chat during games uses the same relationship engine as Messages.</p>
