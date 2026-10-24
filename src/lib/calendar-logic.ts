@@ -109,7 +109,21 @@ export function resolveTime(text: string) {
     return `${String(h).padStart(2, "0")}:${m[2] ?? "00"}`;
   }
   const h = /\b(?:at\s+)?(1[3-9]|2[0-3]):([0-5]\d)\b/.exec(text);
-  return h ? `${h[1]}:${h[2]}` : undefined;
+  if (h) return `${h[1]}:${h[2]}`;
+  // A conversation about dinner tonight often says "8:15" or "815" without PM.
+  // Only infer evening when the evidence itself explicitly provides that context.
+  const evening = /\b(?:tonight|this evening|dinner|supper)\b/i.test(text);
+  const short = /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to|(?:time\s+is))\s+(1[0-2]|[1-9])(?::([0-5]\d))?\b/i.exec(text);
+  if (evening && short) {
+    const hour = Number(short[1]) % 12 + 12;
+    return `${String(hour).padStart(2, "0")}:${short[2] ?? "00"}`;
+  }
+  const compact = /\b(?:at|around|by|for|to|until|moved?\s+(?:it\s+)?to)\s+(1[0-2]|[1-9])([0-5]\d)\b/i.exec(text);
+  if (evening && compact) {
+    const hour = Number(compact[1]) % 12 + 12;
+    return `${String(hour).padStart(2, "0")}:${compact[2]}`;
+  }
+  return undefined;
 }
 /** Both offset candidates must be checked: ambiguous/nonexistent DST wall time stays unresolved. */
 export function easternInstant(date: string | null, time: string | null) {
