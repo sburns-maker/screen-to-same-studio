@@ -1,0 +1,17 @@
+name: Experience retry recovery
+on:
+  pull_request:
+    paths:
+      - "src/routes/_authenticated/experiences.tsx"
+      - "src/lib/living-experiences.functions.ts"
+      - "drizzle/migrations/0034_experience_retry_recovery.sql"
+      - ".github/workflows/experience-retry-recovery.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/experience-lifecycle.test.ts src/test/living-experiences.integration.test.ts
+      - run: bun run build
