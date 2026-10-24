@@ -24,9 +24,10 @@ export const listTravelTrips=createServerFn({method:"POST"}).middleware([require
 export const createTravelTrip=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
 .inputValidator((v:unknown)=>input.parse(v)).handler(async({context,data})=>{
  const db=await getDb();
- const p:TripPlan={...data,status:"idea",companions:[],itinerary:[],notes:[]};
+ const iceland=data.destination.trim().toLowerCase()==="iceland" && data.title.trim().toLowerCase()==="iceland in winter";
+ const p:TripPlan={...data,status:"idea",companions:[],itinerary:iceland?(await import("./travel-experiences")).icelandTripIdea(data.origin).itinerary:[],notes:[]};
  const errors=validateTrip(p);if(errors.length)throw new Error(errors.join("; "));
- const {error}=await (db as any).from("travel_trips").insert({id:p.id,user_id:context.userId,title:p.title,origin:p.origin,destination:p.destination,mode:p.mode,purpose:p.purpose,start_date:p.startDate,end_date:p.endDate});
+ const {error}=await (db as any).from("travel_trips").insert({id:p.id,user_id:context.userId,title:p.title,origin:p.origin,destination:p.destination,mode:p.mode,purpose:p.purpose,start_date:p.startDate,end_date:p.endDate,itinerary:p.itinerary,notes:p.notes});
  if(error)throw new Error(error.message);
  return {id:p.id};
 });
