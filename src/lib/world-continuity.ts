@@ -3,6 +3,7 @@ import type { CharacterDef } from "./characters";
 import { characterAvailability } from "./characters";
 import { applyDisruption, disruptionFor } from "./daily-disruptions";
 import { scheduleFor, type TessActivity } from "./tess-life";
+import { overnightWake } from "./overnight-wake";
 
 export const continuitySchema = z.object({
   fulfilled: z.object({ id: z.string(), source_quote: z.string() }).nullable(),
@@ -92,12 +93,13 @@ export function evidenceContinuity(
 }
 
 export function currentActivity(def: CharacterDef, now: Date, chaos = 1): TessActivity {
+  const awakening = overnightWake(def.key,now);
   if (def.key !== "tess") {
     const a = characterAvailability(def, now);
-    return { activity: a.detail, detail: a.detail, availability: a.availability };
+    return a.availability==="asleep" && awakening ? awakening : { activity: a.detail, detail: a.detail, availability: a.availability };
   }
   const base = scheduleFor(now, chaos);
-  return applyDisruption(base, disruptionFor(def.key, now, base.activity.startsWith("at work")));
+  return base.availability==="asleep" && awakening ? awakening : applyDisruption(base, disruptionFor(def.key, now, base.activity.startsWith("at work")));
 }
 export function locationCategory(activity: TessActivity): string {
   if (activity.availability === "asleep") return "home";
