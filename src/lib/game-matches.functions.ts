@@ -25,7 +25,16 @@ export const saveGameMatch=createServerFn({method:"POST"})
   if(data.complete && !verdict)throw new Error("Match is unfinished or cannot be verified server-side");
   const {data:existing,error:readError}=await admin.from("game_matches").select("id,status,result").eq("user_id",userId).eq("conversation_id",data.conversationId).eq("match_key",data.key).maybeSingle();
   if(readError)throw readError;
-  if(existing?.status==="completed")return {completed:true,result:existing.result,alreadySaved:true};
+  if(existing?.status==="completed"){
+    const {data:record}=await admin.from("game_matches").select("effects_applied").eq("id",existing.id).single();
+    if(!record?.effects_applied){
+      const past=existing.result as {outcome?:"win"|"loss"|"draw"}|null;
+      const summary="We played "+(data.game==="trivia"?"trivia":"Four in a Row")+" together; "+(past?.outcome==="win"?"the user won":past?.outcome==="loss"?"I won":"we tied")+". It was a shared activity, not proof of romantic interest.";
+      const {error:repairError}=await admin.rpc("finalize_game_match",{p_id:existing.id,p_user_id:userId,p_summary:summary});
+      if(repairError)throw repairError;
+    }
+    return {completed:true,result:existing.result,alreadySaved:true};
+  }
   const {error:writeError}=await admin.from("game_matches").upsert({
    user_id:userId,conversation_id:data.conversationId,match_key:data.key,game:data.game,
    progress:progress as import("@/integrations/supabase/types").Json,
