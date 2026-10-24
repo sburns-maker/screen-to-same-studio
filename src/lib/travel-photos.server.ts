@@ -37,6 +37,10 @@ export async function deliverTravelPhoto(db:Db,userId:string,trip:TripPlan,stopI
   });
   if(galleryError)console.warn("[travel-photo] Saved message but photo gallery index is pending",galleryError.message);
   await db.from("media_attempts").update({status:"generated",storage_path:generated.path}).eq("action_id",actionId);
+  const {error:journalPhotoError}=await db.from("travel_trip_moments")
+   .update({photo_path:generated.path,photo_caption:photo.caption})
+   .eq("id",turnId).eq("user_id",userId).eq("trip_id",trip.id);
+  if(journalPhotoError)console.warn("[travel-photo] Message sent but journal image reference pending",journalPhotoError.message);
   return {status:"delivered" as const,path:generated.path,caption:photo.caption,messageId};
  }catch(e){
   await db.from("media_attempts").update({status:"failed"}).eq("action_id",actionId).eq("status","reserved");
