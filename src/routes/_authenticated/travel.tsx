@@ -29,10 +29,11 @@ function Travel(){
    setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});toast.success("Trip saved");
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
- async function action(type:"propose"|"confirm"|"start"|"finish"|"cancel"|"add_stop"|"complete_stop",stopId?:string){
+ async function action(type:"propose"|"confirm"|"start"|"finish"|"cancel"|"add_stop"|"complete_stop"|"set_dates",stopId?:string){
   if(!current)return;setBusy(true);
   try{await change({data:{id:current.id,revision:current.revision,action:type,...(stopId?{stopId}:{}),
    ...(type==="add_stop"?{label:stopTitle,location:stopPlace,day,kind}:{}),
+   ...(type==="set_dates"?{startDate:start||null,endDate:end||null}:{}),
    ...(type==="complete_stop"?{body:note}:{})}});
    await cache.invalidateQueries({queryKey:["travel-trips"]});await cache.invalidateQueries({queryKey:["travel-moments",current.id]});setNote("");setStopTitle("");toast.success("Trip updated")
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
@@ -68,6 +69,7 @@ function Travel(){
  {trips.length>0&&<section className="space-y-3"><label className="text-sm font-semibold" htmlFor="trip-choice">Your trips</label><select id="trip-choice" value={current?.id??""} onChange={e=>setSelected(e.target.value)} className={field}>{trips.map(t=><option key={t.id} value={t.id}>{t.title} · {pretty(t.status)}</option>)}</select></section>}
  {current&&<section className="space-y-4 rounded-2xl border p-4">
  <div><h2 className="text-xl font-semibold">{current.title}</h2><p className="text-sm text-muted-foreground">{current.origin} → {current.destination} · {pretty(current.mode)} · {pretty(current.purpose)}</p><p className="text-sm">Status: {pretty(current.status)} · {current.startDate??"departure undecided"} – {current.endDate??"return undecided"}</p></div>
+ {["idea","proposed"].includes(current.status)&&<div className="space-y-2 rounded-xl bg-muted/40 p-3"><p className="text-sm font-semibold">Choose travel dates before confirming</p><div className="grid grid-cols-2 gap-2"><input type="date" aria-label="Trip departure date" className={field} value={start} onChange={e=>setStart(e.target.value)}/><input type="date" aria-label="Trip return date" className={field} value={end} onChange={e=>setEnd(e.target.value)}/></div><button className={btn} disabled={busy||!start||!end} onClick={()=>void action("set_dates")}>Save travel dates</button><p className="text-xs text-muted-foreground">Current saved dates: {current.startDate??"not set"} to {current.endDate??"not set"}</p></div>}
  <div className="flex flex-wrap gap-2">
  {current.status==="idea"&&<button className={btn} disabled={busy} onClick={()=>void action("propose")}>Mark proposed</button>}
  {["idea","proposed"].includes(current.status)&&<button className={btn} disabled={busy} onClick={()=>void action("confirm")}>Confirm trip (solo or agreed companions)</button>}
