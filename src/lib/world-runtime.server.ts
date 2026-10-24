@@ -161,7 +161,6 @@ export async function recordPhotoDecision(
         selected: args.selected,
         trigger: args.trigger?.slice(0, 300) ?? null,
         source: "world-tick",
-        generationRequested: false,
       },
     },
     { onConflict: "id", ignoreDuplicates: true },

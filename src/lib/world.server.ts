@@ -5,6 +5,7 @@ import {
   continuityContext,
   deferIntention,
   recordPhotoDecision,
+  recordPhotoDecisionOutcome,
   reserveWorldAi,
 } from "./world-runtime.server";
 import { claimMessagePush, messagePushBody } from "./message-notifications.server";
