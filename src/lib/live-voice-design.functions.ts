@@ -18,7 +18,7 @@ import {
   auditionLimits,
   reservationError,
 } from "./voice-studio-audition";
-import { auditionRequestSchema, auditionSessionConfig } from "./voice-audition-modes";
+import { auditionRequestSchema, auditionSessionConfig, scriptedSpeakPrompt } from "./voice-audition-modes";
 
 /**
  * Developer-only, explicit voice creation. Never invoked by ordinary call setup,
@@ -220,7 +220,7 @@ export const startVoiceStudioAudition = createServerFn({ method: "POST" })
         headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           transport: { type: "webrtc", sdp: data.sdp },
-          session: auditionSessionConfig(data.character, data.voiceId, data.mode, AUDITION_SPEAK_PROMPT, data),
+          session: auditionSessionConfig(data.character, data.voiceId, data.mode, data.script ? scriptedSpeakPrompt(data.script) : AUDITION_SPEAK_PROMPT, data),
         }),
         signal: AbortSignal.timeout(20000),
       });

@@ -76,6 +76,8 @@ export function createStudioAudition(options: {
   audio: HTMLAudioElement;
   mode?: AuditionMode;
   conversationalOptions?: ConversationalOptions;
+  /** Word-for-word prompt for an edited scripted audition; defaults to AUDITION_SPEAK_PROMPT. */
+  scriptedPrompt?: string | undefined;
   connect: (sdp: string) => Promise<{ sdp: string }>;
   onState: (state: AuditionState) => void;
   onError: (message: string) => void;
@@ -268,7 +270,7 @@ export function createStudioAudition(options: {
             type: "session.instructions.append",
             event_id: crypto.randomUUID(),
             delegation_id: null,
-            content: auditionReinforcement(options.mode ?? "scripted", AUDITION_SPEAK_PROMPT, options.conversationalOptions),
+            content: auditionReinforcement(options.mode ?? "scripted", options.scriptedPrompt ?? AUDITION_SPEAK_PROMPT, options.conversationalOptions),
           }),
         );
       }
