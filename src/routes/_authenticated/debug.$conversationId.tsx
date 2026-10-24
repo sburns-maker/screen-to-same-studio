@@ -259,7 +259,7 @@ function Debug() {
               <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">The timeline dates show when memories were saved, not necessarily when an event occurred. An actual date, invitation or outing needs corresponding world-event evidence to be marked completed.</p>
             </Section>}
 
-            {activeTab === "mind" && <RelationshipHistoryPanel conversationId={conversationId}/>}
+            {activeTab === "mind" && <RelationshipHistoryPanel conversationId={conversationId} state={s} stage={snap.stage}/>}
 
             {activeTab === "world" && <Section title="Their world right now">
               <KV k="activity" v={snap.schedule.activity} />
