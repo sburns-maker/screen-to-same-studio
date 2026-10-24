@@ -245,7 +245,7 @@ function VoiceStudio() {
     if (!candidate) return;
     const key = `${character}:custom`;
     const prompt = candidate.variant === "custom" ? (drafts[key]?.prompt ?? "") : presetVoicePrompt(character, candidate.variant);
-    saveDrafts({ ...drafts, [key]: { name: `${candidate.name.slice(0, 43)} revised`, prompt } });
+    saveDrafts({ ...drafts, [key]: { name: `${(candidate.name ?? "voice").slice(0, 43)} revised`, prompt } });
     setVariant("custom");
     document.getElementById("voice-create")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }

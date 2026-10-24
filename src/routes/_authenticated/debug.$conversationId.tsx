@@ -266,7 +266,7 @@ function Debug() {
               <KV k="chance this check" v={`${Math.round(snap.initiation.chance * 100)}%`} />
               {snap.initiation.nextWindowHours != null && <KV k="next window" v={`in ~${snap.initiation.nextWindowHours.toFixed(1)}h`} />}
               <KV k="last initiated" v={snap.initiation.lastInitiatedAt ? new Date(snap.initiation.lastInitiatedAt).toLocaleString() : "never"} />
-              {snap.initiation.lastCheck?.initiated === true && typeof snap.initiation.lastCheck.at === "string" && (!snap.initiation.lastInitiatedAt || Date.parse(snap.initiation.lastInitiatedAt) < Date.parse(snap.initiation.lastCheck.at)) && (
+              {snap.initiation.lastCheck?.["initiated"] === true && typeof snap.initiation.lastCheck["at"] === "string" && (!snap.initiation.lastInitiatedAt || Date.parse(snap.initiation.lastInitiatedAt) < Date.parse(snap.initiation.lastCheck["at"])) && (
                 <p role="status" className="mt-2 rounded-lg border p-2 text-xs">The latest initiation check selected an attempt, but there is no newer successful initiation timestamp. This is not proof that a message was delivered. Check pending visibility, generation limits and worker results before concluding that the character ignored you.</p>
               )}
               <div className="mt-2 border-t pt-2">
