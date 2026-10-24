@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { experienceAction, experienceMoments } from "@/lib/living-experiences.functions";
+import { experienceAction, experienceMoments, recoverExperienceOperation } from "@/lib/living-experiences.functions";
 import { useExperiences } from "@/lib/use-experiences";
 import { characterFor } from "@/lib/characters";
 import { placeByKey } from "@/lib/place-registry";
@@ -56,6 +56,7 @@ function Experiences() {
   const q = useExperiences(),
     cache = useQueryClient(),
     action = useServerFn(experienceAction),
+    recover = useServerFn(recoverExperienceOperation),
     read = useServerFn(experienceMoments);
   const [active, setActive] = useState(selected),
     [text, setText] = useState(""),
@@ -323,6 +324,21 @@ function Experiences() {
                       >
                         Retry pending scene
                       </button>
+                      {history.data.pending.status==="failed" && history.data.pending.attempts>=3 && (
+                        <button
+                          disabled={busy}
+                          className="ml-2 min-h-11 rounded-full border px-4"
+                          onClick={async()=>{
+                            setBusy(true);setError("");
+                            try{
+                              await recover({data:{planId:e.plan_id,operationId:history.data!.pending!.id}});
+                              await history.refetch();
+                              setError("Retry allowance restored for this scene. Tap Retry pending scene to continue from your saved progress.");
+                            }catch(err){setError(err instanceof Error?err.message:"Recovery failed");}
+                            finally{setBusy(false);}
+                          }}
+                        >Recover exhausted scene</button>
+                      )}
                     </div>
                   )}
                   {scene.state === "interactive" && !history.data?.pending && (
