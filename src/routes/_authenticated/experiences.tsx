@@ -331,7 +331,9 @@ function Experiences() {
                         !history.isLoading && (
                           <button
                             disabled={busy}
-                            onClick={() => void act(scene, "turn")}
+                            onClick={() => {
+                              void act(scene, "turn");
+                            }}
                             className="min-h-11 rounded-full border px-4"
                           >
                             Begin scene / retry opening
