@@ -42,7 +42,14 @@ export function EightBall(){
   let alive=true;let ticks=0;
   function loop(){if(!alive)return;const b=balls.current;if(!stationary(b)){for(let k=0;k<3;k++)balls.current=integrate(balls.current,events.current);ticks++;}
    if(ticks>0&&stationary(balls.current)){ticks=0;setRunning(false);setRemaining(balls.current.filter(x=>x.active&&x.number!==0).length);
-    const result=adjudicate(rules.current,events.current,before.current);rules.current=result;setRuleDisplay(result);setMessage(result.status);
+    const wasBreak=rules.current.breakShot;
+    const result=adjudicate(rules.current,events.current,before.current);
+    if(wasBreak && events.current.pocketed.includes(8)){
+      balls.current=startBalls();rules.current=initialRules();setRuleDisplay(rules.current);setMessage("8 ball on break: re-racked automatically. Break again.");setRemaining(15);setRunning(false);
+      const ctx=canvas.current?.getContext("2d");if(ctx)paint(ctx,balls.current,null);
+      frame.current=requestAnimationFrame(loop);return;
+    }
+    rules.current=result;setRuleDisplay(result);setMessage(result.status);
     if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
     if(result.ballInHand && result.turn===1)balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};
     if(result.winner===null&&result.turn===2){
