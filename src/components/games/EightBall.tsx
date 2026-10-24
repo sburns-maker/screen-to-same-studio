@@ -38,7 +38,7 @@ function paint(ctx:CanvasRenderingContext2D,balls:Ball[],aim:{x:number;y:number}
 export function EightBall(){
  const canvas=useRef<HTMLCanvasElement|null>(null),balls=useRef<Ball[]>(startBalls()),aim=useRef<{x:number;y:number}|null>(null),frame=useRef<number|undefined>(undefined),shots=useRef(0);
  const rules=useRef<RulesState>(initialRules()),events=useRef<ShotEvents>({firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0}),before=useRef<number[]>([]),opponentTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
- const [callBall,setCallBall]=useState(1),[callPocket,setCallPocket]=useState(0),[isSafety,setIsSafety]=useState(false);
+ const [placingCue,setPlacingCue]=useState(false),[callBall,setCallBall]=useState(1),[callPocket,setCallPocket]=useState(0),[isSafety,setIsSafety]=useState(false);
  const [ruleDisplay,setRuleDisplay]=useState<RulesState>(initialRules()),[shotCount,setShotCount]=useState(0),[remaining,setRemaining]=useState(15),[running,setRunning]=useState(false),[message,setMessage]=useState("Drag backward from the cue ball to aim and set power.");
  useEffect(()=>{
   let alive=true;let ticks=0;
@@ -53,7 +53,7 @@ export function EightBall(){
     }
     rules.current=result;setRuleDisplay(result);setMessage(result.status);
     if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
-    if(result.ballInHand && result.turn===1)balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};
+    if(result.ballInHand && result.turn===1){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};setPlacingCue(true);}
     if(result.winner===null&&result.turn===2){
       if(opponentTimer.current)clearTimeout(opponentTimer.current);
       opponentTimer.current=setTimeout(()=>{
@@ -76,10 +76,10 @@ export function EightBall(){
   loop();return()=>{alive=false;if(frame.current!==undefined)cancelAnimationFrame(frame.current);if(opponentTimer.current)clearTimeout(opponentTimer.current)};
  },[]);
  function pos(e:PointerEvent<HTMLCanvasElement>){const box=e.currentTarget.getBoundingClientRect();return{x:(e.clientX-box.left)*W/box.width,y:(e.clientY-box.top)*H/box.height}}
- function reset(){if(opponentTimer.current)clearTimeout(opponentTimer.current);rules.current=initialRules();setRuleDisplay(rules.current);setCallBall(1);setCallPocket(0);setIsSafety(false);balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
+ function reset(){if(opponentTimer.current)clearTimeout(opponentTimer.current);rules.current=initialRules();setRuleDisplay(rules.current);setCallBall(1);setCallPocket(0);setIsSafety(false);setPlacingCue(false);balls.current=startBalls();aim.current=null;shots.current=0;setShotCount(0);setRemaining(15);setRunning(false);setMessage("New rack. Drag backward from the white cue ball to aim.");}
  function release(e:PointerEvent<HTMLCanvasElement>){
   if(!aim.current)return;const p=pos(e),cue=balls.current[0];const dx=cue.x-p.x,dy=cue.y-p.y;const dist=Math.hypot(dx,dy);aim.current=null;
-  if(dist<12||!cue.active||!stationary(balls.current)||rules.current.turn!==1||rules.current.winner!==null)return;
+  if(placingCue||dist<12||!cue.active||!stationary(balls.current)||rules.current.turn!==1||rules.current.winner!==null)return;
   rules.current={...rules.current,calledBall:rules.current.breakShot?null:callBall,calledPocket:rules.current.breakShot?null:callPocket,safety:!rules.current.breakShot&&isSafety};
   before.current=balls.current.filter(b=>b.active&&b.number>0).map(b=>b.number);events.current={firstContact:null,pocketed:[],cueScratch:false,railAfterContact:false,breakRails:0};
   const speed=Math.min(12,dist*.065);cue.vx=dx/dist*speed;cue.vy=dy/dist*speed;shots.current++;setShotCount(shots.current);setRunning(true);setMessage("Balls in motion…");
@@ -93,8 +93,9 @@ export function EightBall(){
    <label className="flex items-center gap-2 text-sm">Pocket <select aria-label="Called pocket" value={callPocket} onChange={e=>setCallPocket(Number(e.target.value))} className="min-h-11 flex-1 rounded-lg border bg-background px-2">{["Top left","Top middle","Top right","Bottom left","Bottom middle","Bottom right"].map((label,i)=><option key={label} value={i}>{label}</option>)}</select></label>
    <label className="flex items-center min-h-10 gap-2 text-sm"><input type="checkbox" checked={isSafety} onChange={e=>setIsSafety(e.target.checked)}/> Call safety (turn passes)</label>
   </div>}
+  {placingCue&&ruleDisplay.turn===1&&<p className="rounded-lg border p-3 text-sm">Ball in hand: tap a clear spot on the pool table to place the cue ball before shooting.</p>}
   <div className="overflow-hidden rounded-xl border bg-[#75482b]"><canvas ref={canvas} width={W} height={H} aria-label="Interactive billiards table; drag to take a shot" className="block w-full touch-none"
-   onPointerDown={e=>{if(!running&&stationary(balls.current)&&rules.current.turn===1&&rules.current.winner===null){aim.current=pos(e);e.currentTarget.setPointerCapture(e.pointerId)}}}
+   onPointerDown={e=>{if(placingCue&&rules.current.turn===1){const p=pos(e);const x=Math.min(RIGHT-R,Math.max(LEFT+R,p.x)),y=Math.min(BOTTOM-R,Math.max(TOP+R,p.y));if(balls.current.some(b=>b.active&&b.number!==0&&Math.hypot(b.x-x,b.y-y)<R*2+2))return;balls.current[0]={x,y,vx:0,vy:0,number:0,active:true};rules.current={...rules.current,ballInHand:false};setRuleDisplay(rules.current);setPlacingCue(false);return;}if(!running&&stationary(balls.current)&&rules.current.turn===1&&rules.current.winner===null){aim.current=pos(e);e.currentTarget.setPointerCapture(e.pointerId)}}}
    onPointerMove={e=>{if(aim.current)aim.current=pos(e)}} onPointerUp={release} onPointerCancel={()=>{aim.current=null;}}/></div>
   <div className="rounded-lg border p-3 text-sm"><p className="font-semibold">{ruleDisplay.winner!==null?(ruleDisplay.winner===1?"You win!":"Opponent wins!"):(ruleDisplay.turn===1?"Your turn":"Opponent turn")}</p><p>Yours: {ruleDisplay.groups[1]??"open table"} · Opponent: {ruleDisplay.groups[2]??"open table"}</p><p>{ruleDisplay.ballInHand?"Ball in hand · ":""}{message}</p></div>
   <button type="button" className="min-h-12 w-full rounded-xl border" onClick={reset}>Re-rack balls</button>
