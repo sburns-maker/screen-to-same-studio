@@ -105,3 +105,8 @@ export function photoContextConflicts(schedule: TessActivity, context: string): 
   const away = schedule.detail.includes(OUTING_MARKER) || /weekend|off work/i.test(schedule.detail);
   return away && /\b(clinic|rota|shift|staffing|vet practice|at work|workplace|office desk)\b/i.test(context);
 }
+
+/** An old active workplace storyline must not become the visual context for time off. */
+export function photoContextForSchedule(schedule:TessActivity, storySummary:string|null|undefined):string {
+  return storySummary && !photoContextConflicts(schedule,storySummary) ? storySummary : schedule.detail;
+}

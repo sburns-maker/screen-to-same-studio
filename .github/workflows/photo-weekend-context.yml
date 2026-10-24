@@ -1,0 +1,17 @@
+name: Weekend photo context
+on:
+  pull_request:
+    paths:
+      - "src/lib/calendar-commitment.ts"
+      - "src/lib/world.server.ts"
+      - "src/test/photo-context-weekend.test.ts"
+      - ".github/workflows/photo-weekend-context.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/photo-context-weekend.test.ts src/test/calendar-commitment.test.ts src/test/photo-turn.test.ts
+      - run: bun run build
