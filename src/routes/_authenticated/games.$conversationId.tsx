@@ -99,6 +99,7 @@ function GameRoom() {
   const finished = total === deck.length;
   const question = deck[total];
   const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
+  const [extraResult,setExtraResult] = useState<{game:Game;key:string;description:string}|null>(null);
   const result = saved.game === "trivia" && finished
     ? {key:"trivia:"+saved.trivia.round+":"+saved.trivia.deck.join("-"),description:"We just finished a 10-question trivia match. I scored "+playerScore+" and you scored "+computerScore+". "+(playerScore>computerScore?"I won.":playerScore<computerScore?"You won.":"It was a tie.")+" (Game result from AI Town.)"}
     : saved.game === "four" && saved.four.ended !== null
@@ -130,7 +131,7 @@ function GameRoom() {
             </div>
           )}
         </section>
-      ) : saved.game === "words" ? <WordHunt character={character.preferredName} /> : saved.game === "pool" ? <EightBall /> : (
+      ) : saved.game === "words" ? <WordHunt character={character.preferredName} onFinish={(score,target,round)=>setExtraResult({game:"words",key:"words:"+round+":"+Date.now(),description:"We finished Word Hunt. My score was "+score+" points against your computer benchmark of "+target+" points. (AI Town game result.)"})} /> : saved.game === "pool" ? <EightBall onFinish={(won,shots)=>setExtraResult({game:"pool",key:"pool:"+shots+":"+Date.now(),description:"We finished an 8 Ball match. "+(won?"I won.":"You won.")+" I took "+shots+" shots. (AI Town game result.)"})} /> : (
         <section className="mt-6 space-y-4" aria-label="Four in a Row game">
           <div className="rounded-xl bg-muted p-4 text-center font-medium">{saved.four.ended === null ? "Your turn · Red" : saved.four.ended === 0 ? "Draw!" : saved.four.ended === 1 ? "You win!" : `${character.preferredName} wins!`}</div>
           <div className="grid grid-cols-7 gap-1 rounded-2xl bg-blue-700 p-2" role="group" aria-label="Game board">
