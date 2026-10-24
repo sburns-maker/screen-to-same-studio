@@ -19,10 +19,13 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     )
       throw new Error("Use a disposable localhost /phase6_tests database only");
     sql = postgres(url, { max: 6, onnotice: () => undefined });
-    await sql.unsafe(`DO $ BEGIN CREATE ROLE anon;EXCEPTION WHEN duplicate_object THEN NULL;END $; DO $ BEGIN CREATE ROLE authenticated;EXCEPTION WHEN duplicate_object THEN NULL;END $; DO $ BEGIN CREATE ROLE service_role BYPASSRLS;EXCEPTION WHEN duplicate_object THEN NULL;END $$;
+    await sql.unsafe(`DO $$ BEGIN CREATE ROLE anon;EXCEPTION WHEN duplicate_object THEN NULL;END $$; DO $$ BEGIN CREATE ROLE authenticated;EXCEPTION WHEN duplicate_object THEN NULL;END $$; DO $$ BEGIN CREATE ROLE service_role BYPASSRLS;EXCEPTION WHEN duplicate_object THEN NULL;END $$;
  CREATE SCHEMA auth;CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
  CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT coalesce(current_setting('request.jwt.claim.role',true),'service_role') $$;
  CREATE SCHEMA storage;CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); CREATE TABLE storage.objects(id uuid,bucket_id text,name text);CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$ SELECT string_to_array($1,'/') $$;`);
+    // The isolated transaction fixture does not install the separate voice module.
+    // Migration 0030 updates this existing production table's constraint.
+    await sql.unsafe("CREATE TABLE IF NOT EXISTS public.character_voices (character_key text CONSTRAINT character_voices_character_key_check CHECK (character_key IN ('tess','maya','claire','jordan','ben')))");
     for (const file of readdirSync("drizzle/migrations")
       .filter((f) => f.endsWith(".sql"))
       .sort())

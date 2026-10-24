@@ -2600,6 +2600,10 @@ export type Database = {
         Args: { p_message: string; p_npc: string; p_user: string }
         Returns: boolean
       }
+      recover_experience_operation: {
+        Args: { p_operation: string; p_plan: string; p_user: string }
+        Returns: Json
+      }
       reserve_image_attempt: {
         Args: {
           p_action_id: string

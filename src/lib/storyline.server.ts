@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { knowledgeFromEvent, type LinkRow } from "./social-logic";
-import { advanceStory, beginStories, readStory, storyActive, storyEvent, storyLifeEvent, storyMemoryId, storyPrompt, STORY_STEPS_PER_TICK, type StoryState } from "./storyline-logic";
+import { storyMayAdvance, advanceStory, beginStories, readStory, storyActive, storyEvent, storyLifeEvent, storyMemoryId, storyPrompt, STORY_STEPS_PER_TICK, type StoryState } from "./storyline-logic";
 
 type Client = SupabaseClient<Database>;
 type Root = { id: string; state: StoryState };
@@ -33,9 +33,10 @@ async function persistMilestone(db: Client, userId: string, root: Root, links: L
   }
 }
 
-export async function runStorylineTick(db: Client, userId: string, now: Date, links: LinkRow[]) {
+export async function runStorylineTick(db: Client, userId: string, now: Date, links: LinkRow[], committed?: ReadonlySet<string>) {
   let roots = await loadStories(db, userId);
-  const started = beginStories(userId, now, roots.map(r => r.state), links);
+  const busy = committed ?? (await (await import("./calendar-commitment.server")).committedCharacters(db, userId, now));
+  const started = beginStories(userId, now, roots.map(r => r.state), links, busy);
   for (const r of started) {
     const event = storyEvent(r.id, r.state);
     checked(await db.from("shared_events").upsert({ id: r.id, user_id: userId, title: event.title, kind: "life_storyline", location: event.location, occurs_at: r.state.startedAt, facts: r.state, source: "simulated" }, { onConflict: "user_id,id", ignoreDuplicates: true }));
@@ -49,7 +50,7 @@ export async function runStorylineTick(db: Client, userId: string, now: Date, li
   }
   let advanced = 0;
   while (advanced < STORY_STEPS_PER_TICK) {
-    const due = roots.filter(r => r.state.nextAt && Date.parse(r.state.nextAt) <= now.getTime()).sort((a,b) => (a.state.nextAt ?? "").localeCompare(b.state.nextAt ?? ""))[0];
+    const due = roots.filter(r => r.state.nextAt && Date.parse(r.state.nextAt) <= now.getTime() && storyMayAdvance(r.state, now, busy)).sort((a,b) => (a.state.nextAt ?? "").localeCompare(b.state.nextAt ?? ""))[0];
     if (!due) break;
     const next = advanceStory(due.id, due.state);
     await persistMilestone(db, userId, { id: due.id, state: next }, links, now);

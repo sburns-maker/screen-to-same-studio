@@ -2,7 +2,7 @@ import {Link} from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
@@ -21,10 +21,11 @@ function Travel(){
  const [busy,setBusy]=useState(false),[title,setTitle]=useState(""),[origin,setOrigin]=useState("Altoona, PA"),[destination,setDestination]=useState(""),[mode,setMode]=useState<typeof modes[number]>("road_trip"),[purpose,setPurpose]=useState<typeof purposes[number]>("vacation"),[start,setStart]=useState(""),[end,setEnd]=useState("");
  const [companion,setCompanion]=useState<"tess"|"maya"|"claire"|"jordan"|"ben"|"riley">("tess"),[sceneText,setSceneText]=useState(""),[sceneCharacter,setSceneCharacter]=useState(""),[sceneResult,setSceneResult]=useState(""),[inviteReply,setInviteReply]=useState("");
  const [stopTitle,setStopTitle]=useState(""),[stopPlace,setStopPlace]=useState(""),[day,setDay]=useState(1),[kind,setKind]=useState<typeof kinds[number]>("activity"),[note,setNote]=useState(""),[selected,setSelected]=useState("");
- const [region,setRegion]=useState(""),[placeQuery,setPlaceQuery]=useState("");
- const suggestions=travelPlaces(placeQuery,region).slice(0,80);
+ const [region,setRegion]=useState(""),[placeQuery,setPlaceQuery]=useState(""),[tab,setTab]=useState<"trips"|"discover"|"create">("trips"),[showAdvanced,setShowAdvanced]=useState(false),[inviteOnCreate,setInviteOnCreate]=useState(true),[tripStart,setTripStart]=useState(""),[tripEnd,setTripEnd]=useState("");
+ const suggestions=travelPlaces(placeQuery,region).slice(0,placeQuery.trim()||region?24:8);
  const trips=(q.data??[]) as (TripPlan&{revision:number})[];
  const current=trips.find(t=>t.id===selected)??trips[0];
+ useEffect(()=>{setTripStart(current?.startDate??"");setTripEnd(current?.endDate??"");setInviteReply("");},[current?.id,current?.startDate,current?.endDate]);
  const journal=useQuery({queryKey:["travel-moments",current?.id],queryFn:()=>current?getMoments({data:{id:current.id}}):Promise.resolve([]),enabled:!!current?.id});
  async function planArenaEvent(eventId:string){
   const event=ALL_PPG_GAME_EVENTS.find(e=>e.id===eventId);if(!event)return;
@@ -32,23 +33,30 @@ function Travel(){
   try{
    const id=crypto.randomUUID();
    await create({data:{id,title:event.title+" at PPG Paints Arena",origin,destination:"Pittsburgh, PA",mode:"road_trip",purpose:"adventure",startDate:event.date,endDate:event.date,venueEventId:event.id}});
-   setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});
+   setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});setTab("trips");
    toast.success("Arena event added to Travel with its scheduled date");
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
  async function save(idea=false){
-  setBusy(true);try{
+  if(start&&end&&end<start){toast.error("Return date must be on or after departure");return;}
+  setBusy(true);
+  try{
    const p=idea?icelandTripIdea(origin):null;
    const id=crypto.randomUUID();
    await create({data:{id,title:p?.title??title,origin:p?.origin??origin,destination:p?.destination??destination,mode:p?.mode??mode,purpose:p?.purpose??purpose,startDate:start||null,endDate:end||null}});
-   setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});toast.success("Trip saved");
+   setSelected(id);await cache.invalidateQueries({queryKey:["travel-trips"]});setTab("trips");
+   toast.success("Trip created");
+   if(inviteOnCreate){
+    try{const result=await invite({data:{id,character:companion}});setInviteReply(result.reply);await cache.invalidateQueries({queryKey:["travel-trips"]});}
+    catch(e){toast.error("Trip saved, but invitation couldn't be sent: "+(e instanceof Error?e.message:"Unknown error"));}
+   }
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
  }
  async function action(type:"propose"|"confirm"|"start"|"finish"|"cancel"|"add_stop"|"complete_stop"|"set_dates",stopId?:string){
   if(!current)return;setBusy(true);
   try{await change({data:{id:current.id,revision:current.revision,action:type,...(stopId?{stopId}:{}),
    ...(type==="add_stop"?{label:stopTitle,location:stopPlace,day,kind}:{}),
-   ...(type==="set_dates"?{startDate:start||null,endDate:end||null}:{}),
+   ...(type==="set_dates"?{startDate:tripStart||null,endDate:tripEnd||null}:{}),
    ...(type==="complete_stop"?{body:note}:{})}});
    await cache.invalidateQueries({queryKey:["travel-trips"]});await cache.invalidateQueries({queryKey:["travel-moments",current.id]});setNote("");setStopTitle("");toast.success("Trip updated")
   }catch(e){toast.error((e as Error).message)}finally{setBusy(false)}
@@ -68,7 +76,8 @@ function Travel(){
  const btn="rounded-full border border-border px-4 py-2 text-sm disabled:opacity-50";
  return <Screen><ScreenHeader title="Travel"/>
  <main className="mx-auto max-w-3xl space-y-6 px-4 pb-28 pt-4">
- <p className="text-sm text-muted-foreground">Plan fictional travel and record what happens. Destinations and travel are in-game: no tickets or lodging are actually booked.</p>
+ <p className="text-sm text-muted-foreground">Plan fictional outings, invite friends, and play what happens. Nothing is booked in real life.</p>
+ <nav aria-label="Travel sections" className="grid grid-cols-3 gap-2">{([["trips","My trips"],["discover","Explore"],["create","New trip"]] as const).map(([key,label])=><button key={key} type="button" aria-pressed={tab===key} onClick={()=>setTab(key)} className={tab===key?"rounded-xl bg-primary px-2 py-3 text-sm text-primary-foreground":"rounded-xl border px-2 py-3 text-sm"}>{label}</button>)}</nav>
  <section className="space-y-3 rounded-2xl border p-4">
  <h2 className="font-semibold">Explore the real-world-inspired destination guide</h2>
  <p className="text-sm text-muted-foreground">Independent curated geographic places, not a Google Maps database. Opening hours and access require checking.</p>
@@ -82,8 +91,8 @@ function Travel(){
  </section>}
  <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
  <p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.city} · {p.regionLabel} · {p.kind}</p><p className="mt-1 text-xs">{p.ideas.join(" · ")}</p>
- <div className="mt-2 flex flex-wrap gap-3 text-sm">{p.id==="pittsburgh:ppg-paints-arena"&&<Link to="/ppg-arena" className="underline">View arena event calendar & invite Maya →</Link>}<button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Destination and itinerary stop selected below")}}>Plan a trip here</button>
- <button type="button" className="underline" onClick={()=>{setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Stop selected; add it to your active itinerary below")}}>Select as stop</button>
+ <div className="mt-2 flex flex-wrap gap-3 text-sm">{p.id==="pittsburgh:ppg-paints-arena"&&<Link to="/ppg-arena" className="underline">View arena event calendar & invite Maya →</Link>}<button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("create");toast.info("Destination selected. Choose dates and invite someone.")}}>Plan a trip here</button>
+ <button type="button" className="underline" onClick={()=>{setStopTitle(p.name);setStopPlace(p.name+", "+p.city);setTab("trips");toast.info("Stop selected. Add it to your current itinerary below.")}}>Select as stop</button>
  <a href={realWorldMapSearchUrl(p)} target="_blank" rel="noopener noreferrer" className="underline">View on Google Maps ↗</a></div></article>)}</div>
  </section>
  <section className="space-y-3 rounded-2xl border p-4">
@@ -95,13 +104,13 @@ function Travel(){
  <select aria-label="Transport" className={field} value={mode} onChange={e=>setMode(e.target.value as typeof mode)}>{modes.map(x=><option key={x} value={x}>{pretty(x)}</option>)}</select>
  <select aria-label="Reason for travel" className={field} value={purpose} onChange={e=>setPurpose(e.target.value as typeof purpose)}>{purposes.map(x=><option key={x} value={x}>{pretty(x)}</option>)}</select>
  <input aria-label="Departure date" type="date" className={field} value={start} onChange={e=>setStart(e.target.value)}/><input aria-label="Return date" type="date" className={field} value={end} onChange={e=>setEnd(e.target.value)}/>
- </div><button disabled={busy||!title.trim()||!destination.trim()} className="rounded-full bg-primary px-5 py-2 text-primary-foreground disabled:opacity-50" onClick={()=>void save()}>Create trip</button>
+ </div><div className="space-y-2 rounded-xl bg-muted/40 p-3"><label className="block text-sm font-semibold" htmlFor="new-trip-companion">Go with someone?</label><select id="new-trip-companion" className={field} value={companion} onChange={e=>setCompanion(e.target.value as typeof companion)}>{(["maya","tess","claire","jordan","ben","riley"] as const).map(c=><option value={c} key={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>)}</select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={inviteOnCreate} onChange={e=>setInviteOnCreate(e.target.checked)}/> Invite this character after saving (they choose whether to accept)</label></div><button disabled={busy||!title.trim()||!destination.trim()||(!!start&&!!end&&end<start)} className="w-full rounded-full bg-primary px-5 py-3 text-primary-foreground disabled:opacity-50" onClick={()=>void save()}>{busy?"Creating…":"Create trip"+(inviteOnCreate?" & ask "+companion:"")}</button>
  </section>
- {q.isLoading&&<p>Loading trips…</p>}{q.error&&<p role="alert" className="text-destructive">{String((q.error as Error).message)}</p>}
+ {tab==="trips"&&<><div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Your adventures</h2><button type="button" className={btn} onClick={()=>setTab("create")}>+ Plan trip</button></div>\n {q.isLoading&&<p>Loading trips…</p>}{q.error&&<p role="alert" className="text-destructive">{String((q.error as Error).message)}</p>}
  {trips.length>0&&<section className="space-y-3"><label className="text-sm font-semibold" htmlFor="trip-choice">Your trips</label><select id="trip-choice" value={current?.id??""} onChange={e=>setSelected(e.target.value)} className={field}>{trips.map(t=><option key={t.id} value={t.id}>{t.title} · {pretty(t.status)}</option>)}</select></section>}
  {current&&<section className="space-y-4 rounded-2xl border p-4">
  <div><h2 className="text-xl font-semibold">{current.title}</h2><p className="text-sm text-muted-foreground">{current.origin} → {current.destination} · {pretty(current.mode)} · {pretty(current.purpose)}</p><p className="text-sm">Status: {pretty(current.status)} · {current.startDate??"departure undecided"} – {current.endDate??"return undecided"}</p></div>
- {["idea","proposed"].includes(current.status)&&<div className="space-y-2 rounded-xl bg-muted/40 p-3"><p className="text-sm font-semibold">Choose travel dates before confirming</p><div className="grid grid-cols-2 gap-2"><input type="date" aria-label="Trip departure date" className={field} value={start} onChange={e=>setStart(e.target.value)}/><input type="date" aria-label="Trip return date" className={field} value={end} onChange={e=>setEnd(e.target.value)}/></div><button className={btn} disabled={busy||!start||!end} onClick={()=>void action("set_dates")}>Save travel dates</button><p className="text-xs text-muted-foreground">Current saved dates: {current.startDate??"not set"} to {current.endDate??"not set"}</p></div>}
+ {["idea","proposed"].includes(current.status)&&<div className="space-y-2 rounded-xl bg-muted/40 p-3"><p className="text-sm font-semibold">Choose travel dates before confirming</p><div className="grid grid-cols-2 gap-2"><input type="date" aria-label="Trip departure date" className={field} value={tripStart} onChange={e=>setTripStart(e.target.value)}/><input type="date" aria-label="Trip return date" className={field} value={tripEnd} onChange={e=>setTripEnd(e.target.value)}/></div><button className={btn} disabled={busy||!tripStart||!tripEnd||tripEnd<tripStart||(tripStart===current.startDate&&tripEnd===current.endDate)} onClick={()=>void action("set_dates")}>Save travel dates</button><p className="text-xs text-muted-foreground">Current saved dates: {current.startDate??"not set"} to {current.endDate??"not set"}</p></div>}
  <div className="flex flex-wrap gap-2">
  {current.status==="idea"&&<button className={btn} disabled={busy} onClick={()=>void action("propose")}>Mark proposed</button>}
  {["idea","proposed"].includes(current.status)&&<button className={btn} disabled={busy} onClick={()=>void action("confirm")}>Confirm trip (solo or agreed companions)</button>}
@@ -109,10 +118,10 @@ function Travel(){
  {current.status==="in_progress"&&<button className={btn} disabled={busy} onClick={()=>void action("finish")}>Finish trip</button>}
  {!["completed","cancelled"].includes(current.status)&&<button className={btn} disabled={busy} onClick={()=>void action("cancel")}>Cancel</button>}
  </div>
- <div><h3 className="font-semibold">Travel companions</h3><p className="text-sm text-muted-foreground">Characters decide for themselves if they want to travel with you. An invitation is never automatically accepted.</p>
+ <div className="space-y-2 rounded-xl border p-3"><h3 className="font-semibold">Who\u2019s coming?</h3><p className="text-sm text-muted-foreground">Characters decide for themselves if they want to travel with you. An invitation is never automatically accepted.</p>
  {["idea","proposed"].includes(current.status)&&<div className="flex flex-wrap gap-2"><select className={field} aria-label="Invite character" value={companion} onChange={e=>setCompanion(e.target.value as typeof companion)}>{(["tess","maya","claire","jordan","ben","riley"] as const).map(c=><option key={c} value={c}>{c}</option>)}</select><button className={btn} disabled={busy} onClick={()=>void inviteCharacter()}>Ask character about trip</button></div>}
  {inviteReply&&<p role="status" className="rounded-xl bg-muted p-3 text-sm">{inviteReply}</p>}{current.companions.map(c=><p key={c.characterKey}>{c.characterKey} · {c.response}</p>)}</div>
- <h3 className="font-semibold">Itinerary</h3>
+ <h3 className="font-semibold">Your itinerary</h3>
  {[...current.itinerary].sort((a,b)=>a.day-b.day).map(s=><article key={s.id} className="space-y-2 rounded-xl border p-3"><p className="font-medium">Day {s.day} · {s.label} {s.completed?"✓":""}</p><p className="text-sm text-muted-foreground">{s.location} · {s.kind}</p>
  {current.status==="in_progress"&&!s.completed&&<div className="space-y-2">
  <label className="text-sm" htmlFor={"companion-"+s.id}>Travel scene companion</label><select id={"companion-"+s.id} className={field} value={sceneCharacter} onChange={e=>setSceneCharacter(e.target.value)}><option value="">Travel solo</option>{current.companions.filter(c=>c.response==="accepted").map(c=><option key={c.characterKey} value={c.characterKey}>{c.characterKey}</option>)}</select>
@@ -120,8 +129,9 @@ function Travel(){
  <button className={btn} disabled={busy||!sceneText.trim()} onClick={()=>void turn(s.id,s.day)}>Play next scene</button>
  {sceneResult&&<p role="status" className="whitespace-pre-wrap rounded-xl bg-muted p-3 text-sm">{sceneResult}</p>}
  <textarea aria-label={"Experience notes for "+s.label} className={field} value={note} onChange={e=>setNote(e.target.value)} placeholder="What happened on this stop?"/><button className={btn} disabled={busy||!note.trim()} onClick={()=>void action("complete_stop",s.id)}>Save moment and complete stop</button></div>}</article>)}
- <div className="space-y-2"><h3 className="font-semibold">Saved travel journal</h3>{journal.isLoading&&<p className="text-sm">Loading moments…</p>}{journal.error&&<p role="alert" className="text-sm text-destructive">{String((journal.error as Error).message)}</p>}{(journal.data??[]).map((m:{id:string;body:string;day:number;created_at:string;photoUrl?:string|null;photo_caption?:string|null})=><article key={m.id} className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm"><p className="mb-1 text-xs text-muted-foreground">Day {m.day} · {new Date(m.created_at).toLocaleString()}</p>{m.body}{m.photoUrl&&<figure className="mt-3 space-y-2"><img className="w-full rounded-xl object-cover" src={m.photoUrl} alt={m.photo_caption??"Fictional trip photograph"} loading="lazy"/>{m.photo_caption&&<figcaption className="text-xs text-muted-foreground">{m.photo_caption}</figcaption>}</figure>}</article>)}</div>
- {["idea","proposed","accepted","in_progress"].includes(current.status)&&<div className="space-y-2 rounded-xl bg-muted/40 p-3"><p className="font-semibold">Add a stop</p><div className="grid grid-cols-2 gap-2"><input className={field} aria-label="Stop name" placeholder="Activity" value={stopTitle} onChange={e=>setStopTitle(e.target.value)}/><input className={field} aria-label="Stop location" placeholder="Place" value={stopPlace} onChange={e=>setStopPlace(e.target.value)}/><input className={field} type="number" min={1} max={90} aria-label="Trip day" value={day} onChange={e=>setDay(Number(e.target.value))}/><select className={field} aria-label="Stop category" value={kind} onChange={e=>setKind(e.target.value as typeof kind)}>{kinds.map(k=><option key={k}>{k}</option>)}</select></div><button className={btn} disabled={busy||!stopTitle.trim()||!stopPlace.trim()} onClick={()=>void action("add_stop")}>Add itinerary stop</button></div>}
+ <details className="space-y-2 rounded-xl border p-3"><summary className="cursor-pointer font-semibold">Travel journal and photos</summary>{journal.isLoading&&<p className="text-sm">Loading moments…</p>}{journal.error&&<p role="alert" className="text-sm text-destructive">{String((journal.error as Error).message)}</p>}{(journal.data??[]).map((m:{id:string;body:string;day:number;created_at:string;photoUrl?:string|null;photo_caption?:string|null})=><article key={m.id} className="whitespace-pre-wrap rounded-xl bg-muted/50 p-3 text-sm"><p className="mb-1 text-xs text-muted-foreground">Day {m.day} · {new Date(m.created_at).toLocaleString()}</p>{m.body}{m.photoUrl&&<figure className="mt-3 space-y-2"><img className="w-full rounded-xl object-cover" src={m.photoUrl} alt={m.photo_caption??"Fictional trip photograph"} loading="lazy"/>{m.photo_caption&&<figcaption className="text-xs text-muted-foreground">{m.photo_caption}</figcaption>}</figure>}</article>)}</details>
+ {["idea","proposed","accepted","in_progress"].includes(current.status)&&<details className="space-y-2 rounded-xl bg-muted/40 p-3"><summary className="cursor-pointer font-semibold">+ Add a stop</summary><div className="grid grid-cols-2 gap-2"><input className={field} aria-label="Stop name" placeholder="Activity" value={stopTitle} onChange={e=>setStopTitle(e.target.value)}/><input className={field} aria-label="Stop location" placeholder="Place" value={stopPlace} onChange={e=>setStopPlace(e.target.value)}/><input className={field} type="number" min={1} max={90} aria-label="Trip day" value={day} onChange={e=>setDay(Number(e.target.value))}/><select className={field} aria-label="Stop category" value={kind} onChange={e=>setKind(e.target.value as typeof kind)}>{kinds.map(k=><option key={k}>{k}</option>)}</select></div><button className={btn} disabled={busy||!stopTitle.trim()||!stopPlace.trim()} onClick={()=>void action("add_stop")}>Add itinerary stop</button></details>}
  </section>}
+ </>}
  </main></Screen>;
 }
