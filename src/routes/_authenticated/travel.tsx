@@ -7,6 +7,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { listTravelTrips,createTravelTrip,changeTravelTrip,inviteTravelCompanion,travelSceneTurn,listTravelMoments } from "@/lib/travel.functions";
 import { icelandTripIdea, type TripPlan } from "@/lib/travel-experiences";
 import {TRAVEL_REGIONS,travelPlaces,realWorldMapSearchUrl,type TravelPlace} from "@/lib/travel-places";
+import {PPG_ARENA,PPG_ARENA_EVENTS} from "@/lib/arena-events";
 export const Route=createFileRoute("/_authenticated/travel")({component:Travel,head:()=>({meta:[{title:"Travel · AI Town"}]})});
 const modes=["road_trip","flight","rail","local"] as const;
 const purposes=["vacation","work","family","adventure"] as const;
@@ -62,6 +63,12 @@ function Travel(){
  <p className="text-sm text-muted-foreground">Independent curated geographic places, not a Google Maps database. Opening hours and access require checking.</p>
  <select className="w-full rounded-xl border bg-background p-2" aria-label="Travel region" value={region} onChange={e=>setRegion(e.target.value)}><option value="">All regions</option>{TRAVEL_REGIONS.map(r=><option key={r.id} value={r.id}>{r.label} · {r.country}</option>)}</select>
  <input className="w-full rounded-xl border bg-background p-2" aria-label="Search destinations" placeholder="Search park, museum, town, waterfall…" value={placeQuery} onChange={e=>setPlaceQuery(e.target.value)}/>
+ {region==="pittsburgh"&&<section className="space-y-2 rounded-xl border p-3">
+ <h3 className="font-semibold">PPG Paints Arena · Upcoming published events</h3>
+ <p className="text-xs text-muted-foreground">{PPG_ARENA.address}. Schedule snapshot checked {PPG_ARENA.verifiedOn}; verify before attending.</p>
+ <div className="max-h-64 space-y-2 overflow-y-auto">{PPG_ARENA_EVENTS.map(e=><article key={e.id} className="flex flex-wrap items-center justify-between gap-2 border-b pb-2 text-sm"><div><strong>{e.title}</strong><p className="text-xs text-muted-foreground">{e.date} · {e.time??"time unconfirmed"} · {e.kind}</p></div><button type="button" className="underline" onClick={()=>{setDestination("Pittsburgh");setTitle(e.title+" at PPG Paints Arena");setMode("road_trip");setStart(e.date);setEnd(e.date);setStopTitle(e.title);setStopPlace(PPG_ARENA.name+", Pittsburgh");toast.info("Concert details prepared for a new trip. Save your trip, then add the event stop.")}}>Plan this event</button></article>)}</div>
+ <a href={PPG_ARENA.calendarUrl} target="_blank" rel="noopener noreferrer" className="text-sm underline">Official venue calendar ↗</a>
+ </section>}
  <div className="max-h-96 space-y-2 overflow-y-auto">{suggestions.map((p:TravelPlace)=><article key={p.id} className="rounded-xl border p-3">
  <p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground">{p.city} · {p.regionLabel} · {p.kind}</p><p className="mt-1 text-xs">{p.ideas.join(" · ")}</p>
  <div className="mt-2 flex flex-wrap gap-3 text-sm"><button type="button" className="underline" onClick={()=>{setDestination(p.regionLabel);setTitle("Explore "+p.regionLabel);setMode(p.country==="US"&&p.state==="PA"?"road_trip":"flight");setStopTitle(p.name);setStopPlace(p.name+", "+p.city);toast.info("Destination and itinerary stop selected below")}}>Plan a trip here</button>
