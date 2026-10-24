@@ -2,7 +2,7 @@ import { adjudicate, initialRules, type RulesState, type ShotEvents } from "@/li
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 type Ball={x:number;y:number;vx:number;vy:number;number:number;active:boolean};
 const W=720,H=360,R=10,LEFT=34,RIGHT=686,TOP=28,BOTTOM=332;
-const POCKETS=[[LEFT,TOP],[(LEFT+RIGHT)/2,TOP],[RIGHT,TOP],[LEFT,BOTTOM],[(LEFT+RIGHT)/2,BOTTOM],[RIGHT,BOTTOM]];
+const POCKETS:[number,number][]=[[LEFT,TOP],[(LEFT+RIGHT)/2,TOP],[RIGHT,TOP],[LEFT,BOTTOM],[(LEFT+RIGHT)/2,BOTTOM],[RIGHT,BOTTOM]];
 function startBalls():Ball[]{
  const a:Ball[]=[{x:LEFT+165,y:H/2,vx:0,vy:0,number:0,active:true}];
  let n=1;for(let row=0;row<5;row++)for(let j=0;j<=row;j++){a.push({x:RIGHT-190+row*18,y:H/2-row*10+j*20,vx:0,vy:0,number:n++,active:true});}
@@ -18,7 +18,7 @@ function integrate(a:Ball[], events:ShotEvents):Ball[]{
   if(b.y<TOP+R||b.y>BOTTOM-R){if(events.firstContact!==null)events.railAfterContact=true;if(b.number>0){events.railBalls??=[];if(!events.railBalls.includes(b.number))events.railBalls.push(b.number);}b.y=Math.min(BOTTOM-R,Math.max(TOP+R,b.y));b.vy*=-.86;}
  }
  for(let i=0;i<balls.length;i++)for(let j=i+1;j<balls.length;j++){
-  const a=balls[i],b=balls[j];if(!a.active||!b.active)continue;
+  const a=balls[i]!,b=balls[j]!;if(!a.active||!b.active)continue;
   const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d<=0||d>=R*2)continue;
   if(events.firstContact===null && (a.number===0||b.number===0)){events.firstContact=a.number===0?b.number:a.number;}
   const nx=dx/d,ny=dy/d,overlap=(R*2-d)/2;a.x-=nx*overlap;a.y-=ny*overlap;b.x+=nx*overlap;b.y+=ny*overlap;
@@ -32,8 +32,8 @@ function paint(ctx:CanvasRenderingContext2D,balls:Ball[],aim:{x:number;y:number}
  ctx.fillStyle="#145b36";ctx.fillRect(LEFT-14,TOP-14,RIGHT-LEFT+28,BOTTOM-TOP+28);
  ctx.fillStyle="#0d8150";ctx.fillRect(LEFT,TOP,RIGHT-LEFT,BOTTOM-TOP);
  for(const [x,y] of POCKETS){ctx.beginPath();ctx.arc(x,y,19,0,Math.PI*2);ctx.fillStyle="#151515";ctx.fill();}
- for(const b of balls){if(!b.active)continue;ctx.beginPath();ctx.arc(b.x,b.y,R,0,Math.PI*2);ctx.fillStyle=b.number===0?"#fff":b.number===8?"#222":b.number<=7?["#f6d83d","#4478ca","#d94444","#9b65b9","#ff912e","#37a86e","#832e2e"][(b.number-1)%7]:["#f6d83d","#4478ca","#d94444","#9b65b9","#ff912e","#37a86e","#832e2e"][(b.number-9)%7];ctx.fill();ctx.lineWidth=1;ctx.strokeStyle="#2228";ctx.stroke();if(b.number!==0){ctx.font="8px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=b.number===8?"white":"#191919";ctx.fillText(String(b.number),b.x,b.y);}}
- const cue=balls[0];if(aim&&cue?.active&&stationary(balls)){ctx.save();ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle="#fff9";ctx.beginPath();ctx.moveTo(cue.x,cue.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();ctx.restore();}
+ for(const b of balls){if(!b.active)continue;ctx.beginPath();ctx.arc(b.x,b.y,R,0,Math.PI*2);ctx.fillStyle=b.number===0?"#fff":b.number===8?"#222":b.number<=7?["#f6d83d","#4478ca","#d94444","#9b65b9","#ff912e","#37a86e","#832e2e"][(b.number-1)%7]!:["#f6d83d","#4478ca","#d94444","#9b65b9","#ff912e","#37a86e","#832e2e"][(b.number-9)%7]!;ctx.fill();ctx.lineWidth=1;ctx.strokeStyle="#2228";ctx.stroke();if(b.number!==0){ctx.font="8px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillStyle=b.number===8?"white":"#191919";ctx.fillText(String(b.number),b.x,b.y);}}
+ const cue=balls[0]!;if(aim&&cue?.active&&stationary(balls)){ctx.save();ctx.setLineDash([8,6]);ctx.lineWidth=2;ctx.strokeStyle="#fff9";ctx.beginPath();ctx.moveTo(cue.x,cue.y);ctx.lineTo(aim.x,aim.y);ctx.stroke();ctx.restore();}
 }
 export function EightBall(){
  const canvas=useRef<HTMLCanvasElement|null>(null),balls=useRef<Ball[]>(startBalls()),aim=useRef<{x:number;y:number}|null>(null),frame=useRef<number|undefined>(undefined),shots=useRef(0);
@@ -52,13 +52,13 @@ export function EightBall(){
       frame.current=requestAnimationFrame(loop);return;
     }
     rules.current=result;setRuleDisplay(result);setMessage(result.status);
-    if(!balls.current[0].active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
+    if(!balls.current[0]!.active){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};}
     if(result.ballInHand && result.turn===1){balls.current[0]={x:LEFT+160,y:H/2,vx:0,vy:0,number:0,active:true};setPlacingCue(true);}
     if(result.winner===null&&result.turn===2){
       if(opponentTimer.current)clearTimeout(opponentTimer.current);
       opponentTimer.current=setTimeout(()=>{
         if(!alive||rules.current.turn!==2||rules.current.winner!==null)return;
-        const cue=balls.current[0];if(!cue.active)return;
+        const cue=balls.current[0]!;if(!cue.active)return;
         if(rules.current.ballInHand){
           const chosen=[{x:LEFT+160,y:H/2},{x:LEFT+130,y:H/2-70},{x:LEFT+130,y:H/2+70}].find(p=>balls.current.every(b=>!b.active||b.number===0||Math.hypot(b.x-p.x,b.y-p.y)>R*2+2));
           if(chosen){cue.x=chosen.x;cue.y=chosen.y;}
