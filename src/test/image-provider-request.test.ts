@@ -23,6 +23,9 @@ describe("image provider request compatibility", () => {
     expect(init.body.getAll("image[]")[0].name).toBe("tess-reference.jpg");
     expect(init.body.getAll("image[]")[1].name).toBe("mabel-reference-1.jpg");
     expect(init.signal).toBeDefined();
+    expect(init.body.get("size")).toBe("1024x1536");
+    expect(Array.from(result.bytes)).toEqual(Array.from(new TextEncoder().encode("png")));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.provider).toBe("openai");
     expect(result.model).toBe("gpt-image-2.5-sunburst");
   });
