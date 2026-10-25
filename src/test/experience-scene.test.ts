@@ -98,6 +98,24 @@ describe("photo blocker regressions", () => {
     expect(photoContextConflicts(schedule, "A selfie at the clinic office")).toBe(true);
     expect(photoLocation("At home, off work; not at any workplace.")).toBe("home");
   });
+  it("does not restore the removed schedule/storyline veto when merging newer photo changes", () => {
+    expect(
+      photoOpportunity({
+        character: "tess",
+        conversationId: "merged-context",
+        now: new Date("2026-10-25T18:00Z"),
+        schedule,
+        state: { ...SEED_STATE, comfort: 65, trust: 60, curiosity: 65 },
+        frequency: "normal",
+        eligibleTypes: ["casual_selfie"],
+        lastPhotoAt: null,
+        ownSinceLastPhoto: 99,
+        gapHours: 3,
+        context: "An unresolved clinic staffing story",
+        preview: true,
+      }).eligible,
+    ).toBe(true);
+  });
   it("live home state overrides an old park calendar title in photography context", () => {
     const home = {
       ...initialScene("riley", "home:riley", "Riley's home"),

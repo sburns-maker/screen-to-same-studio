@@ -79,7 +79,7 @@ Known limits: deterministic extraction favors clear performed actions and explic
 
 ## Validation results
 
-- Full suite: **776 passed**, with the 9 opt-in PostgreSQL cases skipped in that run.
+- Original feature validation: **776 passed**, with the 9 opt-in PostgreSQL cases skipped in that run.
 - Separate disposable PostgreSQL 17 run: **9 passed**, applying every migration through 0039.
 - TypeScript checks and production build: passed.
 - Focused lint on the new scene/validation modules and tests: passed. Changed existing implementation files also passed functional lint with the repository-wide formatter rule excluded.
@@ -87,3 +87,11 @@ Known limits: deterministic extraction favors clear performed actions and explic
 - Paid dialogue/image providers were mocked. The grocery/home test uses the actual turn, identity-reference, image persistence and delivery orchestration; this is not a claim that a live photograph was generated or visually approved.
 
 Calendar follow-up invitations remain in the model's context. Only the current parent's old venue instruction is removed; a child's reference to that parent does not remove the child's plan or scheduling information.
+
+## PR #72 conflict resolution
+
+Integrated `main` at `23cb15b` into the existing feature branch without rewriting published history. Kept the newer removal of the broad schedule/storyline opportunity veto; actual requested/generated scenes still use the shared current-scene check and explicit diagnostics. Existing sleep, privacy, consent, identity and spending safeguards remain.
+
+The incoming-callback regression introduced on main used a per-character message sender that violates the existing database constraint. Callback proof now uses the actual shared `tess` transport sender and is scoped to the owned source conversation. The integration test demonstrates a callback from Maya using that real storage contract. No new migration is needed for this merge resolution; migration 0039 remains the feature's required additive migration.
+
+Post-resolution validation: **778 tests passed, 9 opt-in PostgreSQL tests skipped**; TypeScript, production build, focused lint and whitespace validation passed. The earlier separate nine-test PostgreSQL run remains recorded above; it was not repeated for this application-only conflict resolution.

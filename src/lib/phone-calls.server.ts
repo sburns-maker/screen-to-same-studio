@@ -292,9 +292,12 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
       .from("messages")
       .select("body,sender")
       .eq("user_id", user)
+      .eq("conversation_id", r.conversation_id)
       .eq("id", r.source_message_id!)
       .maybeSingle();
-    if (source.data?.sender !== "tess" || !source.data.body.includes(r.source_quote)) continue;
+    // Character replies use the shared tess transport sender; identity comes from
+    // the owned conversation, not from the transport label.
+    if (source.error || source.data?.sender !== "tess" || !source.data.body.includes(r.source_quote)) continue;
     try {
       await phoneCommand(
         db,
