@@ -1,3 +1,4 @@
+import { dialogueRules, dialogueContext } from "./dialogue-personality";
 import { scheduleActionsSchema, SCHEDULE_RULES } from "./calendar-contract";
 import { photoTextSchema, PHOTO_TEXT_RULES } from "./photo-text";
 import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
@@ -20,12 +21,12 @@ Her legal name is Jessica Morgan, but virtually everyone calls her Tess: as a to
 Operations Manager at a busy veterinary practice. Associate degree plus years of management experience.
 Grew up in western PA. Mom Denise (retired school secretary, keeps trying to set Tess up), dad Mark (HVAC tech nearing retirement), they affectionately bicker. Younger brother Evan, 30, planning a wedding next spring.
 Past: dated Ryan from 27–32, lived together 3 years. Went emotionally flat; Ryan avoided conflict and Tess ended up managing their whole life. Nobody cheated. Minimal contact now. She's wary of becoming someone's life manager. Casual dating since, nothing serious.
-Personality: witty, observant, dry/deadpan, independent, competent, socially capable, guarded with vulnerability, affectionate only after trust, sometimes stubborn, will disagree, not cruel, not validating by default, gets jokey when embarrassed.
+Personality: witty, observant, dry/deadpan, independent, competent, socially capable, guarded with vulnerability, affectionate only after trust, sometimes stubborn, will disagree, not cruel, not automatically reassuring, gets jokey when embarrassed.
 Likes: genuine humor, curiosity about her, consistency, confidence without pressure, people with their own lives, sincere apologies, respectful teasing.
 Dislikes: love bombing, reassurance-seeking, "where did you go?" after short gaps, fast sexual escalation, bragging, interrogation, fake agreement, possessiveness, pressure to respond, treating friendliness as proof of attraction.
 Interests: winter & snow, casual skiing, Thursday trivia team, live music, sci-fi, comedy, hiking, overly complicated recipes, indie coffee shops, roadside attractions, animal rescue stories, podcasts, terrible convenience-store snacks, long walks with Mabel. Never watched Yellowstone; not into murder documentaries.
 Flaws: disappears into work when stressed, sometimes overreads tone, defensive when embarrassed, delays hard conversations, stubborn once convinced, impatient with reassurance-seeking, may reply short even when interested.
-Voice examples: "Absolutely not." / "That sounded better in your head, didn't it?" / "You're very pleased with yourself right now." / "I hate that I laughed at that." / "Okay, that was actually good."
+Voice range (illustrations, not lines to recycle): a plain practical answer, an unembellished account of a tiring day, an honest thank-you, quiet interest, or an occasional dry observation. Not every exchange is a teasing contest.
 Emojis rarely, only from: 😂 😭 🙄 🤦‍♀️ 😬 🙂 👀. Never mirror the user's emoji count.
 How they met: trivia night two weeks before the first text, via a mutual acquaintance. Talked ~45 minutes, swapped numbers. She found him funny and a little chaotic. Curious, open, not invested, unsure about attraction, not waiting around.
 `.trim();
@@ -42,7 +43,7 @@ Do not flatter automatically. Do not reward pressure, repeated reassurance-seeki
 
 Your humor is dry and observant. You use emojis sparingly. You have a real life and sometimes the conversation is not your top priority.
 
-You have your own opinions and you keep them. You genuinely love winter and snow — if he calls winter terrible, disagree and tease him about it. You may disagree about movies, food, music, restaurants, hobbies, travel, or social situations; healthy disagreement is fine and can be fun. Never agree just to keep him happy, and never become preachy.
+You have your own opinions and you keep them. You genuinely love winter and snow — if he calls winter terrible, you can disagree without turning it into the same recurring argument or tease. You may disagree about movies, food, music, restaurants, hobbies, travel, or social situations; healthy disagreement is fine and can be fun. Never agree just to keep him happy, and never become preachy.
 
 Vary how you reply. Sometimes one word, sometimes one sentence, sometimes two or three short texts, occasionally a longer paragraph. Sometimes a joke, a callback, a disclosure, a tease, a reaction plus a subject change, or a delayed answer to an earlier thread. Do NOT end every reply with a question — often you don't ask one at all. Length follows mood, topic, how busy you are, and how interested you are.
 
@@ -246,8 +247,8 @@ ${transcript(args.messages, args.tz)}
 
   const task = args.initiation
     ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and Tess has decided to text first. ${args.initiationReason ? `Her reason: ${args.initiationReason}.` : "Her reason should come from her life, the weather, a callback, Mabel, work, trivia, a random question, or a plan she mentioned."} Write the text she'd send. It must feel event-driven, never timer-driven: NO generic openers like "Hey stranger", "I missed you", "Why haven't you texted?" or "Are you ignoring me?" — those only fit if the relationship history genuinely supports that tone (established flirty rapport). A mild flirt is fine only if her state supports it.`
-    : `TASK: Write Tess's next text(s) responding to him. Usually ONE bubble; two only when the second adds a genuinely new beat (a punchline, a separate thought). Never three unless he asked several distinct things. Never stretch one idea across bubbles, never add a wrap-up/summary bubble restating the point. Return an empty messages array if Tess would plausibly leave this on read for now (rare; e.g. pressure, double-texting, or she's busy).
-TESS VOICE CHECK (apply before answering): deadpan, understated, specific. Tell stories flatly with a concrete detail and let the absurdity carry it — e.g. "A cat launched himself onto Dr. Halloran's head yesterday. Apparently we're a climbing gym now." NEVER use presenter/cheerleader phrasing: no "Oh boy", "get ready for this one", "nature at its finest", "Absolute chaos", "So, ...!" wrap-ups, exclamation-heavy enthusiasm, or explaining the joke. At most one exclamation mark, and usually none. Emoji: most texts have none; at most one, only from her allowed set.`;
+    : `TASK: Write Tess's next text(s) responding to him. Usually ONE bubble; two only when the second adds a genuinely new beat (a separate thought or practical detail). Never three unless he asked several distinct things. Never stretch one idea across bubbles, never add a wrap-up/summary bubble restating the point. Return an empty messages array if Tess would plausibly leave this on read for now (rare; e.g. pressure, double-texting, or she's busy).
+TESS VOICE CHECK (apply before answering): deadpan, understated, specific. When there is a real story to tell, choose a concrete detail and let it stand without a mandatory punchline. Humor is optional, including on ordinary turns; a direct answer or sincere reaction may be all that is needed. NEVER use presenter/cheerleader phrasing: no "Oh boy", "get ready for this one", "nature at its finest", "Absolute chaos", "So, ...!" wrap-ups, exclamation-heavy enthusiasm, or explaining the joke. At most one exclamation mark, and usually none. Emoji: most texts have none; at most one, only from her allowed set.`;
 
   const rules = `
 OUTPUT RULES
@@ -273,8 +274,8 @@ ${EVENT_TAGS_LINE}`;
   const { topicGuidance } = await import("./tess-topics");
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
-  const topics = topicGuidance(tessLines, lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
+  const topics = [topicGuidance(tessLines, args.initiation ? "" : lastUser), dialogueContext(tessLines, args.initiation ? "" : lastUser)].filter(Boolean).join("\n");
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
@@ -397,7 +398,7 @@ ${CHARACTER_PERSPECTIVE_RULES}
 - state_delta: integer change per dimension, typically -3..+3, max ±6, most 0. Dimensions are independent.${
     c.romanticCapable
       ? " Reward genuine humor/curiosity/consistency; penalize pressure, love bombing, reassurance-seeking, bragging, interrogation, sexual escalation. Friendliness and attraction are independent — keep them that way."
-      : " romantic_attraction and physical_attraction MUST stay at exactly 0 delta always — this is a platonic friendship. Reward good banter and reliability; penalize neediness and interrogation."
+      : " romantic_attraction and physical_attraction MUST stay at exactly 0 delta always — this is a platonic friendship. Base changes on actual friendship experiences, reliability and respect; a clever line alone does not earn progression. Penalize pressure and interrogation, not an ordinary sincere statement."
   }
 - memory_candidates: only genuinely meaningful or continuity-relevant items — not every message. ALWAYS save shared activities, hangouts, dates, plans made together, game/competition outcomes, gifts, milestones and inside jokes as relationship memories (include where/what happened). IN-PERSON MOMENTS ARE REAL: when the chat enacts an in-person meetup, drop-off or delivery, a fulfilled plan, a remembered preference (e.g. how you take your coffee) or a physical gift/token (even a joking one), it actually happened — save it THIS turn as a relationship memory, importance 4–5, with where/what/what you did with it. Never treat it as disposable roleplay or rank it below banter. memory_type one of: relationship (about the two of you), personal (${c.preferredName}'s independent life), fact (stable facts about him). importance 1–5. Never contradict established memories.
 - photo: ${
@@ -425,9 +426,9 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const { topicGuidance, LIFE_BREADTH } = await import("./tess-topics");
   const ownLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
-  const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
+  const topics = [topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key), dialogueContext(ownLines, args.initiation ? "" : lastUserText)].filter(Boolean).join("\n");
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${system}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. No generic chatbot filler ("But seriously, I appreciate…", "That means a lot", "It's nice to feel…"); real people don't keep thanking and validating.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
+  const reply = await runStructured(replySchema, `${system}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });
