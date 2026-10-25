@@ -2,7 +2,7 @@ import { PHOTOGRAPHY_PROFILES } from "./photo-personality";
 import { reactionPhotoCue, visualCue } from "./photo-pacing";
 import type { CharacterKey } from "./characters";
 import type { TessActivity } from "./tess-life";
-import { physicalPhotoContext } from "./calendar-commitment";
+import { photoActivityBlock } from "./photo-activity";
 import type { TessState } from "./tess-logic";
 import type { PhotoFrequency } from "./tess-photos";
 
@@ -49,28 +49,20 @@ export function photoOpportunity(args: {
     key,
     hint: "",
   });
-  if (args.schedule.availability === "asleep" || args.schedule.availability === "busy")
+  const activityBlock = photoActivityBlock(args.schedule);
+  if (activityBlock)
     return no(
-      `Unavailable right now: ${args.schedule.detail} (${args.schedule.availability}). Wait for a compatible break.`,
+      activityBlock === "asleep"
+        ? `Unavailable right now: ${args.schedule.detail} (asleep). Wait for a compatible break.`
+        : activityBlock,
     );
-  const physicalActivity = physicalPhotoContext(args.schedule.detail);
-  const privateContext =
-    /\bprivate\b/i.test(physicalActivity) &&
-    !/\b(?:her|his|my|own) private (?:home|house|apartment)\b/i.test(physicalActivity);
-  if (
-    privateContext ||
-    /\b(?:driv(?:e|es|ing)|surgery|emergency|phone (?:down|away)|patients?)\b/i.test(
-      physicalActivity,
-    )
-  )
-    return no("current activity is incompatible with a photo");
   if (!args.eligibleTypes.length)
     return no("no permitted photo categories (capability, relationship or boundary)");
   if (args.state.curiosity < 30 || (args.state.comfort < 40 && args.state.trust < 25))
     return no("not sufficiently interested or comfortable to initiate sharing");
   if (args.state.irritation >= 20 || args.state.perceived_pressure >= 30)
     return no("not independently inclined to share");
-  // Natural photo moments are event driven. There is no wall-clock or message-count
+  // Ordinary activity is sufficient; a special event is never required. There is no wall-clock or message-count
   // cooldown: a new grounded visual moment can justify another picture immediately.
   // Repeated worker polls for the same moment remain deterministic below.
   if (args.gapHours < 0) return no("a reply is still pending");
@@ -79,7 +71,8 @@ export function photoOpportunity(args: {
   // scene check validates the actual request against current physical state.
   // Stable per opportunity: polling more often (or Practice mode) never rerolls the chance.
   let hash = 2166136261;
-  for (const c of key) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+  for (const c of `${args.conversationId}:${args.character}:${activitySlot}`)
+    hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
   const chance = Math.min(
     0.85,
     (args.frequency === "rare" ? 0.65 : args.frequency === "frequent" ? 1.3 : 1) * profile.chance +
@@ -91,7 +84,7 @@ export function photoOpportunity(args: {
     selected,
     reason: selected ? "contextual photo opportunity" : "chooses not to share this opportunity",
     key,
-    hint: `PHOTO OPPORTUNITY (optional, not an obligation): ${args.context}. Your own tendencies: ${profile.subjects}. You may open with an ordinary photo and a short in-character caption, including two brief texts if natural. Use only established memories for callbacks, gifts and upcoming plans. Never invent a visit, object, date or completed event. A shared image is not a flirting reward. Respect eligibility and your independent willingness; choose photo=null or no message if you don't want to share. No clinic patients, records, screens, identifying paperwork or bystanders. For a specific new moment prefer generating it over an unrelated stock photo.`,
+    hint: `PHOTO OPPORTUNITY (optional, not an obligation): ${args.context}. Your own tendencies: ${profile.subjects}. You may open with an ordinary photo and a short in-character caption, including two brief texts if natural. Use only established memories for callbacks, gifts and upcoming plans. Never invent a visit, object, date or completed event. An ordinary selfie or snapshot while doing this is enough; no special event, joke or visual punchline is required. A shared image is not a flirting reward. Respect eligibility and your independent willingness; choose photo=null or no message if you don't want to share. No clinic patients, records, screens, identifying paperwork or bystanders. For a specific new moment prefer generating it over an unrelated stock photo.`,
   };
 }
 

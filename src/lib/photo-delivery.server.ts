@@ -12,6 +12,8 @@ export type DeliveryResult = {
   notificationGroup?: string;
   preparedActionId?: string;
   reservation?: PhotoReservation;
+  photoSent?: boolean;
+  imageRequested?: boolean;
 };
 export async function photoActionId(key: string): Promise<string> {
   const bytes = await crypto.subtle.digest(
@@ -189,7 +191,8 @@ type HistoryDetail = {
   userId?: string;
   conversationId?: string;
   plan?: {
-    rows?: Array<{ id: string; body?: string }>;
+    rows?: Array<{ id: string; body?: string; metadata?: Record<string, unknown> }>;
+    generated?: unknown;
     relationshipHistory?: {
       before: unknown; after: unknown; delta: unknown; previousStage: string; stage: string;
       tone?: string | null; tags?: string[]; sourceKind?: string; contextSummary?: string;
@@ -247,5 +250,9 @@ async function deliverPhotoTurn(admin: Admin, id: string): Promise<DeliveryResul
       console.warn("[relationship-history] Delivered turn had no evaluation plan:", id);
     }
   }catch(e){console.warn("[relationship-history] Photo history pending:",e);}
-  return result;
+  return result.count > 0 && detail?.plan?.rows ? {
+    ...result,
+    photoSent: detail.plan.rows.some((row) => !!(row.metadata?.["photo"] || row.metadata?.["generated_path"] || row.metadata?.["generated_image_id"])),
+    ...(detail.plan.generated !== undefined ? { imageRequested: !!detail.plan.generated } : {}),
+  } : result;
 }

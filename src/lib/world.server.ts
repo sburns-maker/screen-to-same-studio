@@ -604,7 +604,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           const blockedBy = [
             ...(conv.muted ? ["conversation muted"] : []),
             ...(inQuietHours(now, quiet.start, quiet.end) ? ["user quiet hours"] : []),
-            ...(["busy", "asleep"].includes(schedule.availability)
+            ...(["asleep"].includes(schedule.availability)
               ? [`character ${schedule.availability}`]
               : []),
             ...(report.aiCalls >= aiBudget ? ["worker AI budget exhausted"] : []),
@@ -639,6 +639,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             lastInitiatedAt: life?.last_initiated_at ?? null,
             context: (await import("./calendar-commitment")).photoContextForSchedule(schedule,lifeEvent?.summary),
           });
+          if (schedule.availability === "busy" && !photoChance.selected) blockedBy.push("character busy");
           const photoDecisionId = worldReady
             ? await recordPhotoDecision(admin, {
               userId,
@@ -653,9 +654,10 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               now,
             })
             : null;
-          const photoOutcome = async (outcome: "message_sent" | "not_sent" | "blocked", why?: string | null) => {
+          const photoOutcome = async (outcome: "message_sent" | "not_sent" | "blocked", why?: string | null, delivery?: unknown) => {
+            const info = (delivery ?? {}) as Record<string,unknown>;
             if (photoDecisionId && photoChance.selected)
-              await recordPhotoDecisionOutcome(admin, { id: photoDecisionId, userId, outcome, reason: why ?? null }).catch(() => undefined);
+              await recordPhotoDecisionOutcome(admin, { id: photoDecisionId, userId, outcome, reason: why ?? null, ...(typeof info["photoSent"] === "boolean" ? {photoSent:info["photoSent"]}:{}), ...(typeof info["imageRequested"] === "boolean" ? {generationRequested:info["imageRequested"]}:{}) }).catch(() => undefined);
           };
           const followUp =
             !!dueIntention &&
@@ -698,6 +700,17 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               ? photoChance.hint
               : (lifeEvent?.summary ?? flavor ?? null);
           try {
+            // A terminal action was already considered; do not reserve another AI budget slot.
+            if (photoChance.selected && !followUp) {
+              const { existingPhotoAction } = await import("./photo-delivery.server");
+              const previous = await existingPhotoAction(admin, `${userId}:${conv.id}:${photoChance.key}`);
+              if (previous && previous !== "running") {
+                const why = previous === "failed" ? "Earlier attempt ended; this action will not be regenerated." : "This opportunity was already processed; no image was regenerated.";
+                await recordOutcome(false,[why]);
+                await photoOutcome("not_sent",why);
+                continue;
+              }
+            }
             // Spontaneous contextual photo sharing is not a generic text-initiation.
             // Image generation still reserves its own bounded provider budget.
             if (worldReady && (await import("./world-runtime.server")).requiresAutonomousTextReservation(photoChance.selected, process.env["AUTONOMOUS_AI_DAILY_LIMIT"] === "0") && !(await reserveWorldAi(admin, userId))) {
@@ -718,12 +731,12 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
                     photoKey: `intention:${dueIntention!.id}:${dueIntention!.attempts}`,
                   }
                 : photoChance.selected
-                  ? { photoKey: photoChance.key }
+                  ? { photoKey: photoChance.key, spontaneousPhoto: true as const }
                   : {}),
             });
             if (!followUp)
               await photoOutcome(result.count > 0 ? "message_sent" : "not_sent",
-                "reason" in result ? (result.reason ?? null) : result.count > 0 ? null : "no message produced");
+                "reason" in result ? (result.reason ?? null) : "replayed" in result && result.replayed ? "This opportunity was already processed; no image was regenerated." : result.count > 0 ? null : "No delivery was recorded; character choice is not established.", result);
             if (followUp && dueIntention && worldReady) {
               if ("reason" in result && result.reason?.includes("will not be recharged")) {
                 await admin

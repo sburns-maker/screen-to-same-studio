@@ -62,7 +62,7 @@ describe("independent contextual photo opportunities", () => {
     expect(PHOTO_TENDENCIES.claire.subjects).toContain("garden");
     expect(PHOTO_TENDENCIES.jordan.subjects).toContain("rarely a selfie");
   });
-  it.each(["asleep", "busy"] as const)(
+  it.each(["asleep"] as const)(
     "never photographs while %s, even in developer testing",
     (availability) => {
       expect(
@@ -81,15 +81,21 @@ describe("independent contextual photo opportunities", () => {
   it("allows optional photos while winding down but not while asleep", () => {
     const result = photoOpportunity({
       ...base,
-      schedule: { activity: "winding down", availability: "limited", detail: "winding down for bed" },
+      schedule: {
+        activity: "winding down",
+        availability: "limited",
+        detail: "winding down for bed",
+      },
       context: "A quiet nighttime photo of the book she is reading",
     });
     expect(result.eligible).toBe(true);
     expect(result.selected).toBe(true);
-    expect(photoOpportunity({
-      ...base,
-      schedule: { activity: "asleep", availability: "asleep", detail: "asleep — before alarm" },
-    }).eligible).toBe(false);
+    expect(
+      photoOpportunity({
+        ...base,
+        schedule: { activity: "asleep", availability: "asleep", detail: "asleep — before alarm" },
+      }).eligible,
+    ).toBe(false);
   });
   it("allows Jordan's free-ish climbing practice when the detail says patiently", () => {
     const result = photoOpportunity({
@@ -98,21 +104,33 @@ describe("independent contextual photo opportunities", () => {
       schedule: {
         activity: "free-ish",
         availability: "free",
-        detail: "free-ish; ongoing situation: Jordan and Ruth are working patiently on a climbing technique during their normal sessions",
+        detail:
+          "free-ish; ongoing situation: Jordan and Ruth are working patiently on a climbing technique during their normal sessions",
       },
       context: "Jordan jokes about holding the toaster hostage",
     });
     expect(result.eligible).toBe(true);
   });
   it("continues blocking real patient consultations without matching patiently", () => {
-    expect(photoOpportunity({
-      ...base, schedule: { ...base.schedule, detail: "working with patients in a private room" },
-    }).reason).toBe("current activity is incompatible with a photo");
+    expect(
+      photoOpportunity({
+        ...base,
+        schedule: { ...base.schedule, detail: "working with patients in a private room" },
+      }).reason,
+    ).toBe("current activity is incompatible with a photo");
   });
   it("allows fresh grounded photo moments without clock or message cooldowns", () => {
-    const justSent = photoOpportunity({ ...base, lastPhotoAt: "2026-10-22T14:00:00Z", ownSinceLastPhoto: 0 });
+    const justSent = photoOpportunity({
+      ...base,
+      lastPhotoAt: "2026-10-22T14:00:00Z",
+      ownSinceLastPhoto: 0,
+    });
     expect(justSent.eligible).toBe(true);
-    const again = photoOpportunity({ ...base, lastPhotoAt: "2026-10-22T14:00:00Z", ownSinceLastPhoto: 0 });
+    const again = photoOpportunity({
+      ...base,
+      lastPhotoAt: "2026-10-22T14:00:00Z",
+      ownSinceLastPhoto: 0,
+    });
     expect(again.selected).toBe(justSent.selected);
   });
   it("respects no-photo boundaries and preserves ordinary object photos below selfie thresholds", () => {
@@ -151,5 +169,39 @@ describe("independent contextual photo opportunities", () => {
       expect(attachmentPresent(metadata)).toBe(true);
     expect(attachmentPresent({ user_photo: "incoming.png" })).toBe(false);
     expect(scheduleFor(new Date("2026-10-23T03:30:00Z")).availability).toBe("asleep");
+  });
+});
+
+describe("ordinary photos without a special event", () => {
+  it("allows an occupied character to consider a quick photo while doing ordinary errands", () => {
+    expect(
+      photoOpportunity({
+        ...base,
+        schedule: {
+          activity: "running errands",
+          availability: "busy",
+          detail: "browsing groceries",
+        },
+        context: "browsing groceries",
+      }).eligible,
+    ).toBe(true);
+  });
+  it("does not require an event or a visual punchline at home", () => {
+    expect(
+      photoOpportunity({
+        ...base,
+        schedule: { activity: "at home", availability: "free", detail: "relaxing at home" },
+        context: "relaxing at home",
+      }).eligible,
+    ).toBe(true);
+  });
+  it("does not reroll the lottery when only storyline wording changes", () => {
+    const ordinary = photoOpportunity({ ...base, preview: false, context: "relaxing at home" });
+    const story = photoOpportunity({
+      ...base,
+      preview: false,
+      context: "Maya and Becca are planning a weekend",
+    });
+    expect(story.selected).toBe(ordinary.selected);
   });
 });
