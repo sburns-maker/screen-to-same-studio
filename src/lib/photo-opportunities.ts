@@ -2,7 +2,6 @@ import { PHOTOGRAPHY_PROFILES } from "./photo-personality";
 import { reactionPhotoCue, visualCue } from "./photo-pacing";
 import type { CharacterKey } from "./characters";
 import type { TessActivity } from "./tess-life";
-import { photoContextConflicts } from "./calendar-commitment";
 import type { TessState } from "./tess-logic";
 import type { PhotoFrequency } from "./tess-photos";
 
