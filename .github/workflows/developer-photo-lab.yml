@@ -1,0 +1,19 @@
+name: Developer photo category tests
+on:
+  pull_request:
+    paths:
+      - 'src/lib/developer-photo-lab*'
+      - 'src/components/DeveloperPhotoLab.tsx'
+      - 'src/test/developer-photo-lab*'
+      - 'src/routes/_authenticated/debug.$conversationId.tsx'
+      - '.github/workflows/developer-photo-lab.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/developer-photo-lab.integration.test.ts src/test/developer-photo-lab-ui.test.tsx src/test/photo-identity.test.ts src/test/photo-turn.test.ts
+      - run: bunx tsc --noEmit
+      - run: bun run build
