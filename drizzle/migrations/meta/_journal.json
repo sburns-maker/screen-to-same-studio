@@ -281,6 +281,13 @@
       "when": 1792950000000,
       "tag": "0039_experience_live_scene",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792950000001,
+      "tag": "0040_transactional_plan_edits",
+      "breakpoints": true
     }
   ]
 }
