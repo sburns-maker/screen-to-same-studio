@@ -94,6 +94,7 @@ describe("real character adapters share voice guidance without canned response r
     expect(system).toContain("Retire that comic routine for now");
     expect(system).toContain("TEXTING LANGUAGE");
     expect(system).toContain(DIALOGUE_PROFILES.maya.texting);
+    expect(input).toContain("Historical reply with overused comic framing");
     expect(input).toContain("Guilty as charged."); // Preserve actual history, not rewritten memories.
     expect(reply.messages).toEqual(["Yeah, I'm home. Gonna sit down for a minute lol"]);
     expect(reply.schedule_actions).toEqual([{ action: "clarify", title: "An established plan" }]);
@@ -112,6 +113,20 @@ describe("real character adapters share voice guidance without canned response r
     expect(input).not.toContain("This can end naturally");
     expect(purpose).toBe("autonomous");
   });
+  it.each(["tess", "maya"] as const)(
+    "uses spoken instructions through the same %s brain for legacy phone turns",
+    async (key) => {
+      const request = { ...args, channel: "voice" as const };
+      if (key === "tess") await generateTessReply(request);
+      else await generateContactReply({ ...request, character: CHARACTERS.maya });
+      const [, system, input] = model.run.mock.calls[0]!;
+      expect(system).toContain("ACTIVE CHANNEL: SPOKEN PHONE CONVERSATION");
+      expect(system).not.toContain("TEXTING LANGUAGE");
+      expect(system).toContain(DIALOGUE_PROFILES[key].openness);
+      expect(input).toContain(args.memories[0]);
+      expect(model.run).toHaveBeenCalledTimes(1);
+    },
+  );
   it("preserves the in-person channel and original recorded scene instead of converting it to texting", async () => {
     const instruction =
       "IN PERSON: authoritative current scene at Riley's front door.\nEXPERIENCE HISTORY\nUSER-RECORDED-ACTION";

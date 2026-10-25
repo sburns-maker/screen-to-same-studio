@@ -1,4 +1,4 @@
-import { dialogueRules, dialogueContext } from "./dialogue-personality";
+import { dialogueRules, dialogueContext, dialogueHistoryLine } from "./dialogue-personality";
 import { scheduleActionsSchema, SCHEDULE_RULES } from "./calendar-contract";
 import { photoTextSchema, PHOTO_TEXT_RULES } from "./photo-text";
 import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
@@ -181,13 +181,15 @@ export const debriefSchema = z.object({
 });
 export type Debrief = z.infer<typeof debriefSchema>;
 
+const SPOKEN_CHANNEL_RULES = `ACTIVE CHANNEL: SPOKEN PHONE CONVERSATION. These delivery instructions override text-format wording above only; preserve all character facts, memory, boundaries and validated calendar contracts. The messages field carries what you actually say aloud, not SMS. Give one natural spoken response, usually one to three sentences, using contractions and an ordinary conversational register. Let the other person speak; don't require a joke, clever comeback or follow-up question. No emojis, texting abbreviations, quoted stage directions or references to sending this reply as a text. Keep photographs null. An ordinary end of a sentence does not mean hanging up.`;
 type Msg = { sender: string; body: string; created_at: string };
 
 function transcript(msgs: Msg[], tz: string, contactName = "Tess") {
+  const ownLines = msgs.filter((m) => m.sender === "tess").map((m) => m.body);
   return msgs
     .map((m) => {
       const t = new Date(m.created_at).toLocaleString("en-US", { timeZone: tz, weekday: "short", hour: "numeric", minute: "2-digit" });
-      const body = m.sender !== "tess" ? m.body : contactName === "Tess" ? cleanTessHistoryLine(m.body) : cleanContactHistoryLine(m.body, contactName);
+      const body = m.sender !== "tess" ? m.body : dialogueHistoryLine(contactName === "Tess" ? cleanTessHistoryLine(m.body) : cleanContactHistoryLine(m.body, contactName), ownLines);
       return `[${t}] ${m.sender === "tess" ? contactName : "Him"}: ${body}`;
     })
     .join("\n");
@@ -212,6 +214,7 @@ export async function generateTessReply(args: {
   photoBoundary?: PhotoBoundary;
   photoHint?: string;
   experience?: { at: string; instruction: string };
+  channel?: "text" | "voice";
   worldKnowledge?: string[];
   availabilityDetail?: string;
 }): Promise<TessReply> {
@@ -275,7 +278,7 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(tessLines, args.initiation ? "" : lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${dialogueRules("tess", args.experience ? "experience" : args.channel ?? "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.channel === "voice" ? SPOKEN_CHANNEL_RULES : ""}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
@@ -353,6 +356,7 @@ export async function generateContactReply(args: {
   photoBoundary?: PhotoBoundary;
   photoHint?: string;
   experience?: { at: string; instruction: string };
+  channel?: "text" | "voice";
   worldKnowledge?: string[];
 }): Promise<TessReply> {
   const c = args.character;
@@ -428,7 +432,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${system}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
+  const reply = await runStructured(replySchema, `${system}\n${dialogueRules(c.key, args.experience ? "experience" : args.channel ?? "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.channel === "voice" ? SPOKEN_CHANNEL_RULES : ""}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });

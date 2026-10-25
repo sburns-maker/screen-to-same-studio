@@ -27,6 +27,7 @@ export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
 });
 
 type Snapshot = {
+  dialogue?: ReturnType<typeof import("@/lib/dialogue-personality").dialogueDiagnostics> | null;
   world?: Record<string, unknown>;
   photography?: unknown;
   photoIdentity?: { profileUrl: string; comparisonUrl: string | null; canonical: Record<string, string | number> | null; latest: Record<string, unknown> | null; source: string | null; delivery: string } | null;
@@ -207,6 +208,10 @@ function Debug() {
                 {snap.photoIdentity.comparisonUrl && <figure><img src={snap.photoIdentity.comparisonUrl} alt="Most recent delivered generated photograph for comparison" className="w-full rounded-lg" /><figcaption className="text-xs">Latest delivered generation</figcaption></figure>}
               </div>
               <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({canonical:snap.photoIdentity.canonical,latest:snap.photoIdentity.latest,source:snap.photoIdentity.source,delivery:snap.photoIdentity.delivery},null,2)}</pre>
+            </Section>}
+            {activeTab === "technical" && snap.photoDeveloperTools && snap.dialogue && <Section title="Character language" collapsible>
+              <p className="text-xs text-muted-foreground">Running policy: {snap.dialogue.policyVersion}. Latest visible character reply: {snap.dialogue.lastReplyVersion}. A missing version can be an older message; send a new text before checking. Voice model sessions are separate.</p>
+              <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.dialogue,null,2)}</pre>
             </Section>}
             {activeTab === "technical" && snap.photoDeveloperTools && <Section title="Persistent world diagnostics" collapsible>
               <p className="text-xs text-muted-foreground">Current backend checkpoint, pending intentions, photo decisions, delivery events and monthly image attempts. Schedule preview advances no data or relationship scores. Global worker history is on Living world timeline.</p>

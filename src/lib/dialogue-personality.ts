@@ -1,4 +1,5 @@
 import type { CharacterKey } from "./characters";
+export const DIALOGUE_POLICY_VERSION = "natural-language-v2";
 export type DialogueProfile = { rhythm: string; humor: string; openness: string; texting: string };
 /** Delivery tendencies, not new facts, scripted replies or relationship permissions. */
 export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
@@ -14,7 +15,7 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
   },
   maya: {
     texting:
-      "Easy conversational contractions, sometimes gonna, kinda, yeah or a brief lol when it genuinely fits. Can trail off or send a quick correction. Do not append laughter, emojis, legal metaphors or flirtation to every reply.",
+      "Easy conversational contractions, sometimes gonna, kinda, yeah or a brief lol when it genuinely fits. Can trail off or send a quick correction. Do not append laughter, emojis, stock comic framing or flirtation to every reply.",
     rhythm:
       "Responsive and conversational, sometimes a quick burst, sometimes one plain answer or a longer story. Expressiveness can be curiosity, disappointment or tiredness, not constant cheer.",
     humor:
@@ -67,7 +68,7 @@ export const NATURAL_DIALOGUE_RULES = `CONVERSATIONAL REALISM:
 Respond to what matters in this exchange before looking for a joke. Humor is optional; normal people also answer, notice, disagree, appreciate, hesitate, complain, or simply stop talking. Do not make every turn acknowledgment → tease → punchline → question. There is no required joke, metaphor, callback, emoji, flirt or final question.
 Let length and energy follow the actual topic, mood, availability and relationship. Short replies are valid, and a longer reply is valid when there is something to say; do not rotate formats mechanically. A goodbye or settled exchange may end without another hook. Still answer a real outstanding question or scheduling detail.
 A sincere statement can receive a sincere response. Do not automatically undercut it with sarcasm, a challenge or an emotional test. A plain thanks or acknowledgment is allowed when earned; avoid generic repeated reassurance speeches. Do not invent attraction, consent, a disclosure, an event or a problem to sound more human.
-Use established memories when relevant, not as a checklist of signature jokes. Routine facts can be repeated when clarification matters. Courtroom, legal, bureaucracy and mock-official language are not the universal language of humor: leave a comic routine behind when it has run its course. Actual legal or work topics remain valid.
+Use established memories when relevant, not as a checklist of signature jokes. Routine facts can be repeated when clarification matters. Do not reuse a comic framing just because it appeared in previous replies. A remembered joke is shared history, not a speaking requirement. Actual questions about any subject remain valid. Earlier character messages preserve facts and commitments, but are not style examples that override the current delivery profile.
 These are tendencies, never a new biography or instructions to alter a person's boundaries, canonical scene, shared history or relationship state. Captions follow the same voice and describe the actual photo; never print them into the image.`;
 export const NATURAL_TEXTING_RULES = `TEXTING LANGUAGE:
 Prefer contractions, everyday word order and concrete words over formal transitions or polished mini-essays. Slang, lowercase, fragments and an omitted final period are allowed when they suit this person and moment, not compulsory. Keep meaning clear and apostrophes readable; do not manufacture typos, fake dialect, exaggerated youth slang or random abbreviations to simulate humanity. Do not mirror all of the user's misspellings or give everyone the same lol, haha or pet name.
@@ -104,6 +105,32 @@ export function repeatedDialogueRoutines(lines: readonly string[]) {
     (r) => r.label,
   );
 }
+/** Annotate only saturated comic framing in prompt context; never edit stored history. */
+export function dialogueHistoryLine(body: string, ownLines: readonly string[]) {
+  const repeated = repeatedDialogueRoutines(ownLines);
+  return ROUTINES.some((r) => repeated.includes(r.label) && r.re.test(body))
+    ? `[Historical reply with overused comic framing; keep its facts/commitments, do not copy its style] ${body}`
+    : body;
+}
+
+/** Sanitized, owner-only developer evidence; includes no raw dialogue or provider payload. */
+export function dialogueDiagnostics(
+  key: string,
+  lines: readonly string[],
+  lastReplyVersion: unknown,
+) {
+  const recent = lines.slice(-8);
+  return {
+    policyVersion: DIALOGUE_POLICY_VERSION,
+    lastReplyVersion: typeof lastReplyVersion === "string" ? lastReplyVersion : "not recorded",
+    profile: DIALOGUE_PROFILES[key as CharacterKey] ?? null,
+    repeatedRoutines: repeatedDialogueRoutines(recent),
+    recentMessages: recent.length,
+    questions: recent.filter((line) => line.includes("?")).length,
+    emDashes: recent.filter((line) => line.includes("—")).length,
+    guidance: dialogueContext(recent, ""),
+  };
+}
 export function isConversationClosing(text: string) {
   return (
     /\b(?:good ?night|talk (?:to you )?later|gotta go|have to go|see you (?:then|tomorrow)|sounds good|all set)\b/i.test(
@@ -138,6 +165,19 @@ export function dialogueContext(lines: readonly string[], latestUser: string) {
   )
     out.push(
       "There may be a serious or vulnerable moment here. Attend to what was actually said; an ordinary personal response may be enough. Do not reflexively change it into a joke, therapy advice or romantic escalation.",
+    );
+  const recent = lines.slice(-5);
+  if (recent.filter((line) => line.includes("?")).length >= 3)
+    out.push(
+      "Recent messages repeatedly ended by asking for more. Respond to this exchange first; an observation or direct answer can stand alone. Ask only for genuinely needed information, including unresolved plans.",
+    );
+  if (recent.filter((line) => line.includes("—")).length >= 3)
+    out.push(
+      "Recent punctuation has become mannered. Use straightforward conversational sentences this time; avoid another decorative dash or theatrical pause. Preserve meaningful punctuation and factual values.",
+    );
+  if (recent.filter((line) => /\b(?:lol|lmao|haha)\b|[😂😅]/u.test(line)).length >= 4)
+    out.push(
+      "Laughter has become automatic punctuation. Let the actual feeling determine the response; ordinary words without appended laughter or an emoji are fine.",
     );
   if (isConversationClosing(latestUser))
     out.push(

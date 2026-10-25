@@ -38,6 +38,7 @@ import {
   processVoiceTurn,
   ownedCall,
   offerDueCallback,
+  offerSpontaneousCall,
 } from "@/lib/phone-calls.server";
 import { callAvailability, fictionalNumber, FICTIONAL_NUMBERS } from "@/lib/phone-calls";
 import { encodeWave } from "@/lib/phone-audio";
@@ -319,6 +320,7 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     ).rows[0]!;
     const turn = id();
     const audio = await processVoiceTurn(admin(), user, call.id, turn, null);
+    expect(mocks.text.mock.calls.at(-1)?.[0].channel).toBe("voice");
     expect(audio.endCall).toBe(true);
     expect(mocks.tts.mock.calls[0]![0]).not.toContain("<end_call>");
     await phoneCommand(admin(), user, call.id, "played", { turn });
@@ -337,32 +339,36 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     ).toBe("fulfilled");
     expect(await offerDueCallback(admin(), user, new Date())).toBe(false);
   });
-  it("accepts a due callback from Maya using the actual shared character-message transport", async () => {
-    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
-    const conversation = cid;
-    const source = id();
-    const record = id();
-    await db.query(
-      "insert into messages(id,user_id,conversation_id,sender,body) values($1,$2,$3,'tess',$4)",
-      [source, user, conversation, "I'll call you when I get home."],
-    );
-    await db.query(
-      "insert into world_records(id,user_id,conversation_id,character_key,kind,key,summary,status,source_message_id,source_quote,due_at,expires_at) values($1,$2,$3,'maya','check_in','callback','Maya promised a callback','pending',$4,$5,$6,$7)",
-      [
-        record,
-        user,
-        conversation,
-        source,
-        "I'll call you when I get home.",
-        new Date(now.getTime() - 1000).toISOString(),
-        new Date(now.getTime() + 3600000).toISOString(),
-      ],
-    );
-    expect(await offerDueCallback(admin(), user, new Date())).toBe(true);
-    const calls = (await phoneSnapshot(admin(), user)).calls;
-    expect(calls[0]?.character_key).toBe("maya");
-    expect(calls[0]?.direction).toBe("incoming");
-  });
+  it.each([false, true])(
+    "accepts a due callback from Maya using shared transport with real_time_mode=%s",
+    async (realTime) => {
+      await db.query("update conversations set real_time_mode=$1 where id=$2", [realTime, cid]);
+      vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+      const conversation = cid;
+      const source = id();
+      const record = id();
+      await db.query(
+        "insert into messages(id,user_id,conversation_id,sender,body) values($1,$2,$3,'tess',$4)",
+        [source, user, conversation, "I'll call you when I get home."],
+      );
+      await db.query(
+        "insert into world_records(id,user_id,conversation_id,character_key,kind,key,summary,status,source_message_id,source_quote,due_at,expires_at) values($1,$2,$3,'maya','check_in','callback','Maya promised a callback','pending',$4,$5,$6,$7)",
+        [
+          record,
+          user,
+          conversation,
+          source,
+          "I'll call you when I get home.",
+          new Date(now.getTime() - 1000).toISOString(),
+          new Date(now.getTime() + 3600000).toISOString(),
+        ],
+      );
+      expect(await offerDueCallback(admin(), user, new Date())).toBe(true);
+      const calls = (await phoneSnapshot(admin(), user)).calls;
+      expect(calls[0]?.character_key).toBe("maya");
+      expect(calls[0]?.direction).toBe("incoming");
+    },
+  );
   it("respects quiet hours and keeps incoming calls off by default", async () => {
     vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
     expect((await phoneSnapshot(admin(), other)).preferences.incoming).toBe(false);
@@ -374,6 +380,75 @@ describe("in-app phone ledger and actual character brain with fake paid provider
   });
 });
 
+describe("incoming calls are independent of text timing mode", () => {
+  async function selectedTime() {
+    const { currentActivity } = await import("@/lib/world-continuity");
+    const { CHARACTERS } = await import("@/lib/characters");
+    for (let hour = 0; hour < 96; hour++) {
+      const at = new Date(now.getTime() + hour * 3_600_000);
+      const localHour = Number(
+        new Intl.DateTimeFormat("en-US", {
+          timeZone: "America/New_York",
+          hour: "numeric",
+          hourCycle: "h23",
+        }).format(at),
+      );
+      if (
+        localHour < 8 ||
+        localHour >= 22 ||
+        currentActivity(CHARACTERS.maya, at).availability !== "free"
+      )
+        continue;
+      let h = 2166136261;
+      for (const ch of `${user}:maya:${Math.floor(at.getTime() / 3_600_000)}`)
+        h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+      if ((h >>> 0) / 4294967296 <= 0.12 * CHARACTERS.maya.initiation.scoreMultiplier) return at;
+    }
+    throw new Error("Fixture needs an independently selected available hour");
+  }
+  it.each([false, true])(
+    "offers a real incoming ring with real_time_mode=%s and no paid generation before answering",
+    async (realTime) => {
+      vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+      await db.query("update conversations set real_time_mode=$1 where id=$2", [realTime, cid]);
+      const at = await selectedTime();
+      vi.setSystemTime(at);
+      expect(await offerSpontaneousCall(admin(), user, at)).toBe(true);
+      expect((await phoneSnapshot(admin(), user)).calls[0]).toMatchObject({
+        direction: "incoming",
+        state: "ringing",
+        conversation_id: cid,
+      });
+      expect(await offerSpontaneousCall(admin(), user, at)).toBe(false);
+      expect(mocks.text).not.toHaveBeenCalled();
+      expect(mocks.tts).not.toHaveBeenCalled();
+      expect(mocks.asr).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["muted", "incoming disabled", "quiet hours"])(
+    "keeps %s protected in Practice mode",
+    async (block) => {
+      vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+      await db.query("update conversations set real_time_mode=false,muted=$1 where id=$2", [
+        block === "muted",
+        cid,
+      ]);
+      const at = await selectedTime();
+      vi.setSystemTime(at);
+      if (block === "incoming disabled")
+        await db.query("update call_preferences set incoming=false where user_id=$1", [user]);
+      if (block === "quiet hours")
+        await db.query(
+          "insert into user_profile(user_id,key,value) values($1,'quiet_hours','00-23')",
+          [user],
+        );
+      expect(await offerSpontaneousCall(admin(), user, at)).toBe(false);
+      expect((await phoneSnapshot(admin(), user)).calls).toHaveLength(0);
+      expect(mocks.text).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe("developer incoming-call readiness and controlled ringing", () => {
   async function ready() {
     vi.stubEnv("ENABLE_DEV_PHOTO_ACTIONS", "true");
@@ -381,6 +456,21 @@ describe("developer incoming-call readiness and controlled ringing", () => {
     vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
     return import("@/lib/call-readiness.server");
   }
+  it("does not report Practice as a blocker or reject a developer ring in Practice mode", async () => {
+    const { incomingCallDiagnostics, developerTestRing } = await ready();
+    await db.query("update conversations set real_time_mode=false where id=$1", [cid]);
+    const diagnosis = await incomingCallDiagnostics(admin(), user);
+    expect(diagnosis.characters.find((c) => c.conversationId === cid)?.blockers).not.toContain(
+      "Practice mode",
+    );
+    const call = id();
+    await developerTestRing(admin(), user, cid, call);
+    expect((await phoneSnapshot(admin(), user)).calls[0]).toMatchObject({
+      id: call,
+      state: "ringing",
+    });
+    expect(mocks.text).not.toHaveBeenCalled();
+  });
   it("reports owned contacts and blockers without mutating expired calls or invoking providers", async () => {
     const { incomingCallDiagnostics } = await ready();
     const call = id();
@@ -443,7 +533,7 @@ describe("developer incoming-call readiness and controlled ringing", () => {
       save_transcripts: true,
     });
     await expect(developerTestRing(admin(), user, id(), id())).rejects.toThrow(
-      "Real-Time conversation",
+      "owned, unmuted conversation",
     );
     await db.query("insert into user_profile(user_id,key,value) values($1,'quiet_hours','18-08')", [
       user,

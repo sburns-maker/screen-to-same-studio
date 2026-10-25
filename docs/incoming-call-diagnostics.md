@@ -2,11 +2,13 @@
 
 This extends the existing in-app **OpenAI speech-chain phone service**, surfaced by CallsDebug. It does not change the separate GPT-Live/Voice Studio system, character memories, voices, providers, world-worker cadence or incoming-call probability.
 
+**Current update:** incoming calls no longer require Real-Time text mode. See the Practice-mode section below.
+
 ## What changed
 
 - Read-only, developer-authorized diagnostics show server and user switches, transcript consent, quiet hours, current contacts' Real-Time/mute state, availability, occupied presence, six-hour call pacing and deterministic hourly selection. Character-specific reasons are readable; no secrets or raw provider payloads are returned.
 - Diagnostics use `phoneSnapshot(..., false)` so checking readiness cannot sweep/complete an existing call. The ordinary phone UI keeps its existing cleanup behavior. Expired but unswept active records are conservatively reported as active until normal cleanup runs.
-- A confirmed developer test creates one normal 25-second incoming ring through `phone_command`. It is explicitly marked developer-triggered, never presented as an autonomous character decision. It respects the incoming server switch, user opt-in, transcript consent, quiet hours, Real-Time/mute settings, availability and occupied presence, plus existing database caps and one-active-call constraint.
+- A confirmed developer test creates one normal 25-second incoming ring through `phone_command`. It is explicitly marked developer-triggered, never presented as an autonomous character decision. It respects the incoming server switch, user opt-in, transcript consent, quiet hours, mute settings, availability and occupied presence, plus existing database caps and one-active-call constraint.
 - The developer control supplies a stable request ID, disables repeated clicks while pending and retains that ID after uncertain failures. Replaying a recorded request cannot ring again or create paid processing. The existing PostgreSQL transaction and unique constraint arbitrate competing requests.
 - No model requests occur during diagnostics, ringing, decline or expiry. Explicitly answering can use the existing paid speech workflow and its existing limits. The test bypasses hourly random selection and recent-call pacing only; it does not raise database spending/session limits.
 - Main's canonical shared `tess` message-sender contract and conversation-scoped callback proof remain intact. No database migration is introduced by this PR.
@@ -38,3 +40,12 @@ Automated tests mock paid providers and use a disposable SQL database. Android/P
 - Focused call/UI suite: **19 passed**, using actual SQL persistence and mocked paid providers.
 - TypeScript, production build, focused ESLint and `git diff --check`: passed.
 - The existing optional external-PostgreSQL transaction suite was not rerun for this application-only change. Repository-wide historical lint debt is not represented as passing.
+
+
+## Practice mode and incoming calls
+
+Spontaneous incoming calls, source-grounded promised callbacks and explicit developer test rings are now independent of `conversations.real_time_mode`. That flag controls text timing. Incoming calls still use actual server time, actual availability, quiet hours and a stable hourly choice; advancing Practice interactions does not fast-forward call cooldowns or provider sessions.
+
+No call preferences are enabled automatically. Existing calling/incoming opt-ins, transcript consent, server/provider readiness, supported fictional phone contacts, mute/presence, six-hour per-contact spacing, one-active-call protection and provider/session spending limits remain. Quiet-hour/presence lookup failures fail closed. Contacts without a number in this specific speech-chain service remain unsupported and are skipped rather than stopping other contacts. The separate GPT-Live/Voice Studio provider is not changed or automatically enabled. No public telephone routing or production scheduler change is introduced.
+
+Diagnostics still show the text mode as information, with an explicit note that either mode allows calls. A developer test ring is still labeled as a test and incurs no model/speech generation until answered. Automated integration tests cover both mode values, duplicate offers, incoming opt-out, quiet hours, mute, owned contacts, callbacks and provider mocks remaining untouched during ringing. Live Android/background notification acceptance still requires the deployed application.

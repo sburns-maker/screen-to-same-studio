@@ -1,3 +1,4 @@
+import { DIALOGUE_POLICY_VERSION, dialogueDiagnostics } from "./dialogue-personality";
 import { photoActivityBlock } from "./photo-activity";
 import {photoContextForSchedule} from "./calendar-commitment";
 import {resolvePhotoScene} from "./photo-scene.server";
@@ -507,7 +508,7 @@ async function runTurnUnlocked(
   let reply: import("./tess.server").TessReply;
   if (isTess) {
     reply = await generateTessReply({
-      state, stage: deriveStage(state), difficulty, messages: messageList, photos, generateTypes,
+      state, stage: deriveStage(state), difficulty, messages: messageList, photos, generateTypes, channel:voice?"voice":"text",
       photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
       tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
       initiationReason: initiation?.reason ?? null, photoBoundary: photoContext.boundary,
@@ -515,7 +516,7 @@ async function runTurnUnlocked(
     });
   } else {
     reply = await generateContactReply({
-      character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
+      character: def, state, stage: deriveStage(state), difficulty, messages: messageList, channel:voice?"voice":"text",
       memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
       availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
       photoBoundary: photoContext.boundary, photoHint, worldKnowledge,
@@ -690,6 +691,7 @@ async function runTurnUnlocked(
         tags: reply.event_tags,
         initiated: !!initiation,
         notification_group: notificationGroup,
+        dialogue_version: DIALOGUE_POLICY_VERSION,
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
@@ -1216,6 +1218,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     }
     return {
       photoIdentity,
+      dialogue: developerTools ? dialogueDiagnostics(def.key, [...list].reverse().filter(m=>m.sender === "tess").map(m=>m.body),
+        (list.find(m=>m.sender === "tess")?.metadata as {dialogue_version?:string}|null)?.dialogue_version) : null,
       photography: developerTools ? {canonicalScene:{location:photoSceneCheck(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule}),"",sceneContext.source).canonicalLocation,source:sceneContext.source,version:sceneContext.version,observedAt:sceneContext.observation?.observedAt??null},profile:photographyProfile(def.key), current:photographyDiagnostics(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule,userText:list.find(m=>m.sender==='user')?.body??'',weather:weather?.condition??null,previous:previousDeliveredPhoto(list,def.key,now)}),null),latest:(list.find(m=>(m.metadata as {photo_identity?:{photography?:unknown}}|null)?.photo_identity?.photography)?.metadata as {photo_identity?:unknown}|undefined)?.photo_identity??null,latestDecision:(list.find(m=>(m.metadata as {photo_decision?:unknown}|null)?.photo_decision)?.metadata as {photo_decision?:unknown}|undefined)?.photo_decision??null,pacingReason:debugPacing.reason,eligibleTypes:genTypes,lastFailure:events?.find(e=>e.kind==='photo_generation_failure')??null} : null,
       world: { checkpoint, records: records ?? [], events: events ?? [], imageAttemptsThisMonth: attempts?.length ?? 0, imageAttempts: attempts ?? [],
         workerHealth, imageBudget: await imageBudgetStatus(supabase, userId, conv.id, now).catch(() => null), schedulePreview: (await import("./world-runtime.server")).previewWorld(def, now), checkpointPresent: !!checkpoint },
