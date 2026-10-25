@@ -6,6 +6,9 @@ on:
       - "src/lib/world.server.ts"
       - "src/lib/tess.functions.ts"
       - "src/lib/tess.server.ts"
+      - "src/lib/tess-image.server.ts"
+      - "src/test/tess-image.test.ts"
+      - "src/test/image-provider-request.test.ts"
       - "src/lib/photo-activity.ts"
       - "src/lib/photo-opportunities.ts"
       - "src/lib/photo-delivery.server.ts"
@@ -23,5 +26,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit
-      - run: bunx vitest run src/test/photo-context-weekend.test.ts src/test/calendar-commitment.test.ts src/test/photo-turn.test.ts src/test/photo-opportunities.test.ts src/test/photo-decision-details.test.ts src/test/photo-reservation.test.ts src/test/photo-test-status.test.ts src/test/world-offline.integration.test.ts
+      - run: bunx vitest run src/test/photo-context-weekend.test.ts src/test/calendar-commitment.test.ts src/test/photo-turn.test.ts src/test/photo-opportunities.test.ts src/test/photo-decision-details.test.ts src/test/photo-reservation.test.ts src/test/photo-test-status.test.ts src/test/world-offline.integration.test.ts src/test/tess-image.test.ts src/test/image-provider-request.test.ts
       - run: bun run build
