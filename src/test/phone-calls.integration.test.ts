@@ -339,13 +339,9 @@ describe("in-app phone ledger and actual character brain with fake paid provider
   });
   it("accepts a due callback promised by Maya rather than only Tess", async () => {
     vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
-    const conversation = id();
+    const conversation = cid; // Maya's conversation is established in beforeEach.
     const source = id();
     const record = id();
-    await db.query(
-      "insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key='maya'",
-      [conversation, user],
-    );
     await db.query(
       "insert into messages(id,user_id,conversation_id,sender,body) values($1,$2,$3,'tess',$4)",
       [source, user, conversation, "I'll call you when I get home."],
