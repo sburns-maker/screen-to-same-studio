@@ -119,7 +119,7 @@ export async function prepareScheduleActions(
       !["completed", "cancelled", "declined", "missed"].includes(p.status),
   );
   if (!evidenceTarget && context?.sourceKind === "experience" && context.userSourceId) {
-    const evidence = await db
+    const evidence = await (db as any)
       .from("calendar_action_receipts")
       .select("plan_id")
       .eq("user_id", user)
@@ -248,7 +248,7 @@ export async function syncExperienceScheduling(
     .limit(100);
   if (moments.error) throw new Error("Experience contribution unavailable");
   if (!moments.data?.length) return;
-  const receipts = await db
+  const receipts = await (db as any)
     .from("calendar_action_receipts")
     .select("source_id")
     .eq("user_id", user)
