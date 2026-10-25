@@ -166,7 +166,17 @@ async function deliverPhotoTurn(admin: Admin, id: string): Promise<DeliveryResul
     detail = job?.detail as HistoryDetail | undefined;
   } catch (e) { console.warn("[relationship-history] Could not read pending evaluation:", e); }
   const { data, error } = await admin.rpc("deliver_photo_turn", { p_job_id: id });
-  if (error) throw new Error("Photo delivery deferred; retry delivery without regenerating");
+  if (error) {
+    // Keep the prepared outbox intact so the same paid image can be retried.
+    // Log structured PostgreSQL diagnostics, never SQL details or message contents.
+    console.error("[photo-delivery] deliver_photo_turn failed", {
+      jobId: id,
+      code: error.code ?? "unknown",
+      message: error.message ?? "unknown",
+      hint: error.hint ?? null,
+    });
+    throw new Error("Photo delivery deferred; retry delivery without regenerating");
+  }
   const result=data as unknown as DeliveryResult;
   // Only record after the delivery RPC has committed. A missing history
   // migration must never cause image regeneration or block its delivery.
