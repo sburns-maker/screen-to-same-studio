@@ -15,10 +15,13 @@ describe("photo delivery RPC diagnostics", () => {
           update(values: { detail: unknown }) {
             preparedDetail = values.detail;
             const chain = {
-              eq() { return chain; },
-              then(resolve: (value: { error: null }) => void) {
-                resolve({ error: null });
+              eq() {
+                return chain;
               },
+              select() {
+                return chain;
+              },
+              maybeSingle: async () => ({ data: { id: "reserved" }, error: null }),
             };
             return chain;
           },

@@ -11,6 +11,7 @@ export type DeliveryResult = {
   reason?: string;
   notificationGroup?: string;
   preparedActionId?: string;
+  reservation?: PhotoReservation;
 };
 export async function photoActionId(key: string): Promise<string> {
   const bytes = await crypto.subtle.digest(
@@ -31,32 +32,72 @@ export async function existingPhotoAction(admin: Admin, key: string): Promise<st
   return data?.status ?? null;
 }
 
+export type PhotoReservation = {
+  actionId: string;
+  phase: "generating" | "prepared" | "voice_prepared" | "unknown";
+  startedAt: string;
+  ageSeconds: number | null;
+  recoverable: boolean;
+  expired: boolean;
+};
+
+async function pendingPhotoAction(admin: Admin, conversationId: string, userId: string) {
+  const { data, error } = await admin.from("job_runs").select("id, detail, started_at")
+    .eq("job", `photo-turn:${conversationId}`).eq("status", "running").maybeSingle();
+  if (error) throw new Error("Photo delivery status unavailable");
+  if (!data) return null;
+  const detail = (data.detail ?? {}) as { userId?: string; phase?: string; plan?: { scheduleActions?: Array<{ place?: string | null }> } };
+  if (detail.userId !== userId) throw new Error("Photo delivery owner mismatch");
+  return { ...data, detail };
+}
+
+function reservationFor(data: NonNullable<Awaited<ReturnType<typeof pendingPhotoAction>>>): PhotoReservation {
+  const age = Date.now() - Date.parse(data.started_at);
+  const phase = data.detail.phase;
+  const expired = phase === "generating" && Number.isFinite(age) && age > 300_000;
+  return { actionId: data.id, phase: phase === "generating" || phase === "prepared" || phase === "voice_prepared" ? phase : "unknown",
+    startedAt: data.started_at, ageSeconds: Number.isFinite(age) ? Math.max(0, Math.floor(age / 1000)) : null,
+    recoverable: phase === "prepared" || expired, expired };
+}
+
+/** Read-only, sanitized owner-scoped status. Never calls a model or releases a job. */
+export async function inspectPhotoReservation(admin: Admin, conversationId: string, userId: string) {
+  const job = await pendingPhotoAction(admin, conversationId, userId);
+  return job ? reservationFor(job) : null;
+}
+
+export function pendingPhotoResult(reservation: PhotoReservation): DeliveryResult {
+  const reason = reservation.phase === "prepared" ? "A response is ready for delivery. Recover the existing request without generating another image."
+    : reservation.phase === "voice_prepared" ? "Phone playback acknowledgement pending; finish the call before sending another response."
+    : reservation.expired ? "An interrupted response reservation has expired. Recover it to release the conversation; the original action will never be generated again."
+    : reservation.phase === "generating" ? "A character response is already being generated; it may include a photo. Check delivery status shortly."
+    : "An unrecognized response reservation needs inspection; it was preserved without generating or releasing anything.";
+  return { count: 0, lastVisibleAt: null, reason, reservation };
+}
+
 export async function recoverPhotoDelivery(
   admin: Admin,
   conversationId: string,
   userId: string,
 ): Promise<DeliveryResult | null> {
-  const { data, error } = await admin
-    .from("job_runs")
-    .select("id, detail, started_at")
-    .eq("job", `photo-turn:${conversationId}`)
-    .eq("status", "running")
-    .maybeSingle();
-  if (error) throw new Error("Photo delivery status unavailable");
+  let data = await pendingPhotoAction(admin, conversationId, userId);
   if (!data) return null;
-  const detail = data.detail as { userId?: string; phase?: string; plan?: { scheduleActions?: Array<{ place?: string | null }> } };
-  if (detail.userId !== userId) throw new Error("Photo delivery owner mismatch");
-  if (detail.phase === "voice_prepared")
-    return { count: 0, lastVisibleAt: null, reason: "Phone playback acknowledgement pending" };
-  if (detail.phase !== "prepared") {
-    // A lost provider response is ambiguous. Release the conversation after five minutes,
-    // but retain this action's primary key forever so retries cannot charge it again.
-    if (Date.now() - Date.parse(data.started_at) > 300_000) {
-      await failPhotoAction(admin, data.id);
-      return null;
-    }
-    return { count: 0, lastVisibleAt: null, reason: "photo generation already reserved" };
+  let reservation = reservationFor(data);
+  if (reservation.expired) {
+    // Compare-and-set: never fail a job that became prepared/delivered while we inspected it.
+    // Retain its stable primary key forever; an uncertain provider request is never retried.
+    const { data: released, error } = await admin.from("job_runs")
+      .update({ status: "failed", finished_at: new Date().toISOString() })
+      .eq("id", data.id).eq("status", "running").eq("detail->>phase", "generating")
+      .eq("detail->>userId", userId).eq("started_at", data.started_at).select("id").maybeSingle();
+    if (error) throw new Error("Expired photo reservation could not be released");
+    if (released) return null;
+    data = await pendingPhotoAction(admin, conversationId, userId);
+    if (!data) return null;
+    reservation = reservationFor(data);
   }
+  const detail = data.detail;
+  if (detail.phase !== "prepared") return pendingPhotoResult(reservation);
   const { data: conversation, error: convError } = await admin
     .from("conversations")
     .select("difficulty, character:characters(key)")
@@ -112,7 +153,7 @@ export async function failPhotoAction(admin: Admin, id: string) {
   const { error } = await admin
     .from("job_runs")
     .update({ status: "failed", finished_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id).eq("status", "running").eq("detail->>phase", "generating");
   if (error) throw new Error("Photo action remains reserved; inspect before retrying");
 }
 
@@ -124,7 +165,7 @@ export async function preparePhotoDelivery(
   plan: Json,
   deferVoice?: { callId: string; turnId: string },
 ): Promise<DeliveryResult> {
-  const { error } = await admin
+  const { data: prepared, error } = await admin
     .from("job_runs")
     .update({
       detail: {
@@ -136,8 +177,9 @@ export async function preparePhotoDelivery(
       },
     })
     .eq("id", id)
-    .eq("status", "running");
-  if (error)
+    .eq("status", "running").eq("detail->>phase", "generating").eq("detail->>userId", userId)
+    .select("id").maybeSingle();
+  if (error || !prepared)
     throw new Error("Photo was generated but delivery could not be prepared; do not regenerate");
   if (deferVoice) return { count: 0, lastVisibleAt: null, preparedActionId: id };
   return deliverPhotoTurn(admin, id);
