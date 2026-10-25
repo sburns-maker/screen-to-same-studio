@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   moments: [] as Array<{ id: string; body: string; source: string }>,
   pending: null as null | { id: string; kind: string; body: string; status: string },
   available: true,
+  historyScene: undefined as
+    undefined | { id: string; plan_id: string; revision: number; state: string },
+  refresh: vi.fn(),
 }));
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (config: { component: unknown }) => ({
@@ -25,6 +28,7 @@ vi.mock("@/components/ScreenHeader", () => ({
 vi.mock("@/lib/use-schedule", () => ({ invalidateSchedule: async () => {} }));
 vi.mock("@/lib/use-experiences", () => ({
   useExperiences: () => ({
+    refetch: mocks.refresh,
     data: {
       available: mocks.available,
       scenes: [
@@ -60,8 +64,14 @@ beforeEach(() => {
   mocks.moments = [];
   mocks.pending = null;
   mocks.available = true;
+  mocks.historyScene = undefined;
+  mocks.refresh.mockClear();
   mocks.act.mockClear();
-  mocks.read.mockImplementation(async () => ({ moments: mocks.moments, pending: mocks.pending }));
+  mocks.read.mockImplementation(async () => ({
+    moments: mocks.moments,
+    pending: mocks.pending,
+    scene: mocks.historyScene,
+  }));
   HTMLElement.prototype.scrollIntoView = vi.fn();
   vi.spyOn(window, "confirm").mockReturnValue(true);
 });
@@ -97,6 +107,32 @@ describe("mobile experience controls", () => {
       }),
     );
     expect(screen.getByRole("button", { name: "Pause" })).toHaveClass("min-h-11");
+  });
+  it("uses the newer saved history revision instead of the slower outing list", async () => {
+    mocks.historyScene = { id: "e", plan_id: "plan", revision: 8, state: "interactive" };
+    view();
+    const input = await screen.findByRole("textbox", { name: "What you say or do" });
+    await waitFor(() => expect(mocks.read).toHaveBeenCalled());
+    fireEvent.change(input, { target: { value: "Let's keep walking." } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await waitFor(() =>
+      expect(mocks.act).toHaveBeenCalledWith({
+        data: expect.objectContaining({ revision: 8, text: "Let's keep walking." }),
+      }),
+    );
+  });
+  it("refreshes a rejected action without losing the draft or replaying it", async () => {
+    mocks.act.mockRejectedValueOnce(new Error("Your saved outing changed."));
+    view();
+    const input = await screen.findByRole("textbox", { name: "What you say or do" });
+    fireEvent.change(input, { target: { value: "My unsaved contribution" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    const refresh = await screen.findByRole("button", { name: "Refresh saved outing" });
+    await waitFor(() => expect(refresh).not.toBeDisabled());
+    fireEvent.click(refresh);
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledOnce());
+    expect(input).toHaveValue("My unsaved contribution");
+    expect(mocks.act).toHaveBeenCalledTimes(1);
   });
   it("paused ownership survives refresh and offers resume without text entry", async () => {
     mocks.state = "paused";

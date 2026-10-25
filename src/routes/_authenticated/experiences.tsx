@@ -87,7 +87,14 @@ function Experiences() {
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }, [history.data?.moments.length]);
-  const scene = q.data?.scenes.find((e) => e.plan_id === active),
+  // History polls more often than the outing list. Never act on an older row
+  // while showing a newer scene, including immediately after a completed turn.
+  const latest = (e: ExperienceRow) => {
+    const current = history.data?.scene;
+    return current?.id === e.id && current.revision >= e.revision ? current : e;
+  };
+  const listedScene = q.data?.scenes.find((e) => e.plan_id === active);
+  const scene = listedScene ? latest(listedScene) : undefined,
     plan = q.data?.plans.find((p) => p.id === active),
     person = characterFor(plan?.organizer);
   async function act(
@@ -119,16 +126,30 @@ function Experiences() {
           planId: e.plan_id,
           id,
           action: command,
-          revision: e.revision,
+          revision: latest(e).revision,
           text: body,
           hours: command === "window" ? Number(body) : 4,
         },
       });
+      const remember = (updated: ExperienceRow | undefined) => {
+        if (!updated) return;
+        cache.setQueryData<NonNullable<typeof q.data>>(["living-experiences"], (old) =>
+          old
+            ? {
+                ...old,
+                scenes: old.scenes.map((row) =>
+                  row.id === updated.id && row.revision <= updated.revision ? updated : row,
+                ),
+              }
+            : old,
+        );
+      };
+      remember(result.experience);
       if (command === "claim") {
         const openingKey = JSON.stringify([e.plan_id, "opening"]);
         const opening = ids.current.get(openingKey) ?? crypto.randomUUID();
         ids.current.set(openingKey, opening);
-        await action({
+        const opened = await action({
           data: {
             planId: e.plan_id,
             id: opening,
@@ -138,6 +159,7 @@ function Experiences() {
             hours: 4,
           },
         });
+        remember(opened.experience);
         ids.current.delete(openingKey);
       }
       ids.current.delete(key);
@@ -166,6 +188,25 @@ function Experiences() {
           {(error || q.error || history.error) && (
             <p role="alert" className="rounded-xl border border-destructive p-3">
               {error || (q.error as Error)?.message || (history.error as Error)?.message}
+              <button
+                type="button"
+                disabled={busy}
+                className="mt-2 block min-h-11 rounded-full border px-4 text-sm"
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await Promise.all([
+                      q.refetch(),
+                      ...(active && scene ? [history.refetch()] : []),
+                    ]);
+                    setError("");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Refresh saved outing
+              </button>
             </p>
           )}
           {q.isLoading ? (
@@ -222,7 +263,8 @@ function Experiences() {
                   ))}
               {q.data.scenes
                 .filter((e) => !scene || e.plan_id === active)
-                .map((e) => {
+                .map((row) => {
+                  const e = latest(row);
                   const p = q.data.plans.find((x) => x.id === e.plan_id);
                   if (!p) return null;
                   return (
