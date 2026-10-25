@@ -68,7 +68,7 @@ export async function livingSnapshot(db: Client, user: string, now = new Date())
         now,
       ),
     })),
-    scenes: e.data ?? [],
+    scenes: (e.data ?? []) as unknown as ExperienceRow[],
   };
 }
 export async function livingHistory(db: Client, user: string, plan: string) {

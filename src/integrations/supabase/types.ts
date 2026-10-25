@@ -242,6 +242,51 @@ export type Database = {
         }
         Relationships: []
       }
+      character_scene_state: {
+        Row: {
+          activity: string
+          conversation_id: string
+          expires_at: string
+          location: string
+          observed_at: string
+          source_id: string
+          user_id: string
+        }
+        Insert: {
+          activity: string
+          conversation_id: string
+          expires_at: string
+          location: string
+          observed_at: string
+          source_id: string
+          user_id: string
+        }
+        Update: {
+          activity?: string
+          conversation_id?: string
+          expires_at?: string
+          location?: string
+          observed_at?: string
+          source_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "character_scene_state_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "character_scene_state_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       character_voices: {
         Row: {
           character_key: string
@@ -567,6 +612,57 @@ export type Database = {
           },
         ]
       }
+      experience_scene_transitions: {
+        Row: {
+          after_scene: Json
+          before_scene: Json | null
+          changed: boolean
+          created_at: string
+          evidence_quote: string
+          experience_id: string
+          source_id: string
+          source_ordinal: number
+          user_id: string
+        }
+        Insert: {
+          after_scene: Json
+          before_scene?: Json | null
+          changed: boolean
+          created_at?: string
+          evidence_quote: string
+          experience_id: string
+          source_id: string
+          source_ordinal: number
+          user_id: string
+        }
+        Update: {
+          after_scene?: Json
+          before_scene?: Json | null
+          changed?: boolean
+          created_at?: string
+          evidence_quote?: string
+          experience_id?: string
+          source_id?: string
+          source_ordinal?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_scene_transitions_user_id_experience_id_fkey"
+            columns: ["user_id", "experience_id"]
+            isOneToOne: false
+            referencedRelation: "living_experiences"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "experience_scene_transitions_user_id_source_id_fkey"
+            columns: ["user_id", "source_id"]
+            isOneToOne: false
+            referencedRelation: "living_experience_moments"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       experience_settings: {
         Row: {
           enabled: boolean
@@ -886,11 +982,14 @@ export type Database = {
           conversation_id: string | null
           id: string
           last_failure: string | null
+          live_scene: Json | null
           mode: string | null
           outcome_id: string | null
           plan_id: string
           plan_version: number | null
           revision: number
+          scene_revision: number
+          scene_source_ordinal: number
           start_at: string
           state: string
           summary: string
@@ -904,11 +1003,14 @@ export type Database = {
           conversation_id?: string | null
           id?: string
           last_failure?: string | null
+          live_scene?: Json | null
           mode?: string | null
           outcome_id?: string | null
           plan_id: string
           plan_version?: number | null
           revision?: number
+          scene_revision?: number
+          scene_source_ordinal?: number
           start_at: string
           state?: string
           summary?: string
@@ -922,11 +1024,14 @@ export type Database = {
           conversation_id?: string | null
           id?: string
           last_failure?: string | null
+          live_scene?: Json | null
           mode?: string | null
           outcome_id?: string | null
           plan_id?: string
           plan_version?: number | null
           revision?: number
+          scene_revision?: number
+          scene_source_ordinal?: number
           start_at?: string
           state?: string
           summary?: string
@@ -2576,6 +2681,18 @@ export type Database = {
         Returns: Json
       }
       calendar_contract_status: { Args: never; Returns: number }
+      calendar_edit_plan: {
+        Args: {
+          p_action: string
+          p_now: string
+          p_payload: Json
+          p_plan: string
+          p_user: string
+          p_version: number
+        }
+        Returns: Json
+      }
+      calendar_edit_status: { Args: never; Returns: number }
       calendar_event_action: {
         Args: {
           p_kind: string
@@ -2598,6 +2715,17 @@ export type Database = {
       calendar_travel_buffer: {
         Args: { p_from: string; p_to: string; p_user: string }
         Returns: number
+      }
+      character_scene_apply: {
+        Args: {
+          p_activity: string
+          p_conversation: string
+          p_location: string
+          p_now: string
+          p_source: string
+          p_user: string
+        }
+        Returns: undefined
       }
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
@@ -2637,6 +2765,18 @@ export type Database = {
         }
         Returns: Json
       }
+      experience_scene_apply: {
+        Args: {
+          p_plan: string
+          p_quote: string
+          p_revision: number
+          p_scene: Json
+          p_source: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      experience_scene_status: { Args: never; Returns: number }
       experience_seed: {
         Args: { p_now: string; p_user: string }
         Returns: number
