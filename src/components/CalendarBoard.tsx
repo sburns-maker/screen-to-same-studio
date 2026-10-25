@@ -39,7 +39,8 @@ export function CalendarBoard() {
     [date, setDate] = useState(""),
     [time, setTime] = useState(""),
     [place, setPlace] = useState(""),
-    [duration, setDuration] = useState(60);
+    [duration, setDuration] = useState(60),
+    [agreed, setAgreed] = useState(false);
   const pending = useRef(new Map<string, string>());
   function actionId(key: string) {
     const id = pending.current.get(key) ?? crypto.randomUUID();
@@ -56,7 +57,12 @@ export function CalendarBoard() {
       const r = await respond({ data: { id: actionId(key), planId, action } });
       pending.current.delete(key);
       await invalidateSchedule(cache);
-      await navigate({ to: "/chat/$conversationId", params: { conversationId: r.conversationId } });
+      if (!r.manual)
+        await navigate({
+          to: "/chat/$conversationId",
+          params: { conversationId: r.conversationId },
+        });
+      else toast.success("Calendar updated. No message sent.");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -66,12 +72,13 @@ export function CalendarBoard() {
   async function draft(ev: React.FormEvent) {
     ev.preventDefault();
     setBusy(true);
-    const key = JSON.stringify([contact, title, date, time, place, duration]);
+    const key = JSON.stringify([contact, title, category, date, time, place, duration, agreed]);
     try {
       const r = await create({
         data: {
           id: actionId(key),
           conversationId: contact,
+          confirmed: agreed,
           plan: {
             action: "invite",
             planId: null,
@@ -93,7 +100,13 @@ export function CalendarBoard() {
       setManual(false);
       await invalidateSchedule(cache);
       toast.success(
-        r.replyPending ? "Invitation saved; character reply is pending." : "Invitation saved.",
+        q.data?.manual
+          ? r.status === "accepted"
+            ? "Agreed plan added. No message sent."
+            : "Plan saved; check missing details or conflicts."
+          : r.replyPending
+            ? "Invitation saved; character reply is pending."
+            : "Invitation saved.",
       );
     } catch (e) {
       toast.error((e as Error).message);
@@ -144,12 +157,13 @@ export function CalendarBoard() {
             onClick={() => setManual(!manual)}
             className="min-h-11 rounded-full border px-4 text-sm"
           >
-            New invitation
+            {q.data.manual ? "Add agreed plan" : "New invitation"}
           </button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Make plans naturally in Messages or during an outing. Mutual agreement confirms them here.
-          A plan is not evidence that it happened.
+          {q.data.manual
+            ? "After you agree in conversation, add the plan here. Conversation sweeps do not rewrite or cancel it, and saving sends no message."
+            : "Make plans naturally in Messages or during an outing. Mutual agreement confirms them here. A plan is not evidence that it happened."}
         </p>
         <div className="flex gap-2" aria-label="Calendar views">
           {(["month", "week", "agenda"] as const).map((v) => (
@@ -254,7 +268,7 @@ export function CalendarBoard() {
         <form
           onSubmit={(ev) => void draft(ev)}
           className={`${card} grid gap-3 sm:grid-cols-2`}
-          aria-label="New calendar invitation"
+          aria-label={q.data.manual ? "Add agreed plan" : "New calendar invitation"}
         >
           <label className="text-sm">
             Contact
@@ -341,11 +355,22 @@ export function CalendarBoard() {
               className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
             />
           </label>
+          {q.data.manual && (
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input
+                type="checkbox"
+                required
+                checked={agreed}
+                onChange={(ev) => setAgreed(ev.target.checked)}
+              />
+              We already agreed to this plan.
+            </label>
+          )}
           <button
-            disabled={busy || !contact}
+            disabled={busy || !contact || (q.data.manual && !agreed)}
             className="min-h-11 rounded-full bg-primary px-4 text-primary-foreground"
           >
-            Send invitation
+            {q.data.manual ? "Save to calendar" : "Send invitation"}
           </button>
           <p className="text-xs text-muted-foreground sm:col-span-2">
             Inviting someone does not assume their acceptance. Missing details remain pending.
@@ -455,13 +480,15 @@ export function CalendarBoard() {
                   {!active &&
                     !["completed", "cancelled", "declined", "missed"].includes(e.status) && (
                       <>
-                        {e.user_response !== "accepted" && (
+                        {(q.data.manual
+                          ? e.status !== "accepted"
+                          : e.user_response !== "accepted") && (
                           <button
                             disabled={busy}
                             onClick={() => void act(e.id, "accept")}
                             className="min-h-11 rounded-full border px-4 text-sm"
                           >
-                            Accept
+                            {q.data.manual ? "We agreed — confirm" : "Accept"}
                           </button>
                         )}
                         {["proposed", "awaiting_details", "rescheduled"].includes(e.status) && (
@@ -475,14 +502,18 @@ export function CalendarBoard() {
                         )}
                         <button
                           disabled={busy}
-                          onClick={() => void act(e.id, "details")}
+                          onClick={() =>
+                            q.data.manual ? setEditing(e.id) : void act(e.id, "details")
+                          }
                           className="min-h-11 rounded-full border px-4 text-sm"
                         >
-                          Request details
+                          {q.data.manual ? "Edit details" : "Request details"}
                         </button>
                         <button
                           disabled={busy}
-                          onClick={() => void act(e.id, "reschedule")}
+                          onClick={() =>
+                            q.data.manual ? setEditing(e.id) : void act(e.id, "reschedule")
+                          }
                           className="min-h-11 rounded-full border px-4 text-sm"
                         >
                           Reschedule
@@ -520,6 +551,7 @@ export function CalendarBoard() {
             </div>
             {editing === e.id && (
               <PlanEditor
+                manual={q.data.manual}
                 plan={e}
                 onCancel={() => setEditing("")}
                 onSave={async (v) => {

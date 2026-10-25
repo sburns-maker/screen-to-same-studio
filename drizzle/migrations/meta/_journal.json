@@ -309,6 +309,13 @@
       "when": 1792950000004,
       "tag": "0043_verify_migration_catchup",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792960000000,
+      "tag": "0044_manual_calendar_control",
+      "breakpoints": true
     }
   ]
 }

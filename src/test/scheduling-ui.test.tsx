@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { AgendaEvent } from "@/lib/scheduling-agenda.server";
 const mocks = vi.hoisted(() => ({
   events: [] as AgendaEvent[],
+  manual: false,
   respond: vi.fn(),
   create: vi.fn(),
   edit: vi.fn(),
@@ -22,6 +23,7 @@ vi.mock("@/lib/use-schedule", () => ({
   useSchedule: () => ({
     data: {
       available: true,
+      manual: mocks.manual,
       structured: true,
       events: mocks.events,
       contacts: [{ id: "contact", name: "Maya", key: "maya" }],
@@ -77,6 +79,8 @@ const fixture: AgendaEvent = {
 };
 beforeEach(() => {
   mocks.events = [{ ...fixture }];
+  mocks.manual = false;
+  mocks.navigate.mockClear();
   mocks.respond.mockReset().mockResolvedValue({ conversationId: "contact" });
   mocks.create.mockReset().mockResolvedValue({ replyPending: false });
   mocks.edit.mockReset().mockResolvedValue({ status: "rescheduled" });
@@ -182,4 +186,33 @@ it("sends versioned edits with a stable retry ID and refreshes the canonical age
   });
   expect(mocks.edit.mock.calls[0]![0].data.id).toMatch(/^[0-9a-f-]{36}$/);
   await waitFor(() => expect(mocks.invalidate).toHaveBeenCalled());
+});
+
+it("adds an already agreed plan explicitly without navigating to chat", async () => {
+  mocks.manual = true;
+  mocks.create.mockResolvedValue({ status: "accepted", replyPending: false });
+  view();
+  fireEvent.click(screen.getByRole("button", { name: "Add agreed plan" }));
+  fireEvent.change(screen.getByLabelText("Contact"), { target: { value: "contact" } });
+  expect(screen.getByRole("button", { name: "Save to calendar" })).toBeDisabled();
+  fireEvent.click(screen.getByLabelText("We already agreed to this plan."));
+  fireEvent.click(screen.getByRole("button", { name: "Save to calendar" }));
+  await waitFor(() =>
+    expect(mocks.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ confirmed: true, conversationId: "contact" }),
+    }),
+  );
+  expect(mocks.navigate).not.toHaveBeenCalled();
+});
+it("manual confirmation stays on the calendar and editing sends no request-details message", async () => {
+  mocks.manual = true;
+  mocks.events = [{ ...fixture, status: "proposed", character_response: "invited" }];
+  mocks.respond.mockResolvedValue({ conversationId: "contact", manual: true, status: "accepted" });
+  view();
+  fireEvent.click(screen.getByRole("button", { name: "We agreed — confirm" }));
+  await waitFor(() => expect(mocks.respond).toHaveBeenCalled());
+  expect(mocks.navigate).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
+  expect(screen.getByRole("form", { name: "Edit plan" })).toBeInTheDocument();
+  expect(mocks.respond).toHaveBeenCalledTimes(1);
 });

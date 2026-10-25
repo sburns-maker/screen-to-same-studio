@@ -6,12 +6,28 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
 const url = process.env["MIGRATION_COMPAT_TEST_DATABASE_URL"];
 const suite = url ? describe : describe.skip;
-const journal = JSON.parse(readFileSync("drizzle/migrations/meta/_journal.json", "utf8"));
-const files = readMigrationFiles({ migrationsFolder: "drizzle/migrations" });
+const currentJournal = JSON.parse(readFileSync("drizzle/migrations/meta/_journal.json", "utf8"));
+// These archive-compatibility assertions target the reviewed 0034→0042 repair,
+// whose purpose is to preserve calendar38 bodies. Later intentional changes are
+// tested below against the real full migration folder, never relaxed here.
+const journal = {
+  ...currentJournal,
+  entries: currentJournal.entries.filter((e: { idx: number }) => e.idx <= 42),
+};
+const archiveFolder = url ? mkdtempSync(join(tmpdir(), "calendar42-compat-")) : null;
+if (archiveFolder) {
+  mkdirSync(join(archiveFolder, "meta"));
+  writeFileSync(join(archiveFolder, "meta/_journal.json"), JSON.stringify(journal));
+  for (const entry of journal.entries)
+    copyFileSync(`drizzle/migrations/${entry.tag}.sql`, join(archiveFolder, `${entry.tag}.sql`));
+}
+const files = readMigrationFiles({ migrationsFolder: archiveFolder ?? "drizzle/migrations" });
 const user = "10000000-0000-4000-a000-000000000001",
   conv = "20000000-0000-4000-a000-000000000001",
   plan = "30000000-0000-4000-a000-000000000001",
@@ -35,7 +51,7 @@ async function ledger34() {
 }
 async function run() {
   try {
-    await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
+    await migrate(drizzle(sql), { migrationsFolder: archiveFolder ?? "drizzle/migrations" });
   } catch (error) {
     let e: unknown = error;
     while (e instanceof Error && e.cause instanceof Error) e = e.cause;
@@ -116,8 +132,24 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
   }, 30000);
   afterAll(async () => {
     await sql?.end();
+    if (archiveFolder) rmSync(archiveFolder, { recursive: true, force: true });
   });
-  it("installs a fresh database through 0041 using the actual runner and all original SQL", async () => {
+  it("installs the current full migration journal with the real runner", async () => {
+    await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(
+      currentJournal.entries.length,
+    );
+    expect((await sql`SELECT calendar_manual_status() v`)[0]!["v"]).toBe(44);
+    expect((await sql`SELECT calendar_pending(${user},${at}) p`)[0]!["p"]).toEqual([]);
+  });
+  it("reconciles historical drift through the current journal without changing saved user history", async () => {
+    await drift();
+    const before = await preserved();
+    await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
+    expect(await preserved()).toEqual(before);
+    expect((await sql`SELECT calendar_manual_status() v`)[0]!["v"]).toBe(44);
+  });
+  it("installs the archived repair through 0042 using the actual runner and all original SQL", async () => {
     await run();
     expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(
       journal.entries.length,

@@ -67,9 +67,8 @@ function Plans() {
       loading={q.isLoading}
     >
       <p className="mb-5 text-sm text-muted-foreground">
-        Mutually agreed invitations from Messages and Living Experiences appear in the same calendar.
-        Existing historical dates and memories are preserved; older chat is not automatically
-        backfilled.
+        Keep your agreed outings in one calendar. Use Add agreed plan after discussing the details.
+        Existing dates, experience history and memories are preserved.
       </p>
       <Link to="/travel" className="mb-5 block rounded-2xl border bg-surface p-4 text-center font-medium text-primary">Explore Travel · Road trips, flights, vacations & work trips →</Link>
       {(tripQuery.data??[]).filter(t=>!["cancelled","completed"].includes(t.status)).slice(0,4).map(t=><Link key={t.id} to="/travel" className="mb-2 block rounded-xl border p-3 text-sm"><strong>{t.title}</strong><span className="block text-muted-foreground">{t.startDate??"Dates undecided"} · {t.destination} · {t.status}</span></Link>)}

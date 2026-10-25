@@ -36,7 +36,11 @@ export async function schedulePayload(
     throw new Error("Calendar follow-up requires an owned parent");
   const date = (patch["date"] ?? target?.date_local ?? null) as string | null,
     time = (patch["time"] ?? target?.time_local ?? null) as string | null,
-    place = await canonicalCalendarVenue(db, user, (patch["place"] ?? target?.place_key ?? null) as string | null);
+    place = await canonicalCalendarVenue(
+      db,
+      user,
+      (patch["place"] ?? target?.place_key ?? null) as string | null,
+    );
   const sameTerms =
     !!target &&
     ["accepted", "in_progress"].includes(target.status) &&
@@ -104,6 +108,7 @@ export async function prepareScheduleActions(
     clock?: Date;
   },
 ) {
+  if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) return [] as Json[];
   let proposed = reply.schedule_actions ?? [];
   if (hasCalendarSuccessClaim(reply.messages.join(" ")))
     throw new Error("Unverified calendar success claim; confirm through the calendar receipt");
@@ -121,7 +126,7 @@ export async function prepareScheduleActions(
       !["completed", "cancelled", "declined", "missed"].includes(p.status),
   );
   if (!evidenceTarget && context?.sourceKind === "experience" && context.userSourceId) {
-    const evidence = await (db as any)
+    const evidence = await db
       .from("calendar_action_receipts")
       .select("plan_id")
       .eq("user_id", user)
@@ -236,6 +241,7 @@ export async function syncExperienceScheduling(
   planId: string,
   now: Date,
 ) {
+  if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) return;
   if (!(await calendarContractReady(db))) return;
   const scene = await db
     .from("living_experiences")
@@ -255,7 +261,7 @@ export async function syncExperienceScheduling(
     .limit(100);
   if (moments.error) throw new Error("Experience contribution unavailable");
   if (!moments.data?.length) return;
-  const receipts = await (db as any)
+  const receipts = await db
     .from("calendar_action_receipts")
     .select("source_id")
     .eq("user_id", user)

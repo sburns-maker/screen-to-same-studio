@@ -117,6 +117,18 @@ export async function calendarPlans(db: Client, user: string) {
 export async function syncCalendar(db: Client, user: string, now: Date) {
   if (!(await interactiveAvailable(db))) return { processed: 0, updated: 0 };
   await registerInteractivePlaces(db, user);
+  if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) {
+    const blocked = ["tess", "maya", "claire", "jordan", "ben", "riley"].filter((key) =>
+      ["busy", "asleep"].includes(currentActivity(characterFor(key), now).availability),
+    );
+    const presence = await db.rpc("calendar_advance", {
+      p_user: user,
+      p_now: now.toISOString(),
+      p_blocked: blocked,
+    });
+    if (presence.error) throw new Error("Calendar presence unavailable; saved plans are unchanged");
+    return { processed: 0, updated: 0 };
+  }
   if (await experiencesAvailable(db)) {
     const departures = await db.rpc("venue_reconcile_departures", {
       p_user: user,
@@ -312,6 +324,11 @@ export async function calendarContext(
       !["completed", "cancelled", "declined", "missed"].includes(p.status),
   );
   const lines = [
+    ...((await (await import("./manual-calendar.server")).manualCalendarReady(db))
+      ? [
+          "USER-CONTROLLED CALENDAR: Discuss and agree to plans naturally, but return schedule_actions=null. The player explicitly adds or edits agreed arrangements in Plans. Never say you updated, canceled or saved the calendar, and never require an extra confirmation message to save an already agreed plan.",
+        ]
+      : []),
     placeKnowledge(),
     ...canonical
       .filter(

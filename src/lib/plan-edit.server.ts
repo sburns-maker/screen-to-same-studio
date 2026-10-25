@@ -17,6 +17,37 @@ export async function savePlanEdit(
     .eq("id", data.planId)
     .maybeSingle();
   if (cur.error || !cur.data?.conversation_id) throw new Error("Owned conversation plan required");
+  const manual = await import("./manual-calendar.server");
+  if (await manual.manualCalendarReady(db)) {
+    const result = await manual.saveManualCalendar(
+      db,
+      user,
+      {
+        id: data.id,
+        conversationId: cur.data.conversation_id,
+        planId: data.planId,
+        version: data.version,
+        confirmed: data.confirmed,
+        plan: {
+          action: "details",
+          planId: data.planId,
+          parentPlanId: null,
+          title: data.title,
+          description: null,
+          category: null,
+          date: data.date,
+          time: data.time,
+          timeHint: null,
+          timeZone: "America/New_York",
+          place: data.place,
+          durationMinutes: data.durationMinutes,
+          userQuote: null,
+        },
+      },
+      now,
+    );
+    return { ...result, manual: true };
+  }
   const payload = await schedulePayload(
     db,
     user,
@@ -56,5 +87,6 @@ export async function savePlanEdit(
     status: string;
     conversationId: string;
     replayed?: boolean;
+    manual?: boolean;
   };
 }
