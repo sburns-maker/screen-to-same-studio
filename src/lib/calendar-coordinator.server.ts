@@ -119,7 +119,7 @@ export async function prepareScheduleActions(
       !["completed", "cancelled", "declined", "missed"].includes(p.status),
   );
   if (!evidenceTarget && context?.sourceKind === "experience" && context.userSourceId) {
-    const evidence = await db
+    const evidence = await (db as any)
       .from("calendar_action_receipts")
       .select("plan_id")
       .eq("user_id", user)
@@ -248,7 +248,7 @@ export async function syncExperienceScheduling(
     .limit(100);
   if (moments.error) throw new Error("Experience contribution unavailable");
   if (!moments.data?.length) return;
-  const receipts = await db
+  const receipts = await (db as any)
     .from("calendar_action_receipts")
     .select("source_id")
     .eq("user_id", user)
@@ -259,7 +259,7 @@ export async function syncExperienceScheduling(
       (moments.data ?? []).map((m) => m.id),
     );
   if (receipts.error) throw new Error("Experience scheduling receipts unavailable");
-  const processed = new Set((receipts.data ?? []).map((r) => r.source_id));
+  const processed = new Set((receipts.data ?? []).map((r: { source_id: string }) => r.source_id));
   for (const [index, m] of (moments.data ?? []).entries()) {
     if (processed.has(m.id)) continue;
     const plans = await (await import("./interactive-world.server")).calendarPlans(db, user);

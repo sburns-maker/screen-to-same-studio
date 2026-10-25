@@ -29,7 +29,7 @@ vi.mock("@/lib/use-schedule", () => ({
   invalidateSchedule: mocks.invalidate,
 }));
 vi.mock("@/lib/interactive-world.functions", () => ({ respondToCalendarPlan: mocks.respond }));
-vi.mock("@/lib/scheduling.functions", () => ({ createPlanDraft: mocks.create }));
+vi.mock("@/lib/scheduling.functions", () => ({ createPlanDraft: mocks.create, editCalendarPlan: vi.fn() }));
 vi.mock("@/components/ExperienceEntry", () => ({
   ExperienceEntry: ({ planId }: { planId: string }) => (
     <a href={"/experiences?plan=" + planId}>Experience this outing</a>

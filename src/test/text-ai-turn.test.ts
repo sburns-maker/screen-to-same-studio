@@ -38,6 +38,7 @@ describe("turn safety on provider failure", () => {
           "eq",
           "lte",
           "gt",
+          "gte",
           "order",
           "limit",
           "single",

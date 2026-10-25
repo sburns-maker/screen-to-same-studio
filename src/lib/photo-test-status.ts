@@ -49,7 +49,7 @@ export function photoTestStatus(result: Record<string, unknown> | null, busy: bo
   return {
     canDeliver: true,
     message:
-      "Eligible now. Ask character to share makes a real request and may incur image charges. She can still decline.",
+      "Eligibility and requested location pass now. The character may decline; her actual generated scene and image quality are checked at delivery. A state change requires a new preview. Generation may incur image charges.",
     showChat: false,
   };
 }

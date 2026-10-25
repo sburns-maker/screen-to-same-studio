@@ -39,7 +39,7 @@ export async function ownedCall(db: Client, user: string, id: string) {
   if (r.error || !r.data) throw new Error("Call unavailable");
   return r.data;
 }
-export async function phoneSnapshot(db: Client, user: string) {
+export async function phoneSnapshot(db: Client, user: string, sweep = true) {
   const config = voiceConfiguration();
   if (!(await phoneAvailable(db)))
     return {
@@ -50,7 +50,7 @@ export async function phoneSnapshot(db: Client, user: string) {
       provider: "OpenAI speech chain",
       models: { transcription: "", speech: "" },
     };
-  await phoneCommand(db, user, "00000000-0000-4000-a000-000000000000", "sweep");
+  if (sweep) await phoneCommand(db, user, "00000000-0000-4000-a000-000000000000", "sweep");
   const [calls, pref] = await Promise.all([
     db
       .from("phone_calls")
@@ -292,9 +292,11 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
       .from("messages")
       .select("body,sender")
       .eq("user_id", user)
+      .eq("conversation_id", r.conversation_id)
       .eq("id", r.source_message_id!)
       .maybeSingle();
-    // Message sender denotes author type ("tess" for every character), not character key.
+    // Character replies use the shared tess transport sender; identity comes from
+    // the owned conversation, not from the transport label.
     if (source.error || source.data?.sender !== "tess" || !source.data.body.includes(r.source_quote)) continue;
     try {
       await phoneCommand(

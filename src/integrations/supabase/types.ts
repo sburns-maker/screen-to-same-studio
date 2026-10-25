@@ -14,8 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
-      calendar_action_receipts: {Row:{user_id:string;source_kind:string;source_id:string;ordinal:number;plan_id:string|null;result:Json;payload:Json;created_at:string};Insert:Record<string,unknown>;Update:Record<string,unknown>;Relationships:[]};
-
+      calendar_action_receipts: {
+        Row: {
+          created_at: string
+          ordinal: number
+          payload: Json
+          plan_id: string | null
+          result: Json
+          source_id: string
+          source_kind: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ordinal: number
+          payload: Json
+          plan_id?: string | null
+          result: Json
+          source_id: string
+          source_kind: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ordinal?: number
+          payload?: Json
+          plan_id?: string | null
+          result?: Json
+          source_id?: string
+          source_kind?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_action_receipts_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       calendar_evidence: {
         Row: {
           action: string
@@ -1422,6 +1461,7 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           date_local: string | null
+          description: string
           duration_minutes: number
           ends_at: string | null
           followthrough: Json
@@ -1430,12 +1470,15 @@ export type Database = {
           missing_details: string[]
           organizer: string
           origin: string
+          parent_plan_id: string | null
           place_key: string | null
           proposer: string | null
           source_message_id: string | null
           starts_at: string | null
           status: string
+          time_hint: string | null
           time_local: string | null
+          time_zone: string
           title: string
           user_attendance: string
           user_id: string
@@ -1449,6 +1492,7 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           date_local?: string | null
+          description?: string
           duration_minutes?: number
           ends_at?: string | null
           followthrough?: Json
@@ -1457,12 +1501,15 @@ export type Database = {
           missing_details?: string[]
           organizer: string
           origin?: string
+          parent_plan_id?: string | null
           place_key?: string | null
           proposer?: string | null
           source_message_id?: string | null
           starts_at?: string | null
           status?: string
+          time_hint?: string | null
           time_local?: string | null
+          time_zone?: string
           title: string
           user_attendance?: string
           user_id: string
@@ -1476,6 +1523,7 @@ export type Database = {
           conversation_id?: string | null
           created_at?: string
           date_local?: string | null
+          description?: string
           duration_minutes?: number
           ends_at?: string | null
           followthrough?: Json
@@ -1484,12 +1532,15 @@ export type Database = {
           missing_details?: string[]
           organizer?: string
           origin?: string
+          parent_plan_id?: string | null
           place_key?: string | null
           proposer?: string | null
           source_message_id?: string | null
           starts_at?: string | null
           status?: string
+          time_hint?: string | null
           time_local?: string | null
+          time_zone?: string
           title?: string
           user_attendance?: string
           user_id?: string
@@ -1497,6 +1548,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "plan_parent_owner"
+            columns: ["user_id", "parent_plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
           {
             foreignKeyName: "social_plans_conversation_id_fkey"
             columns: ["conversation_id"]
@@ -2494,8 +2552,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      calendar_contract_status: { Args: Record<string, never>; Returns: number };
-
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number
@@ -2509,6 +2565,32 @@ export type Database = {
         }
         Returns: Json
       }
+      calendar_apply_actions: {
+        Args: {
+          p_actions: Json
+          p_kind: string
+          p_now: string
+          p_source: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      calendar_contract_status: { Args: never; Returns: number }
+      calendar_event_action: {
+        Args: {
+          p_kind: string
+          p_now: string
+          p_ordinal: number
+          p_payload: Json
+          p_source: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      calendar_followup_ready: {
+        Args: { p_now: string; p_plan: string; p_user: string }
+        Returns: boolean
+      }
       calendar_pending: {
         Args: { p_now: string; p_user: string }
         Returns: Json
@@ -2519,6 +2601,10 @@ export type Database = {
       }
       deliver_photo_turn: { Args: { p_job_id: string }; Returns: Json }
       deliver_photo_turn_base: { Args: { p_job_id: string }; Returns: Json }
+      deliver_photo_turn_before_calendar38: {
+        Args: { p_job_id: string }
+        Returns: Json
+      }
       deliver_user_video: {
         Args: { p_id: string; p_user: string }
         Returns: Json
@@ -2528,6 +2614,18 @@ export type Database = {
         Returns: Json
       }
       experience_command: {
+        Args: {
+          p_command: string
+          p_id: string
+          p_now: string
+          p_payload: Json
+          p_plan: string
+          p_revision: number
+          p_user: string
+        }
+        Returns: Json
+      }
+      experience_command_before_calendar38: {
         Args: {
           p_command: string
           p_id: string

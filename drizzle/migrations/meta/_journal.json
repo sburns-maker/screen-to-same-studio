@@ -274,6 +274,13 @@
       "when": 1792863300003,
       "tag": "0038_canonical_scheduling",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792950000000,
+      "tag": "0039_experience_live_scene",
+      "breakpoints": true
     }
   ]
 }

@@ -514,12 +514,14 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               : null);
           const { sharedPlanContext } = await import("./shared-world.server");
           const shared = await sharedPlanContext(admin, userId, def.key, now);
-          const schedule =
+          const baseSchedule =
             shared ??
             storySchedule(
               currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1),
               story.event,
             );
+          const sceneContext=await (await import('./photo-scene.server')).resolvePhotoScene(admin,userId,conv.id,baseSchedule,now,true);
+          const schedule=sceneContext.schedule;
           if (worldReady)
             await persistWorldCheckpoint(admin, {
               userId,
@@ -647,6 +649,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               selected: photoChance.selected,
               reason: photoChance.reason,
               trigger: (await import("./calendar-commitment")).photoContextForSchedule(schedule,lifeEvent?.summary),
+              photoValidation: (await import('./photo-scene')).photoSceneCheck((await import('./photo-personality')).planPhotography({character:def.key,key:photoChance.key,now,schedule}),(await import('./calendar-commitment')).photoContextForSchedule(schedule,lifeEvent?.summary),sceneContext.source),
               now,
             })
             : null;

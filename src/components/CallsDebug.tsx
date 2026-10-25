@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { checkVoiceModelAccess, diagnoseIncomingCalls, testIncomingRing } from "@/lib/phone-calls.functions";
+import {
+  checkVoiceModelAccess,
+  diagnoseIncomingCalls,
+  testIncomingRing,
+} from "@/lib/phone-calls.functions";
 import { usePhone } from "@/lib/phone-queries";
 import { CALL_LABELS } from "@/lib/phone-calls";
 export function CallsDebug({ conversationId }: { conversationId: string }) {
@@ -10,6 +14,8 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
     [diagnosis, setDiagnosis] = useState<Awaited<ReturnType<typeof diagnose>> | null>(null),
     [callTest, setCallTest] = useState(""),
     [access, setAccess] = useState("");
+  const [ringBusy, setRingBusy] = useState(false);
+  const ringId = useRef<string | null>(null);
   const q = usePhone(),
     c = q.data?.calls.find((c) => c.conversation_id === conversationId);
   return (
@@ -50,31 +56,84 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
       </button>
       {access && <p>{access}</p>}
       <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Incoming call diagnostics and test ring</summary>
-        <p className="my-2 text-xs">Read-only diagnostics show current blockers, each contact's availability, Real-Time mode and the stable hourly selection. This does not prove the worker has run.</p>
-        <button className="min-h-11 rounded-full border px-3 text-xs" onClick={() => void diagnose().then(setDiagnosis).catch(e => setCallTest((e as Error).message))}>
+        <summary className="cursor-pointer font-medium">
+          Incoming call diagnostics and test ring
+        </summary>
+        <p className="my-2 text-xs">
+          Read-only diagnostics show current blockers, each contact's availability, Real-Time mode
+          and the stable hourly selection. This does not prove the worker has run.
+        </p>
+        <button
+          className="min-h-11 rounded-full border px-3 text-xs"
+          onClick={() =>
+            void diagnose()
+              .then(setDiagnosis)
+              .catch((e) => setCallTest((e as Error).message))
+          }
+        >
           Refresh call eligibility (no AI cost)
         </button>
-        {diagnosis && <div className="my-3 space-y-2 text-xs">
-          <p>Checked: {new Date(diagnosis.checkedAt).toLocaleString()}</p>
-          <p>Global blockers: {diagnosis.globalBlocks.length ? diagnosis.globalBlocks.join("; ") : "None detected"}</p>
-          {diagnosis.characters.map(c => <div key={c.conversationId} className="rounded-lg border p-2">
-            <p className="font-semibold">{c.character}: {c.availability} · {c.activity}</p>
-            <p>Real-Time: {String(c.realTime)} · Muted: {String(c.muted)} · Occupied: {String(c.occupied)} · 6-hour cooldown: {String(c.cooldown)}</p>
-            <p>Hourly selection: {String(c.selectedThisHour)} (threshold {(c.chanceThisHour * 100).toFixed(1)}%)</p>
-          </div>)}
-          <p>{diagnosis.note}</p>
-          <button className="min-h-11 rounded-full border px-3 text-xs" onClick={() => {
-            setCallTest("");
-            void testRing({ data: { conversationId } })
-              .then(r => { setCallTest(r.note); void q.refetch(); })
-              .catch(e => setCallTest((e as Error).message));
-          }}>
-            Trigger one test incoming ring for this character
-          </button>
-          <p>Test ringing creates an incoming call record. Do not answer unless you want to test a potentially billable voice session. Decline or let it expire instead.</p>
-        </div>}
-        {callTest && <p role="status" className="my-2 text-xs">{callTest}</p>}
+        {diagnosis && (
+          <div className="my-3 space-y-2 text-xs">
+            <p>Checked: {new Date(diagnosis.checkedAt).toLocaleString()}</p>
+            <p>
+              Global blockers:{" "}
+              {diagnosis.globalBlocks.length ? diagnosis.globalBlocks.join("; ") : "None detected"}
+            </p>
+            {diagnosis.characters.map((c) => (
+              <div key={c.conversationId} className="rounded-lg border p-2">
+                <p className="font-semibold">
+                  {c.character}: {c.availability} · {c.activity}
+                </p>
+                <p>
+                  Real-Time: {String(c.realTime)} · Muted: {String(c.muted)} · Occupied:{" "}
+                  {String(c.occupied)} · 6-hour cooldown: {String(c.cooldown)}
+                </p>
+                <p>Blockers: {c.blockers.length ? c.blockers.join("; ") : "None at this step"}</p>
+                <p>
+                  Hourly selection: {String(c.selectedThisHour)} (threshold{" "}
+                  {(c.chanceThisHour * 100).toFixed(1)}%)
+                </p>
+              </div>
+            ))}
+            <p>{diagnosis.note}</p>
+            <button
+              disabled={ringBusy}
+              className="min-h-11 rounded-full border px-3 text-xs disabled:opacity-50"
+              onClick={() => {
+                if (
+                  ringBusy ||
+                  !window.confirm(
+                    "Create one developer test ring? Declining is free; answering may start paid voice processing.",
+                  )
+                )
+                  return;
+                setRingBusy(true);
+                setCallTest("");
+                ringId.current ??= crypto.randomUUID();
+                void testRing({ data: { conversationId, id: ringId.current } })
+                  .then((r) => {
+                    setCallTest(r.note);
+                    ringId.current = null;
+                    void q.refetch();
+                  })
+                  .catch((e) => setCallTest((e as Error).message))
+                  .finally(() => setRingBusy(false));
+              }}
+            >
+              Trigger one test incoming ring for this character
+            </button>
+            <p>
+              Test ringing creates an incoming call record. Do not answer unless you want to test a
+              potentially billable voice session. Decline or let it expire instead.
+            </p>
+          </div>
+        )}
+        {callTest && (
+          <p role="status" className="my-2 text-xs">
+            {callTest}
+          </p>
+        )}
       </details>
       <details>
         <summary>Technical call record</summary>

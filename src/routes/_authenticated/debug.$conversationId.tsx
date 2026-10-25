@@ -117,7 +117,9 @@ function Debug() {
   const testPhoto = async (mode: "preview" | "deliver") => {
     setPhotoBusy(true);
     try {
-      const result = await photoFn({ data: { conversationId, requestId: photoRequestId, mode, context: photoContext } });
+      const requestId=mode === "preview"?crypto.randomUUID():photoRequestId;
+      if(mode === "preview")setPhotoRequestId(requestId);
+      const result = await photoFn({ data: { conversationId, requestId, mode, context: photoContext, expectedSceneVersion: mode === "deliver" && typeof photoResult?.["previewSceneVersion"] === "string" ? photoResult["previewSceneVersion"] : undefined } });
       setPhotoResult(result as unknown as Record<string, unknown>);
     } catch (e) {
       setPhotoResult({ error: e instanceof Error ? e.message : "Photo action failed" });
@@ -175,6 +177,7 @@ function Debug() {
               <button className="rounded-lg bg-primary px-3 py-2 text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-60" disabled={!photoStatus.canDeliver} onClick={() => void testPhoto("deliver")}>Ask character to share</button>
             </div>
             {photoStatus.showChat && <Link className="mt-3 block underline" to="/chat/$conversationId" params={{ conversationId }}>Open conversation</Link>}
+            {!!photoResult?.["photoValidation"] && <div className="mt-3 rounded-xl border p-3 text-sm"><p>Current location: {String((photoResult["photoValidation"] as Record<string,unknown>)["canonicalLocation"]??"unknown")}</p><p>Requested scene: {String((photoResult["photoValidation"] as Record<string,unknown>)["inferredRequestedScene"]??"unspecified")}</p><p>Validation: {String((photoResult["photoValidation"] as Record<string,unknown>)["failedRule"]??"location check passed")} · {String((photoResult["photoValidation"] as Record<string,unknown>)["stage"]??"")}</p></div>}
             {photoResult && <details className="mt-3 text-xs"><summary>Technical details</summary><pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap">{JSON.stringify(photoResult, null, 2)}</pre></details>}
           </Section>
         )}
