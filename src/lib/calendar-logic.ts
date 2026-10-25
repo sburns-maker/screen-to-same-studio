@@ -395,7 +395,7 @@ export function recognizePlan(
       ))
   )
     return {
-      ...patch,
+      ...(({ parentPlanId: _drop, ...rest }) => rest)(patch),
       // A details update always targets an existing owned plan, never a headless extension.
       planId: target.id,
       action: "details",
