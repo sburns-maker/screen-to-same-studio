@@ -2,6 +2,7 @@ import { PHOTOGRAPHY_PROFILES } from "./photo-personality";
 import { reactionPhotoCue, visualCue } from "./photo-pacing";
 import type { CharacterKey } from "./characters";
 import type { TessActivity } from "./tess-life";
+import { physicalPhotoContext } from "./calendar-commitment";
 import type { TessState } from "./tess-logic";
 import type { PhotoFrequency } from "./tess-photos";
 
@@ -52,9 +53,14 @@ export function photoOpportunity(args: {
     return no(
       `Unavailable right now: ${args.schedule.detail} (${args.schedule.availability}). Wait for a compatible break.`,
     );
+  const physicalActivity = physicalPhotoContext(args.schedule.detail);
+  const privateContext =
+    /\bprivate\b/i.test(physicalActivity) &&
+    !/\b(?:her|his|my|own) private (?:home|house|apartment)\b/i.test(physicalActivity);
   if (
-    /\b(?:driv(?:e|es|ing)|surgery|emergency|phone (?:down|away)|patients?|private)\b/i.test(
-      args.schedule.detail,
+    privateContext ||
+    /\b(?:driv(?:e|es|ing)|surgery|emergency|phone (?:down|away)|patients?)\b/i.test(
+      physicalActivity,
     )
   )
     return no("current activity is incompatible with a photo");
@@ -69,6 +75,8 @@ export function photoOpportunity(args: {
   // Repeated worker polls for the same moment remain deterministic below.
   if (args.gapHours < 0) return no("a reply is still pending");
   if (!args.context?.trim()) return no("no current visual context");
+  // Stale storyline/day-off context is not an eligibility veto. The shared
+  // scene check validates the actual request against current physical state.
   // Stable per opportunity: polling more often (or Practice mode) never rerolls the chance.
   let hash = 2166136261;
   for (const c of key) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);

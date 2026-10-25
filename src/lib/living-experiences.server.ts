@@ -1,3 +1,5 @@
+import { synchronizeScene } from "./experience-scene.server";
+import { liveSceneInstructions, sceneContradiction } from "./experience-scene";
 import { followupCanStart } from "./calendar-view";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -77,13 +79,23 @@ export async function livingHistory(db: Client, user: string, plan: string) {
     .eq("plan_id", plan)
     .maybeSingle();
   if (e.error || !e.data) throw new Error("Experience unavailable");
-  const m = await db
-    .from("living_experience_moments")
-    .select("*")
-    .eq("user_id", user)
-    .eq("experience_id", e.data.id)
-    .order("ordinal")
-    .limit(200);
+  const moments: import("./living-experiences").ExperienceMoment[] = [];
+  for (let offset = 0; offset < 5000; offset += 250) {
+    const page = await db
+      .from("living_experience_moments")
+      .select("*")
+      .eq("user_id", user)
+      .eq("experience_id", e.data.id)
+      .order("ordinal")
+      .range(offset, offset + 249);
+    if (page.error) throw new Error("Experience history unavailable");
+    moments.push(...(page.data ?? []));
+    if ((page.data?.length ?? 0) < 250) break;
+    if (offset === 4750)
+      throw new Error(
+        "Experience history exceeds the safe scene limit; recorded data is preserved",
+      );
+  }
   const o = await db
     .from("experience_operations")
     .select("id,kind,body,status,lease_until,attempts")
@@ -92,10 +104,10 @@ export async function livingHistory(db: Client, user: string, plan: string) {
     .in("status", ["running", "failed"])
     .order("created_at", { ascending: false })
     .limit(1);
-  if (m.error || o.error) throw new Error("Experience history unavailable");
+  if (o.error) throw new Error("Experience history unavailable");
   return {
-    scene: e.data,
-    moments: m.data ?? [],
+    scene: e.data as ExperienceRow,
+    moments,
     pending: e.data.state === "completed" ? null : (o.data?.[0] ?? null),
   };
 }
@@ -239,7 +251,19 @@ export async function generateExperience(
       STATE_KEYS.map((k) => [k, stateR.data[k] ?? def.seedState[k]]),
     ) as TessState;
     const difficulty = (conversation.data.difficulty ?? "realistic") as Difficulty;
-    const venue = place.data.label;
+    const live = await synchronizeScene(
+      db,
+      user,
+      plan,
+      scene,
+      moments,
+      def.key,
+      def.preferredName,
+      p.data.place_key!,
+      place.data.label,
+    );
+    const venue = live.current.locationLabel;
+    const liveInstructions = liveSceneInstructions(live.current);
     const args = {
       state,
       stage: deriveStage(state),
@@ -262,20 +286,30 @@ export async function generateExperience(
       photos: [],
       generateTypes: [],
       photoFrequency: "off",
-      availabilityDetail: `Attending the confirmed ${p.data.title} at ${venue}; use fictional appointment time, not phone-open time.`,
+      availabilityDetail: `${liveInstructions} Use fictional appointment time, not phone-open time.`,
       worldKnowledge: [
-        ...calendar.slice(0, 10).map((x) => x.slice(0, 300)),
+        ...calendar
+          .filter(
+            (x) =>
+              !x.startsWith(`YOUR CONVERSATION PLAN ${plan}:`) &&
+              !x.startsWith(`YOUR PROTECTED EXPERIENCE ${plan}:`),
+          )
+          .slice(0, 10)
+          .map((x) => x.slice(0, 300)),
         ...continuity.lines.slice(0, 10).map((x) => x.slice(0, 300)),
         ...story.lines.slice(0, 4).map((x) => x.slice(0, 300)),
         ...knowledgePromptLines(world, def.preferredName)
           .slice(0, 10)
           .map((x) => x.slice(0, 300)),
-        `Authoritative outing: ${p.data.title}; venue ${venue}; scheduled ${scene.start_at}. Venue metadata: ${JSON.stringify(place.data.metadata).slice(0, 2000)}. Never invent completion of other plans.`,
+        liveInstructions,
+        `Calendar provenance ONLY: ${p.data.title} originally began at ${place.data.label}, scheduled ${scene.start_at}. This is not the current physical scene. Never infer completion of another plan from scene movement.`,
       ],
       experience: {
         at: experienceClock(scene, moments),
         instruction:
-          experienceInstructions(kind, p.data.title, venue, moments) +
+          experienceInstructions(kind, "the ongoing outing", venue, moments) +
+          "\n" +
+          liveInstructions +
           (kind === "finish" && body === "close_now"
             ? "\nCLOSE NOW: summarize only the recorded experience. Do not generate additional remaining activities. The user explicitly chose to end here."
             : ""),
@@ -306,6 +340,8 @@ export async function generateExperience(
       .trim()
       .slice(0, kind === "turn" ? 1500 : 3000);
     if (!text) throw new Error("Character did not produce a scene");
+    if (kind === "turn" && sceneContradiction(live.current, text))
+      throw new Error("Scene continuity check failed");
     if (kind !== "turn" && body !== "close_now" && !automaticSceneSafe(text))
       throw new Error("Unsafe off-screen outcome");
     const delta = kind === "turn" && body ? sanitizeDelta(reply.state_delta, difficulty) : {};
@@ -355,6 +391,7 @@ export async function generateExperience(
   } catch (error) {
     const knownReasons = [
       "Character context unavailable",
+      "Scene continuity check failed",
       "Character AI is not configured",
       "Character AI is paused",
       "Character AI context limit reached",
@@ -378,7 +415,11 @@ export async function generateExperience(
     );
     throw new Error(
       "The scene could not be generated. Your recorded progress is safe; retry this action." +
-        (reason.startsWith("Character AI") ? ` ${reason}` : ""),
+        (reason.startsWith("Character AI")
+          ? ` ${reason}`
+          : reason === "Scene continuity check failed"
+            ? " The reply tried to return to an earlier location; your current scene is preserved."
+            : ""),
     );
   }
 }

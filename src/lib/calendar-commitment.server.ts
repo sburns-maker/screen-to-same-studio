@@ -23,7 +23,7 @@ async function load(db: Client, user: string, now: Date) {
   if (!ids.length) return { plans: [] as CommitmentPlan[], experiences: [] as CommitmentExperience[] };
   const { data: experiences, error: exError } = await db
     .from("living_experiences")
-    .select("plan_id,state,synced_at,updated_at")
+    .select("*")
     .eq("user_id", user)
     .in("plan_id", ids);
   if (exError && !["42P01", "PGRST205"].includes(exError.code)) throw new Error("Outing records unavailable");

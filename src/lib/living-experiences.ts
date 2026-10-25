@@ -1,5 +1,8 @@
+import type {LiveScene} from "./experience-scene";
 import type { TessState } from "./tess-logic";
 export type ExperienceRow = {
+  live_scene?: LiveScene | null;
+  scene_revision?: number;
   user_id: string;
   id: string;
   plan_id: string;

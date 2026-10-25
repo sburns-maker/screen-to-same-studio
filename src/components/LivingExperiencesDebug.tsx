@@ -43,6 +43,8 @@ export function LivingExperiencesDebug({ conversationId }: { conversationId: str
                       ? "recoverable automatic claim"
                       : "protected / not due"}
                 </p>
+                <p>Current scene: {e.live_scene?.locationLabel ?? "not indexed yet"} · {e.live_scene?.activity ?? "unknown"} · scene revision {e.scene_revision}</p>
+                {e.live_scene && <p>Participants: {e.live_scene.participants.join(", ")} · area: {e.live_scene.area || "not specified"}</p>}
                 <p>Failure: {e.last_failure ?? "none"}</p>
                 <p>
                   Outcome: {e.outcome_id ?? "none"} · Calendar / memory synchronized:{" "}

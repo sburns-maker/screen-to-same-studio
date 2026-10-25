@@ -260,7 +260,7 @@ describe("one canonical scheduling lifecycle", () => {
     await experienceCommand(client(), user, p.id, id(), "claim", null, {}, clock);
     await generateExperience(client(), user, p.id, id(), "turn", "", null, false, clock);
     expect((await livingHistory(client(), user, p.id)).scene.state).toBe("interactive");
-    expect(model.reply.mock.calls[0]?.[0].availabilityDetail).toContain("Attending the confirmed");
+    expect(model.reply.mock.calls[0]?.[0].availabilityDetail).toContain("AUTHORITATIVE LIVE SCENE");
   });
   it("an active Riley park walk can agree to burgers without replacing or conflicting with the walk", async () => {
     await db.query(
@@ -295,6 +295,7 @@ describe("one canonical scheduling lifecycle", () => {
     );
     const records = await plans(),
       child = records.find((p) => p.parent_plan_id === parent.id)!;
+    expect(model.reply.mock.calls.at(-1)?.[0].worldKnowledge.join(" ")).toContain(child.id);
     expect(records).toHaveLength(2);
     expect(child.status).toBe("accepted");
     expect(child.conflicts).toEqual([]);

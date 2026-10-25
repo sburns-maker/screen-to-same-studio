@@ -142,6 +142,7 @@ export async function recordPhotoDecision(
     selected: boolean;
     reason: string;
     trigger?: string | null;
+    photoValidation?: import("@/integrations/supabase/types").Json;
     now: Date;
   },
 ) {
@@ -161,6 +162,8 @@ export async function recordPhotoDecision(
         selected: args.selected,
         trigger: args.trigger?.slice(0, 300) ?? null,
         source: "world-tick",
+        ...(args.photoValidation?{photoValidation:args.photoValidation}:{}),
+        ...(!args.eligible||!args.selected?{generationRequested:false}:{}),
       },
     },
     { onConflict: "id", ignoreDuplicates: true },

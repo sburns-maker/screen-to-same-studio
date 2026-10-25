@@ -1,3 +1,4 @@
+import type {ExperienceRow} from "./living-experiences";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -111,6 +112,8 @@ export const experienceDiagnostics = createServerFn({ method: "POST" })
         if (plan.error || moments.error) throw new Error("Experience diagnostics unavailable");
         return {
           ...e,
+          live_scene: (e as unknown as ExperienceRow).live_scene ?? null,
+          scene_revision: (e as unknown as ExperienceRow).scene_revision ?? 0,
           character: plan.data?.organizer ?? "",
           venue: plan.data?.place_key ?? "",
           title: plan.data?.title ?? "",

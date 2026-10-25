@@ -1,3 +1,4 @@
+import {physicalPhotoContext} from "./calendar-commitment";
 import type { CharacterKey } from "./characters";
 import type { PhotoStyle } from "./tess-photos";
 import type { TessActivity } from "./tess-life";
@@ -186,9 +187,14 @@ export function photographyProfile(
     : (supporting?.[key] ?? neutral);
 }
 export type PhotoLocation =
-  "home" | "clinic" | "venue" | "coffee_shop" | "library" | "garden" | "outdoors" | "work" | "social";
+  "home" | "clinic" | "venue" | "coffee_shop" | "library" | "garden" | "outdoors" | "work" | "social" | "grocery" | "vehicle";
 export function photoLocation(text: string): PhotoLocation | null {
+  text = physicalPhotoContext(text);
   if (/\b(?:or|maybe|planning|might)\b|\//i.test(text)) return null;
+  // A current room/location outranks references to a previous workday or groceries.
+  if(/\b(?:at (?:her |his |my |your |the )?home|in (?:her |his |my |your |the )?(?:kitchen|living room|entryway|apartment|house))\b/i.test(text))return "home";
+  if (/\b(?:grocery store|supermarket|grocery shopping|grocery aisle)\b/i.test(text) && !/\b(?:away|at home|home)\b/i.test(text)) return "grocery";
+  if (/\b(?:driving|in the car|in my car)\b/i.test(text)) return "vehicle";
   if (
     /\b(?:(?:at|in|inside) (?:the |her |his )?(?:veterinary )?clinic|clinic office|veterinary clinic|clinic break)\b/i.test(
       text,
@@ -246,7 +252,7 @@ export function planPhotography(args: {
   previous?: DeliveredPhoto | null;
 }): PhotographyPlan {
   const profile = photographyProfile(args.character),
-    text = `${args.schedule.activity} ${args.schedule.detail}`,
+    text = physicalPhotoContext(`${args.schedule.activity} ${args.schedule.detail}`),
     location = photoLocation(text),
     candidates: PhotoScenario[] = [];
   const user = args.userText ?? "";

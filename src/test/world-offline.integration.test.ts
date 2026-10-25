@@ -587,4 +587,173 @@ describe("offline living world through the normal character pipeline (fake paid 
     ).toEqual({ n: 1 });
     expect(mocks.push).not.toHaveBeenCalled();
   });
+  it("uses delivered home statements for the same selfie preview and actual normal image pipeline", async () => {
+    await db.exec(
+      "CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT coalesce(current_setting('request.jwt.claim.role',true),'service_role') $$",
+    );
+    const ready = (
+      await db.query<{ present: string | null }>(
+        "SELECT to_regprocedure('experience_status()') present",
+      )
+    ).rows[0]?.["present"];
+    if (!ready)
+      for (const f of [
+        "0024_verify_phone_calls",
+        "0025_living_experiences",
+        "0026_complete_living_experiences",
+      ])
+        await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
+    for (const file of [
+      "0033_riley_living_experience_guards",
+      "0034_experience_retry_recovery",
+      "0035_remove_experience_daily_cap",
+      "0036_mutual_calendar_confirmation",
+      "0037_all_character_calendar_proposers",
+      "0038_canonical_scheduling",
+      "0039_experience_live_scene",
+    ])
+      await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
+    vi.setSystemTime(new Date("2026-10-24T23:45:00Z"));
+    for (const [body, at] of [
+      ["I'm at the grocery store, picking up a few things.", "2026-10-24T23:30Z"],
+      ["I'm home now. Groceries are away and I'm relaxing on the couch.", "2026-10-24T23:40Z"],
+      ["I'm relaxing at home for the evening.", "2026-10-24T23:44Z"],
+    ])
+      await db.query(
+        "INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess',$4,$5,$5)",
+        [crypto.randomUUID(), user, cid, body, at],
+      );
+    const reply = await mocks.text.getMockImplementation()!();
+    mocks.text.mockResolvedValue({
+      ...reply,
+      messages: ["The couch has won."],
+      photo: {
+        ...reply.photo,
+        scene: "A casual front-camera selfie on the couch at home after putting groceries away",
+        setting: "home living room",
+        contextual: true,
+        willing: true,
+      },
+    });
+    const { runTurn } = await import("@/lib/tess.functions");
+    const request = `developer:${crypto.randomUUID()}`,
+      context = "A casual selfie at home";
+    const preview = await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: request,
+      developerPhoto: "preview",
+    });
+    const p = preview as unknown as {
+      opportunity: { eligible: boolean };
+      photoValidation: {
+        allowed: boolean;
+        canonicalLocation: string;
+        inferredRequestedScene: string;
+      };
+      previewSceneVersion: string;
+    };
+    expect(p.opportunity.eligible).toBe(true);
+    expect(p.photoValidation).toMatchObject({
+      allowed: true,
+      canonicalLocation: "home",
+      inferredRequestedScene: "home",
+    });
+    expect(mocks.image).not.toHaveBeenCalled();
+    expect(await count("character_scene_state")).toBe(0);
+    const delivered = await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: request,
+      developerPhoto: "deliver",
+      expectedSceneVersion: p.previewSceneVersion,
+    });
+    expect(delivered.count).toBeGreaterThan(0);
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+    expect(
+      (await db.query("SELECT location FROM character_scene_state WHERE conversation_id=$1", [cid]))
+        .rows,
+    ).toEqual([{ location: "home" }]);
+    expect(
+      (
+        await db.query(
+          "SELECT metadata->>'generated_path' path FROM messages WHERE metadata ? 'generated_path'",
+        )
+      ).rows,
+    ).toHaveLength(1);
+    await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: request,
+      developerPhoto: "deliver",
+      expectedSceneVersion: p.previewSceneVersion,
+    });
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+    const badKey = `developer:${crypto.randomUUID()}`;
+    const secondPreview = (await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: badKey,
+      developerPhoto: "preview",
+    })) as unknown as typeof p;
+    expect(secondPreview.photoValidation.allowed).toBe(true);
+    mocks.text.mockResolvedValue({
+      ...reply,
+      messages: ["A clinic picture."],
+      photo: {
+        ...reply.photo,
+        scene: "A casual selfie at the clinic office",
+        setting: "clinic office",
+        contextual: true,
+        willing: true,
+      },
+    });
+    const mismatch = await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: badKey,
+      developerPhoto: "deliver",
+      expectedSceneVersion: secondPreview.previewSceneVersion,
+    });
+    expect(mismatch).toMatchObject({
+      count: 0,
+      photoValidation: {
+        canonicalLocation: "home",
+        inferredRequestedScene: "clinic",
+        failedRule: "photo.location_matches_current_scene",
+        stage: "generated_scene",
+        imageRequested: false,
+      },
+    });
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+    await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: badKey,
+      developerPhoto: "deliver",
+      expectedSceneVersion: secondPreview.previewSceneVersion,
+    });
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+    expect(mocks.text).toHaveBeenCalledTimes(2);
+    await db.query(
+      "INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess',$4,'2026-10-24T23:46Z','2026-10-24T23:46Z')",
+      [crypto.randomUUID(), user, cid, "I'm at the clinic now."],
+    );
+    vi.setSystemTime(new Date("2026-10-24T23:47Z"));
+    const changed = await runTurn(mocks.admin!, user, cid, "America/New_York", {
+      gapHours: 1,
+      reason: context,
+      photoKey: `developer:${crypto.randomUUID()}`,
+      developerPhoto: "deliver",
+      expectedSceneVersion: p.previewSceneVersion,
+    });
+    expect(changed).toMatchObject({
+      count: 0,
+      photoValidation: {
+        failedRule: "photo.preview_scene_version_matches",
+        canonicalLocation: "clinic",
+      },
+    });
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+  });
 });
