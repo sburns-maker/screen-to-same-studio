@@ -15,4 +15,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx vitest run src/test/photo-pacing.test.ts src/test/photo-opportunities.test.ts
+      - run: bunx tsc --noEmit
+      - run: bunx vitest run src/test/phone-calls.test.ts
       - run: bun run build
