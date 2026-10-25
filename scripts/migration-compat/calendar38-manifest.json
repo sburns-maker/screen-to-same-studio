@@ -1,0 +1,549 @@
+{
+  "functions": [
+    {
+      "signature": "calendar_apply_actions(uuid,text,uuid,jsonb,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "def612fb287d41c79de49988da07426e"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_kind",
+        "p_source",
+        "p_actions",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "calendar_apply(uuid,uuid,jsonb,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "3cf0f6dd0e0d590bcdb153e76fbd387a"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_message",
+        "p_payload",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "calendar_context_memory()",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": true,
+      "authenticated": true,
+      "service_role": true,
+      "body_hashes": [
+        "6fd8e6e8013aff3bc146d142858a9f5e"
+      ],
+      "return_type": "trigger",
+      "argument_names": null,
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "calendar_contract_status()",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "sql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "98e889e38b561e8a97899194b409dfbd"
+      ],
+      "return_type": "integer",
+      "argument_names": null,
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "calendar_event_action(uuid,text,uuid,integer,jsonb,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "41f6a8837c5d0fc38856a0988934bf8a"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_kind",
+        "p_source",
+        "p_ordinal",
+        "p_payload",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "calendar_followup_ready(uuid,uuid,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "sql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "efc7ffaa35c6a0161e225bb5f3833729"
+      ],
+      "return_type": "boolean",
+      "argument_names": [
+        "p_user",
+        "p_plan",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "calendar_pending(uuid,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "s",
+      "language": "sql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "44b76ae88d7a2327eb3289581380bc02"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "deliver_photo_turn_before_calendar38(uuid)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": false,
+      "body_hashes": [
+        "e30cdbed665cf588562d4a6153835139"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_job_id"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "deliver_photo_turn(uuid)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "a23e1ff5a5d671f2fbf36400027fac62",
+        "792f0028cea8a5b7d17df30b11c773fb"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_job_id"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "experience_candidates(uuid,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "cefb73b0d1581471b5ce8581e9aded35"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": false,
+      "body_hashes": [
+        "04e14de1aaf274edd016f3a3e7bc7eb6"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_plan",
+        "p_id",
+        "p_command",
+        "p_revision",
+        "p_payload",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    },
+    {
+      "signature": "experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamp with time zone)",
+      "security_definer": true,
+      "config": [
+        "search_path=public, pg_temp"
+      ],
+      "volatility": "v",
+      "language": "plpgsql",
+      "anon": false,
+      "authenticated": false,
+      "service_role": true,
+      "body_hashes": [
+        "2543995560c57835df411f6b3acb5386"
+      ],
+      "return_type": "jsonb",
+      "argument_names": [
+        "p_user",
+        "p_plan",
+        "p_id",
+        "p_command",
+        "p_revision",
+        "p_payload",
+        "p_now"
+      ],
+      "strict": false,
+      "parallel": "u",
+      "defaults": null
+    }
+  ],
+  "columns": [
+    {
+      "relation": "calendar_action_receipts",
+      "name": "user_id",
+      "type": "uuid",
+      "not_null": true,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "source_kind",
+      "type": "text",
+      "not_null": true,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "source_id",
+      "type": "uuid",
+      "not_null": true,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "ordinal",
+      "type": "integer",
+      "not_null": true,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "plan_id",
+      "type": "uuid",
+      "not_null": false,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "result",
+      "type": "jsonb",
+      "not_null": true,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "payload",
+      "type": "jsonb",
+      "not_null": true,
+      "default_value": null
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "not_null": true,
+      "default_value": "now()"
+    },
+    {
+      "relation": "social_plans",
+      "name": "description",
+      "type": "text",
+      "not_null": true,
+      "default_value": "''::text"
+    },
+    {
+      "relation": "social_plans",
+      "name": "time_zone",
+      "type": "text",
+      "not_null": true,
+      "default_value": "'America/New_York'::text"
+    },
+    {
+      "relation": "social_plans",
+      "name": "time_hint",
+      "type": "text",
+      "not_null": false,
+      "default_value": null
+    },
+    {
+      "relation": "social_plans",
+      "name": "parent_plan_id",
+      "type": "uuid",
+      "not_null": false,
+      "default_value": null
+    }
+  ],
+  "constraints": [
+    {
+      "relation": "calendar_action_receipts",
+      "name": "calendar_action_receipts_ordinal_check",
+      "definition": "CHECK (((ordinal >= 0) AND (ordinal <= 3)))",
+      "validated": true
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "calendar_action_receipts_pkey",
+      "definition": "PRIMARY KEY (user_id, source_kind, source_id, ordinal)",
+      "validated": true
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "calendar_action_receipts_source_kind_check",
+      "definition": "CHECK ((source_kind = ANY (ARRAY['message'::text, 'experience'::text])))",
+      "validated": true
+    },
+    {
+      "relation": "calendar_action_receipts",
+      "name": "calendar_action_receipts_user_id_plan_id_fkey",
+      "definition": "FOREIGN KEY (user_id, plan_id) REFERENCES social_plans(user_id, id)",
+      "validated": true
+    },
+    {
+      "relation": "social_plans",
+      "name": "plan_not_self_parent",
+      "definition": "CHECK ((parent_plan_id IS DISTINCT FROM id))",
+      "validated": true
+    },
+    {
+      "relation": "social_plans",
+      "name": "plan_parent_owner",
+      "definition": "FOREIGN KEY (user_id, parent_plan_id) REFERENCES social_plans(user_id, id)",
+      "validated": true
+    }
+  ],
+  "indexes": [
+    {
+      "name": "calendar_owner_start",
+      "definition": "CREATE INDEX calendar_owner_start ON public.social_plans USING btree (user_id, starts_at)"
+    }
+  ],
+  "policies": [
+    {
+      "name": "calendar_receipts_owner",
+      "permissive": "PERMISSIVE",
+      "roles": [
+        "authenticated"
+      ],
+      "cmd": "SELECT",
+      "qual": "(user_id = auth.uid())",
+      "with_check": null
+    }
+  ],
+  "triggers": [
+    {
+      "name": "canonical_plan_context",
+      "definition": "CREATE TRIGGER canonical_plan_context AFTER INSERT OR UPDATE OF status, starts_at, place_key ON public.social_plans FOR EACH ROW EXECUTE FUNCTION calendar_context_memory()",
+      "enabled": "O"
+    }
+  ],
+  "tablePermissions": [
+    {
+      "role": "anon",
+      "privilege": "SELECT",
+      "allowed": false
+    },
+    {
+      "role": "anon",
+      "privilege": "INSERT",
+      "allowed": false
+    },
+    {
+      "role": "anon",
+      "privilege": "UPDATE",
+      "allowed": false
+    },
+    {
+      "role": "anon",
+      "privilege": "DELETE",
+      "allowed": false
+    },
+    {
+      "role": "anon",
+      "privilege": "TRUNCATE",
+      "allowed": false
+    },
+    {
+      "role": "anon",
+      "privilege": "REFERENCES",
+      "allowed": false
+    },
+    {
+      "role": "anon",
+      "privilege": "TRIGGER",
+      "allowed": false
+    },
+    {
+      "role": "authenticated",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "role": "authenticated",
+      "privilege": "INSERT",
+      "allowed": false
+    },
+    {
+      "role": "authenticated",
+      "privilege": "UPDATE",
+      "allowed": false
+    },
+    {
+      "role": "authenticated",
+      "privilege": "DELETE",
+      "allowed": false
+    },
+    {
+      "role": "authenticated",
+      "privilege": "TRUNCATE",
+      "allowed": false
+    },
+    {
+      "role": "authenticated",
+      "privilege": "REFERENCES",
+      "allowed": false
+    },
+    {
+      "role": "authenticated",
+      "privilege": "TRIGGER",
+      "allowed": false
+    },
+    {
+      "role": "service_role",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "role": "service_role",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "role": "service_role",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "role": "service_role",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "role": "service_role",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "role": "service_role",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "role": "service_role",
+      "privilege": "TRIGGER",
+      "allowed": true
+    }
+  ]
+}

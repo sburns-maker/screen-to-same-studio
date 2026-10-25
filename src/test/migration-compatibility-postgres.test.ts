@@ -1,0 +1,277 @@
+// @vitest-environment node
+// Only disposable localhost /migration_compat_tests is accepted. Never production credentials.
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import postgres from "postgres";
+import { drizzle } from "drizzle-orm/postgres-js";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+const url = process.env["MIGRATION_COMPAT_TEST_DATABASE_URL"];
+const suite = url ? describe : describe.skip;
+const journal = JSON.parse(readFileSync("drizzle/migrations/meta/_journal.json", "utf8"));
+const files = readMigrationFiles({ migrationsFolder: "drizzle/migrations" });
+const user = "10000000-0000-4000-a000-000000000001",
+  conv = "20000000-0000-4000-a000-000000000001",
+  plan = "30000000-0000-4000-a000-000000000001",
+  at = "2026-10-25T18:00Z";
+let sql: ReturnType<typeof postgres>;
+function original(tag: string) {
+  const text = readFileSync(`drizzle/migrations/${tag}.sql`, "utf8"),
+    marker = `$original_${tag.slice(0, 4)}$`;
+  return text.includes(marker) ? text.split(marker)[1]! : text;
+}
+async function base(to: number) {
+  for (const e of journal.entries.filter((e: { idx: number }) => e.idx <= to))
+    await sql.unsafe(original(e.tag));
+}
+async function ledger34() {
+  await sql.unsafe(
+    "CREATE SCHEMA drizzle;CREATE TABLE drizzle.__drizzle_migrations(id serial PRIMARY KEY,hash text NOT NULL,created_at bigint)",
+  );
+  for (const e of journal.entries.filter((e: { idx: number }) => e.idx <= 34))
+    await sql`INSERT INTO drizzle.__drizzle_migrations(hash,created_at) VALUES(${createHash("sha256").update(original(e.tag)).digest("hex")},${e.when})`;
+}
+async function run() {
+  try {
+    await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
+  } catch (error) {
+    let e: unknown = error;
+    while (e instanceof Error && e.cause instanceof Error) e = e.cause;
+    throw new Error(e instanceof Error ? e.message : "Migration failed");
+  }
+}
+async function preserved() {
+  const data: Record<string, unknown> = {};
+  for (const name of [
+    "messages",
+    "memories",
+    "tess_state",
+    "social_plans",
+    "living_experiences",
+    "living_experience_moments",
+    "calendar_action_receipts",
+    "calendar_transitions",
+    "social_rsvps",
+    "experience_operations",
+    "experience_action_receipts",
+    "shared_events",
+    "character_knowledge",
+    "generated_images",
+    "storage.objects",
+  ]) {
+    const rows = await sql.unsafe(
+      `SELECT coalesce(jsonb_agg(x ORDER BY x::text),'[]'::jsonb) rows FROM (SELECT to_jsonb(t) x FROM ${name} t) s`,
+    );
+    // Added scene columns are expected; compare legacy experience data only.
+    if (name === "living_experiences")
+      data[name] = (rows[0]!["rows"] as Record<string, unknown>[]).map(
+        ({ live_scene, scene_revision, scene_source_ordinal, ...rest }) => rest,
+      );
+    else data[name] = rows[0]!["rows"];
+  }
+  return data;
+}
+async function drift() {
+  await base(38);
+  await ledger34();
+  await sql.unsafe(`UPDATE experience_settings SET enabled=true,installed_at='2026-10-24T00:00Z';
+    INSERT INTO conversations(id,user_id,character_id) SELECT '${conv}','${user}',id FROM characters WHERE key='maya';
+    INSERT INTO tess_state(user_id,conversation_id) VALUES('${user}','${conv}');
+    INSERT INTO world_places(user_id,key,label,kind,metadata) VALUES('${user}','coffee:local','Switchyard Coffee','cafe','{"public":true}');
+    INSERT INTO social_plans(user_id,id,organizer,title,place_key,starts_at,ends_at,status,origin,conversation_id,category) VALUES('${user}','${plan}','maya','Coffee','coffee:local','${at}','2026-10-25T19:00Z','accepted','conversation','${conv}','coffee');
+    SELECT experience_seed('${user}','${at}');
+    SELECT experience_command('${user}','${plan}',gen_random_uuid(),'claim',NULL,'{}','${at}');
+    DO $fixture$ DECLARE op uuid:=gen_random_uuid(); reserved jsonb; BEGIN
+      reserved:=experience_command('${user}','${plan}',op,'turn',NULL,'{"body":"An actual recorded moment"}','${at}');
+      PERFORM experience_command('${user}','${plan}',op,'commit',NULL,jsonb_build_object('token',reserved->'operation'->>'token','body','A fully acknowledged fictional fixture response.'),'${at}');
+    END $fixture$;
+    SELECT experience_command('${user}','${plan}',gen_random_uuid(),'pause',NULL,'{}','${at}');
+    INSERT INTO memories(user_id,conversation_id,summary) VALUES('${user}','${conv}','Keep this established shared memory');
+    INSERT INTO messages(user_id,conversation_id,sender,body) VALUES('${user}','${conv}','tess','Keep this conversation');
+    INSERT INTO storage.objects(id,bucket_id,name) VALUES(gen_random_uuid(),'tess-photos','${user}/existing-photo.jpg');
+    INSERT INTO generated_images(user_id,conversation_id,photo_type,scene,provider,model,storage_path) VALUES('${user}','${conv}','casual_selfie','An existing saved fictional snapshot','fixture','mock','${user}/existing-photo.jpg');`);
+}
+suite("actual Drizzle runner on PostgreSQL: migration history compatibility", () => {
+  beforeAll(async () => {
+    if (
+      !url ||
+      !["localhost", "127.0.0.1"].includes(new URL(url).hostname) ||
+      new URL(url).pathname !== "/migration_compat_tests"
+    )
+      throw new Error("Disposable localhost /migration_compat_tests only");
+    sql = postgres(url, { max: 1, onnotice: () => {} });
+    await sql.unsafe(
+      "DO $$ BEGIN CREATE ROLE anon;EXCEPTION WHEN duplicate_object THEN NULL;END $$;DO $$ BEGIN CREATE ROLE authenticated;EXCEPTION WHEN duplicate_object THEN NULL;END $$;DO $$ BEGIN CREATE ROLE service_role BYPASSRLS;EXCEPTION WHEN duplicate_object THEN NULL;END $$;",
+    );
+  });
+  beforeEach(async () => {
+    await sql.unsafe(`DROP PUBLICATION IF EXISTS supabase_realtime;DROP SCHEMA IF EXISTS drizzle CASCADE;DROP SCHEMA public CASCADE;DROP SCHEMA IF EXISTS auth CASCADE;DROP SCHEMA IF EXISTS storage CASCADE;
+    CREATE SCHEMA public;GRANT USAGE ON SCHEMA public TO PUBLIC;
+    CREATE SCHEMA auth;CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+    CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.role',true),''),'service_role') $$;
+    CREATE SCHEMA storage;CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);CREATE TABLE storage.objects(id uuid,bucket_id text,name text);CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$ SELECT string_to_array($1,'/') $$;
+    CREATE TABLE public.character_voices(character_key text CONSTRAINT character_voices_character_key_check CHECK(character_key IN('tess','maya','claire','jordan','ben')));`);
+  }, 30000);
+  afterAll(async () => {
+    await sql?.end();
+  });
+  it("installs a fresh database through 0041 using the actual runner and all original SQL", async () => {
+    await run();
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(
+      journal.entries.length,
+    );
+    await sql.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8"));
+    expect(
+      (await sql`SELECT experience_scene_status() v,calendar_edit_status() e`)[0],
+    ).toMatchObject({ v: 39, e: 40 });
+  });
+  it("recovers the exact ledger-0034/schema-0038 drift and preserves paused user history", async () => {
+    await drift();
+    const before = await preserved();
+    const functionsBefore =
+      await sql`SELECT proname,prosrc FROM pg_proc WHERE oid IN('public.calendar_event_action(uuid,text,uuid,integer,jsonb,timestamptz)'::regprocedure,'public.experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure,'public.experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure) ORDER BY proname`;
+    const oldLedger = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    await run();
+    expect(await preserved()).toEqual(before);
+    expect(
+      await sql`SELECT proname,prosrc FROM pg_proc WHERE oid IN('public.calendar_event_action(uuid,text,uuid,integer,jsonb,timestamptz)'::regprocedure,'public.experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure,'public.experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure) ORDER BY proname`,
+    ).toEqual(functionsBefore);
+    const rows = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    expect(rows.slice(0, 35)).toEqual(oldLedger);
+    for (const file of files.filter(
+      (f) => f.folderMillis > Number(oldLedger.at(-1)!["created_at"]),
+    ))
+      expect(
+        rows.some((r) => r["hash"] === file.hash && Number(r["created_at"]) === file.folderMillis),
+      ).toBe(true);
+    expect(
+      (await sql`SELECT experience_scene_status() v,calendar_edit_status() e`)[0],
+    ).toMatchObject({ v: 39, e: 40 });
+    expect(
+      (
+        await sql`SELECT prosrc FROM pg_proc WHERE oid='public.deliver_photo_turn(uuid)'::regprocedure`
+      )[0]!["prosrc"],
+    ).toContain("registered public venue required");
+    await run();
+    expect(await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`).toEqual(rows);
+    expect(await preserved()).toEqual(before);
+  });
+  it("also replays already-installed 0035–0037 normally when 0038 is genuinely absent", async () => {
+    await base(37);
+    await ledger34();
+    await run();
+    expect((await sql`SELECT calendar_contract_status() n`)[0]!["n"]).toBe(38);
+  });
+  it("can preflight inside a read-only transaction without mutating the ledger or data", async () => {
+    await drift();
+    const before = await preserved();
+    await sql.begin("read only", async (tx) => {
+      await tx.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8"));
+    });
+    expect(await preserved()).toEqual(before);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+  });
+  it.each([
+    [
+      "missing function",
+      "DROP FUNCTION public.calendar_followup_ready(uuid,uuid,timestamptz) CASCADE",
+    ],
+    [
+      "changed body",
+      "CREATE OR REPLACE FUNCTION calendar_contract_status() RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT 99 $$",
+    ],
+    ["missing constraint", "ALTER TABLE social_plans DROP CONSTRAINT plan_parent_owner"],
+    ["changed column type", "ALTER TABLE social_plans ALTER COLUMN time_zone TYPE varchar(70)"],
+    ["unsafe privilege", "GRANT INSERT ON calendar_action_receipts TO authenticated"],
+    ["disabled RLS", "ALTER TABLE calendar_action_receipts DISABLE ROW LEVEL SECURITY"],
+    ["disabled trigger", "ALTER TABLE social_plans DISABLE TRIGGER canonical_plan_context"],
+  ])("fails closed on %s and leaves the ledger at 0034", async (_, mutation) => {
+    await drift();
+    await sql.unsafe(mutation);
+    const before = await preserved();
+    await expect(run()).rejects.toThrow("Calendar 0038 compatibility stopped");
+    expect(await preserved()).toEqual(before);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+    expect(
+      (await sql`SELECT to_regprocedure('public.experience_scene_status()') fn`)[0]!["fn"],
+    ).toBeNull();
+  });
+  it("rolls back runner ledger catch-up if a genuinely pending later migration fails", async () => {
+    await drift();
+    await sql.unsafe("ALTER TABLE living_experiences ADD COLUMN live_scene jsonb");
+    const before = await preserved();
+    await expect(run()).rejects.toThrow("already exists");
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+    expect(await preserved()).toEqual(before);
+  });
+  it("does not replay changed source files when the original 0038 ledger entries are already recorded", async () => {
+    await base(38);
+    await ledger34();
+    for (const e of journal.entries.filter((e: { idx: number }) => e.idx >= 35 && e.idx <= 38))
+      await sql`INSERT INTO drizzle.__drizzle_migrations(hash,created_at) VALUES(${createHash("sha256").update(original(e.tag)).digest("hex")},${e.when})`;
+    const before = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    await run();
+    expect(
+      (await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`).slice(0, 39),
+    ).toEqual(before);
+    expect((await sql`SELECT calendar_edit_status() e`)[0]!["e"]).toBe(40);
+  });
+  it("accepts the separately reviewed 0041 delivery body without downgrading it during replay", async () => {
+    await drift();
+    await sql.unsafe(original("0041_unregistered_venue_message_recovery"));
+    const before =
+      await sql`SELECT prosrc FROM pg_proc WHERE oid='public.deliver_photo_turn(uuid)'::regprocedure`;
+    await run();
+    expect(
+      await sql`SELECT prosrc FROM pg_proc WHERE oid='public.deliver_photo_turn(uuid)'::regprocedure`,
+    ).toEqual(before);
+  });
+  it("needs no sandbox ledger privileges: only the normal runner writes its own receipts", async () => {
+    await drift();
+    await sql.unsafe(
+      "DO $$ BEGIN CREATE ROLE sandbox_exec NOINHERIT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+    );
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE sandbox_exec");
+        await tx.unsafe(
+          "INSERT INTO drizzle.__drizzle_migrations(hash,created_at) VALUES('not-authorized',1)",
+        );
+      }),
+    ).rejects.toThrow("permission denied");
+    await sql.begin("read only", async (tx) => {
+      await tx.unsafe("SET LOCAL ROLE sandbox_exec");
+      await tx.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8"));
+    });
+    await run();
+    expect(
+      (await sql`SELECT experience_scene_status() v,calendar_edit_status() e`)[0],
+    ).toMatchObject({ v: 39, e: 40 });
+    expect(
+      (await sql`SELECT has_schema_privilege('sandbox_exec','drizzle','USAGE') allowed`)[0]![
+        "allowed"
+      ],
+    ).toBe(false);
+  });
+  it("does not mistake a single existing column for a complete 0038 installation", async () => {
+    await base(34);
+    await ledger34();
+    await sql.unsafe("ALTER TABLE social_plans ADD COLUMN description text");
+    await expect(run()).rejects.toThrow("Calendar 0038 compatibility stopped");
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+  });
+  it("preserves required Realtime subscriptions when the platform provides a publication", async () => {
+    await sql.unsafe("CREATE PUBLICATION supabase_realtime");
+    await drift();
+    await run();
+    const tables =
+      await sql`SELECT tablename FROM pg_publication_tables WHERE pubname='supabase_realtime' ORDER BY tablename`;
+    expect(tables.map((t) => t["tablename"])).toEqual(["living_experiences", "social_plans"]);
+    await sql.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8"));
+    await sql.unsafe("ALTER PUBLICATION supabase_realtime DROP TABLE living_experiences");
+    await expect(
+      sql.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8")),
+    ).rejects.toThrow("Realtime subscription missing");
+  });
+});
