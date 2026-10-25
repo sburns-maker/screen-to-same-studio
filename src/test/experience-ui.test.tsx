@@ -2,12 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import type { ExperienceFailure } from "@/lib/experience-failure";
 const mocks = vi.hoisted(() => ({
   act: vi.fn().mockResolvedValue({}),
   read: vi.fn(),
   state: "interactive",
   moments: [] as Array<{ id: string; body: string; source: string }>,
-  pending: null as null | { id: string; kind: string; body: string; status: string },
+  pending: null as null | {
+    id: string;
+    kind: string;
+    body: string;
+    status: string;
+    failure?: ExperienceFailure;
+  },
   available: true,
   historyScene: undefined as
     undefined | { id: string; plan_id: string; revision: number; state: string },
@@ -165,6 +172,24 @@ describe("mobile experience controls", () => {
         }),
       }),
     );
+  });
+  it("shows a saved failure cause and reference before the scene history after refresh", async () => {
+    mocks.pending = {
+      id: "saved-operation",
+      kind: "turn",
+      body: "A contribution",
+      status: "failed",
+      failure: { version: 1, phase: "generation", code: "model_unavailable" },
+    };
+    mocks.moments = [{ id: "m", body: "Earlier dialogue", source: "user" }];
+    view();
+    const diagnostic = await screen.findByText(/response service is temporarily unavailable/);
+    expect(screen.getByText("Failure reference: saved-operation")).toBeInTheDocument();
+    expect(
+      diagnostic.compareDocumentPosition(screen.getByText("Earlier dialogue")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(mocks.act).not.toHaveBeenCalled();
   });
   it("shows setup requirements rather than fake success when disabled", () => {
     mocks.available = false;
