@@ -46,7 +46,7 @@ export function PlanEditor({
   });
   const [busy, setBusy] = useState(false);
   const field = "mt-1 min-h-11 w-full rounded-xl border bg-background p-2";
-  const places = Object.values(PLACE_REGISTRY as Record<string, { key: string; label: string }>);
+  const places = PLACE_REGISTRY;
   return (
     <form
       aria-label="Edit plan"
