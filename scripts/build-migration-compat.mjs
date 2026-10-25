@@ -22,7 +22,7 @@ const manifest = JSON.parse(
 const guard = readFileSync("scripts/migration-compat/verify-calendar38.sql", "utf8");
 const check = process.argv.includes("--check");
 const declarations = (readOnly) =>
-  `expected jsonb:=$manifest$${JSON.stringify(manifest)}$manifest$::jsonb; item jsonb; actual jsonb; fn regprocedure; read_only boolean:=${readOnly}; repairs regprocedure[]:=ARRAY[]::regprocedure[];`;
+  `expected jsonb:=$manifest$${JSON.stringify(manifest)}$manifest$::jsonb; item jsonb; actual jsonb; fn regprocedure; read_only boolean:=${readOnly}; repairs regprocedure[]:=ARRAY[]::regprocedure[]; table_repairs jsonb:='[]'::jsonb;`;
 for (const [tag, sha] of entries) {
   const path = `drizzle/migrations/${tag}.sql`,
     sql = readFileSync(path, "utf8");
@@ -40,7 +40,7 @@ console.log(
     ? "Migration compatibility generation verified"
     : "Generated four guarded compatibility migrations",
 );
-const preflight = `-- Generated read-only preflight. Run before the normal migration command; no ledger/schema/data writes.\nDO $preflight$\nDECLARE ${declarations(true)}\nBEGIN\n${guard}\nRAISE NOTICE 'No Calendar 0038 markers found; normal historical installation will be required.';\nEND $preflight$;\nSELECT CASE WHEN to_regprocedure('public.calendar_contract_status()') IS NULL THEN 'normal_install_required' WHEN EXISTS(SELECT 1 FROM jsonb_array_elements_text($manifest$${JSON.stringify(manifest.anonymousExecuteRepair)}$manifest$::jsonb) f(signature) WHERE has_function_privilege('anon',to_regprocedure('public.'||signature),'EXECUTE')) THEN 'known_calendar38_permission_repair_required' ELSE 'known_calendar38_verified' END AS migration_compatibility;\n`;
+const preflight = `-- Generated read-only preflight. Run before the normal migration command; no ledger/schema/data writes.\nDO $preflight$\nDECLARE ${declarations(true)}\nBEGIN\n${guard}\nRAISE NOTICE 'No Calendar 0038 markers found; normal historical installation will be required.';\nEND $preflight$;\nSELECT CASE WHEN to_regprocedure('public.calendar_contract_status()') IS NULL THEN 'normal_install_required' WHEN EXISTS(SELECT 1 FROM jsonb_array_elements_text($manifest$${JSON.stringify(manifest.anonymousExecuteRepair)}$manifest$::jsonb) f(signature) WHERE has_function_privilege('anon',to_regprocedure('public.'||signature),'EXECUTE')) OR EXISTS(SELECT 1 FROM jsonb_array_elements($manifest$${JSON.stringify(manifest.tablePermissions)}$manifest$::jsonb) p WHERE p->>'allowed'='false' AND CASE WHEN current_setting('server_version_num')::integer>=coalesce((p->>'minimumServerVersion')::integer,0) THEN has_table_privilege(p->>'role','public.calendar_action_receipts',p->>'privilege') ELSE false END) THEN 'known_calendar38_permission_repair_required' ELSE 'known_calendar38_verified' END AS migration_compatibility;\n`;
 const preflightPath = "scripts/migration-compat/preflight.sql";
 if (check) {
   if (readFileSync(preflightPath, "utf8") !== preflight)

@@ -546,6 +546,24 @@
       "role": "service_role",
       "privilege": "TRIGGER",
       "allowed": true
+    },
+    {
+      "role": "anon",
+      "privilege": "MAINTAIN",
+      "allowed": false,
+      "minimumServerVersion": 170000
+    },
+    {
+      "role": "authenticated",
+      "privilege": "MAINTAIN",
+      "allowed": false,
+      "minimumServerVersion": 170000
+    },
+    {
+      "role": "service_role",
+      "privilege": "MAINTAIN",
+      "allowed": true,
+      "minimumServerVersion": 170000
     }
   ],
   "anonymousExecuteRepair": [
@@ -553,5 +571,67 @@
     "deliver_photo_turn_before_calendar38(uuid)",
     "experience_candidates(uuid,timestamp with time zone)",
     "experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamp with time zone)"
+  ],
+  "receiptPrivilegeRepair": [
+    {
+      "role": "anon",
+      "privilege": "SELECT"
+    },
+    {
+      "role": "anon",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "anon",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "anon",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "anon",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "anon",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "anon",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "INSERT"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "UPDATE"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "DELETE"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "TRUNCATE"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "REFERENCES"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "TRIGGER"
+    },
+    {
+      "role": "anon",
+      "privilege": "MAINTAIN"
+    },
+    {
+      "role": "authenticated",
+      "privilege": "MAINTAIN"
+    }
   ]
 }
