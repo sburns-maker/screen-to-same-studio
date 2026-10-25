@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import {
   callAvailability,
+  fictionalNumber,
   ringSeconds,
   ACTIVE_CALL_STATES,
   type CallRow,
@@ -246,6 +247,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     .eq("key", "quiet_hours")
     .maybeSingle();
   const { inQuietHours, parseQuietHours } = await import("./world.server");
+  if (quiet.error) return false;
   const q = parseQuietHours(quiet.data?.value);
   if (inQuietHours(now, q.start, q.end)) return false;
   const due = await db
@@ -262,14 +264,14 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     if (!/\b(?:call you|phone you|give you a call|call back)\b/i.test(r.source_quote)) continue;
     const key = r.character_key as CallRow["character_key"];
     if (
-      !["tess", "maya", "claire", "jordan", "ben", "riley"].includes(key) ||
+      !["tess", "maya", "claire", "jordan", "ben", "riley"].includes(key) || !fictionalNumber(key) ||
       callAvailability(key, now).outcome !== "answer" ||
       snap.calls.some(c => c.character_key === key && now.getTime() - Date.parse(c.offered_at) < 6 * 3_600_000)
     )
       continue;
     const conv = await db
       .from("conversations")
-      .select("muted,real_time_mode")
+      .select("muted")
       .eq("user_id", user)
       .eq("id", r.conversation_id)
       .maybeSingle();
@@ -282,7 +284,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
       .maybeSingle();
     if (
       conv.error ||
-      !conv.data?.real_time_mode ||
+      !conv.data ||
       conv.data.muted ||
       occupied.error ||
       occupied.data
@@ -333,23 +335,24 @@ export async function offerSpontaneousCall(db: Client, user: string, now: Date) 
   const snap = await phoneSnapshot(db, user);
   if (!snap.preferences.enabled || !snap.preferences.incoming || !snap.preferences.save_transcripts ||
       snap.calls.some(c=>ACTIVE_CALL_STATES.includes(c.state))) return false;
-  const {data: quiet}=await db.from("user_profile").select("value").eq("user_id",user).eq("key","quiet_hours").maybeSingle();
+  const {data: quiet,error: quietError}=await db.from("user_profile").select("value").eq("user_id",user).eq("key","quiet_hours").maybeSingle();
   const {inQuietHours,parseQuietHours}=await import("./world.server");
+  if(quietError)return false;
   const q=parseQuietHours(quiet?.value);
   if(inQuietHours(now,q.start,q.end)) return false;
-  const {data: conversations,error}=await db.from("conversations").select("id,muted,real_time_mode,character:characters(key)").eq("user_id",user);
+  const {data: conversations,error}=await db.from("conversations").select("id,muted,character:characters(key)").eq("user_id",user);
   if(error || !conversations?.length) return false;
   const {CHARACTERS}=await import("./characters");
   const {currentActivity}=await import("./world-continuity");
   const slot=Math.floor(now.getTime()/3_600_000);
   for(const conv of conversations){
     const key=(conv.character as {key?:string}|null)?.key as keyof typeof CHARACTERS|undefined;
-    if(!key || !CHARACTERS[key] || conv.muted || !conv.real_time_mode) continue;
+    if(!key || !CHARACTERS[key] || !fictionalNumber(key) || conv.muted) continue;
     if(snap.calls.some(c=>c.character_key===key && now.getTime()-Date.parse(c.offered_at)<6*3_600_000)) continue;
     const activity=currentActivity(CHARACTERS[key],now);
     if(activity.availability!=="free") continue;
-    const {data:presence}=await db.from("social_presence").select("character_key").eq("user_id",user).eq("character_key",key).gt("until_at",now.toISOString()).maybeSingle();
-    if(presence)continue;
+    const {data:presence,error:presenceError}=await db.from("social_presence").select("character_key").eq("user_id",user).eq("character_key",key).gt("until_at",now.toISOString()).maybeSingle();
+    if(presenceError || presence)continue;
     // Stable low-probability choice: a character can call on her own without
     // every worker invocation rerolling, and other characters have independent draws.
     let h=2166136261;

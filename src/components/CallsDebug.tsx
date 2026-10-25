@@ -86,8 +86,9 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
                   {c.character}: {c.availability} · {c.activity}
                 </p>
                 <p>
-                  Real-Time: {String(c.realTime)} · Muted: {String(c.muted)} · Occupied:{" "}
-                  {String(c.occupied)} · 6-hour cooldown: {String(c.cooldown)}
+                  Text timing: {c.realTime ? "Real-Time" : "Practice"} (calls allowed in either) ·
+                  Muted: {String(c.muted)} · Occupied: {String(c.occupied)} · 6-hour cooldown:{" "}
+                  {String(c.cooldown)}
                 </p>
                 <p>Blockers: {c.blockers.length ? c.blockers.join("; ") : "None at this step"}</p>
                 <p>

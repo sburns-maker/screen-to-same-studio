@@ -48,7 +48,6 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
     const threshold = Math.min(1, Math.max(0, 0.12 * CHARACTERS[key].initiation.scoreMultiplier));
     const blockers = [
       ...(!fictionalNumber(key) ? ["Contact not provisioned for this calling service"] : []),
-      ...(!conversation.real_time_mode ? ["Practice mode"] : []),
       ...(conversation.muted ? ["Contact muted"] : []),
       ...(activity.availability !== "free" ? [`Currently ${activity.availability}`] : []),
       ...(presenceError ? ["Presence check failed"] : presence ? ["Attending an event"] : []),
@@ -88,7 +87,7 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
     globalBlocks: blocked,
     quietHours: q,
     characters: contacts,
-    note: "Read-only snapshot. Random selection is stable per hour; it is not a guarantee that a worker ran. No call was placed.",
+    note: "Read-only snapshot. Random selection is stable per hour; it is not a guarantee that a worker ran. Text timing mode does not block incoming calls. No call was placed.",
   };
 }
 export async function developerTestRing(
@@ -125,8 +124,7 @@ export async function developerTestRing(
     .eq("user_id", user)
     .eq("id", conversationId)
     .maybeSingle();
-  if (error || !conv || conv.muted || !conv.real_time_mode)
-    throw new Error("Choose an unmuted Real-Time conversation");
+  if (error || !conv || conv.muted) throw new Error("Choose an owned, unmuted conversation");
   const key = (conv.character as { key?: string } | null)?.key;
   if (!key || !fictionalNumber(key))
     throw new Error("Contact not provisioned for this calling service");

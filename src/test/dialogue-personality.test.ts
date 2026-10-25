@@ -6,6 +6,9 @@ import {
   dialogueContext,
   repeatedDialogueRoutines,
   isConversationClosing,
+  dialogueHistoryLine,
+  dialogueDiagnostics,
+  DIALOGUE_POLICY_VERSION,
 } from "@/lib/dialogue-personality";
 import { enforceTessVoice, CONTACT_VOICE, cleanContactHistoryLine } from "@/lib/tess-voice";
 import { topicGuidance } from "@/lib/tess-topics";
@@ -122,5 +125,36 @@ describe("casual language without forced slang or shared comic habits", () => {
     );
     expect(guidance).toContain("courtroom/legal comic routine");
     expect(guidance).not.toContain(marker);
+  });
+});
+
+describe("dialogue deployment evidence and old-style imitation", () => {
+  it("marks repeated framing as a historical record without deleting plans, boundaries or dates", () => {
+    const lines = ["Objection. Meet at seven.", "Case closed. Please stop asking."];
+    expect(dialogueHistoryLine(lines[0]!, lines)).toContain(
+      "Historical reply with overused comic framing",
+    );
+    expect(dialogueHistoryLine(lines[0]!, lines)).toContain("Meet at seven.");
+    expect(dialogueHistoryLine(lines[1]!, lines)).toContain("Please stop asking.");
+    expect(dialogueHistoryLine("What about seven?", [])).toBe("What about seven?");
+  });
+  it("responds to repetitive punctuation, questioning and laughter without forcing slang or changing facts", () => {
+    const guidance = dialogueContext(
+      ["Okay — how are you? lol", "Fine — what else? lol", "Sure — what now? lol", "Okay haha"],
+      "",
+    );
+    expect(guidance).toContain("genuinely needed information");
+    expect(guidance).toContain("straightforward conversational sentences");
+    expect(guidance).toContain("Laughter has become automatic punctuation");
+    expect(guidance).not.toContain("Okay — how are you");
+  });
+  it("reports the running version separately from the latest actual reply, without exposing message bodies", () => {
+    const result = dialogueDiagnostics("maya", ["Private sentence — with a question?"], undefined);
+    expect(result.policyVersion).toBe(DIALOGUE_POLICY_VERSION);
+    expect(result.lastReplyVersion).toBe("not recorded");
+    expect(JSON.stringify(result)).not.toContain("Private sentence");
+    expect(dialogueDiagnostics("maya", [], DIALOGUE_POLICY_VERSION).lastReplyVersion).toBe(
+      DIALOGUE_POLICY_VERSION,
+    );
   });
 });

@@ -233,6 +233,7 @@ describe("normal spontaneous photo turn pipeline", () => {
       const started = Date.now();
       await runTurn(client, uid, cid, "America/New_York", { gapHours: 3, ...(!realTime ? { developerPhoto: "deliver" as const } : {}) });
       const plan = mocks.prepare.mock.calls[0]![4];
+      expect(plan.rows[0].metadata.dialogue_version).toBe("natural-language-v2");
       expect(plan.state.comfort).toBe(65);
       expect(plan.state.trust).toBe(60);
       expect(plan.state.romantic_intent).toBe(0);
