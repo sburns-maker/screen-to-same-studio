@@ -114,7 +114,7 @@ beforeEach(async () => {
   }))
     vi.stubEnv(k, v);
   await db.exec(
-    "TRUNCATE conversations CASCADE;TRUNCATE job_runs CASCADE;TRUNCATE call_preferences;TRUNCATE world_places CASCADE;TRUNCATE character_knowledge;",
+    "TRUNCATE user_profile;TRUNCATE conversations CASCADE;TRUNCATE job_runs CASCADE;TRUNCATE call_preferences;TRUNCATE world_places CASCADE;TRUNCATE character_knowledge;",
   );
   mocks.admin = postgresSupabase(db).admin;
   await db.query(
@@ -348,12 +348,18 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     );
     await db.query(
       "insert into world_records(id,user_id,conversation_id,character_key,kind,key,summary,status,source_message_id,source_quote,due_at,expires_at) values($1,$2,$3,'maya','check_in','callback','Maya promised a callback','pending',$4,$5,$6,$7)",
-      [record,user,conversation,source,"I'll call you when I get home.",
-       new Date(now.getTime()-1000).toISOString(),
-       new Date(now.getTime()+3600000).toISOString()],
+      [
+        record,
+        user,
+        conversation,
+        source,
+        "I'll call you when I get home.",
+        new Date(now.getTime() - 1000).toISOString(),
+        new Date(now.getTime() + 3600000).toISOString(),
+      ],
     );
     expect(await offerDueCallback(admin(), user, new Date())).toBe(true);
-    const calls=(await phoneSnapshot(admin(), user)).calls;
+    const calls = (await phoneSnapshot(admin(), user)).calls;
     expect(calls[0]?.character_key).toBe("maya");
     expect(calls[0]?.direction).toBe("incoming");
   });
@@ -365,5 +371,98 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     ]);
     expect(await offerDueCallback(admin(), user, new Date())).toBe(false);
     expect(mocks.text).not.toHaveBeenCalled();
+  });
+});
+
+describe("developer incoming-call readiness and controlled ringing", () => {
+  async function ready() {
+    vi.stubEnv("ENABLE_DEV_PHOTO_ACTIONS", "true");
+    vi.stubEnv("DEVELOPER_PHOTO_USER_IDS", user);
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    return import("@/lib/call-readiness.server");
+  }
+  it("reports owned contacts and blockers without mutating expired calls or invoking providers", async () => {
+    const { incomingCallDiagnostics } = await ready();
+    const call = id();
+    await phoneCommand(admin(), user, call, "start", {
+      conversation: cid,
+      direction: "incoming",
+      outcome: "answer",
+      reason: "test",
+      ring: 25,
+    });
+    vi.setSystemTime(new Date(now.getTime() + 26000));
+    const before = (await db.query("select * from phone_calls")).rows;
+    const report = await incomingCallDiagnostics(admin(), user, new Date());
+    expect(report.characters.map((c) => c.conversationId)).toEqual([cid]);
+    expect(report.globalBlocks).toContain("Another call active");
+    expect((await db.query("select * from phone_calls")).rows).toEqual(before);
+    expect(mocks.text).not.toHaveBeenCalled();
+    expect(mocks.asr).not.toHaveBeenCalled();
+    expect(mocks.tts).not.toHaveBeenCalled();
+  });
+  it("rejects unauthorized diagnostics and test rings before reading or changing state", async () => {
+    const { incomingCallDiagnostics, developerTestRing } = await ready();
+    await expect(incomingCallDiagnostics(admin(), other)).rejects.toThrow(
+      "Developer diagnostics unavailable",
+    );
+    await expect(developerTestRing(admin(), other, cid, id())).rejects.toThrow(
+      "Developer diagnostics unavailable",
+    );
+    expect((await db.query("select * from phone_calls")).rows).toHaveLength(0);
+  });
+  it("creates one 25-second ring, replays its request safely, and does not request paid audio", async () => {
+    const { developerTestRing } = await ready();
+    const request = id();
+    await developerTestRing(admin(), user, cid, request);
+    await developerTestRing(admin(), user, cid, request);
+    expect((await db.query("select * from phone_calls")).rows).toHaveLength(1);
+    const call = await ownedCall(admin(), user, request);
+    expect(call).toMatchObject({ direction: "incoming", state: "ringing", duration_seconds: 0 });
+    expect(Date.parse(call.ring_until) - Date.parse(call.offered_at)).toBe(25000);
+    expect(mocks.text).not.toHaveBeenCalled();
+    expect(mocks.asr).not.toHaveBeenCalled();
+    expect(mocks.tts).not.toHaveBeenCalled();
+    await phoneCommand(admin(), user, request, "decline");
+    expect((await ownedCall(admin(), user, request)).state).toBe("declined");
+  });
+  it("respects incoming opt-out, server switch, quiet hours and owned conversation authorization", async () => {
+    const { developerTestRing } = await ready();
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "false");
+    await expect(developerTestRing(admin(), user, cid, id())).rejects.toThrow("switch disabled");
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    await phoneCommand(admin(), user, id(), "preferences", {
+      enabled: true,
+      incoming: false,
+      save_transcripts: true,
+    });
+    await expect(developerTestRing(admin(), user, cid, id())).rejects.toThrow("preferences");
+    await phoneCommand(admin(), user, id(), "preferences", {
+      enabled: true,
+      incoming: true,
+      save_transcripts: true,
+    });
+    await expect(developerTestRing(admin(), user, id(), id())).rejects.toThrow(
+      "Real-Time conversation",
+    );
+    await db.query("insert into user_profile(user_id,key,value) values($1,'quiet_hours','18-08')", [
+      user,
+    ]);
+    await expect(developerTestRing(admin(), user, cid, id())).rejects.toThrow("Quiet hours");
+    expect((await db.query("select * from phone_calls")).rows).toHaveLength(0);
+  });
+  it("detects connecting calls and enforces one winner for simultaneous test requests", async () => {
+    const { developerTestRing, incomingCallDiagnostics } = await ready();
+    const results = await Promise.allSettled([
+      developerTestRing(admin(), user, cid, id()),
+      developerTestRing(admin(), user, cid, id()),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const call = (await db.query<{ id: string }>("select id from phone_calls")).rows[0]!;
+    await phoneCommand(admin(), user, call.id, "answer");
+    expect((await incomingCallDiagnostics(admin(), user)).globalBlocks).toContain(
+      "Another call active",
+    );
+    await expect(developerTestRing(admin(), user, cid, id())).rejects.toThrow("Another call");
   });
 });

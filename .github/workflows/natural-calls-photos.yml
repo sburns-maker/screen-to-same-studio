@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - "src/lib/phone-calls.server.ts"
+      - "src/lib/phone-calls.functions.ts"
+      - "src/lib/call-readiness.server.ts"
+      - "src/components/CallsDebug.tsx"
+      - "src/test/calls-debug.test.tsx"
+      - "src/test/phone-calls.integration.test.ts"
       - "src/lib/world.server.ts"
       - "src/lib/photo-opportunities.ts"
       - "src/lib/tess.functions.ts"
@@ -15,4 +20,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx vitest run src/test/photo-pacing.test.ts src/test/photo-opportunities.test.ts
+      - run: bunx tsc --noEmit
+      - run: bunx vitest run src/test/phone-calls.integration.test.ts src/test/calls-debug.test.tsx
       - run: bun run build

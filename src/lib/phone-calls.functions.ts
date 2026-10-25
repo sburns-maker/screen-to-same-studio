@@ -55,15 +55,15 @@ export const phoneAction = createServerFn({ method: "POST" })
       throw new Error("Voice calling is not configured");
     if (
       data.command === "answer" &&
-      (await import("./phone-calls")).callAvailability(c.character_key as never, new Date()).outcome !==
-        "answer"
+      (await import("./phone-calls")).callAvailability(c.character_key as never, new Date())
+        .outcome !== "answer"
     )
       return s.phoneCommand(db, context.userId, data.id, "fail");
     if (
       data.command === "resolve" &&
       c.state === "calling" &&
-      (await import("./phone-calls")).callAvailability(c.character_key as never, new Date()).outcome !==
-        "answer" &&
+      (await import("./phone-calls")).callAvailability(c.character_key as never, new Date())
+        .outcome !== "answer" &&
       c.outcome === "answer"
     ) {
       await db
@@ -132,4 +132,29 @@ export const checkVoiceModelAccess = createServerFn({ method: "POST" })
       }
     };
     return { transcription: await check(cfg.transcription), speech: await check(cfg.speech) };
+  });
+
+/** Developer-only, read-only; no call placement or model requests. */
+export const diagnoseIncomingCalls = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return (await import("./call-readiness.server")).incomingCallDiagnostics(
+      supabaseAdmin,
+      context.userId,
+    );
+  });
+export const testIncomingRing = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) =>
+    z.object({ conversationId: z.string().uuid(), id: z.string().uuid() }).parse(value),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return (await import("./call-readiness.server")).developerTestRing(
+      supabaseAdmin,
+      context.userId,
+      data.conversationId,
+      data.id,
+    );
   });
