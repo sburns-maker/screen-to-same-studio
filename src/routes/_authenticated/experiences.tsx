@@ -1,3 +1,4 @@
+import { experienceFailureMessage } from "@/lib/experience-failure";
 import { invalidateSchedule } from "@/lib/use-schedule";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -381,34 +382,20 @@ function Experiences() {
                       </p>
                     </div>
                   </div>
-                  <div aria-live="polite" className="max-h-[55dvh] space-y-3 overflow-y-auto">
-                    {history.isLoading ? (
-                      <p>Loading scene…</p>
-                    ) : (
-                      history.data?.moments.map((m) => (
-                        <div
-                          key={m.id}
-                          className={`whitespace-pre-wrap rounded-2xl p-3 text-sm leading-relaxed ${m.source === "user" ? "ml-6 bg-primary/10" : "mr-3 bg-surface"}`}
-                        >
-                          <span className="mb-1 block text-xs text-muted-foreground">
-                            {m.source === "user"
-                              ? "You"
-                              : m.source === "simulation"
-                                ? "Closing moments"
-                                : person.preferredName}
-                          </span>
-                          {m.body}
-                        </div>
-                      ))
-                    )}
-                    <div ref={bottom} />
-                  </div>
                   {history.data?.pending && (
                     <div role="status" className="rounded-xl border p-3 text-sm">
                       <p>
                         Pending scene: {history.data.pending.status}. Recorded progress is
                         preserved.
                       </p>
+                      {history.data.pending.failure && (
+                        <p className="mt-2" role="alert">
+                          {experienceFailureMessage(history.data.pending.failure)}
+                          <span className="block text-xs">
+                            Failure reference: {history.data.pending.id}
+                          </span>
+                        </p>
+                      )}
                       <button
                         disabled={busy}
                         onClick={() => {
@@ -450,6 +437,28 @@ function Experiences() {
                         )}
                     </div>
                   )}
+                  <div aria-live="polite" className="max-h-[55dvh] space-y-3 overflow-y-auto">
+                    {history.isLoading ? (
+                      <p>Loading scene…</p>
+                    ) : (
+                      history.data?.moments.map((m) => (
+                        <div
+                          key={m.id}
+                          className={`whitespace-pre-wrap rounded-2xl p-3 text-sm leading-relaxed ${m.source === "user" ? "ml-6 bg-primary/10" : "mr-3 bg-surface"}`}
+                        >
+                          <span className="mb-1 block text-xs text-muted-foreground">
+                            {m.source === "user"
+                              ? "You"
+                              : m.source === "simulation"
+                                ? "Closing moments"
+                                : person.preferredName}
+                          </span>
+                          {m.body}
+                        </div>
+                      ))
+                    )}
+                    <div ref={bottom} />
+                  </div>
                   {scene.state === "interactive" && !history.data?.pending && (
                     <>
                       {!history.data?.moments.some((m) => m.source === "character") &&

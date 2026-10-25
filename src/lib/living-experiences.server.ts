@@ -1,3 +1,9 @@
+import {
+  experienceFailure,
+  experienceFailureMessage,
+  readExperienceFailure,
+  type ExperiencePhase,
+} from "./experience-failure";
 import { experienceActionError } from "./experience-errors";
 import { synchronizeScene } from "./experience-scene.server";
 import { liveSceneInstructions, sceneContradiction } from "./experience-scene";
@@ -99,17 +105,33 @@ export async function livingHistory(db: Client, user: string, plan: string) {
   }
   const o = await db
     .from("experience_operations")
-    .select("id,kind,body,status,lease_until,attempts")
+    .select("id,kind,body,status,lease_until,attempts,result")
     .eq("user_id", user)
     .eq("experience_id", e.data.id)
     .in("status", ["running", "failed"])
     .order("created_at", { ascending: false })
     .limit(1);
   if (o.error) throw new Error("Experience history unavailable");
+  const pending = o.data?.[0];
+  const failure =
+    pending?.status === "failed"
+      ? readExperienceFailure((pending.result as { failure?: unknown } | null)?.failure)
+      : null;
   return {
     scene: e.data as ExperienceRow,
     moments,
-    pending: e.data.state === "completed" ? null : (o.data?.[0] ?? null),
+    pending:
+      e.data.state === "completed" || !pending
+        ? null
+        : {
+            id: pending.id,
+            kind: pending.kind,
+            body: pending.body,
+            status: pending.status,
+            lease_until: pending.lease_until,
+            attempts: pending.attempts,
+            failure,
+          },
   };
 }
 export async function experienceCommand(
@@ -192,13 +214,14 @@ export async function generateExperience(
   if (reserved.done) return reserved;
   const job = reserved.operation;
   if (!job) throw new Error("Scene reservation unavailable; refresh before retrying.");
-  let phase = "context";
+  let phase: ExperiencePhase = "scheduling_sync";
   try {
     if (kind === "automatic" && !(await reserveWorldAi(db, user)))
       throw new Error("Autonomous budget unavailable");
     await (
       await import("./calendar-coordinator.server")
     ).syncExperienceScheduling(db, user, plan, now);
+    phase = "context";
     const { scene, moments } = await livingHistory(db, user, plan);
     const def = characterFor(p.data.organizer),
       conv = p.data.conversation_id;
@@ -245,6 +268,7 @@ export async function generateExperience(
       STATE_KEYS.map((k) => [k, stateR.data[k] ?? def.seedState[k]]),
     ) as TessState;
     const difficulty = (conversation.data.difficulty ?? "realistic") as Difficulty;
+    phase = "scene_sync";
     const live = await synchronizeScene(
       db,
       user,
@@ -315,6 +339,7 @@ export async function generateExperience(
       def.key === "tess"
         ? await generateTessReply(args)
         : await generateContactReply({ ...args, character: def });
+    phase = "schedule_actions";
     const lastUser = moments.filter((m) => m.source === "user").at(-1);
     const scheduleActions =
       kind === "turn"
@@ -383,38 +408,26 @@ export async function generateExperience(
       now,
     );
   } catch (error) {
-    const knownReasons = [
-      "Character context unavailable",
-      "Scene continuity check failed",
-      "Character AI is not configured",
-      "Character AI is paused",
-      "Character AI context limit reached",
-      "Character AI capacity limit reached; try later",
-      "Character AI is temporarily unavailable; please try again later",
-      "Character AI access unavailable (402)",
-      "Character AI access unavailable (403)",
-      "Character did not produce a scene",
-      "Unsafe off-screen outcome",
-      "Experience reconciliation unavailable",
-      "Autonomous budget unavailable",
-    ];
-    const reason =
-      error instanceof Error && knownReasons.includes(error.message)
-        ? error.message
-        : "Scene step failed";
-    // Never log prompts, transcripts, provider bodies, headers or arbitrary errors.
-    console.warn("[living-experience]", { operationId: id, phase, reason });
+    const failure = experienceFailure(error, phase);
+    console.warn("[living-experience]", { operationId: id, ...failure });
     await experienceCommand(db, user, plan, id, "fail", null, { token: job.token }, now).catch(
       () => undefined,
     );
-    throw new Error(
-      "The scene could not be generated. Your recorded progress is safe; retry this action." +
-        (reason.startsWith("Character AI")
-          ? ` ${reason}`
-          : reason === "Scene continuity check failed"
-            ? " The reply tried to return to an earlier location; your current scene is preserved."
-            : ""),
-    );
+    // Best-effort diagnostics, never ownership or completion. The token/status
+    // fence prevents a late failure writer from changing a retried or done job.
+    await db
+      .from("experience_operations")
+      .update({ result: { failure } })
+      .eq("user_id", user)
+      .eq("experience_id", job.experience_id)
+      .eq("id", id)
+      .eq("token", job.token)
+      .eq("status", "failed")
+      .then(
+        () => undefined,
+        () => undefined,
+      );
+    throw new Error(`${experienceFailureMessage(failure)} Failure reference: ${id}.`);
   }
 }
 export async function runExperienceTick(db: Client, user: string, now = new Date()) {

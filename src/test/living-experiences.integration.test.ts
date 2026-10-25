@@ -169,6 +169,76 @@ describe("Living Experiences against real PostgreSQL engine and real migrations"
       status: "completed",
     });
   });
+  it("Claire's book club preserves a failed reply diagnostic across reload and retries the same contribution once", async () => {
+    await db.exec(`UPDATE conversations SET character_id=(SELECT id FROM characters WHERE key='claire') WHERE id='${conv}';
+      INSERT INTO world_places(user_id,key,label,kind,metadata) VALUES('${user}','books:hollidaysburg','Paper & Fern','bookshop','{}');
+      UPDATE social_plans SET organizer='claire',place_key='books:hollidaysburg',title='Book club',category='book_club',starts_at='2026-10-25T20:00Z',ends_at='2026-10-25T21:00Z',date_local='2026-10-25',time_local='16:00' WHERE id='${plan}';`);
+    const at = new Date("2026-10-25T21:09Z");
+    await experienceSeed(client(), user, at);
+    await cmd("claim", null, {}, id(), at);
+    const operation = id();
+    model.reply.mockRejectedValueOnce(
+      new Error("Character AI is temporarily unavailable; please try again later"),
+    );
+    await expect(
+      generateExperience(
+        client(),
+        user,
+        plan,
+        operation,
+        "turn",
+        "What did you think about the ending?",
+        null,
+        false,
+        at,
+      ),
+    ).rejects.toThrow("Failure reference: " + operation);
+    const reloaded = await livingHistory(postgresSupabase(db).admin, user, plan);
+    expect(reloaded.scene).toMatchObject({ state: "interactive", outcome_id: null });
+    expect(reloaded.moments.map((m) => m.body)).toEqual(["What did you think about the ending?"]);
+    expect(reloaded.pending).toMatchObject({
+      id: operation,
+      status: "failed",
+      failure: { phase: "generation", code: "model_unavailable" },
+    });
+    expect((await db.query("SELECT count(*)::int n FROM memories")).rows[0]).toEqual({ n: 0 });
+    await expect(livingHistory(client(), other, plan)).rejects.toThrow();
+    model.reply.mockResolvedValueOnce({
+      messages: [
+        "Claire sets her book down. “The ending worked for me, though I wanted another chapter.”",
+      ],
+      state_delta: {},
+      photo: null,
+    });
+    await generateExperience(
+      client(),
+      user,
+      plan,
+      operation,
+      "turn",
+      "What did you think about the ending?",
+      null,
+      false,
+      at,
+    );
+    await generateExperience(
+      client(),
+      user,
+      plan,
+      operation,
+      "turn",
+      "What did you think about the ending?",
+      null,
+      false,
+      at,
+    );
+    const recovered = await livingHistory(client(), user, plan);
+    expect(recovered.pending).toBeNull();
+    expect(recovered.moments.map((m) => m.source)).toEqual(["user", "character"]);
+    expect(recovered.scene.state).toBe("interactive");
+    expect(model.reply).toHaveBeenCalledTimes(2);
+    expect(model.reply.mock.calls.at(-1)![0].character.key).toBe("claire");
+  });
   it("provider failure retains the contribution and retries without duplicates", async () => {
     await claim();
     const turn = id();
