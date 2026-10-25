@@ -7,6 +7,7 @@ import {
   type ScheduleAction,
 } from "./calendar-contract";
 import { recognizePlan, type CalendarEvidence } from "./calendar-logic";
+import { canonicalCalendarVenue } from "./calendar-venue.server";
 type Client = SupabaseClient<Database>;
 export async function calendarContractReady(db: Client) {
   const r = await db.rpc("calendar_contract_status" as never, {} as never);
@@ -35,7 +36,7 @@ export async function schedulePayload(
     throw new Error("Calendar follow-up requires an owned parent");
   const date = (patch["date"] ?? target?.date_local ?? null) as string | null,
     time = (patch["time"] ?? target?.time_local ?? null) as string | null,
-    place = (patch["place"] ?? target?.place_key ?? null) as string | null;
+    place = await canonicalCalendarVenue(db, user, (patch["place"] ?? target?.place_key ?? null) as string | null);
   const sameTerms =
     !!target &&
     ["accepted", "in_progress"].includes(target.status) &&
@@ -79,6 +80,7 @@ export async function schedulePayload(
   );
   return {
     ...clean,
+    ...(patch["place"] != null ? { place } : {}),
     ...(parent ? { parentPlanId: parent.id } : {}),
     schedule_ok:
       sameTerms ||
