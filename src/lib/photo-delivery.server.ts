@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
+import { registeredCalendarVenues } from "./calendar-venue.server";
+import { resolveCalendarVenue } from "./calendar-venue";
 
 type Admin = SupabaseClient<Database>;
 export type DeliveryResult = {
@@ -42,7 +44,7 @@ export async function recoverPhotoDelivery(
     .maybeSingle();
   if (error) throw new Error("Photo delivery status unavailable");
   if (!data) return null;
-  const detail = data.detail as { userId?: string; phase?: string };
+  const detail = data.detail as { userId?: string; phase?: string; plan?: { scheduleActions?: Array<{ place?: string | null }> } };
   if (detail.userId !== userId) throw new Error("Photo delivery owner mismatch");
   if (detail.phase === "voice_prepared")
     return { count: 0, lastVisibleAt: null, reason: "Phone playback acknowledgement pending" };
@@ -62,6 +64,22 @@ export async function recoverPhotoDelivery(
     .eq("user_id", userId)
     .maybeSingle();
   if (convError || !conversation) throw new Error("Photo recovery conversation unavailable");
+  // Repair legacy labels in the saved outbox, retaining every paid row, state
+  // snapshot, consent check and scheduling verdict. Never resurrect failed/stale jobs.
+  if (detail.plan?.scheduleActions?.some((action) => typeof action.place === "string")) {
+    const venues = await registeredCalendarVenues(admin, userId);
+    const actions = detail.plan.scheduleActions.map((action) => ({
+      ...action,
+      ...(typeof action.place === "string" ? { place: resolveCalendarVenue(action.place, venues) } : {}),
+    }));
+    if (actions.some((action, index) => action.place !== detail.plan?.scheduleActions?.[index]?.place)) {
+      const repaired = { ...detail, plan: { ...detail.plan, scheduleActions: actions } };
+      const { error: repairError } = await admin.from("job_runs")
+        .update({ detail: repaired as Json }).eq("id", data.id).eq("status", "running")
+        .eq("detail->>phase", "prepared").eq("detail->>userId", userId);
+      if (repairError) throw new Error("Prepared reply venue repair unavailable");
+    }
+  }
   // A prepared response has already been generated and paid for. Replaying its
   // atomic delivery must not depend on what the character is doing *now*:
   // a later shift/sleep transition is irrelevant to an earlier prepared turn.
