@@ -194,6 +194,11 @@ export async function prepareScheduleActions(
       (!context?.userText?.includes(a.userQuote) || !acceptsPlan(context.userText))
     )
       throw new Error("Calendar acceptance requires exact current user evidence");
+    // Installed calendar38 only verifies word-led agreement. A time-led reply
+    // still permits the character's own acceptance, but must not assert user
+    // confirmation through a quote the database cannot yet verify.
+    if (a.userQuote && /^(?:at\s+)?\d/i.test(context?.userText?.trim() ?? ""))
+      patch["userQuote"] = null;
     if (!a.planId && a.action === "invite" && context?.userSourceId) {
       let target = plans.find(
         (p) =>
