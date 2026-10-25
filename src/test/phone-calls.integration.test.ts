@@ -347,7 +347,7 @@ describe("in-app phone ledger and actual character brain with fake paid provider
       [conversation, user],
     );
     await db.query(
-      "insert into messages(id,user_id,conversation_id,sender,body) values($1,$2,$3,'riley',$4)",
+      "insert into messages(id,user_id,conversation_id,sender,body) values($1,$2,$3,'tess',$4)",
       [source, user, conversation, "I'll call you when I get home."],
     );
     await db.query(
