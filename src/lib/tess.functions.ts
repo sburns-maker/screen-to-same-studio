@@ -316,6 +316,11 @@ async function runTurnUnlocked(
     await (await import("./interactive-world.server")).syncCalendar(calendarAdmin, userId, new Date());
   }
   const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
+  if (photoAdmin && !voice && initiation?.developerPhoto === "preview") {
+    const { inspectPhotoReservation, pendingPhotoResult } = await import("./photo-delivery.server");
+    const reservation = await inspectPhotoReservation(photoAdmin, conv.id, userId);
+    if (reservation) return pendingPhotoResult(reservation);
+  }
   if (photoAdmin && !voice && initiation?.developerPhoto !== "preview") {
     const { recoverPhotoDelivery } = await import("./photo-delivery.server");
     const recovered = await recoverPhotoDelivery(photoAdmin, conv.id, userId);
@@ -1035,6 +1040,28 @@ export const developerPhotoOpportunity = createServerFn({ method: "POST" })
     return runTurn(context.supabase, context.userId, conv.id, "America/New_York", {
       gapHours, expectedSceneVersion:data.expectedSceneVersion, reason: data.context, photoKey: `developer:${data.requestId}`, developerPhoto: data.mode,
     });
+  });
+
+/** Owner-authorized status/recovery only: never starts a character or image generation. */
+export const developerPhotoReservation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid(), recover: z.boolean() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer photo actions are disabled");
+    const conv = await loadConversation(context.supabase, context.userId, data.conversationId);
+    if (!conv) throw new Error("No conversation");
+    if (!process.env["SUPABASE_SERVICE_ROLE_KEY"]) throw new Error("Server photo delivery is not configured");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { inspectPhotoReservation, pendingPhotoResult, recoverPhotoDelivery } = await import("./photo-delivery.server");
+    if (data.recover) {
+      const recovered = await recoverPhotoDelivery(supabaseAdmin, conv.id, context.userId);
+      if (recovered) return recovered;
+    }
+    const reservation = await inspectPhotoReservation(supabaseAdmin, conv.id, context.userId);
+    return reservation ? pendingPhotoResult(reservation) : {
+      count: 0, lastVisibleAt: null, reason: "No response reservation remains. Preview eligibility before making a new request.",
+    };
   });
 
 /** Developer-only, explicit reset of a fictional contact's saved no-selfie boundary. */

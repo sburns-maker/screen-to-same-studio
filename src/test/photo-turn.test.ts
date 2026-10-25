@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   generate: vi.fn(),
   visual: vi.fn(),
   reserve: vi.fn(),
+  inspect: vi.fn(),
   prepare: vi.fn(),
   fail: vi.fn(),
   recover: vi.fn(),
@@ -36,6 +37,8 @@ vi.mock("@/lib/tess-life", async (original) => ({
 }));
 vi.mock("@/integrations/supabase/client.server", () => ({ supabaseAdmin: mocks.admin }));
 vi.mock("@/lib/photo-delivery.server", () => ({
+  inspectPhotoReservation: mocks.inspect,
+  pendingPhotoResult: (reservation: unknown) => ({ count: 0, lastVisibleAt: null, reservation, reason: "A response is in progress" }),
   reservePhotoAction: mocks.reserve,
   preparePhotoDelivery: mocks.prepare,
   failPhotoAction: mocks.fail,
@@ -60,6 +63,7 @@ beforeEach(() => {
   mocks.visual.mockReset().mockResolvedValue({status:"screen_passed",method:"fictional_visual_design",reason:"features_consistent"});
   mocks.schedule.availability = "limited";
   mocks.realTime = true;
+  mocks.inspect.mockReset().mockResolvedValue(null);
   mocks.reserve.mockReset().mockResolvedValueOnce(action).mockResolvedValue(null);
   mocks.prepare
     .mockReset()
@@ -195,6 +199,15 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(mocks.reserve).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mutations).toHaveBeenCalledWith("messages", "insert");
+  });
+  it("blocks preview on the same in-flight reservation before any model or image call", async () => {
+    mocks.inspect.mockResolvedValue({ actionId: action, phase: "generating", recoverable: false });
+    const { runTurn } = await import("@/lib/tess.functions");
+    const result = await runTurn(client, uid, cid, "America/New_York", { gapHours: 3, developerPhoto: "preview" });
+    expect(result).toMatchObject({ count: 0, reservation: { actionId: action, phase: "generating" } });
+    expect(mocks.generate).not.toHaveBeenCalled();
+    expect(mocks.reserve).not.toHaveBeenCalled();
+    expect(mocks.recover).not.toHaveBeenCalled();
   });
   it.each([false, true])(
     "uses controlled photo testing and unchanged state math with real_time_mode=%s",

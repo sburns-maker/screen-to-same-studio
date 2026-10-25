@@ -7,7 +7,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { debugSnapshot, developerPhotoOpportunity, developerResetPhotoBoundary } from "@/lib/tess.functions";
+import { debugSnapshot, developerPhotoOpportunity, developerPhotoReservation, developerResetPhotoBoundary } from "@/lib/tess.functions";
 import { STATE_KEYS, type TessState } from "@/lib/tess-logic";
 import { mindSummary, recentMindChanges, datedMemories } from "@/lib/character-mind-insights";
 import { RelationshipHistoryPanel } from "@/components/RelationshipHistoryPanel";
@@ -95,6 +95,7 @@ function Debug() {
   }, [fn, conversationId]);
 
   const photoFn = useServerFn(developerPhotoOpportunity);
+  const reservationFn = useServerFn(developerPhotoReservation);
   const resetBoundary = useServerFn(developerResetPhotoBoundary);
   const [resetBusy, setResetBusy] = useState(false);
   const [resetStatus, setResetStatus] = useState("");
@@ -125,7 +126,17 @@ function Debug() {
       setPhotoResult({ error: e instanceof Error ? e.message : "Photo action failed" });
     } finally { setPhotoBusy(false); }
   };
+  const checkReservation = async (recover: boolean) => {
+    setPhotoBusy(true);
+    try {
+      const result = await reservationFn({ data: { conversationId, recover } });
+      setPhotoResult(result as unknown as Record<string, unknown>);
+    } catch (e) {
+      setPhotoResult({ error: e instanceof Error ? e.message : "Delivery status unavailable" });
+    } finally { setPhotoBusy(false); }
+  };
   const photoStatus = photoTestStatus(photoResult, photoBusy);
+  const reservation = photoResult?.["reservation"] as { phase?: string; startedAt?: string; ageSeconds?: number | null; recoverable?: boolean } | undefined;
   const s = snap?.state;
   const delta = snap?.lastDelta ?? {};
   const tags = Array.isArray(delta["tags"]) ? (delta["tags"] as string[]) : [];
@@ -176,6 +187,11 @@ function Debug() {
               <button className="rounded-lg border bg-surface px-3 py-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={photoBusy || !photoContext.trim()} onClick={() => void testPhoto("preview")}>Preview eligibility</button>
               <button className="rounded-lg bg-primary px-3 py-2 text-primary-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:opacity-60" disabled={!photoStatus.canDeliver} onClick={() => void testPhoto("deliver")}>Ask character to share</button>
             </div>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50" disabled={photoBusy} onClick={() => void checkReservation(false)}>Check delivery status</button>
+              {reservation?.recoverable && <button className="rounded-lg border px-3 py-2 text-sm disabled:opacity-50" disabled={photoBusy} onClick={() => void checkReservation(true)}>Recover existing request</button>}
+            </div>
+            {reservation && <p className="mt-2 text-xs text-muted-foreground">Phase: {reservation.phase}. Started: {reservation.startedAt ? new Date(reservation.startedAt).toLocaleString() : "unknown"}. Recovery only delivers an already prepared response or releases an expired reservation; it never generates another image.</p>}
             {photoStatus.showChat && <Link className="mt-3 block underline" to="/chat/$conversationId" params={{ conversationId }}>Open conversation</Link>}
             {!!photoResult?.["photoValidation"] && <div className="mt-3 rounded-xl border p-3 text-sm"><p>Current location: {String((photoResult["photoValidation"] as Record<string,unknown>)["canonicalLocation"]??"unknown")}</p><p>Requested scene: {String((photoResult["photoValidation"] as Record<string,unknown>)["inferredRequestedScene"]??"unspecified")}</p><p>Validation: {String((photoResult["photoValidation"] as Record<string,unknown>)["failedRule"]??"location check passed")} · {String((photoResult["photoValidation"] as Record<string,unknown>)["stage"]??"")}</p></div>}
             {photoResult && <details className="mt-3 text-xs"><summary>Technical details</summary><pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap">{JSON.stringify(photoResult, null, 2)}</pre></details>}
