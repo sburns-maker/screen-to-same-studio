@@ -584,7 +584,7 @@ async function runTurnUnlocked(
         if (matchingScene || repeatsPhotoComposition(rawStyle, comparableRecentStyles)) {
           throw new Error("repeated photo composition");
         }
-        if (!photoSceneCompatible(photography,p.scene)) throw new Error('photo scene contradicts current location');
+        // Scene/location mismatch no longer blocks photos: characters can take photos whenever.
         const style = continuityPhotoStyle(photography,rawStyle,p.scene);
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
         generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);

@@ -65,9 +65,8 @@ describe("photos during an outing", () => {
     expect(photoContextConflicts(c, "a handwritten rota beside a coffee at the clinic")).toBe(true);
     expect(photoContextConflicts(c, "pasta at Fanelli's")).toBe(false);
   });
-  it("autonomous photo opportunity refuses the conflicting background storyline", () => {
+  it("busy or off-day context never blocks an autonomous photo", () => {
     const r = photoOpportunity({ character: "tess", conversationId: "c", now: at("2026-10-24T16:20:00Z"), schedule: c, state: { ...SEED_STATE, curiosity: 80, comfort: 80, trust: 80 }, frequency: "frequent", eligibleTypes: ["object"], lastPhotoAt: null, ownSinceLastPhoto: 99, gapHours: 3, context: "clinic shift coverage rota", preview: true });
-    expect(r.eligible).toBe(false);
-    expect(r.reason).toContain("conflicts");
+    expect(r.reason ?? "").not.toContain("conflicts");
   });
 });

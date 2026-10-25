@@ -113,7 +113,7 @@ export const scheduleDiagnostics = createServerFn({ method: "POST" })
     const events = agenda.events.filter((p) => p.conversation_id === data.conversationId);
     const receipts =
       agenda.structured && events.length
-        ? await db
+        ? await (db as any)
             .from("calendar_action_receipts")
             .select("plan_id,source_kind,result,created_at")
             .eq("user_id", context.userId)
