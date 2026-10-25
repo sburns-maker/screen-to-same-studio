@@ -1,0 +1,178 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+const model = vi.hoisted(() => ({ run: vi.fn() }));
+vi.mock("@/lib/text-ai.server", () => ({ runStructured: model.run }));
+import { generateTessReply, generateContactReply, CHARACTER_BIBLE } from "@/lib/tess.server";
+import { CHARACTERS, type CharacterKey } from "@/lib/characters";
+import { SEED_STATE, deriveStage } from "@/lib/tess-logic";
+import { DIALOGUE_PROFILES } from "@/lib/dialogue-personality";
+import {
+  characterTripDecision,
+  generateTravelScene,
+  travelCharacterMoment,
+} from "@/lib/travel-ai.server";
+import { icelandTripIdea } from "@/lib/travel-experiences";
+import { buildCallInstructions } from "@/lib/live-calls";
+const args = {
+  state: SEED_STATE,
+  stage: deriveStage(SEED_STATE),
+  difficulty: "realistic" as const,
+  messages: [
+    { sender: "tess", body: "Objection, your honor.", created_at: "2026-10-25T18:00Z" },
+    { sender: "tess", body: "Exhibit A: the coffee.", created_at: "2026-10-25T18:01Z" },
+    {
+      sender: "user",
+      body: "Please be serious. I had a rough day.",
+      created_at: "2026-10-25T18:02Z",
+    },
+  ],
+  memories: ["An established shared coffee preference"],
+  tz: "America/New_York",
+  photos: [],
+  generateTypes: [],
+  photoFrequency: "off",
+  availabilityDetail: "At the confirmed current venue",
+  worldKnowledge: ["Only this character's established knowledge"],
+};
+const makeReply = () => ({
+  messages: ["That means a lot. Thank you for remembering."],
+  state_delta: { trust: 1 },
+  memory_candidates: [
+    { summary: "An existing grounded detail", memory_type: "relationship", importance: 3 },
+  ],
+  schedule_actions: [],
+  tone: "warm",
+  event_tags: [],
+  photo: null,
+  send_delay_seconds: 4,
+  character_perspective: "I noticed their thoughtfulness.",
+  photo_boundary_decision: "unchanged",
+});
+beforeEach(() => model.run.mockReset().mockImplementation(async () => makeReply()));
+describe("real character adapters share voice guidance without canned response replacement", () => {
+  it.each(Object.keys(CHARACTERS) as CharacterKey[])(
+    "keeps %s distinct, grounded, and able to acknowledge sincerity",
+    async (key) => {
+      const reply =
+        key === "tess"
+          ? await generateTessReply(args)
+          : await generateContactReply({ ...args, character: CHARACTERS[key] });
+      expect(model.run).toHaveBeenCalledTimes(1);
+      const [, system, input] = model.run.mock.calls[0]!;
+      expect(system).toContain(DIALOGUE_PROFILES[key].rhythm);
+      expect(system).toContain("There is no required joke");
+      expect(system).toContain("courtroom/legal comic routine");
+      expect(input).toContain("rough day");
+      expect(input).toContain(key === "tess" ? CHARACTER_BIBLE : CHARACTERS[key].bible);
+      expect(input).toContain(args.memories[0]);
+      expect(input).toContain(args.availabilityDetail);
+      expect(reply.messages).toEqual(makeReply().messages);
+      expect(reply.state_delta).toEqual(makeReply().state_delta);
+      expect(reply.memory_candidates).toEqual(makeReply().memory_candidates);
+      expect(reply.schedule_actions).toEqual([]);
+      if (key === "ben")
+        expect(system).toContain(
+          "romantic_attraction and physical_attraction MUST stay at exactly 0",
+        );
+    },
+  );
+  it("gives Maya high-priority courtroom reset and casual language while retaining actual facts and structured actions", async () => {
+    model.run.mockResolvedValue({
+      ...makeReply(),
+      messages: ["Yeah, I'm home. Gonna sit down for a minute lol"],
+      schedule_actions: [{ action: "clarify", title: "An established plan" }],
+    });
+    const reply = await generateContactReply({
+      ...args,
+      character: CHARACTERS.maya,
+      messages: [
+        { sender: "tess", body: "Guilty as charged.", created_at: "2026-10-25T18:00Z" },
+        { sender: "tess", body: "My verdict? Case closed.", created_at: "2026-10-25T18:01Z" },
+        { sender: "user", body: "How was your day?", created_at: "2026-10-25T18:02Z" },
+      ],
+    });
+    const [, system, input] = model.run.mock.calls[0]!;
+    expect(system).toContain("Retire that comic routine for now");
+    expect(system).toContain("TEXTING LANGUAGE");
+    expect(system).toContain(DIALOGUE_PROFILES.maya.texting);
+    expect(input).toContain("Guilty as charged."); // Preserve actual history, not rewritten memories.
+    expect(reply.messages).toEqual(["Yeah, I'm home. Gonna sit down for a minute lol"]);
+    expect(reply.schedule_actions).toEqual([{ action: "clarify", title: "An established plan" }]);
+    expect(model.run).toHaveBeenCalledTimes(1); // No paid style-repair loop.
+  });
+  it("also applies to autonomous initiation without interpreting an old user farewell as a new instruction", async () => {
+    await generateContactReply({
+      ...args,
+      character: CHARACTERS.maya,
+      messages: [{ sender: "user", body: "Goodnight", created_at: "2026-10-24T22:00Z" }],
+      initiation: { gapHours: 20 },
+      initiationReason: "An actual available world event",
+    });
+    const [, system, input, purpose] = model.run.mock.calls[0]!;
+    expect(system).toContain(DIALOGUE_PROFILES.maya.humor);
+    expect(input).not.toContain("This can end naturally");
+    expect(purpose).toBe("autonomous");
+  });
+  it("preserves the in-person channel and original recorded scene instead of converting it to texting", async () => {
+    const instruction =
+      "IN PERSON: authoritative current scene at Riley's front door.\nEXPERIENCE HISTORY\nUSER-RECORDED-ACTION";
+    await generateContactReply({
+      ...args,
+      character: CHARACTERS.riley,
+      experience: { at: "2026-10-25T18:02Z", instruction },
+    });
+    const [, system, input] = model.run.mock.calls[0]!;
+    expect(system).toContain(DIALOGUE_PROFILES.riley.openness);
+    expect(system).toContain("In person, use the existing experience format");
+    expect(system).not.toContain("USER-RECORDED-ACTION");
+    expect(input).toContain(instruction);
+  });
+  it("keeps dialogue tendencies available in bounded live voice prompts without authorizing calendar writes", () => {
+    const prompt = buildCallInstructions({
+      characterKey: "jordan",
+      fullName: CHARACTERS.jordan.fullName,
+      preferredName: "Jordan",
+      age: 33,
+      pronouns: "she/her",
+      bible: CHARACTERS.jordan.bible,
+      stage: "acquaintance",
+      availability: { availability: "free", detail: "at home" },
+      localTime: "Sunday evening",
+      memories: [],
+      recent: args.messages,
+    });
+    expect(prompt).toContain(DIALOGUE_PROFILES.jordan.openness);
+    expect(prompt).toContain("no write tool during this live call");
+    expect(prompt).toContain("courtroom/legal comic routine");
+    expect(prompt.length).toBeLessThanOrEqual(9000);
+  });
+});
+
+describe("travel uses the same character language without a second persona", () => {
+  const trip = {
+    ...icelandTripIdea(),
+    status: "in_progress" as const,
+    companions: [{ characterKey: "maya", response: "accepted" as const }],
+  };
+  it("uses Maya's texting register for a trip invitation without assuming consent", async () => {
+    await characterTripDecision("maya", { ...trip, status: "proposed" });
+    const [, system] = model.run.mock.calls[0]!;
+    expect(system).toContain(DIALOGUE_PROFILES.maya.texting);
+    expect(system).toContain("The invitation is not already accepted");
+  });
+  it("keeps travel dialogue in person and leaves the player in control", async () => {
+    const stop = trip.itinerary[0]!;
+    await generateTravelScene(trip, stop.day, stop.id, "Look around", [], "maya");
+    const [, system] = model.run.mock.calls[0]!;
+    expect(system).toContain(DIALOGUE_PROFILES.maya.rhythm);
+    expect(system).toContain("In person");
+    expect(system).not.toContain("TEXTING LANGUAGE");
+    expect(system).toContain("never invent choices");
+  });
+  it("uses Maya's register for a travel caption without forcing a photo", async () => {
+    await travelCharacterMoment(trip, "maya", trip.itinerary[0]!.id);
+    const [, system] = model.run.mock.calls[0]!;
+    expect(system).toContain(DIALOGUE_PROFILES.maya.texting);
+    expect(system).toContain("return send=false");
+    expect(model.run).toHaveBeenCalledTimes(1);
+  });
+});
