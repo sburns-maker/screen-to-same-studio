@@ -398,7 +398,6 @@ export function recognizePlan(
       ...patch,
       // A details update always targets an existing owned plan, never a headless extension.
       planId: target.id,
-      parentPlanId: undefined,
       action: "details",
       ...(/\b(?:send.*address|send.*time|confirm.*host|meet.*there)\b/i.test(text)
         ? {
