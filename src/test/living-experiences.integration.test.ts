@@ -169,6 +169,73 @@ describe("Living Experiences against real PostgreSQL engine and real migrations"
       status: "completed",
     });
   });
+  it("completion receives the whole journal and saves earlier topics alongside the final boundary once", async () => {
+    await claim();
+    await generateExperience(
+      client(),
+      user,
+      plan,
+      id(),
+      "turn",
+      "I enjoy skiing and cooking. Iceland is a trip I hope to take, not a booking.",
+      null,
+      false,
+      now,
+    );
+    await generateExperience(
+      client(),
+      user,
+      plan,
+      id(),
+      "turn",
+      "I am working on a creative project.",
+      null,
+      false,
+      now,
+    );
+    model.reply.mockResolvedValueOnce({
+      messages: ["I want to keep dating, but I am not ready for a relationship label."],
+      state_delta: {},
+      photo: null,
+    });
+    await generateExperience(
+      client(),
+      user,
+      plan,
+      id(),
+      "turn",
+      "I would like another date. We do not need to rush a label.",
+      null,
+      false,
+      now,
+    );
+    const recap =
+      "We discussed skiing, cooking, an aspiration to visit Iceland (not a booking), and the user's creative project. We enjoyed the outing and agreed to keep dating without adopting a relationship label.";
+    model.reply.mockResolvedValueOnce({ messages: [recap], state_delta: {}, photo: null });
+    const finish = id();
+    await generateExperience(client(), user, plan, finish, "finish", "close_now", null, false, now);
+    const instructions = model.reply.mock.calls.at(-1)![0].experience.instruction;
+    expect(instructions).toContain("WHOLE recorded outing");
+    expect(instructions).toContain("skiing and cooking");
+    expect(instructions).toContain("creative project");
+    expect(instructions).toContain("aspirations and confirmed bookings");
+    const memories = await db.query(
+      "SELECT summary FROM memories WHERE user_id=$1 AND conversation_id=$2 AND summary LIKE '[Completed in-person experience]%'",
+      [user, conv],
+    );
+    expect(memories.rows).toHaveLength(1);
+    expect((memories.rows[0] as { summary: string }).summary).toContain(recap);
+    const count = model.reply.mock.calls.length;
+    await generateExperience(client(), user, plan, finish, "finish", "close_now", null, false, now);
+    expect(model.reply).toHaveBeenCalledTimes(count);
+    expect(
+      (
+        await db.query(
+          "SELECT count(*)::int n FROM memories WHERE summary LIKE '[Completed in-person experience]%' ",
+        )
+      ).rows[0],
+    ).toEqual({ n: 1 });
+  });
   it("provider failure retains the contribution and retries without duplicates", async () => {
     await claim();
     const turn = id();

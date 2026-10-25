@@ -1,7 +1,7 @@
 import * as opportunities from "@/lib/photo-opportunities";
 import * as canonical from "@/lib/canonical-profile.server";
 // Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
-vi.mock("@/lib/photo-identity-qc.server", () => ({ requireVisualScreen: () => {}, screenPhotoVisuals: mocks.visual }));
+vi.mock("@/lib/photo-identity-qc.server", async (original) => ({ ...(await original<object>()), requireVisualScreen: () => {}, screenPhotoVisuals: mocks.visual }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SEED_STATE, STATE_KEYS } from "@/lib/tess-logic";
 

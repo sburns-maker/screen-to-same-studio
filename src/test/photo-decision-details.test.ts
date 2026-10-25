@@ -90,3 +90,30 @@ it.each([
   expect(result.statusLabel).toBe(label);
   expect(result.generationRequested).toBe(photoSent ? "yes" : "no");
 });
+
+it("distinguishes a passed location check from a rendered-image rejection", () => {
+  const detail = photoDecisionDetails({
+    kind: "photo_generation_failure",
+    summary: "Photo withheld: scene_mismatch",
+    payload: {
+      reason: "scene_mismatch",
+      imageRequested: true,
+      photoValidation: {
+        canonicalLocation: "outdoors",
+        inferredRequestedScene: "outdoors",
+        failedRule: null,
+      },
+      visualScreening: {
+        stage: "rendered_image",
+        sceneConsistent: false,
+        sceneRule: "activity",
+        unexpectedPeople: false,
+      },
+    },
+  });
+  expect(detail.canonicalLocation).toBe("outdoors");
+  expect(detail.requestedScene).toBe("outdoors");
+  expect(detail.failedRule).toBeNull();
+  expect(detail.screeningStage).toBe("Generated image visual screening");
+  expect(detail.renderedSceneRule).toBe("activity");
+});

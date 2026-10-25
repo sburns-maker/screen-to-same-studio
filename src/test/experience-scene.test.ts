@@ -229,3 +229,24 @@ describe("paused experience continuity across real days", () => {
     },
   );
 });
+
+describe("park bench continuity", () => {
+  it("preserves sitting until an actual resumed walk, without changing the calendar venue", () => {
+    const park = initialScene("tess", "park:local", "Juniper Commons");
+    const bench = transitionScene(park, "We sit on a bench.", "tess", "Tess")!;
+    expect(bench).toMatchObject({
+      locationKey: park.locationKey,
+      activity: "talking",
+      area: "seated on a bench",
+    });
+    expect(transitionScene(bench, "I gently squeeze your hand.", "tess", "Tess")).toBeNull();
+    expect(transitionScene(bench, "Should we start walking?", "tess", "Tess")).toBeNull();
+    expect(sceneContradiction(bench, "She smiles as we walk along the park path.")).toBe(true);
+    expect(sceneContradiction(bench, "Earlier we were walking along the path.")).toBe(false);
+    expect(sceneContradiction(bench, "She smiles beside you on the bench.")).toBe(false);
+    expect(transitionScene(bench, "We resume walking.", "tess", "Tess")).toMatchObject({
+      activity: "walking",
+      area: "",
+    });
+  });
+});
