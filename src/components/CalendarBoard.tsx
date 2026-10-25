@@ -7,7 +7,8 @@ import { Calendar } from "./ui/calendar";
 import { ExperienceEntry } from "./ExperienceEntry";
 import { useSchedule, invalidateSchedule } from "@/lib/use-schedule";
 import { respondToCalendarPlan } from "@/lib/interactive-world.functions";
-import { createPlanDraft } from "@/lib/scheduling.functions";
+import { createPlanDraft, editCalendarPlan } from "@/lib/scheduling.functions";
+import { PlanEditor } from "./PlanEditor";
 import { PLACE_REGISTRY } from "@/lib/place-registry";
 import { easternDate } from "@/lib/calendar-logic";
 import { calendarWeek, eventDay, eventTime, calendarStatus } from "@/lib/calendar-view";
@@ -22,6 +23,7 @@ export function CalendarBoard() {
   const q = useSchedule(),
     respond = useServerFn(respondToCalendarPlan),
     create = useServerFn(createPlanDraft),
+    edit = useServerFn(editCalendarPlan),
     cache = useQueryClient(),
     navigate = useNavigate();
   const [mode, setMode] = useState<"month" | "week" | "agenda">("month"),
@@ -29,7 +31,8 @@ export function CalendarBoard() {
     [day, setDay] = useState(""),
     [selected, setSelected] = useState(""),
     [busy, setBusy] = useState(false),
-    [manual, setManual] = useState(false);
+    [manual, setManual] = useState(false),
+    [editing, setEditing] = useState("");
   const [contact, setContact] = useState(""),
     [title, setTitle] = useState("Coffee together"),
     [category, setCategory] = useState("coffee"),
@@ -495,6 +498,14 @@ export function CalendarBoard() {
                     )}
                 </>
               )}
+              {!active && e.status !== "completed" && (
+                <button
+                  onClick={() => setEditing(editing === e.id ? "" : e.id)}
+                  className="min-h-11 rounded-full border px-4 text-sm"
+                >
+                  Edit
+                </button>
+              )}
               {e.place_key && (
                 <Link
                   to="/place/$placeKey"
@@ -505,6 +516,22 @@ export function CalendarBoard() {
                 </Link>
               )}
             </div>
+            {editing === e.id && (
+              <PlanEditor
+                plan={e}
+                onCancel={() => setEditing("")}
+                onSave={async (v) => {
+                  try {
+                    await edit({ data: { planId: e.id, ...v } });
+                    await invalidateSchedule(cache);
+                    setEditing("");
+                    toast.success("Plan updated");
+                  } catch (err) {
+                    toast.error((err as Error).message);
+                  }
+                }}
+              />
+            )}
             {e.origin === "conversation" && <ExperienceEntry planId={e.id} />}
             {active && (
               <p className="text-xs text-muted-foreground">
