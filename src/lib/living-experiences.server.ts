@@ -1,3 +1,4 @@
+import { experienceActionError } from "./experience-errors";
 import { synchronizeScene } from "./experience-scene.server";
 import { liveSceneInstructions, sceneContradiction } from "./experience-scene";
 import { followupCanStart } from "./calendar-view";
@@ -130,14 +131,7 @@ export async function experienceCommand(
     p_payload: payload,
     p_now: now.toISOString(),
   });
-  if (r.error)
-    throw new Error(
-      r.error.message === "Finish the earlier experience before continuing this outing"
-        ? "Finish the earlier experience before continuing this outing"
-        : r.error.message.includes("limit")
-          ? "Experience usage or retry limit reached. Recorded progress is safe."
-          : "Experience changed or is unavailable. Refresh before retrying.",
-    );
+  if (r.error) throw new Error(experienceActionError(r.error.message));
   return r.data as unknown as {
     experience: ExperienceRow;
     operation: ExperienceOperation | null;
