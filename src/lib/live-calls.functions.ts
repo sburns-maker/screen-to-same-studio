@@ -92,6 +92,7 @@ export const startLiveCall = createServerFn({ method: "POST" })
     ]);
     const bible = conv.key === "tess" ? (await import("./tess.server")).CHARACTER_BIBLE : def.bible;
     const instructions = buildCallInstructions({
+      characterKey: def.key,
       fullName: def.fullName,
       preferredName: def.preferredName,
       age: def.age,

@@ -1,0 +1,24 @@
+name: Distinct character dialogue
+on:
+  pull_request:
+    paths:
+      - "src/lib/dialogue-personality.ts"
+      - "src/lib/characters.ts"
+      - "src/lib/tess.server.ts"
+      - "src/lib/tess-voice.ts"
+      - "src/lib/tess-topics.ts"
+      - "src/lib/live-calls*"
+      - "src/test/dialogue*"
+      - "src/test/tess-voice.test.ts"
+      - ".github/workflows/distinct-character-dialogue.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bunx vitest run src/test/dialogue-personality.test.ts src/test/dialogue-generation.test.ts src/test/tess-voice.test.ts src/test/tess-topics.test.ts src/test/experience-channel.test.ts src/test/live-calls.test.ts
+      - run: bun run build

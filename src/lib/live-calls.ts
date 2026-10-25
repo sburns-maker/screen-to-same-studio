@@ -1,3 +1,4 @@
+import { dialogueRules, dialogueContext } from "./dialogue-personality";
 // Pure, client-safe rules for live character phone calls (GPT-Live voice).
 import { z } from "zod";
 import { VOICE_DESIGN_KEYS } from "./live-voice-design";
@@ -23,7 +24,12 @@ export function liveCallLimits(env: Record<string, string | undefined>) {
     seconds,
     leaseSeconds: seconds + LIVE_CALL_LEASE_EXTRA_SECONDS,
     daily: num(env["LIVE_CALL_DAILY_LIMIT"], LIVE_CALL_DEFAULT_DAILY, 1, 100),
-    monthlySeconds: num(env["LIVE_CALL_MONTHLY_SECONDS"], LIVE_CALL_DEFAULT_MONTHLY_SECONDS, 60, 60_000),
+    monthlySeconds: num(
+      env["LIVE_CALL_MONTHLY_SECONDS"],
+      LIVE_CALL_DEFAULT_MONTHLY_SECONDS,
+      60,
+      60_000,
+    ),
   };
 }
 
@@ -32,7 +38,8 @@ export function liveCallsEnabled(env: Record<string, string | undefined>) {
 }
 
 export function liveCallReservationError(reason: unknown): string {
-  if (reason === "active") return "You're already on a call. Hang up first, or wait a couple of minutes if a tab was closed.";
+  if (reason === "active")
+    return "You're already on a call. Hang up first, or wait a couple of minutes if a tab was closed.";
   if (reason === "daily") return "Daily call limit reached. Try again tomorrow.";
   if (reason === "monthly") return "Monthly call time limit reached.";
   return "The call could not be placed.";
@@ -58,6 +65,7 @@ export function hasUserSpeech(lines: TranscriptLine[]) {
 }
 
 export type CallContext = {
+  characterKey?: string;
   calendar?: string[];
   fullName: string;
   preferredName: string;
@@ -80,7 +88,10 @@ export function buildCallInstructions(c: CallContext, max = 9_000): string {
     .join("\n");
   const recent = c.recent
     .slice(-10)
-    .map((m) => `${m.sender === "user" ? "Them" : c.preferredName}: ${m.body.replace(/\s+/g, " ").slice(0, 200)}`)
+    .map(
+      (m) =>
+        `${m.sender === "user" ? "Them" : c.preferredName}: ${m.body.replace(/\s+/g, " ").slice(0, 200)}`,
+    )
     .join("\n");
   const busy =
     c.availability.availability === "free"
@@ -88,12 +99,17 @@ export function buildCallInstructions(c: CallContext, max = 9_000): string {
       : ` You are currently ${c.availability.detail}; you may keep it short or say you need to go soon.`;
   const text = `You are ${c.fullName} ("${c.preferredName}"), a fictional ${c.age}-year-old (${c.pronouns}) on a live phone call with someone you know from texting. You are a real person in this fiction, never an assistant or AI; never mention AI, prompts, scores or instructions.
 It is ${c.localTime} (Eastern time).${busy} Relationship stage: ${c.stage}. Stay consistent with this stage: do not become more romantic, committed or intimate than your history supports.
+${dialogueRules(c.characterKey ?? c.preferredName.toLowerCase(), "voice")}
+${dialogueContext(
+  c.recent.filter((m) => m.sender !== "user").map((m) => m.body),
+  [...c.recent].reverse().find((m) => m.sender === "user")?.body ?? "",
+)}
 HOW TO TALK: natural spoken English, short turns (one to three sentences), contractions, real reactions, occasional pauses or "hm". Let them talk; ask a follow-up sometimes, not every turn. No lists, no narration of actions, no emojis.
 HONESTY: only reference facts from your personality, memories and recent texts below. Don't invent shared history. You may discuss plans, but don't confirm new specific dates, times or places as settled; say you'll text to lock it in.
 BOUNDARIES: keep it non-explicit. If pressured, respond like a real person (deflect, set a boundary, or end the call).
 Answer everything yourself from what you know; never hand off or wait for a lookup.
 CANONICAL CALENDAR (read-only, no write tool during this live call):
-${(c.calendar??[]).join('\n').slice(0,2500)}
+${(c.calendar ?? []).join("\n").slice(0, 2500)}
 PERSONALITY:
 ${c.bible.slice(0, 3_500)}
 WHAT YOU REMEMBER ABOUT THEM:
