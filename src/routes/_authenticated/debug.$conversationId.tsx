@@ -1,3 +1,4 @@
+import { DeveloperPhotoLab } from "@/components/DeveloperPhotoLab";
 import {SchedulingDebug} from "@/components/SchedulingDebug";
 import { LivingExperiencesDebug } from "@/components/LivingExperiencesDebug";
 import { CallsDebug } from "@/components/CallsDebug";
@@ -170,6 +171,7 @@ function Debug() {
         {activeTab === "technical" && snap?.photoDeveloperTools && <Link to="/voice-studio" className="mb-3 block rounded-2xl border bg-surface p-4 text-sm font-medium">🎙️ Open Voice Studio <span className="block text-xs font-normal text-muted-foreground">Create and compare private fictional character voices</span></Link>}
         {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Interactive world & calendar" collapsible><InteractiveWorldDebug/></Section>}
         {activeTab === "photos" && snap?.photoDeveloperTools && snap.photography ? <Section title="Character photography" collapsible><p className="text-xs text-muted-foreground">Soft tendencies, grounded scenario candidates and recent delivered-photo continuity. No full prompt or transcript is exposed. The current preview is illustrative; the latest generation records the actual selection.</p><pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify(snap.photography,null,2)}</pre></Section> : null}
+        {activeTab === "photos" && snap?.photoDeveloperTools && <Section title="Photo category lab (developer only)" collapsible><DeveloperPhotoLab key={conversationId} conversationId={conversationId}/></Section>}
         {activeTab === "photos" && snap?.photoDeveloperTools && (
           <Section title="Photo boundaries (developer)">
             <p className="text-xs text-muted-foreground">Current saved setting: <strong>{snap.photoBoundary === "selfies" ? "No selfies" : snap.photoBoundary === "all_photos" ? "No photos" : snap.photoBoundary === "mature" ? "No mature romantic photos" : "No restriction"}</strong>. This is a persisted conversation preference, not a cooldown.</p>

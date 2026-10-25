@@ -230,6 +230,12 @@ export function postgresSupabase(db: PGlite) {
           data: new Blob(["test canonical reference"], { type: "image/jpeg" }),
           error: null,
         }),
+        createSignedUrl: async (path: string, seconds: number) => ({
+          data: files.has(`${bucket}/${path}`)
+            ? { signedUrl: `https://private.test/${bucket}/${path}?expires=${seconds}` }
+            : null,
+          error: files.has(`${bucket}/${path}`) ? null : { message: "missing test storage object" },
+        }),
         upload: async (path: string, bytes: Uint8Array) => {
           files.set(`${bucket}/${path}`, bytes);
           return { error: null };
