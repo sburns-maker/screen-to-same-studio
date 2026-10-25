@@ -294,7 +294,8 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
       .eq("user_id", user)
       .eq("id", r.source_message_id!)
       .maybeSingle();
-    if (source.error || source.data?.sender !== key || !source.data.body.includes(r.source_quote)) continue;
+    // Message sender denotes author type ("tess" for every character), not character key.
+    if (source.error || source.data?.sender !== "tess" || !source.data.body.includes(r.source_quote)) continue;
     try {
       await phoneCommand(
         db,
