@@ -122,6 +122,8 @@ export async function runSharedWorldTick(db: Client, user: string, now: Date) {
 }
 /** A character may see only their own presence/knowledge. No unrelated plan or chat injection. */
 export async function sharedPlanContext(db: Client, user: string, character: string, now: Date) {
+  const live = await (await import("./calendar-commitment.server")).commitmentFor(db,user,character,now);
+  if(live?.scene)return live;
   const { data, error } = await db
     .from("social_presence")
     .select("*")
@@ -133,7 +135,7 @@ export async function sharedPlanContext(db: Client, user: string, character: str
     if (["42P01", "PGRST205"].includes(error.code)) return null;
     throw new Error("Shared presence unavailable");
   }
-  if (!data) return (await import("./calendar-commitment.server")).commitmentFor(db, user, character, now);
+  if (!data) return live;
   const { data: plan, error: planError } = await db
     .from("social_plans")
     .select("*")

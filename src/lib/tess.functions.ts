@@ -1,4 +1,7 @@
-import { continuityPhotoStyle, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photoSceneCompatible, photographyProfile, type PhotographyPlan } from "./photo-personality";
+import {photoContextForSchedule} from "./calendar-commitment";
+import {resolvePhotoScene} from "./photo-scene.server";
+import {photoSceneCheck} from "./photo-scene";
+import { continuityPhotoStyle, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
 import { photoPacing } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
@@ -269,7 +272,13 @@ export function runTurn(...args: Parameters<typeof runTurnUnlocked>) {
   const key = `${args[1]}:${args[2]}${args[4]?.developerPhoto === "preview" ? ":preview" : ""}`;
   const active = activeTurns.get(key);
   if (active) return active;
-  const turn = runTurnUnlocked(...args).finally(() => activeTurns.delete(key));
+  const turn = runTurnUnlocked(...args).then(async result=>{
+    if(args[4]?.developerPhoto!=="preview"&&result.count>0&&process.env["SUPABASE_SERVICE_ROLE_KEY"]){
+      const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+      await resolvePhotoScene(supabaseAdmin,args[1],args[2],{activity:"ordinary activity",availability:"free",detail:""},new Date(),true).catch(()=>console.warn("[character-scene] projection deferred; delivered evidence retained"));
+    }
+    return result;
+  }).finally(() => activeTurns.delete(key));
   activeTurns.set(key, turn);
   return turn;
 }
@@ -279,7 +288,7 @@ async function runTurnUnlocked(
   userId: string,
   conversationId: string,
   tz: string,
-  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver" },
+  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver"; expectedSceneVersion?: string | undefined },
   voice?: {callId:string;turnId:string;sourceId:string|null},
 ) {
   const { generateTessReply, generateContactReply } = await import("./tess.server");
@@ -303,7 +312,7 @@ async function runTurnUnlocked(
   // working during setup, but never charge for photos without durable delivery.
   const photoAdmin = deliveryProbe && !deliveryProbe.error ? configuredPhotoAdmin : null;
   const calendarAdmin = configuredPhotoAdmin;
-  if (calendarAdmin && await (await import("./calendar-coordinator.server")).calendarContractReady(calendarAdmin)) {
+  if (initiation?.developerPhoto !== "preview" && calendarAdmin && await (await import("./calendar-coordinator.server")).calendarContractReady(calendarAdmin)) {
     await (await import("./interactive-world.server")).syncCalendar(calendarAdmin, userId, new Date());
   }
   const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
@@ -409,7 +418,10 @@ async function runTurnUnlocked(
   worldKnowledge.push(...townPopulationContext(def.key,now));
   const { scheduledPopulationContext } = await import("./npc-schedules");
   worldKnowledge.push(...scheduledPopulationContext(def.key,now));
-  const schedule = shared ?? storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
+  const baseSchedule = shared ?? storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
+  const sceneContext=await resolvePhotoScene(photoAdmin??supabase,userId,conv.id,baseSchedule,now,!!photoAdmin&&initiation?.developerPhoto!=="preview");
+  const schedule=sceneContext.schedule;
+  worldKnowledge.unshift(`CURRENT PHYSICAL CONTEXT (${sceneContext.source}): ${schedule.detail}. This takes priority over older storylines, old photographs and the original calendar venue. Do not invent travel to make a photograph fit an old topic.`);
   const realTime = !!conv.real_time_mode;
   // Never charge for an image or mutate relationship state before the sleep boundary.
   if (schedule.availability === "asleep" && (realTime || initiation)) {
@@ -456,7 +468,7 @@ async function runTurnUnlocked(
     character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
     ownSinceLastPhoto, gapHours: initiation?.gapHours ?? 0,
-    context: initiation?.reason || lifeEvent?.summary || schedule.detail,
+    context: initiation?.reason || photoContextForSchedule(schedule,lifeEvent?.summary),
     preview: !!initiation?.developerPhoto, activeConversation: !initiation, developerOverride: !!initiation?.developerPhoto, userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",
   });
   if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
@@ -464,17 +476,20 @@ async function runTurnUnlocked(
       : cooldown ? pacing.reason
       : "No photo type is currently allowed by her photo boundaries and relationship eligibility.";
   }
+  const photoPreflight=photoSceneCheck(photography,initiation?.reason??recent.find(m=>m.sender==='user')?.body??'',sceneContext.source);
+  if(initiation?.developerPhoto&&!photoPreflight.allowed){opportunity.eligible=false;opportunity.selected=false;opportunity.reason=`Requested photo location ${photoPreflight.inferredRequestedScene} conflicts with current ${photoPreflight.canonicalLocation}; rule ${photoPreflight.failedRule}`;}
+  if(initiation?.developerPhoto==='deliver'&&initiation.expectedSceneVersion&&initiation.expectedSceneVersion!==sceneContext.version)return {count:0,lastVisibleAt:null,reason:'Current scene changed since preview. Preview again before generating.',photoValidation:{...photoPreflight,failedRule:'photo.preview_scene_version_matches',stage:'before_generation'},previewSceneVersion:sceneContext.version};
   if (initiation?.developerPhoto) photos = []; // Controlled tests exercise generation, never a stock-image stand-in.
   if (initiation?.developerPhoto === "preview") {
     const { currentCanonical } = await import("./profile-media.server");
     const reference = await currentCanonical(photoAdmin ?? supabase, userId, def.key).then(r => ({ asset:r.asset,sha256:r.sha256,width:r.width,height:r.height,status:"structurally_usable" })).catch(() => null);
     const migration = photoAdmin ? await photoAdmin.rpc("deliver_photo_turn", { p_job_id: null as unknown as string }) : null;
-    return { count: 0, lastVisibleAt: null, opportunity, schedule, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, photography: photographyDiagnostics(photography,null), pacing, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
+    return { count: 0, lastVisibleAt: null, opportunity, schedule, photoValidation:{...photoPreflight,stage:"requested_context",generatedSceneChecked:false,identityChecked:false},previewSceneVersion:sceneContext.version, generatedTypes: generateTypes, imageBudget, canonicalReference: reference, photography: photographyDiagnostics(photography,null), pacing, visualScreenConfigured: !!process.env["OPENAI_API_KEY"], referenceConditioningConfigured: !!process.env["OPENAI_API_KEY"],
       providerConfigured: !!(process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"]),
       textProviderConfigured: !!process.env["OPENAI_API_KEY"], deliveryConfigured: !!photoAdmin,
       deliveryMigrationReady: !!migration && !migration.error };
   }
-  if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason };
+  if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason, photoValidation:{...photoPreflight,stage:"requested_context"} };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
   const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : [])].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
@@ -557,12 +572,14 @@ async function runTurnUnlocked(
   let photo: string | null = null;
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   let generationFailure: string | null = null;
+  let imageRequested = false;
   const p = reply.photo;
   if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
     photo = p.asset_id;
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
     {
       try {
+        if (!photoSceneCheck(photography,p.scene,sceneContext.source).allowed) throw new Error('photo scene contradicts current location');
         const rawStyle: PhotoStyle = {
           pose_type: p.pose_type,
           camera_angle: p.camera_angle,
@@ -584,9 +601,9 @@ async function runTurnUnlocked(
         if (matchingScene || repeatsPhotoComposition(rawStyle, comparableRecentStyles)) {
           throw new Error("repeated photo composition");
         }
-        if (!photoSceneCompatible(photography,p.scene)) throw new Error('photo scene contradicts current location');
         const style = continuityPhotoStyle(photography,rawStyle,p.scene);
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
+        imageRequested = true;
         generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);
         if (worldReady) {
           const { error } = await photoAdmin!.from("media_attempts").update({ status: "generated", storage_path: generated.path }).eq("action_id", photoAction!);
@@ -606,7 +623,7 @@ async function runTurnUnlocked(
           await photoAdmin.from("world_events").insert({ user_id: userId, conversation_id: conv.id,
             character_key: def.key, kind: "photo_generation_failure",
             summary: `Photo withheld: ${generationFailure}`,
-            payload: { reason: generationFailure, photography: photographyDiagnostics(photography, null),
+            payload: { reason: generationFailure, imageRequested, photoValidation:{...photoSceneCheck(photography,p.scene??"",sceneContext.source),stage:"generated_scene"}, photography: photographyDiagnostics(photography, null),
               ...(e instanceof PhotoGenerationFailure ? { ...e.diagnostics } : {}),
               actionId: photoAction, source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation",
               delivery: "not_delivered" } });
@@ -619,7 +636,7 @@ async function runTurnUnlocked(
   if (photoAction && reply.photo && !photo && !generated) {
     const { failPhotoAction } = await import("./photo-delivery.server");
     await failPhotoAction(photoAdmin!, photoAction);
-    return { count: 0, lastVisibleAt: null, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry" };
+    return { count: 0, lastVisibleAt: null, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry", ...(initiation?.developerPhoto?{photoValidation:{...photoSceneCheck(photography,p?.scene??"",sceneContext.source),stage:"generated_scene",imageRequested}}:{}) };
   }
   const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
@@ -1006,7 +1023,7 @@ export const updateSettings = createServerFn({ method: "POST" })
 export const developerPhotoOpportunity = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ conversationId: z.string().uuid(), requestId: z.string().uuid(),
-    mode: z.enum(["preview", "deliver"]), context: z.string().trim().min(1).max(1500) }).parse(d))
+    expectedSceneVersion:z.string().max(1500).optional(), mode: z.enum(["preview", "deliver"]), context: z.string().trim().min(1).max(1500) }).parse(d))
   .handler(async ({ data, context }) => {
     const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
     if (!developerPhotosAllowed(context.userId)) throw new Error("Developer photo actions are disabled");
@@ -1016,7 +1033,7 @@ export const developerPhotoOpportunity = createServerFn({ method: "POST" })
       .eq("conversation_id", conv.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
     const gapHours = last ? (Date.now() - Date.parse(last.created_at)) / 3_600_000 : 999;
     return runTurn(context.supabase, context.userId, conv.id, "America/New_York", {
-      gapHours, reason: data.context, photoKey: `developer:${data.requestId}`, developerPhoto: data.mode,
+      gapHours, expectedSceneVersion:data.expectedSceneVersion, reason: data.context, photoKey: `developer:${data.requestId}`, developerPhoto: data.mode,
     });
   });
 
@@ -1095,7 +1112,9 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         )
       : null;
     const { sharedPlanContext } = await import("./shared-world.server");
-    const schedule = await sharedPlanContext(supabase, userId, def.key, now) ?? currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1);
+    const baseSchedule = await sharedPlanContext(supabase, userId, def.key, now) ?? currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1);
+    const sceneContext=await resolvePhotoScene(supabase,userId,conv.id,baseSchedule,now);
+    const schedule=sceneContext.schedule;
     const gapHours = last ? (Date.now() - new Date(last.created_at).getTime()) / 3_600_000 : 0;
     const list = recentMsgs ?? [];
     const userCount = list.filter((m) => m.sender === "user").length;
@@ -1166,7 +1185,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     }
     return {
       photoIdentity,
-      photography: developerTools ? {profile:photographyProfile(def.key), current:photographyDiagnostics(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule,userText:list.find(m=>m.sender==='user')?.body??'',weather:weather?.condition??null,previous:previousDeliveredPhoto(list,def.key,now)}),null),latest:(list.find(m=>(m.metadata as {photo_identity?:{photography?:unknown}}|null)?.photo_identity?.photography)?.metadata as {photo_identity?:unknown}|undefined)?.photo_identity??null,latestDecision:(list.find(m=>(m.metadata as {photo_decision?:unknown}|null)?.photo_decision)?.metadata as {photo_decision?:unknown}|undefined)?.photo_decision??null,pacingReason:debugPacing.reason,eligibleTypes:genTypes,lastFailure:events?.find(e=>e.kind==='photo_generation_failure')??null} : null,
+      photography: developerTools ? {canonicalScene:{location:photoSceneCheck(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule}),"",sceneContext.source).canonicalLocation,source:sceneContext.source,version:sceneContext.version,observedAt:sceneContext.observation?.observedAt??null},profile:photographyProfile(def.key), current:photographyDiagnostics(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule,userText:list.find(m=>m.sender==='user')?.body??'',weather:weather?.condition??null,previous:previousDeliveredPhoto(list,def.key,now)}),null),latest:(list.find(m=>(m.metadata as {photo_identity?:{photography?:unknown}}|null)?.photo_identity?.photography)?.metadata as {photo_identity?:unknown}|undefined)?.photo_identity??null,latestDecision:(list.find(m=>(m.metadata as {photo_decision?:unknown}|null)?.photo_decision)?.metadata as {photo_decision?:unknown}|undefined)?.photo_decision??null,pacingReason:debugPacing.reason,eligibleTypes:genTypes,lastFailure:events?.find(e=>e.kind==='photo_generation_failure')??null} : null,
       world: { checkpoint, records: records ?? [], events: events ?? [], imageAttemptsThisMonth: attempts?.length ?? 0, imageAttempts: attempts ?? [],
         workerHealth, imageBudget: await imageBudgetStatus(supabase, userId, conv.id, now).catch(() => null), schedulePreview: (await import("./world-runtime.server")).previewWorld(def, now), checkpointPresent: !!checkpoint },
       photoDeveloperTools: developerTools,

@@ -183,6 +183,20 @@ function Experiences() {
                   Messages.
                 </p>
               )}
+              {history.data?.scene?.live_scene && (
+                <section className="rounded-2xl border bg-surface p-4" aria-label="Current scene">
+                  <p className="text-xs text-muted-foreground">Now</p>
+                  <p>
+                    {history.data.scene.live_scene.locationLabel} ·{" "}
+                    {history.data.scene.live_scene.activity.replaceAll("_", " ")}
+                  </p>
+                  {history.data.scene.live_scene.area && (
+                    <p className="text-sm text-muted-foreground">
+                      {history.data.scene.live_scene.area}
+                    </p>
+                  )}
+                </section>
+              )}
               {scene && (
                 <button
                   onClick={() => setActive("")}

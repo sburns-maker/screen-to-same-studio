@@ -275,4 +275,66 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     });
     expect((await sql`SELECT * FROM calendar_action_receipts`).length).toBe(0);
   });
+  it("deduplicates concurrent live-scene updates and keeps the original venue immutable", async () => {
+    await command(sql, "claim");
+    const operation = crypto.randomUUID();
+    await command(sql, "turn", operation, now, { body: "We arrive at your house." });
+    const rows = await sql`SELECT id FROM living_experience_moments WHERE source='user'`;
+    const source = rows[0]!["id"];
+    const scene = {
+      locationKey: "home:maya",
+      locationLabel: "Maya's home",
+      locationKind: "home",
+      area: "outside",
+      activity: "arriving",
+      participants: ["user", "maya"],
+      destinationKey: null,
+    };
+    const apply = () =>
+      sql.unsafe("SELECT experience_scene_apply($1,$2,$3,0,$4::jsonb,$5) result", [
+        user,
+        plan,
+        source,
+        sql.json(scene),
+        "We arrive at your house.",
+      ]);
+    const results = await Promise.all([apply(), apply()]);
+    expect(results.map((r) => r[0]!["result"].revision)).toEqual([1, 1]);
+    expect((await sql`SELECT count(*)::int n FROM experience_scene_transitions`)[0]!["n"]).toBe(1);
+    expect((await sql`SELECT place_key FROM social_plans`)[0]!["place_key"]).toBe("coffee:local");
+    await sql.begin(async (tx) => {
+      await tx.unsafe(
+        `SET LOCAL ROLE authenticated;SET LOCAL "request.jwt.claim.sub"='10000000-0000-4000-a000-000000000002';`,
+      );
+      expect((await tx`SELECT * FROM experience_scene_transitions`).length).toBe(0);
+    });
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE authenticated");
+        await tx.unsafe("SELECT experience_scene_status()");
+      }),
+    ).rejects.toThrow("permission denied");
+  });
+  it("requires actual owned character-message evidence for the transient photo-scene projection", async () => {
+    const source = crypto.randomUUID();
+    await sql.unsafe(
+      "INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess',$5,$4,$4)",
+      [source, user, conv, now, "I'm home now."],
+    );
+    await sql.unsafe("SELECT character_scene_apply($1,$2,$3,'home','relaxing at home',$4)", [
+      user,
+      conv,
+      source,
+      now,
+    ]);
+    expect((await sql`SELECT location FROM character_scene_state`)[0]!["location"]).toBe("home");
+    await expect(
+      sql.unsafe("SELECT character_scene_apply($1,$2,$3,'home','relaxing at home',$4)", [
+        "10000000-0000-4000-a000-000000000002",
+        conv,
+        source,
+        now,
+      ]),
+    ).rejects.toThrow("Actual current owned");
+  });
 });
