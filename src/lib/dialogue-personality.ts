@@ -1,8 +1,10 @@
 import type { CharacterKey } from "./characters";
-export type DialogueProfile = { rhythm: string; humor: string; openness: string };
+export type DialogueProfile = { rhythm: string; humor: string; openness: string; texting: string };
 /** Delivery tendencies, not new facts, scripted replies or relationship permissions. */
 export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
   tess: {
+    texting:
+      "Casual contractions and plain words; a short yeah, nope or honestly can fit. Usually conventional spelling, occasionally a fragment. Her restraint is not formal, polished prose or a punchline requirement.",
     rhythm:
       "Economical, specific and composed. A direct answer or an unadorned observation often stands alone; sometimes a few short texts, occasionally a fuller story.",
     humor:
@@ -11,6 +13,8 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
       "Guarded about new vulnerability, not incapable of kindness. She can receive care, admit tiredness, thank someone, or be quietly affectionate when their history supports it. Sincerity need not be immediately disguised as a joke.",
   },
   maya: {
+    texting:
+      "Easy conversational contractions, sometimes gonna, kinda, yeah or a brief lol when it genuinely fits. Can trail off or send a quick correction. Do not append laughter, emojis, legal metaphors or flirtation to every reply.",
     rhythm:
       "Responsive and conversational, sometimes a quick burst, sometimes one plain answer or a longer story. Expressiveness can be curiosity, disappointment or tiredness, not constant cheer.",
     humor:
@@ -19,6 +23,8 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
       "Warm and socially comfortable, sometimes uncertain or vulnerable. She can say plainly what she enjoyed or wants, without making every friendly exchange flirtatious.",
   },
   claire: {
+    texting:
+      "Natural contractions and ordinary everyday words, generally readable complete sentences with the occasional fragment. She texts like a person, not a librarian grading grammar or a counselor composing a response.",
     rhythm:
       "Considered, clear and personal. Usually concise complete sentences; she picks a detail she cares about instead of summarizing or analyzing everything the other person said.",
     humor:
@@ -27,6 +33,8 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
       "Comfortable with a sincere response and her own opinion. She can express concern without a therapy monologue. Her normal warmth remains compatible with a fully platonic relationship.",
   },
   jordan: {
+    texting:
+      "Brief, informal language; yep, nah or an unadorned thanks can fit. Lowercase is optional, never a requirement. A plain answer is not hostility; she does not need to challenge or withhold something.",
     rhythm:
       "Spare and candid, comfortable with pauses. Sometimes one word, sometimes an unexpectedly involved thought about something that interests her; brevity need not sound hostile.",
     humor:
@@ -35,6 +43,8 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
       "Private and independent with real boundaries, but capable of a straightforward thanks, agreement, honest answer or sincere admission. Accepting kindness does not imply romance or surrendering a boundary.",
   },
   ben: {
+    texting:
+      "Relaxed everyday phrasing, contractions and occasional lol when amused. Fragments and lowercase can fit. Do not force bro, dude, sports slang or a joke into every response.",
     rhythm:
       "Informal, practical and unpolished; lowercase and an occasional lol fit, but so do a logistical answer, an ordinary complaint or a longer account of something he actually knows.",
     humor:
@@ -43,6 +53,8 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
       "Ordinary, entirely platonic friendship. He can care, disagree, get distracted or ask for help without becoming a relationship coach or turning everything into a joke.",
   },
   riley: {
+    texting:
+      "Loose conversational phrasing, contractions, occasional wait or oh when reacting, and fragments when distracted. Can ramble when engaged; do not perform sleepiness or quirky slang regardless of context.",
     rhythm:
       "Conversational and observant, sometimes a sleepy fragment, sometimes an absorbed ramble. Let actual availability determine tiredness; the night shift is not her only topic.",
     humor:
@@ -57,18 +69,21 @@ Let length and energy follow the actual topic, mood, availability and relationsh
 A sincere statement can receive a sincere response. Do not automatically undercut it with sarcasm, a challenge or an emotional test. A plain thanks or acknowledgment is allowed when earned; avoid generic repeated reassurance speeches. Do not invent attraction, consent, a disclosure, an event or a problem to sound more human.
 Use established memories when relevant, not as a checklist of signature jokes. Routine facts can be repeated when clarification matters. Courtroom, legal, bureaucracy and mock-official language are not the universal language of humor: leave a comic routine behind when it has run its course. Actual legal or work topics remain valid.
 These are tendencies, never a new biography or instructions to alter a person's boundaries, canonical scene, shared history or relationship state. Captions follow the same voice and describe the actual photo; never print them into the image.`;
+export const NATURAL_TEXTING_RULES = `TEXTING LANGUAGE:
+Prefer contractions, everyday word order and concrete words over formal transitions or polished mini-essays. Slang, lowercase, fragments and an omitted final period are allowed when they suit this person and moment, not compulsory. Keep meaning clear and apostrophes readable; do not manufacture typos, fake dialect, exaggerated youth slang or random abbreviations to simulate humanity. Do not mirror all of the user's misspellings or give everyone the same lol, haha or pet name.
+Punctuation should carry meaning: preserve questions, quoted words, names, links, dates and clock times. Avoid habitual em dashes, semicolons, theatrical ellipses and quotation marks around ordinary words. A real pause, trailing thought or surprised question is fine; do not add one to every message. Never split one short thought into several bubbles just to sound conversational. The bubble limit is a ceiling, not a target.`;
 export function dialogueRules(key: string, channel: "text" | "experience" | "voice" = "text") {
   const profile = DIALOGUE_PROFILES[key as CharacterKey];
   const rules =
     channel === "voice"
       ? "CONVERSATIONAL REALISM: Humor is optional. Answer ordinary questions plainly, allow sincerity and silence, and do not turn every exchange into a teasing contest, a test or a final question. Preserve existing canon, consent and relationship boundaries."
       : NATURAL_DIALOGUE_RULES;
-  return `${rules}\nPERSONAL DELIVERY (${key}, ${channel}):\n${profile ? `${profile.rhythm}\n${profile.humor}\n${profile.openness}` : "Use this person's established personality and speech habits; do not borrow another character's signature delivery."}\n${channel === "experience" ? "In person, use the existing experience format; preserve actual actions and dialogue without treating them as SMS." : channel === "voice" ? "Use spoken turns and natural pauses; no text-bubble rhythm, emoji or stage directions." : "Use natural texting; the bubble limit is a ceiling, not a target."}`;
+  return `${rules}\nPERSONAL DELIVERY (${key}, ${channel}):\n${profile ? `${profile.rhythm}\n${profile.humor}\n${profile.openness}${channel === "text" ? `\n${profile.texting}` : ""}` : "Use this person's established personality and speech habits; do not borrow another character's signature delivery."}\n${channel === "text" ? NATURAL_TEXTING_RULES : channel === "experience" ? "In person, use the existing experience format; preserve actual actions and dialogue without treating them as SMS." : "Use spoken turns and natural pauses; no text-bubble rhythm, emoji or stage directions."}`;
 }
 const ROUTINES = [
   {
     label: "courtroom/legal comic routine",
-    re: /\b(?:objection|your hono[u]?r|exhibit [a-z]|plead (?:the fifth|guilty)|court is|overruled|sustained|jury['’]?s out|cross.examin\w*|on trial|for the record)\b/i,
+    re: /\b(?:objection|your hono[u]?r|exhibit [a-z]|plead (?:the fifth|guilty)|court is|overruled|sustained|jury['’]?s out|cross.examin\w*|on trial|for the record|guilty as charged|case (?:closed|dismissed)|(?:the |my )?verdict|(?:the |your )?alibi|admissible|(?:key |star )?witness|testimony|in my defen[sc]e|(?:the )?(?:prosecution|defen[sc]e) rests|present (?:the |my )?evidence)\b/i,
   },
   {
     label: "mock bureaucracy/official notices",
@@ -107,6 +122,9 @@ export function dialogueContext(lines: readonly string[], latestUser: string) {
     );
   if (
     /\b(?:stop (?:the )?joking|be serious|no more jokes|don['’]t joke|without (?:a joke|the jokes|sarcasm)|enough (?:with|of) (?:the )?(?:jokes|banter))\b/i.test(
+      latestUser,
+    ) ||
+    /\b(?:stop|enough|quit|drop|no more|retire)\b.{0,45}\b(?:court(?:room)?|legal|jokes?|banter|bit)\b/i.test(
       latestUser,
     )
   )

@@ -1,6 +1,6 @@
 # Distinct character dialogue
 
-Based on GitHub/Lovable main `7b8ca2f`, on `fix/distinct-character-dialogue`. No production data, models, voices, migrations, deployment or paid generations were changed/executed during development.
+Current branch: `fix/natural-character-language`, based on main `c478606`. Reuses the earlier `2f9065a` dialogue work, which was not merged into main, then adds the language and punctuation repairs below. No production data, models, voices, migrations, deployment or paid generations were changed/executed during development.
 
 ## Why the voices converged
 
@@ -44,8 +44,25 @@ The criteria are varied, context-appropriate conversation over several turns, no
 
 ## Deployment and cost
 
-This branch requires **no new migration or secret**. The separate 0035–0038 migration-ledger permission blocker is not bypassed or modified here. Its resolution and installation of 0039–0041 remain an independent database-owner/Lovable support task.
+This branch requires **no new migration or secret**. The previously resolved database migration/permission repairs are unchanged. No SQL, schema, ledger or deployment configuration changes are included here.
 
 There is a modest added prompt-token cost for static voice guidance and occasional pattern labels, but no additional model calls, new provider, voice purchase, polling or model retries. Existing spending safeguards and model choices remain unchanged. Prompts guide behavior; they do not guarantee a particular emotional response or perfect resistance to repetitive language.
 
 Recorded validation: full suite **816 passed, 12 opt-in PostgreSQL tests skipped**; focused dialogue/channel/voice tests **45 passed**. TypeScript, production build, focused lint and whitespace checks passed. The final focused checks also cover a repeated factual jury-duty topic (not a comic routine), and outstanding plan details taking priority over conversation closure. Existing unrelated repository-wide lint debt is not reported as passing. No database code changed; external PostgreSQL transaction tests were not rerun for this dialogue-only change.
+
+
+## Casual texting, punctuation and recurring legal jokes
+
+The text channel now includes an explicit register for each character: ordinary contractions, everyday syntax, optional fragments/lowercase and occasional slang that fits their personality. It does not manufacture typos, apply a shared youth dialect, mirror every misspelling, add mandatory lol/haha, or turn all characters into formal prose. Maya may use casual conversational shorthand; Claire remains readable and thoughtful; Tess stays economical; Jordan can be brief without automatic hostility; Ben is informal; Riley can be looser without constantly performing tiredness. Text-format instructions are kept out of in-person and live-audio channels.
+
+Courtroom detection now recognizes varied forms of the same routine (guilty as charged, case closed/dismissed, verdict, alibi, witness, admissible, testimony, in my defense and the prosecution rests), rather than only objection/your honor/exhibit A. Two recent own-character lines trigger bounded high-priority guidance to leave the routine behind. An explicit request to stop courtroom jokes also works without needing two detections. This still allows factual legal questions and a genuinely relevant occasional joke. Derived feedback contains only fixed labels/instructions, never raw message text or another character's private conversation. The stored conversation and memories remain unchanged.
+
+Shared guidance also reaches travel invitations/captions, in-person travel scenes and NPC encounters/message follow-ups, using the existing personality and canon fallback. It adds no independent dialogue model, model retry, canned replacement response or extra inference request. Existing user agency, consent, scene, calendar, contact and cost protections remain in place.
+
+The output filter no longer reconstructs every message with a punctuation-splitting regex. Ordinary messages pass through without losing leading ellipses, quotes, apostrophes, decimal prices, clock times or URLs. Where Tess's existing self-description/presenter filter needs sentence boundaries it uses the runtime's English sentence segmenter. Reducing an exclamation near a question mark no longer leaves `?.` or `.?`; removing an unsupported emoji consumes its full skin-tone/ZWJ sequence. Same-turn deduplication now removes only exact repeats: similar lines with different negation, names or times must not be deleted. No automatic grammatical rewriting changes the meaning of an agreement or boundary.
+
+Regression coverage includes all six registers, broader courtroom wording and explicit stop requests, derived-guidance isolation, single-joke/factual-topic exceptions, colloquial generated text retained, metadata/state/action preservation, no extra model calls, NPC conversation continuity, travel agreement/agency, meaningful near-matches and punctuation/emoji edge cases. Mocked provider tests prove the integration contract, not live creative quality. Live model behavior still needs manual review across several ordinary exchanges.
+
+After review/merge, sync and build/publish the code normally; no migration or secret is required. Try Maya's existing thread with a plain question about her evening, a sincere statement and a practical plan detail. She should not keep returning to a legal bit or attach a punchline/question to every answer. Compare the same ordinary topic with Tess, Claire, Jordan, Ben and Riley without starting over or deleting their histories. A legal topic or a single situational joke remains valid; assess whether a repeated routine naturally stops and their language/energy remains distinct.
+
+Current validation: **859 application tests passed**, with 48 opt-in PostgreSQL tests skipped for this dialogue-only change. TypeScript, production build, focused ESLint and `git diff --check` passed. All paid text/voice providers in these tests were mocked; no live tone, audio or Android acceptance claim is made. Existing state, scheduling, scene, memory, photo and media regression suites remain green. No database migration or production deployment was performed.

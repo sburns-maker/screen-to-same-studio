@@ -5,7 +5,7 @@
 
 const ALLOWED_EMOJI = new Set(["😂", "😭", "🙄", "🤦‍♀️", "😬", "🙂", "👀"]);
 const EMOJI_RE =
-  /(\p{Extended_Pictographic}(?:\u200d\p{Extended_Pictographic}|\uFE0F|\u200d[\u2640\u2642]\uFE0F?)*)/gu;
+  /\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?(?:\u200d\p{Extended_Pictographic}(?:\uFE0F|\p{Emoji_Modifier})?)*/gu;
 
 /** Sentences where Tess narrates her own personality instead of showing it. */
 const SELF_DESCRIPTION = [
@@ -28,11 +28,13 @@ const PRESENTER = [
   /\bstay tuned\b/i,
 ];
 
-const splitSentences = (s: string) => s.match(/[^.!?]+[.!?]*\s*/g) ?? [s];
+const sentences = new Intl.Segmenter("en", { granularity: "sentence" });
+const splitSentences = (s: string) => Array.from(sentences.segment(s), (part) => part.segment);
 
 function stripSentences(text: string, contact = false): string {
   // Sincerity is not filler. Other contacts do not inherit Tess's presenter/personality bans.
   const bans = contact ? [] : [...SELF_DESCRIPTION, ...PRESENTER];
+  if (!bans.some((r) => r.test(text))) return text.trim();
   return splitSentences(text)
     .filter((sent) => !bans.some((r) => r.test(sent)))
     .join("")
@@ -96,7 +98,11 @@ export function enforceTessVoice(bubbles: string[], opts: VoiceOptions = {}): st
       return e;
     });
     // Exclamation marks: at most one per turn; collapse "!!" and turn the rest into periods.
-    t = t.replace(/!+/g, () => (exclaimUsed++ < maxExclaim ? "!" : "."));
+    t = t.replace(/!+/g, (marks, offset: number, source: string) => {
+      if (exclaimUsed++ < maxExclaim) return "!";
+      // Removing emphasis must not turn a question into malformed "?." or ".?".
+      return source[offset - 1] === "?" || source[offset + marks.length] === "?" ? "" : ".";
+    });
     t = t
       .replace(/\s{2,}/g, " ")
       .replace(/\s+([.,?!])/g, "$1")
@@ -104,8 +110,8 @@ export function enforceTessVoice(bubbles: string[], opts: VoiceOptions = {}): st
     if (!t || /^[.\s]+$/.test(t)) continue;
     // Deduplicate this output only. Historical overlap can be a requested fact,
     // boundary or plan confirmation; pattern guidance handles stale jokes instead.
-    if (out.some((prev) => prev.toLowerCase() === t.toLowerCase() || similarity(prev, t) >= 0.6))
-      continue;
+    // Near-matches may differ in a crucial negation, name, amount or meeting time.
+    if (out.includes(t)) continue;
     out.push(t);
     if (out.length >= maxBubbles) break;
   }
@@ -118,7 +124,7 @@ export function cleanTessHistoryLine(body: string): string {
   return cleaned ?? "…";
 }
 
-/** Clean a non-Tess contact's past line (chatbot filler only; their own emoji style kept). */
+/** Format a non-Tess history line without deleting sincerity or applying Tess's phrase bans. */
 export function cleanContactHistoryLine(body: string, name: string): string {
   const v = CONTACT_VOICE[name.toLowerCase()] ?? { allowedEmoji: null };
   return enforceTessVoice([body], { ...v, maxBubbles: 1, maxEmoji: 3, maxExclaim: 3 })[0] ?? "…";

@@ -53,3 +53,30 @@ describe("contact voice", () => {
     expect(enforceTessVoice(["Fine!"], { ...CONTACT_VOICE["jordan"] })).toEqual(["Fine."]);
   });
 });
+
+describe("punctuation and meaning survive voice cleanup", () => {
+  it.each([
+    "...yeah, I'm home. Groceries are away.",
+    'She said "meet me at 7:30." That still works.',
+    "Dr. Halloran said it's $3.50. https://example.com/menu?day=friday",
+    "nah, just tired lol",
+    "I'm not ready. Please don't.",
+  ])("preserves ordinary texting, quotes and factual values: %s", (text) => {
+    expect(enforceTessVoice([text])).toEqual([text]);
+  });
+  it("does not leave broken question/period pairs when reducing exclamations", () => {
+    expect(enforceTessVoice(["Really?!"], { ...CONTACT_VOICE["jordan"] })).toEqual(["Really?"]);
+    expect(enforceTessVoice(["Wait!!?"], { ...CONTACT_VOICE["jordan"] })).toEqual(["Wait?"]);
+  });
+  it("removes a whole unsupported emoji without leaving skin-tone or joiner fragments", () => {
+    expect(enforceTessVoice(["Thanks 👍🏽"])).toEqual(["Thanks"]);
+    expect(enforceTessVoice(["At work 👩🏽‍⚕️"])).toEqual(["At work"]);
+  });
+  it("preserves different meanings even when two short bubbles share most words", () => {
+    expect(
+      enforceTessVoice(["I can meet you at seven.", "I can't meet you at seven."]),
+    ).toHaveLength(2);
+    expect(enforceTessVoice(["Meet me at 7:30.", "Meet me at 8:30."])).toHaveLength(2);
+    expect(enforceTessVoice(["Meet me at 7:30.", "Meet me at 7:30."])).toHaveLength(1);
+  });
+});

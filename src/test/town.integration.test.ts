@@ -95,6 +95,26 @@ describe("persistent exploration and contact exchange", () => {
     expect(vi.mocked(runStructured).mock.calls[1]![2]).toContain("touring bike");
     expect(await count("tess_state")).toBe(0);
   });
+  it("gives NPCs their own canon and retires repeated courtroom phrasing without rewriting their history", async () => {
+    await arrive();
+    vi.mocked(runStructured).mockResolvedValueOnce({
+      reply: "Guilty as charged.",
+      willingToExchangeContact: false,
+    });
+    await encounterTurn(admin, user, id(), "rowan-ellis", "Hello", "scene", now);
+    vi.mocked(runStructured).mockResolvedValueOnce({
+      reply: "Case closed.",
+      willingToExchangeContact: false,
+    });
+    await encounterTurn(admin, user, id(), "rowan-ellis", "How was your day?", "scene", now);
+    await encounterTurn(admin, user, id(), "rowan-ellis", "Tell me about your bike", "scene", now);
+    const [, system, input] = vi.mocked(runStructured).mock.calls[2]!;
+    expect(system).toContain("Retire that comic routine for now");
+    expect(system).toContain("Use this person's established personality");
+    expect(system).not.toContain("Tess's composed");
+    expect(input).toContain("Guilty as charged.");
+    expect(vi.mocked(runStructured)).toHaveBeenCalledTimes(3);
+  });
   it("does not grant contact if the NPC declines", async () => {
     await arrive();
     vi.mocked(runStructured).mockResolvedValue({
