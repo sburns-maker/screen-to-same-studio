@@ -70,3 +70,23 @@ describe("photo decision details", () => {
     });
   });
 });
+
+it.each([
+  [true, "Photo sent"],
+  [false, "Text sent without a photo"],
+] as const)("shows what was actually delivered (photo=%s)", (photoSent, label) => {
+  const result = photoDecisionDetails({
+    kind: "photo_decision",
+    summary: "ordinary moment",
+    payload: {
+      eligible: true,
+      selected: true,
+      trigger: "at home",
+      outcome: "message_sent",
+      photoSent,
+      generationRequested: photoSent,
+    },
+  });
+  expect(result.statusLabel).toBe(label);
+  expect(result.generationRequested).toBe(photoSent ? "yes" : "no");
+});

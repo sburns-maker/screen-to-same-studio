@@ -180,6 +180,7 @@ export function physicalStoryAllowed(
 /** Photo moments must match where the character actually is. */
 export function physicalPhotoContext(text: string): string {
   return text
+    .replace(/;\s*ongoing situation:[\s\S]*$/i, "")
     .replace(
       /\b(?:even though|although|despite)\b[^.!?]*\b(?:storyline|workplace|staffing problem)\b[^.!?]*/gi,
       "",
@@ -202,18 +203,10 @@ export function photoContextConflicts(schedule: TessActivity, context: string): 
   );
 }
 
-/** An old active workplace storyline must not become the visual context for time off. */
+/** Actual activity supplies photo context. A storyline or calendar event is never required. */
 export function photoContextForSchedule(
   schedule: TessActivity,
-  storySummary: string | null | undefined,
+  _storySummary?: string | null,
 ): string {
-  if (
-    /\b(?:current live scene|last confirmed scene|current confirmed physical scene)\b/i.test(
-      schedule.detail,
-    )
-  )
-    return physicalPhotoContext(schedule.detail);
-  return physicalPhotoContext(
-    storySummary && !photoContextConflicts(schedule, storySummary) ? storySummary : schedule.detail,
-  );
+  return physicalPhotoContext(schedule.detail.trim() || schedule.activity);
 }

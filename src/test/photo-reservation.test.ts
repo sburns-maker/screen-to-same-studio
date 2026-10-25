@@ -179,6 +179,17 @@ describe("photo response reservation recovery", () => {
     expect(f.job.status).toBe("failed");
     expect(f.rpc).not.toHaveBeenCalled();
   });
+  it.each([false, true])(
+    "reports actual attachment delivery independently from a text response (photo=%s)",
+    async (photo) => {
+      const f = fixture();
+      const result = await preparePhotoDelivery(f.admin, "action", "u", "c", {
+        rows: [{ id: "message", metadata: photo ? { generated_path: "private/asset.png" } : {} }],
+        generated: photo ? { id: "generated" } : null,
+      });
+      expect(result).toMatchObject({ count: 1, photoSent: photo, imageRequested: photo });
+    },
+  );
   it("failure cleanup cannot overwrite an already prepared response", async () => {
     const f = fixture("prepared");
     await failPhotoAction(f.admin, "action");

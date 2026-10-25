@@ -20,7 +20,7 @@ describe("photo test feedback", () => {
     );
     expect(photoTestStatus(ready, false).canDeliver).toBe(true);
   });
-  it("explains the exact screenshot's busy blocker even when categories were suppressed", () => {
+  it("explains an incompatible task before a generic category failure", () => {
     const opportunity = photoOpportunity({
       character: "tess",
       conversationId: "thread",
@@ -28,7 +28,7 @@ describe("photo test feedback", () => {
       schedule: {
         activity: "at work (chaotic day)",
         availability: "busy",
-        detail: "chaotic day at the clinic",
+        detail: "emergency intake at the clinic",
       },
       state: SEED_STATE,
       frequency: "normal",
@@ -41,7 +41,7 @@ describe("photo test feedback", () => {
     });
     const status = photoTestStatus({ opportunity }, false);
     expect(status.canDeliver).toBe(false);
-    expect(status.message).toContain("chaotic day at the clinic");
+    expect(status.message).toContain("current activity is incompatible with a photo");
     expect(status.message).not.toContain("relationship or boundary");
   });
   it("provides visible feedback for queued, replayed, declined and failed requests", () => {

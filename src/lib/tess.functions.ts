@@ -1,3 +1,4 @@
+import { photoActivityBlock } from "./photo-activity";
 import {photoContextForSchedule} from "./calendar-commitment";
 import {resolvePhotoScene} from "./photo-scene.server";
 import {photoSceneCheck} from "./photo-scene";
@@ -288,7 +289,7 @@ async function runTurnUnlocked(
   userId: string,
   conversationId: string,
   tz: string,
-  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver"; expectedSceneVersion?: string | undefined },
+  initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver"; spontaneousPhoto?: true; expectedSceneVersion?: string | undefined },
   voice?: {callId:string;turnId:string;sourceId:string|null},
 ) {
   const { generateTessReply, generateContactReply } = await import("./tess.server");
@@ -358,7 +359,7 @@ async function runTurnUnlocked(
   const actionKey = `${userId}:${conv.id}:${actionAnchor}`;
   if (photoAdmin && initiation?.developerPhoto !== "preview") {
     const { existingPhotoAction } = await import("./photo-delivery.server");
-    if (await existingPhotoAction(photoAdmin, actionKey)) return { count: 0, lastVisibleAt: null, replayed: true };
+    if (await existingPhotoAction(photoAdmin, actionKey)) return { count: 0, lastVisibleAt: null, replayed: true, reason: "This opportunity was already processed; no image was regenerated." };
   }
   const recentStyles = (recentGen ?? []) as PhotoStyle[];
 
@@ -434,7 +435,7 @@ async function runTurnUnlocked(
   }
   if (initiation && !initiation.developerPhoto) {
     if (conv.muted) return { count: 0, lastVisibleAt: null, reason: "background initiation disabled for this conversation" };
-    if (schedule.availability === "busy") return { count: 0, lastVisibleAt: null, reason: "busy" };
+    if (schedule.availability === "busy" && (!initiation.spontaneousPhoto || photoActivityBlock(schedule))) return { count: 0, lastVisibleAt: null, reason: photoActivityBlock(schedule) ?? "busy" };
     const { data: quiet, error } = await supabase.from("user_profile").select("value").eq("user_id", userId).eq("key", "quiet_hours").maybeSingle();
     if (error) throw new Error("Quiet-hour preferences unavailable");
     const { parseQuietHours, inQuietHours } = await import("./world.server");
@@ -456,8 +457,7 @@ async function runTurnUnlocked(
   // Report pacing for diagnostics only. A grounded spontaneous moment does not
   // wait for an arbitrary message-count or minute-based cooldown.
   const cooldown = false;
-  const photoCompatible = schedule.availability !== "asleep" && schedule.availability !== "busy"
-    && !/\b(?:driv(?:e|es|ing)|surgery|emergency|patients?|phone (?:down|away))\b/i.test(schedule.detail);
+  const photoCompatible = !photoActivityBlock(schedule);
   let generateTypes = cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
   const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
   let photos = isTess && !cooldown && photoCompatible
@@ -473,9 +473,11 @@ async function runTurnUnlocked(
     character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
     ownSinceLastPhoto, gapHours: initiation?.gapHours ?? 0,
-    context: initiation?.reason || photoContextForSchedule(schedule,lifeEvent?.summary),
+    context: initiation?.spontaneousPhoto ? photoContextForSchedule(schedule) : initiation?.reason || photoContextForSchedule(schedule),
     preview: !!initiation?.developerPhoto, activeConversation: !initiation, developerOverride: !!initiation?.developerPhoto, userText:initiation?"":recent.find(m=>m.sender==="user")?.body??"",
   });
+  // The worker already selected this moment. Revalidate eligibility here, not a second lottery.
+  if (initiation?.spontaneousPhoto && opportunity.eligible) opportunity.selected = true;
   if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
     opportunity.reason = imageBudget && !imageBudget.allowed ? "Image daily/monthly attempt limit reached. No image will be generated." : !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
       : cooldown ? pacing.reason
@@ -520,6 +522,8 @@ async function runTurnUnlocked(
     });
     if (!def.photosEnabled || (reply.photo && reply.photo.action !== "generate")) reply.photo = null;
   }
+  if (initiation?.spontaneousPhoto && !reply.photo && !reply.messages.some((line)=>line.trim()))
+    return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested:false, reason: "Character chose not to send a photo or message for this moment." };
   if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character declined the opportunity" };
 
   if (voice) { reply.photo=null;reply.photo_boundary_decision="unchanged";await (await import("./phone-calls.server")).guardVoiceTurn(supabase,userId,conv.id,voice); }
@@ -641,7 +645,7 @@ async function runTurnUnlocked(
   if (photoAction && reply.photo && !photo && !generated) {
     const { failPhotoAction } = await import("./photo-delivery.server");
     await failPhotoAction(photoAdmin!, photoAction);
-    return { count: 0, lastVisibleAt: null, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry", ...(initiation?.developerPhoto?{photoValidation:{...photoSceneCheck(photography,p?.scene??"",sceneContext.source),stage:"generated_scene",imageRequested}}:{}) };
+    return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry", ...(initiation?.developerPhoto?{photoValidation:{...photoSceneCheck(photography,p?.scene??"",sceneContext.source),stage:"generated_scene",imageRequested}}:{}) };
   }
   const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);

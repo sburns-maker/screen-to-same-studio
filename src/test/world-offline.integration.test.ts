@@ -327,6 +327,32 @@ describe("offline living world through the normal character pipeline (fake paid 
     expect(await count("messages")).toBe(1);
     expect(mocks.image).toHaveBeenCalledTimes(1);
   }, 20_000);
+  it("lets Maya send an ordinary selfie offline without an invitation or special event as the photo trigger",async()=>{
+    const {photoContextForSchedule}=await import("@/lib/calendar-commitment");
+    const at=new Date("2026-10-25T15:00:00Z");
+    vi.setSystemTime(at);
+    await db.query("delete from conversations where id=$1",[cid]);
+    const def=characterFor("maya");
+    const schedule=currentActivity(def,at);
+    for(let n=1;n<100;n++){
+      cid=`20000000-0000-4000-a000-${String(n).padStart(12,"0")}`;
+      if(photoOpportunity({character:"maya",conversationId:cid,now:at,schedule,state,frequency:"normal",eligibleTypes:["casual_selfie"],lastPhotoAt:null,ownSinceLastPhoto:99,gapHours:999,context:photoContextForSchedule(schedule)}).selected)break;
+    }
+    await db.query("insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key='maya'",[cid,user]);
+    await db.query("insert into tess_state(conversation_id,user_id,comfort,trust,curiosity) values($1,$2,65,60,65)",[cid,user]);
+    const reply=await mocks.text();
+    mocks.text.mockResolvedValue({...reply,messages:["Just felt like saying hi."],photo:{...reply.photo,scene:"a casual close front-camera selfie in ordinary clothes against a neutral background, no people or text",setting:"neutral background",expression:"relaxed",clothing_category:"ordinary casual"}}).mockClear();
+    const report=await runWorldTickWithAdmin(mocks.admin!,at);
+    expect(report.errors).toEqual([]);
+    expect(mocks.text).toHaveBeenCalledTimes(1);
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+    const decisions=(await db.query<{payload:{trigger:string,photoSent:boolean,generationRequested:boolean}}>("select payload from world_events where kind='photo_decision' and conversation_id=$1",[cid])).rows;
+    expect(decisions[0]!.payload.trigger).not.toMatch(/Becca|weekend.*together|ongoing situation/i);
+    expect(decisions[0]!.payload).toMatchObject({photoSent:true,generationRequested:true});
+    expect(await count("generated_images")).toBe(1);
+    await runWorldTickWithAdmin(mocks.admin!,at);
+    expect(mocks.image).toHaveBeenCalledTimes(1);
+  },20000);
   it("continues structured world progression when the paid-call budget is zero", async () => {
     vi.stubEnv("AUTONOMOUS_AI_DAILY_LIMIT", "0");
     const report = await runWorldTickWithAdmin(mocks.admin!, now);

@@ -74,7 +74,12 @@ export function photoDecisionDetails(e: {
   return {
     ...scene,
     status,
-    statusLabel: LABELS[status],
+    statusLabel:
+      status === "sent" && p["photoSent"] === true
+        ? "Photo sent"
+        : status === "sent" && p["photoSent"] === false
+          ? "Text sent without a photo"
+          : LABELS[status],
     reason: str(p["outcomeReason"]) ? `${e.summary} → ${p["outcomeReason"]}` : e.summary,
     trigger: str(p["trigger"]),
     generationRequested: gen === true ? "yes" : gen === false ? "no" : "not recorded",

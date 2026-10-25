@@ -1,3 +1,4 @@
+import * as opportunities from "@/lib/photo-opportunities";
 import * as canonical from "@/lib/canonical-profile.server";
 // Paid visual-screen boundary is mocked here; dedicated identity tests exercise its HTTP contract.
 vi.mock("@/lib/photo-identity-qc.server", () => ({ requireVisualScreen: () => {}, screenPhotoVisuals: mocks.visual }));
@@ -199,6 +200,17 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(mocks.reserve).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mutations).toHaveBeenCalledWith("messages", "insert");
+  });
+  it("honors a worker-selected photo opportunity without a second random decision, and records an actual silent choice", async()=>{
+    const original=await mocks.generate();
+    mocks.generate.mockResolvedValue({...original,photo:null,messages:[]}).mockClear();
+    vi.spyOn(opportunities,"photoOpportunity").mockReturnValue({eligible:true,selected:false,key:"moment",reason:"not selected by second draw",hint:"PHOTO OPPORTUNITY: ordinary desk break, no special event required"});
+    const {runTurn}=await import("@/lib/tess.functions");
+    const result=await runTurn(client,uid,cid,"America/New_York",{gapHours:3,photoKey:"moment",spontaneousPhoto:true});
+    expect(mocks.generate.mock.calls[0]![0].photoHint).toContain("PHOTO OPPORTUNITY: ordinary desk break");
+    expect(result).toMatchObject({count:0,reason:"Character chose not to send a photo or message for this moment."});
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.reserve).not.toHaveBeenCalled();
   });
   it("blocks preview on the same in-flight reservation before any model or image call", async () => {
     mocks.inspect.mockResolvedValue({ actionId: action, phase: "generating", recoverable: false });
