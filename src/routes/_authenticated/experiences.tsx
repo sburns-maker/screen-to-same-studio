@@ -1,9 +1,14 @@
+import { invalidateSchedule } from "@/lib/use-schedule";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { experienceAction, experienceMoments, recoverExperienceOperation } from "@/lib/living-experiences.functions";
+import {
+  experienceAction,
+  experienceMoments,
+  recoverExperienceOperation,
+} from "@/lib/living-experiences.functions";
 import { useExperiences } from "@/lib/use-experiences";
 import { characterFor } from "@/lib/characters";
 import { placeByKey } from "@/lib/place-registry";
@@ -11,14 +16,19 @@ import { usePortraits } from "@/lib/use-portrait";
 import { canTransition } from "@/lib/experience-lifecycle";
 import type { ExperienceRow } from "@/lib/living-experiences";
 export const Route = createFileRoute("/_authenticated/experiences")({
-  head: () => ({ meta: [
-    { title: "Living Experiences \u00b7 AI Town" },
-    { name: "description", content: "Your scheduled and recorded fictional outings in AI Town." },
-    { property: "og:title", content: "Living Experiences \u00b7 AI Town" },
-    { property: "og:description", content: "Your scheduled and recorded fictional outings in AI Town." },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-  ] }),
+  head: () => ({
+    meta: [
+      { title: "Living Experiences \u00b7 AI Town" },
+      { name: "description", content: "Your scheduled and recorded fictional outings in AI Town." },
+      { property: "og:title", content: "Living Experiences \u00b7 AI Town" },
+      {
+        property: "og:description",
+        content: "Your scheduled and recorded fictional outings in AI Town.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   validateSearch: (s: Record<string, unknown>) => ({
     plan: typeof s["plan"] === "string" ? s["plan"] : "",
   }),
@@ -71,6 +81,9 @@ function Experiences() {
     refetchInterval: 5000,
     retry: false,
   });
+  useEffect(() => {
+    setActive(selected);
+  }, [selected]);
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }, [history.data?.moments.length]);
@@ -135,7 +148,7 @@ function Experiences() {
       await Promise.all([
         cache.invalidateQueries({ queryKey: ["living-experiences"] }),
         cache.invalidateQueries({ queryKey: ["experience-history"] }),
-        cache.invalidateQueries({ queryKey: ["interactive-world"] }),
+        invalidateSchedule(cache),
         cache.invalidateQueries({ queryKey: ["debug"] }),
       ]);
       setBusy(false);
@@ -178,6 +191,21 @@ function Experiences() {
                   Other outings
                 </button>
               )}
+              {scene?.state === "completed" &&
+                q.data.plans
+                  .filter((p) => p.parent_plan_id === active && p.status === "accepted")
+                  .map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => setActive(p.id)}
+                      className="min-h-11 w-full rounded-2xl border bg-surface p-4 text-left"
+                    >
+                      Continue your outing · {p.title}
+                      <span className="block text-xs text-muted-foreground">
+                        Your earlier experience is saved. Begin the follow-up when ready.
+                      </span>
+                    </button>
+                  ))}
               {q.data.scenes
                 .filter((e) => !scene || e.plan_id === active)
                 .map((e) => {
@@ -211,7 +239,18 @@ function Experiences() {
                             <select
                               aria-label={`Start window for ${p.title}`}
                               value={Math.round(
-                                (Date.parse(e.claim_deadline) - Date.parse(e.start_at)) / 3600000,
+                                (Date.parse(e.claim_deadline) -
+                                  Math.max(
+                                    Date.parse(e.start_at),
+                                    Date.parse(
+                                      q.data.scenes.find(
+                                        (parent) =>
+                                          parent.plan_id === p.parent_plan_id &&
+                                          parent.state === "completed",
+                                      )?.updated_at ?? e.start_at,
+                                    ),
+                                  )) /
+                                  3600000,
                               )}
                               disabled={busy}
                               onChange={(ev) => void act(e, "window", ev.target.value)}
@@ -225,7 +264,7 @@ function Experiences() {
                             </select>
                           </label>
                         )}
-                        {ready(e) && (
+                        {(ready(e) || (e.state === "scheduled" && p.followupReady)) && (
                           <button
                             disabled={busy}
                             onClick={() => void act(e, "claim")}
@@ -324,21 +363,35 @@ function Experiences() {
                       >
                         Retry pending scene
                       </button>
-                      {history.data.pending.status==="failed" && history.data.pending.attempts>=3 && (
-                        <button
-                          disabled={busy}
-                          className="ml-2 min-h-11 rounded-full border px-4"
-                          onClick={async()=>{
-                            setBusy(true);setError("");
-                            try{
-                              await recover({data:{planId:e.plan_id,operationId:history.data!.pending!.id}});
-                              await history.refetch();
-                              setError("Retry allowance restored for this scene. Tap Retry pending scene to continue from your saved progress.");
-                            }catch(err){setError(err instanceof Error?err.message:"Recovery failed");}
-                            finally{setBusy(false);}
-                          }}
-                        >Recover exhausted scene</button>
-                      )}
+                      {history.data.pending.status === "failed" &&
+                        history.data.pending.attempts >= 3 && (
+                          <button
+                            disabled={busy}
+                            className="ml-2 min-h-11 rounded-full border px-4"
+                            onClick={async () => {
+                              setBusy(true);
+                              setError("");
+                              try {
+                                await recover({
+                                  data: {
+                                    planId: scene.plan_id,
+                                    operationId: history.data!.pending!.id,
+                                  },
+                                });
+                                await history.refetch();
+                                setError(
+                                  "Retry allowance restored for this scene. Tap Retry pending scene to continue from your saved progress.",
+                                );
+                              } catch (err) {
+                                setError(err instanceof Error ? err.message : "Recovery failed");
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                          >
+                            Recover exhausted scene
+                          </button>
+                        )}
                     </div>
                   )}
                   {scene.state === "interactive" && !history.data?.pending && (

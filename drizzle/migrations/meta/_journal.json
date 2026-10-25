@@ -253,6 +253,27 @@
       "when": 1792863300000,
       "tag": "0035_remove_experience_daily_cap",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792863300001,
+      "tag": "0036_mutual_calendar_confirmation",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792863300002,
+      "tag": "0037_all_character_calendar_proposers",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792863300003,
+      "tag": "0038_canonical_scheduling",
+      "breakpoints": true
     }
   ]
 }

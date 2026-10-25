@@ -37,7 +37,7 @@ function ArenaCalendar(){
   }catch(e){toast.error(e instanceof Error?e.message:"Couldn't create event");}
   finally{setBusy(false)}
  }
- return <Screen><ScreenHeader title="PPG Paints Arena" subtitle="Pittsburgh · concerts, hockey and more"/>
+ return <Screen><ScreenHeader title="PPG Paints Arena"/>
   <main className="mx-auto max-w-3xl space-y-5 px-4 pb-28 pt-4">
    <p className="text-sm text-muted-foreground">{PPG_ARENA.address}</p>
    <p className="text-sm">Select a show, create its fictional calendar outing and ask a character to go with you. Their answer isn't guaranteed.</p>

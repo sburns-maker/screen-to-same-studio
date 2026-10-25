@@ -58,6 +58,7 @@ export function hasUserSpeech(lines: TranscriptLine[]) {
 }
 
 export type CallContext = {
+  calendar?: string[];
   fullName: string;
   preferredName: string;
   age: number;
@@ -91,6 +92,8 @@ HOW TO TALK: natural spoken English, short turns (one to three sentences), contr
 HONESTY: only reference facts from your personality, memories and recent texts below. Don't invent shared history. You may discuss plans, but don't confirm new specific dates, times or places as settled; say you'll text to lock it in.
 BOUNDARIES: keep it non-explicit. If pressured, respond like a real person (deflect, set a boundary, or end the call).
 Answer everything yourself from what you know; never hand off or wait for a lookup.
+CANONICAL CALENDAR (read-only, no write tool during this live call):
+${(c.calendar??[]).join('\n').slice(0,2500)}
 PERSONALITY:
 ${c.bible.slice(0, 3_500)}
 WHAT YOU REMEMBER ABOUT THEM:

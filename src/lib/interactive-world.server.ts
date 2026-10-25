@@ -1,3 +1,5 @@
+import { scheduleActionSchema } from "./calendar-contract";
+import { zonedInstant } from "./calendar-time";
 import { experiencesAvailable } from "./venue-experiences.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -30,12 +32,13 @@ export function calendarScheduleAllows(
   date: string | null,
   time: string | null,
   place: string | null,
+  options: { durationMinutes?: number; timeZone?: string } = {},
 ) {
-  const start = easternInstant(date, time),
+  const start = zonedInstant(date, time, options.timeZone),
     p = placeByKey(place);
   if (!start || !p) return false;
   const at = new Date(start),
-    end = new Date(at.getTime() + 60 * 60000);
+    end = new Date(at.getTime() + (options.durationMinutes ?? 60) * 60000);
   if (!placeOpen(p, at) || !placeOpen(p, new Date(end.getTime() - 1))) return false;
   const c = characterFor(character),
     s = c.schedule;
@@ -55,6 +58,7 @@ export function calendarScheduleAllows(
     if (
       a.availability === "busy" ||
       a.availability === "asleep" ||
+      (c.key !== "tess" && /at work/i.test(a.detail)) ||
       (c.key === "tess" && ["busy", "asleep"].includes(scheduleFor(now).availability)) ||
       (s.workDays.includes(day) && hour >= s.workStart && hour < s.workEnd)
     )
@@ -106,15 +110,9 @@ export async function registerInteractivePlaces(db: Client, user: string) {
   }
 }
 export async function calendarPlans(db: Client, user: string) {
-  const r = await db
-    .from("social_plans")
-    .select("*")
-    .eq("user_id", user)
-    .eq("origin", "conversation")
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (r.error) throw new Error("Calendar unavailable");
-  return (r.data as unknown as CalendarPlan[]).filter((p) => p.conversation_id !== null);
+  return (await (await import("./calendar-store.server")).readCanonicalPlans(db, user)).filter(
+    (p) => p.origin === "conversation" && p.conversation_id !== null,
+  );
 }
 export async function syncCalendar(db: Client, user: string, now: Date) {
   if (!(await interactiveAvailable(db))) return { processed: 0, updated: 0 };
@@ -130,7 +128,17 @@ export async function syncCalendar(db: Client, user: string, now: Date) {
   if (pending.error) throw new Error("Calendar queue unavailable");
   let updated = 0,
     processed = 0;
-  for (const m of (pending.data as unknown as CalendarEvidence[]) ?? []) {
+  // A user line and its reply may share the same millisecond (notably voice playback).
+  // UUID order is not causal order. Prefer the proposal, then its response.
+  const evidence = [...((pending.data as unknown as CalendarEvidence[]) ?? [])].sort(
+    (a, b) =>
+      a.created_at.localeCompare(b.created_at) ||
+      a.conversation_id.localeCompare(b.conversation_id) ||
+      Number(a.sender !== "user") - Number(b.sender !== "user") ||
+      a.id.localeCompare(b.id),
+  );
+  const previousInBatch = new Map<string, string>();
+  for (const m of evidence) {
     const plans = await calendarPlans(db, user);
     const before = await db
       .from("messages")
@@ -143,21 +151,40 @@ export async function syncCalendar(db: Client, user: string, now: Date) {
       .limit(1)
       .maybeSingle();
     if (before.error) throw new Error("Invitation context unavailable");
-    const patch = recognizePlan(m, plans, before.data?.id ?? null),
+    const draft =
+      m.sender === "user"
+        ? (m.metadata as { calendar_draft?: Record<string, unknown> } | null)?.calendar_draft
+        : null;
+    const validatedDraft = scheduleActionSchema.safeParse(draft);
+    const patch = validatedDraft.success
+        ? validatedDraft.data
+        : recognizePlan(
+            m,
+            plans,
+            previousInBatch.get(m.conversation_id) ?? before.data?.id ?? null,
+          ),
       target = plans.find((p) => p.id === patch.planId);
     const date = patch.date ?? target?.date_local ?? null,
       time = patch.time ?? target?.time_local ?? null,
       place = patch.place ?? target?.place_key ?? null;
+    const contract = await import("./calendar-coordinator.server");
+    const payload = (await contract.calendarContractReady(db))
+      ? await contract.schedulePayload(
+          db,
+          user,
+          m.conversation_id,
+          patch as unknown as Record<string, unknown>,
+          now,
+        )
+      : { ...patch, schedule_ok: calendarScheduleAllows(m.character_key, date, time, place) };
     const r = await db.rpc("calendar_apply", {
       p_user: user,
       p_message: m.id,
-      p_payload: {
-        ...patch,
-        schedule_ok: calendarScheduleAllows(m.character_key, date, time, place),
-      } as unknown as Json,
+      p_payload: payload as unknown as Json,
       p_now: now.toISOString(),
     });
     if (r.error) throw new Error("Calendar sync deferred; source evidence is retained for retry");
+    previousInBatch.set(m.conversation_id, m.id);
     processed++;
     if (patch.action !== "none") updated++;
   }
@@ -277,8 +304,8 @@ export async function calendarContext(
   now: Date,
 ) {
   if (!(await interactiveAvailable(db))) return [] as string[];
-  await syncCalendar(db, user, now);
-  const plans = (await calendarPlans(db, user)).filter(
+  const canonical = await calendarPlans(db, user);
+  const plans = canonical.filter(
     (p) =>
       p.conversation_id === conversation &&
       p.organizer === character &&
@@ -286,11 +313,52 @@ export async function calendarContext(
   );
   const lines = [
     placeKnowledge(),
+    ...canonical
+      .filter(
+        (p) =>
+          p.conversation_id === conversation &&
+          p.organizer === character &&
+          ["completed", "cancelled", "declined", "missed"].includes(p.status),
+      )
+      .slice(0, 6)
+      .map(
+        (p) =>
+          `RESOLVED CANONICAL PLAN ${p.id}: ${p.title}; status ${p.status}; ${p.starts_at ?? "time undecided"}; attendance ${p.user_attendance}. This current record takes precedence over older planning memories. Do not revive a canceled or declined appointment or infer attendance from an elapsed date.`,
+      ),
+    "An accepted or active plan with THIS user is your existing commitment, not a competing booking. Active Living Experiences own their outcomes until explicitly finished. Never use the baseline weekly schedule to deny being at a confirmed outing. Other user commitments below reveal only busy times, not private conversations or participants.",
+    ...canonical
+      .filter(
+        (p) =>
+          p.conversation_id !== conversation &&
+          p.user_response === "accepted" &&
+          p.character_response === "accepted" &&
+          ["accepted", "in_progress"].includes(p.status) &&
+          p.starts_at &&
+          Date.parse(p.ends_at ?? p.starts_at) >= now.getTime(),
+      )
+      .slice(0, 20)
+      .map(
+        (p) =>
+          `USER BUSY (details private): ${p.starts_at} to ${p.ends_at}; include travel time if proposing another plan.`,
+      ),
     ...plans.map(
       (p) =>
-        `YOUR CONVERSATION PLAN ${p.id}: ${p.title}; ${p.status}; date ${p.date_local ?? "undecided"}, time ${p.time_local ?? "undecided"} Eastern; venue ${placeByKey(p.place_key)?.label ?? "undecided"}; user ${p.user_response}, you ${p.character_response}; missing ${p.missing_details.join(", ")}; conflicts ${JSON.stringify(p.conflicts)}; followthrough ${JSON.stringify(p.followthrough)}. Choose known venue/time details explicitly if appropriate. A map meeting point is available for fictional places, NOT a verified street address. No host/email/reservation tools exist. Do not claim user attendance.`,
+        `YOUR CONVERSATION PLAN ${p.id}: ${p.title}; ${p.status}; date ${p.date_local ?? "undecided"}, time ${p.time_local ?? p.time_hint ?? "undecided"} ${p.time_zone ?? "America/New_York"}; parent ${p.parent_plan_id ?? "none"}; venue ${placeByKey(p.place_key)?.label ?? "undecided"}; user ${p.user_response}, you ${p.character_response}; missing ${p.missing_details.join(", ")}; conflicts ${JSON.stringify(p.conflicts)}; followthrough ${JSON.stringify(p.followthrough)}. Choose known venue/time details explicitly if appropriate. A map meeting point is available for fictional places, NOT a verified street address. No host/email/reservation tools exist. Do not claim user attendance.`,
     ),
   ];
+  const active = await db
+    .from("living_experiences")
+    .select("plan_id,state,start_at")
+    .eq("user_id", user)
+    .eq("conversation_id", conversation)
+    .in("state", ["interactive", "paused"])
+    .limit(10);
+  if (active.error && !["42P01", "PGRST205"].includes(active.error.code))
+    throw new Error("Active outing context unavailable");
+  for (const scene of active.data ?? [])
+    lines.push(
+      `YOUR PROTECTED EXPERIENCE ${scene.plan_id}: ${scene.state}; fictional start ${scene.start_at}. This is an existing outing with this user. Propose a separate linked follow-up rather than rescheduling or replacing it; never claim it completed from elapsed clock time.`,
+    );
   const presence = await db.from("town_presence").select("*").eq("user_id", user).maybeSingle();
   const here = plans.find(
     (p) =>

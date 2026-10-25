@@ -67,7 +67,7 @@ function Plans() {
       loading={q.isLoading}
     >
       <p className="mb-5 text-sm text-muted-foreground">
-        Conversation invitations synchronize here when their visible messages are processed.
+        Mutually agreed invitations from Messages and Living Experiences appear in the same calendar.
         Existing historical dates and memories are preserved; older chat is not automatically
         backfilled.
       </p>
@@ -184,46 +184,6 @@ function Plans() {
           </button>
         </form>
       )}
-      <div className="space-y-3">
-        {q.data?.plans
-          .filter((p) => p.origin !== "conversation")
-          .map((p) => (
-            <article key={p.id} className={card}>
-              <p className="text-xs uppercase tracking-wider text-primary">{p.status}</p>
-              <h2 className="my-2 font-display text-2xl">{p.title}</h2>
-              <p className="text-sm">
-                {p.starts_at ? new Date(p.starts_at).toLocaleString() : "Time undecided"} ·{" "}
-                {q.data.places.find((v) => v.key === p.place_key)?.label ?? p.place_key}
-              </p>
-              {p.place_key && q.data.places.some((v) => v.key === p.place_key) && (
-                <Link
-                  to="/place/$placeKey"
-                  params={{ placeKey: p.place_key }}
-                  className="mt-3 block text-sm text-primary underline"
-                >
-                  Visit this place virtually
-                </Link>
-              )}
-              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-                {q.data.invitations
-                  .filter((i) => i.plan_id === p.id)
-                  .map((i) => (
-                    <li key={i.character_key}>
-                      {i.character_key} · {i.response}
-                    </li>
-                  ))}
-              </ul>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Your attendance: unreported. Characters’ private conversations are not shown.
-              </p>
-            </article>
-          ))}
-        {q.data && !q.data.plans.length && (
-          <p className="py-6 text-sm text-muted-foreground">
-            No gatherings arranged here yet. Existing dates and memories have not been changed.
-          </p>
-        )}
-      </div>
     </TownLayout>
   );
 }

@@ -44,6 +44,8 @@ export type ExperienceOperation = {
   created_at: string;
 };
 export type ExperiencePlan = {
+  parent_plan_id?: string | null;
+  followupReady?: boolean;
   id: string;
   user_id: string;
   title: string;

@@ -14,6 +14,8 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_action_receipts: {Row:{user_id:string;source_kind:string;source_id:string;ordinal:number;plan_id:string|null;result:Json;payload:Json;created_at:string};Insert:Record<string,unknown>;Update:Record<string,unknown>;Relationships:[]};
+
       calendar_evidence: {
         Row: {
           action: string
@@ -2492,6 +2494,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calendar_contract_status: { Args: Record<string, never>; Returns: number };
+
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number

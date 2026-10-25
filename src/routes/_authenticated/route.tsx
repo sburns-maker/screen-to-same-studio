@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { invalidateSchedule } from "@/lib/use-schedule";
 import { IncomingCall } from "@/components/IncomingCall";
 import { WorldNavigation } from "@/components/WorldNavigation";
 import { createFileRoute, Outlet, redirect, useLocation } from "@tanstack/react-router";
@@ -14,6 +17,23 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedShell() {
+  const { user } = Route.useRouteContext();
+  const cache = useQueryClient();
+  useEffect(() => {
+    const channel = supabase.channel("owned-calendar:" + user.id);
+    for (const table of ["social_plans", "living_experiences"])
+      channel.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table, filter: `user_id=eq.${user.id}` },
+        () => {
+          void invalidateSchedule(cache);
+        },
+      );
+    channel.subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [cache, user.id]);
   const path = useLocation().pathname;
   const thread = /^\/(chat|encounter)\//.test(path);
   return (
