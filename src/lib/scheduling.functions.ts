@@ -17,6 +17,7 @@ export const createPlanDraft = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         conversationId: z.string().uuid(),
+        confirmed: z.boolean().default(false),
         plan: scheduleActionSchema.refine(
           (plan) => !!plan.title?.trim() && !!plan.category,
           "Activity title and category are required",
@@ -36,6 +37,16 @@ export const createPlanDraft = createServerFn({ method: "POST" })
     const coordinator = await import("./calendar-coordinator.server");
     if (!(await coordinator.calendarContractReady(db)))
       throw new Error("Manual planning needs migration 0038");
+    const manual = await import("./manual-calendar.server");
+    if (await manual.manualCalendarReady(db)) {
+      const result = await manual.saveManualCalendar(db, context.userId, {
+        id: data.id,
+        conversationId: data.conversationId,
+        plan: { ...data.plan, action: "invite", planId: null, parentPlanId: null },
+        confirmed: data.confirmed,
+      });
+      return { ...result, replyPending: false };
+    }
     const body = `Would you like to join me for ${data.plan.title ?? "an outing"} ${data.plan.date ?? "(date undecided)"} at ${data.plan.time ?? "(time undecided)"} ${data.plan.timeZone ?? "America/New_York"} at ${placeByKey(data.plan.place)?.label ?? "a venue to be decided"}, for ${data.plan.durationMinutes ?? 60} minutes?`;
     const payload = await coordinator.schedulePayload(
       db,
@@ -91,7 +102,7 @@ export const createPlanDraft = createServerFn({ method: "POST" })
     } catch {
       replyPending = true;
     }
-    return { conversationId: data.conversationId, replyPending };
+    return { conversationId: data.conversationId, replyPending, status: null };
   });
 
 export const scheduleDiagnostics = createServerFn({ method: "POST" })
@@ -126,7 +137,12 @@ export const scheduleDiagnostics = createServerFn({ method: "POST" })
             .limit(20)
         : null;
     if (receipts?.error) throw new Error("Calendar audit history unavailable");
-    return { structured: agenda.structured, events, receipts: receipts?.data ?? [] };
+    return {
+      manual: agenda.manual,
+      structured: agenda.structured,
+      events,
+      receipts: receipts?.data ?? [],
+    };
   });
 
 /** Edits are evidence-backed canonical actions, never direct table overrides. */
@@ -139,7 +155,7 @@ export const editCalendarPlan = createServerFn({ method: "POST" })
       await import("./plan-edit.server")
     ).savePlanEdit(db, context.userId, data);
     let replyPending = false;
-    if (!result.replayed) {
+    if (!result.replayed && !result.manual) {
       try {
         await (
           await import("./tess.functions")

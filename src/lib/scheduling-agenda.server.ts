@@ -18,6 +18,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
   if (!(await interactiveAvailable(db)))
     return {
       available: false,
+      manual: false,
       structured: false,
       events: [] as AgendaEvent[],
       contacts: [] as { id: string; key: string; name: string }[],
@@ -84,6 +85,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
     });
   return {
     available: true,
+    manual: await (await import("./manual-calendar.server")).manualCalendarReady(db),
     structured: await calendarContractReady(db),
     events,
     contacts: (cast.data ?? []).flatMap((c) => {

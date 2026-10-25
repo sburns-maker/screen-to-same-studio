@@ -13,9 +13,11 @@ type Values = {
 
 export function PlanEditor({
   plan,
+  manual = false,
   onSave,
   onCancel,
 }: {
+  manual?: boolean;
   plan: {
     title: string;
     starts_at: string | null;
@@ -42,7 +44,7 @@ export function PlanEditor({
     time: localTime,
     durationMinutes: plan.duration_minutes,
     place: plan.place_key,
-    confirmed: plan.status === "accepted",
+    confirmed: !manual && plan.status === "accepted",
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -127,7 +129,7 @@ export function PlanEditor({
           checked={v.confirmed}
           onChange={(e) => setV({ ...v, confirmed: e.target.checked })}
         />
-        I accept these details
+        {manual ? "We already agreed to these exact details" : "I accept these details"}
       </label>
       <p className="text-xs text-muted-foreground sm:col-span-2">
         Changed times or venues need the character’s agreement. Existing mutual acceptance is

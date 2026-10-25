@@ -165,7 +165,7 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
       }),
     ).rejects.toThrow("permission denied");
   });
-  it("simultaneous acceptances by two contacts cannot double-book the player", async () => {
+  it("simultaneous explicit agreements cannot double-book the player", async () => {
     await sql.unsafe("TRUNCATE social_plans CASCADE");
     const otherConv = crypto.randomUUID();
     await sql.unsafe(
@@ -174,16 +174,12 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     );
     const targets: string[] = [];
     for (const conversation of [conv, otherConv]) {
-      const source = crypto.randomUUID();
-      await sql.unsafe(
-        "INSERT INTO messages(id,user_id,conversation_id,sender,body,visible_at,created_at) VALUES($1,$2,$3,'tess','Would you like coffee tomorrow at two?',$4,$4)",
-        [source, user, conversation, now],
-      );
-      const r = await sql.unsafe(
-        "SELECT calendar_event_action($1,'message',$2,1,$3::jsonb,$4) result",
+      const rows = await sql.unsafe(
+        "SELECT calendar_manual_action($1,$2,$3,NULL,NULL,$4::jsonb,$5) result",
         [
           user,
-          source,
+          crypto.randomUUID(),
+          conversation,
           sql.json({
             action: "invite",
             title: "Coffee",
@@ -192,44 +188,38 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
             time: "14:00",
             place: "coffee:local",
             schedule_ok: true,
+            confirmed: false,
           }),
           now,
         ],
       );
-      targets.push(r[0]!["result"].id);
+      targets.push(rows[0]!["result"].id);
     }
-    const accepts = await Promise.all(
-      [conv, otherConv].map(async (conversation) => {
-        const source = crypto.randomUUID();
-        await sql.unsafe(
-          "INSERT INTO messages(id,user_id,conversation_id,sender,body,visible_at,created_at) VALUES($1,$2,$3,'user','Absolutely.',$4,$4)",
-          [source, user, conversation, now],
-        );
-        return source;
-      }),
-    );
+    const actions = [crypto.randomUUID(), crypto.randomUUID()];
     const apply = (connection: Pick<typeof sql, "unsafe">, index: number) =>
-      connection.unsafe("SELECT calendar_event_action($1,'message',$2,1,$3::jsonb,$4) result", [
+      connection.unsafe("SELECT calendar_manual_action($1,$2,$3,$4,1,$5::jsonb,$6) result", [
         user,
-        accepts[index]!,
-        sql.json({ action: "accept", planId: targets[index], schedule_ok: true }),
+        actions[index]!,
+        [conv, otherConv][index]!,
+        targets[index]!,
+        sql.json({ action: "accept", planId: targets[index], schedule_ok: true, confirmed: true }),
         now,
       ]);
     let release!: () => void, holding!: () => void;
     const gate = new Promise<void>((r) => (release = r)),
       held = new Promise<void>((r) => (holding = r));
     const first = sql.begin(async (tx) => {
-      const r = await apply(tx as unknown as Pick<typeof sql, "unsafe">, 0);
+      const result = await apply(tx as unknown as Pick<typeof sql, "unsafe">, 0);
       holding();
       await gate;
-      return r;
+      return result;
     });
     await held;
     const second = apply(sql, 1).then((result) => result);
     let waiting = false;
     for (let n = 0; n < 30 && !waiting; n++) {
       const rows =
-        await sql`SELECT count(*)::int n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%calendar_event_action%'`;
+        await sql`SELECT count(*)::int n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND query LIKE '%calendar_manual_action%'`;
       waiting = rows[0]!["n"] > 0;
       await new Promise((r) => setTimeout(r, 5));
     }
@@ -240,33 +230,31 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     const rows = await sql`SELECT status,conflicts FROM social_plans ORDER BY status`;
     expect(rows.map((p) => p["status"])).toEqual(["accepted", "proposed"]);
     expect(rows[1]!["conflicts"]).toContain("calendar_or_travel_overlap");
+    expect((await sql`SELECT count(*)::int n FROM messages`)[0]!["n"]).toBe(0);
   });
-  it("invalid scheduling in a generated experience rolls back the scene and its operation", async () => {
+  it("queued AI scheduling cannot mutate plans or block an in-person reply", async () => {
     await command(sql, "claim");
     const job = crypto.randomUUID();
     const reserved = await command(sql, "turn", job, now, {
       body: "Could we get dinner afterward?",
     });
     const token = reserved[0]!["result"].operation.token;
-    await expect(
-      command(sql, "commit", job, now, {
-        token,
-        body: "A scene line with an invalid schedule target.",
-        scheduleActions: [{ action: "accept", planId: crypto.randomUUID(), schedule_ok: true }],
-      }),
-    ).rejects.toThrow("owned conversation event");
-    expect(
-      (await sql`SELECT status FROM experience_operations WHERE id=${job}`)[0]!["status"],
-    ).toBe("running");
-    expect(
-      (await sql`SELECT source FROM living_experience_moments`).map((m) => m["source"]),
-    ).toEqual(["user"]);
-    expect((await sql`SELECT * FROM calendar_action_receipts`).length).toBe(0);
     await command(sql, "commit", job, now, {
       token,
       body: "We can discuss a place first.",
-      scheduleActions: [],
+      scheduleActions: [{ action: "accept", planId: crypto.randomUUID(), schedule_ok: true }],
     });
+    expect(
+      (await sql`SELECT status FROM experience_operations WHERE id=${job}`)[0]!["status"],
+    ).toBe("done");
+    expect(
+      (await sql`SELECT source FROM living_experience_moments ORDER BY ordinal`).map(
+        (m) => m["source"],
+      ),
+    ).toEqual(["user", "character"]);
+    expect((await sql`SELECT status FROM social_plans WHERE id=${plan}`)[0]!["status"]).toBe(
+      "in_progress",
+    );
     // A changed replay cannot introduce effects after the scene was already committed.
     await command(sql, "commit", job, now, {
       token,
@@ -338,6 +326,8 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     ).rejects.toThrow("Actual current owned");
   });
   const editPayload = (time = "14:00") => ({
+    action: "details",
+    planId: plan,
     title: "Coffee and conversation",
     date: "2026-10-25",
     time,
@@ -353,10 +343,11 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     );
   }
   const editPlan = (action: string, version: number, time = "14:00") =>
-    sql.unsafe("SELECT calendar_edit_plan($1,$2,$3,$4,$5::jsonb,$6) result", [
+    sql.unsafe("SELECT calendar_manual_action($1,$2,$3,$4,$5,$6::jsonb,$7) result", [
       user,
-      plan,
       action,
+      conv,
+      plan,
       version,
       sql.json(editPayload(time)),
       now,
@@ -375,8 +366,8 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
       expect((await sql`SELECT * FROM calendar_action_receipts`).length).toBe(0);
     } else {
       expect(p["time_local"]).toBe("15:00");
-      expect(p["character_response"]).toBe("invited");
-      expect(p["status"]).not.toBe("accepted");
+      expect(p["character_response"]).toBe("accepted");
+      expect(p["status"]).toBe("accepted");
     }
   });
   it("deduplicates concurrent edit receipts and synchronizes an unclaimed experience atomically", async () => {
@@ -389,7 +380,7 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     const p = (await sql`SELECT * FROM social_plans`)[0]!;
     const e = (await sql`SELECT * FROM living_experiences`)[0]!;
     expect(e["plan_version"]).toBe(p["version"]);
-    expect((await sql`SELECT count(*)::int n FROM messages`)[0]!["n"]).toBe(1);
+    expect((await sql`SELECT count(*)::int n FROM messages`)[0]!["n"]).toBe(0);
     await expect(editPlan(crypto.randomUUID(), 0)).rejects.toThrow("plan changed");
   });
   it("restricts manual-edit RPC permissions and rejects cross-owner plans", async () => {
@@ -397,17 +388,30 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
     await expect(
       sql.begin(async (tx) => {
         await tx.unsafe("SET LOCAL ROLE authenticated");
-        await tx.unsafe("SELECT calendar_edit_status()");
+        await tx.unsafe("SELECT calendar_manual_status()");
       }),
     ).rejects.toThrow("permission denied");
     await expect(
-      sql.unsafe("SELECT calendar_edit_plan($1,$2,$3,0,$4::jsonb,$5)", [
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE authenticated");
+        await tx.unsafe("SELECT calendar_manual_action(NULL,NULL,NULL,NULL,NULL,'{}',now())");
+      }),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE authenticated");
+        await tx.unsafe("SELECT * FROM calendar_manual_actions");
+      }),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      sql.unsafe("SELECT calendar_manual_action($1,$3,$6,$2,0,$4::jsonb,$5)", [
         "10000000-0000-4000-a000-000000000002",
         plan,
         crypto.randomUUID(),
         sql.json(editPayload()),
         now,
+        conv,
       ]),
-    ).rejects.toThrow("owned conversation event");
+    ).rejects.toThrow("owned contact required");
   });
 });

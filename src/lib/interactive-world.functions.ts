@@ -63,6 +63,34 @@ export const respondToCalendarPlan = createServerFn({ method: "POST" })
     const plans = await s.calendarPlans(db, context.userId),
       p = plans.find((p) => p.id === data.planId);
     if (!p || !p.conversation_id) throw new Error("Owned conversation invitation required");
+    const manual = await import("./manual-calendar.server");
+    if (await manual.manualCalendarReady(db)) {
+      if (data.action === "details" || data.action === "reschedule")
+        throw new Error("Edit the plan details directly; no message is required.");
+      const result = await manual.saveManualCalendar(db, context.userId, {
+        id: data.id,
+        conversationId: p.conversation_id,
+        planId: p.id,
+        version: p.version,
+        confirmed: data.action === "accept",
+        plan: {
+          action: data.action,
+          planId: p.id,
+          parentPlanId: null,
+          title: null,
+          description: null,
+          category: null,
+          date: null,
+          time: null,
+          timeHint: null,
+          timeZone: null,
+          place: null,
+          durationMinutes: null,
+          userQuote: null,
+        },
+      });
+      return { conversationId: p.conversation_id, manual: true, status: result.status };
+    }
     const bodies = {
       accept: `Yes, I accept our ${p.title} invitation.`,
       decline: `No thanks, I decline our ${p.title} invitation.`,
@@ -96,7 +124,7 @@ export const respondToCalendarPlan = createServerFn({ method: "POST" })
     await (
       await import("./tess.functions")
     ).runTurn(db, context.userId, p.conversation_id, "America/New_York");
-    return { conversationId: p.conversation_id };
+    return { conversationId: p.conversation_id, manual: false, status: null };
   });
 export const progressVenueExperience = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -1,0 +1,22 @@
+name: Manual calendar control
+on:
+  pull_request:
+    paths:
+      - 'drizzle/migrations/0044_manual_calendar_control.sql'
+      - 'src/lib/*calendar*'
+      - 'src/lib/scheduling*'
+      - 'src/components/CalendarBoard.tsx'
+      - 'src/components/PlanEditor.tsx'
+      - 'src/test/manual-calendar.integration.test.ts'
+      - 'src/test/scheduling-ui.test.tsx'
+      - '.github/workflows/manual-calendar.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx vitest run src/test/manual-calendar.integration.test.ts src/test/scheduling-ui.test.tsx src/test/scheduling-lifecycle.integration.test.ts
+      - run: bunx tsc --noEmit
+      - run: bun run build
