@@ -275,6 +275,124 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
       sql.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8")),
     ).rejects.toThrow("Realtime subscription missing");
   });
+  const manifest = JSON.parse(
+    readFileSync("scripts/migration-compat/calendar38-manifest.json", "utf8"),
+  );
+  const preflight = () => readFileSync("scripts/migration-compat/preflight.sql", "utf8");
+  async function anonymousGrants() {
+    const rows =
+      await sql`SELECT signature FROM jsonb_array_elements_text(${JSON.stringify(manifest.anonymousExecuteRepair)}::jsonb) f(signature)
+      WHERE has_function_privilege('anon',to_regprocedure('public.'||signature),'EXECUTE') ORDER BY signature`;
+    return rows.map((r) => r["signature"]);
+  }
+  async function platformDefaults() {
+    await sql.unsafe(
+      "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon",
+    );
+  }
+  it("recognizes platform defaults read-only, then repairs only the four grants through the normal runner", async () => {
+    await platformDefaults();
+    await drift();
+    await stripInstalledComments();
+    expect(await anonymousGrants()).toEqual([...manifest.anonymousExecuteRepair].sort());
+    const before = await preserved();
+    const definitions =
+      await sql`SELECT oid,prosrc,prosecdef,proconfig FROM pg_proc WHERE pronamespace='public'::regnamespace ORDER BY oid`;
+    const result = await sql.begin("read only", (tx) => tx.unsafe(preflight()));
+    expect(result.at(-1)?.[0]?.migration_compatibility).toBe(
+      "known_calendar38_permission_repair_required",
+    );
+    expect(await anonymousGrants()).toHaveLength(4);
+    await run();
+    expect(await anonymousGrants()).toEqual([]);
+    expect(await preserved()).toEqual(before);
+    // Historical replay preserves existing code; later 0041 intentionally updates delivery.
+    const after =
+      await sql`SELECT oid,prosrc,prosecdef,proconfig FROM pg_proc WHERE pronamespace='public'::regnamespace ORDER BY oid`;
+    const delivery = (await sql`SELECT 'public.deliver_photo_turn(uuid)'::regprocedure::oid n`)[0]![
+      "n"
+    ];
+    for (const row of definitions.filter((r) => r["oid"] !== delivery))
+      expect(after.find((r) => r["oid"] === row["oid"])).toEqual(row);
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE anon");
+        await tx.unsafe(`SELECT calendar_pending('${user}','${at}')`);
+      }),
+    ).rejects.toThrow("permission denied for function calendar_pending");
+    await sql.begin("read only", (tx) => tx.unsafe(preflight()));
+    const receipts = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    await run();
+    expect(await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`).toEqual(receipts);
+    expect(
+      (await sql`SELECT experience_scene_status() v,calendar_edit_status() e`)[0],
+    ).toMatchObject({ v: 39, e: 40 });
+  });
+  it("lets the sandbox inspect repair eligibility but cannot use it to change permissions", async () => {
+    await platformDefaults();
+    await drift();
+    await sql.unsafe(
+      "DO $$ BEGIN CREATE ROLE sandbox_exec NOINHERIT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;",
+    );
+    await sql.begin("read only", async (tx) => {
+      await tx.unsafe("SET LOCAL ROLE sandbox_exec");
+      await tx.unsafe(preflight());
+    });
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE sandbox_exec");
+        await tx.unsafe(
+          readFileSync("drizzle/migrations/0035_remove_experience_daily_cap.sql", "utf8"),
+        );
+      }),
+    ).rejects.toThrow(/must be owner of function|permission denied for function/);
+    expect(await anonymousGrants()).toHaveLength(4);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+    await run();
+    expect(await anonymousGrants()).toEqual([]);
+  });
+  it("secures a fresh install with the same platform default grants", async () => {
+    await platformDefaults();
+    await run();
+    expect(await anonymousGrants()).toEqual([]);
+    await sql.begin("read only", (tx) => tx.unsafe(preflight()));
+  });
+  it("does not repair permissions when another schema invariant fails", async () => {
+    await platformDefaults();
+    await drift();
+    await sql.unsafe("ALTER TABLE calendar_action_receipts DISABLE ROW LEVEL SECURITY");
+    await expect(run()).rejects.toThrow("receipt RLS is disabled");
+    expect(await anonymousGrants()).toHaveLength(4);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+  });
+  it("rolls back permission repair with a later pending migration failure", async () => {
+    await platformDefaults();
+    await drift();
+    await sql.unsafe("ALTER TABLE living_experiences ADD COLUMN live_scene jsonb");
+    await expect(run()).rejects.toThrow("already exists");
+    expect(await anonymousGrants()).toHaveLength(4);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+  });
+  it.each([
+    [
+      "authenticated access",
+      "GRANT EXECUTE ON FUNCTION calendar_pending(uuid,timestamptz) TO authenticated",
+    ],
+    [
+      "anon outside allowlist",
+      "GRANT EXECUTE ON FUNCTION calendar_event_action(uuid,text,uuid,integer,jsonb,timestamptz) TO anon",
+    ],
+    [
+      "service access to private delegate",
+      "GRANT EXECUTE ON FUNCTION deliver_photo_turn_before_calendar38(uuid) TO service_role",
+    ],
+  ])("still rejects %s without repairing the known anon drift", async (_, mutation) => {
+    await platformDefaults();
+    await drift();
+    await sql.unsafe(mutation);
+    await expect(run()).rejects.toThrow("function security or metadata differs");
+    expect(await anonymousGrants()).toHaveLength(4);
+  });
   async function stripInstalledComments() {
     for (const variant of COMMENT_VARIANTS) {
       const [row] =

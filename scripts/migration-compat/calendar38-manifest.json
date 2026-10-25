@@ -547,5 +547,11 @@
       "privilege": "TRIGGER",
       "allowed": true
     }
+  ],
+  "anonymousExecuteRepair": [
+    "calendar_pending(uuid,timestamp with time zone)",
+    "deliver_photo_turn_before_calendar38(uuid)",
+    "experience_candidates(uuid,timestamp with time zone)",
+    "experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamp with time zone)"
   ]
 }

@@ -1,4 +1,5 @@
--- Included inside each compatibility DO block. Catalog reads only; no ledger writes.
+-- Shared validation. Preflight is read-only; runner may revoke ONLY reviewed anon grants.
+-- Never mutate permissions until every body, metadata and schema check has passed.
 IF to_regprocedure('public.calendar_contract_status()') IS NOT NULL
  OR to_regprocedure('public.experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamptz)') IS NOT NULL
  OR to_regprocedure('public.deliver_photo_turn_before_calendar38(uuid)') IS NOT NULL
@@ -14,6 +15,12 @@ THEN
    INTO actual FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.oid=fn;
   IF NOT (item->'body_hashes' ? (actual->>'body_hash')) THEN
    RAISE EXCEPTION 'Calendar 0038 compatibility stopped: unrecognized function body % (fingerprint %). No historical migration was skipped.',item->>'signature',actual->>'body_hash';
+  END IF;
+  IF actual->>'anon'='true' AND item->>'anon'='false'
+     AND expected->'anonymousExecuteRepair' ? (item->>'signature') THEN
+   -- Recognize this one repairable mismatch, not an acceptable final permission.
+   repairs:=array_append(repairs,fn);
+   actual:=jsonb_set(actual,'{anon}','false'::jsonb);
   END IF;
   IF (actual-'body_hash') IS DISTINCT FROM (item-'signature'-'body_hashes') THEN
    RAISE EXCEPTION 'Calendar 0038 compatibility stopped: function security or metadata differs for %',item->>'signature';
@@ -53,6 +60,19 @@ THEN
  IF EXISTS(SELECT 1 FROM pg_publication WHERE pubname='supabase_realtime') AND EXISTS(
   SELECT 1 FROM unnest(ARRAY['social_plans','living_experiences']) t WHERE NOT EXISTS(SELECT 1 FROM pg_publication_tables p WHERE p.pubname='supabase_realtime' AND p.schemaname='public' AND p.tablename=t)) THEN
   RAISE EXCEPTION 'Calendar 0038 compatibility stopped: expected Realtime subscription missing';
+ END IF;
+ IF cardinality(repairs)>0 THEN
+  IF read_only THEN
+   RAISE NOTICE 'Known Calendar 0038 requires anonymous EXECUTE repair on % functions; preflight made no changes. Normal privileged runner will revoke only these grants after full validation.',cardinality(repairs);
+   RETURN;
+  END IF;
+  FOREACH fn IN ARRAY repairs LOOP
+   EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM anon',fn);
+   IF has_function_privilege('anon',fn,'EXECUTE') THEN
+    RAISE EXCEPTION 'Calendar 0038 compatibility stopped: anonymous EXECUTE remains inherited for %. No permission repair committed.',fn;
+   END IF;
+  END LOOP;
+  RAISE NOTICE 'Revoked reviewed anonymous EXECUTE grants on % functions; no user data or function bodies changed.',cardinality(repairs);
  END IF;
  RAISE NOTICE 'Complete known Calendar 0038 installation verified. Preserve installed implementation; normal runner may record this historical migration.';
  RETURN;

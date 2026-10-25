@@ -8,7 +8,7 @@ The reported database has installed effects through 0038 while `drizzle.__drizzl
 
 ## Implementation
 
-0035, 0036, 0037 and 0038 now have the same generated, catalog-only compatibility guard:
+0035, 0036, 0037 and 0038 now have the same generated compatibility guard (catalog-only validation, with the narrowly scoped permission repair documented below):
 
 - If no 0038 markers exist, execute that file's **original SQL**, preserved byte-for-byte inside its wrapper. This retains fresh installation and normal sequential upgrades, including partially applied older 0035–0037 updates.
 - If any 0038 marker exists, require a complete, known implementation before preserving it. A table, status number or unlimited-cap string alone is insufficient.
@@ -26,9 +26,9 @@ The original file SHA256 values are retained in the generator and tested against
 ## Reviewable sources
 
 - `scripts/migration-compat/calendar38-manifest.json`: catalog properties captured from a pristine PostgreSQL 17 installation of the original migrations, with the known 0041 delivery variant.
-- `scripts/migration-compat/verify-calendar38.sql`: the common read-only verifier.
+- `scripts/migration-compat/verify-calendar38.sql`: the common verifier, with an explicit read-only preflight mode.
 - `scripts/build-migration-compat.mjs`: deterministic generation, no database connection, secrets or writes to database history. `node scripts/build-migration-compat.mjs --check` verifies generated migrations and preflight stay synchronized with their reviewed source.
-- `scripts/migration-compat/preflight.sql`: standalone read-only verification; no DDL, ledger insertion, user-data reads or provider calls. It also works inside a read-only transaction. It reports `known_calendar38_verified` or `normal_install_required`, or stops on the precise mismatch.
+- `scripts/migration-compat/preflight.sql`: standalone read-only verification; no DDL, ledger insertion, user-data reads or provider calls. It also works inside a read-only transaction. It reports `known_calendar38_verified`, `known_calendar38_permission_repair_required` or `normal_install_required`, or stops on the precise mismatch.
 
 The generated files repeat the verifier so each migration is self-contained; correctness does not depend on temporary functions, session variables or a runner using the same connection between files. The archived original code executes only on the normal-install path.
 
@@ -36,7 +36,7 @@ The generated files repeat the verifier so each migration is self-contained; cor
 
 1. Sync the reviewed commit from GitHub. Do not manually edit migration files to comments, change journal timestamps or reset anything.
 2. Run the contents of `scripts/migration-compat/preflight.sql` through available backend SQL tooling as a read-only check. If the sandbox cannot inspect the necessary catalog metadata, the normal privileged runner performs the same verification internally.
-3. If preflight reports a mismatch, stop and return the exact object/fingerprint diagnostic. Do not weaken the check, expand the allowlist based only on a status number, or grant the sandbox access to the ledger.
+3. If preflight reports `known_calendar38_permission_repair_required`, it has verified all other properties and identified only the four reviewed anonymous grants below. The normal privileged runner can repair them; the sandbox should not attempt direct DDL. If preflight reports any other mismatch, stop and return the exact object/fingerprint diagnostic. Do not weaken the check, expand the allowlist based only on a status number, or grant the sandbox access to the ledger.
 4. With a verified known installation, run the **normal Lovable/Drizzle migration command once**, with no concurrent migration runner. It should preserve installed 0035–0038, record them itself, then apply missing 0039–0041.
 5. Verify through the server/migration role: `experience_scene_status() = 39`, `calendar_edit_status() = 40`, and `deliver_photo_turn(uuid)` has the reviewed 0041 behavior for `registered public venue required`. Verify ledger entries through 0041 against the current repository files. These status RPCs intentionally are not general anonymous/browser APIs.
 6. Report the installed versions and verify paused outings, saved plans/memories and media references remain present. Do not start, finish or simulate the user's experiences merely to test installation.
@@ -74,3 +74,18 @@ The new unit tests derive both hashes directly from the immutable original SQL. 
 After reviewing and merging this follow-up, sync main and rerun the read-only preflight before the normal runner. If another mismatch appears, return its exact diagnostic rather than weakening the checks. Nothing in this follow-up applies production migrations or publishes the app.
 
 Comment-variant follow-up validation: **812 application tests passed** (31 opt-in PostgreSQL cases skipped in that run), and the **19-case actual Drizzle/PostgreSQL compatibility suite passed separately**. TypeScript, production build, focused lint, deterministic generation and whitespace checks passed. The unchanged 12-case external experience transaction suite was not rerun for this narrow manifest follow-up; its earlier results above are historical validation. No live database was accessed.
+
+
+## Platform-default anonymous function grants (PR #79 follow-up)
+
+The next live report revealed a genuine permission difference, not a body-format variant. The database's default routine ACL explicitly grants EXECUTE to `anon`. Original 0038 revoked anonymous execution on seven public entrypoints but omitted four older/helper functions: `calendar_pending`, `experience_candidates`, `deliver_photo_turn_before_calendar38` and `experience_command_before_calendar38`. Renaming a function preserves its ACL. Revoking PUBLIC alone does not remove a direct grant to anon. This was independently reproduced on disposable PostgreSQL with `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon` before installing the original migrations.
+
+The manifest still requires `anon: false` for all four. A separate, exact signature allowlist identifies only these repairable mismatches. All other body, metadata, effective privileges and schema checks must pass **before any permission change**. The normal privileged runner then revokes only EXECUTE from anon on the affected functions and verifies that effective anonymous access is actually gone. Inherited access that survives revocation aborts the transaction. No permissions are granted; authenticated/service-role privileges, function logic and user records are untouched. Unknown mismatches still stop. A later migration failure rolls back the revocations together with the normal ledger writes.
+
+The standalone preflight is still read-only and works under the restricted sandbox role. It reports `known_calendar38_permission_repair_required` rather than pretending the installation is already secure. It never executes its guarded REVOKE branch. The normal runner performs that branch under its existing database-owner privileges; no sandbox escalation or direct ledger write is needed. The guarded 0038 also performs the same validation/repair after an original fresh install, so the same platform defaults cannot recreate this gap there. It does not change global default ACLs or unrelated functions.
+
+No new migration number is needed for this reported state because the normal runner must execute the unrecorded 0035–0038 wrappers. A database that already recorded all those files will skip them; this workaround does not repair such a database automatically, and it would need a separately reviewed additive migration or owner-issued revocation. Files 0039–0041 and journal timestamps remain unchanged.
+
+After review and merge, ask Lovable to sync main, rerun the read-only preflight, and report its status. Either verified status or the narrowly recognized permission-repair-required status permits one normal migration run through 0041. Any other failure must stop. After that run, rerun preflight: it must report `known_calendar38_verified`; confirm anonymous execution is false for the four signatures, status functions return 39/40, and the ledger reaches 0041. Do not publish automatically.
+
+Permission-repair validation: **27 actual PostgreSQL/Drizzle compatibility tests passed**, including the reproduced platform defaults with comment-stripped bodies, read-only preview, denied sandbox mutation, preservation of stored history, fresh install, strict rejection of unrelated authenticated/anon/service privileges, and transactional rollback. **812 application tests passed** (39 opt-in database cases skipped in that run; the 27 compatibility cases ran separately). TypeScript, production build, focused ESLint, deterministic generation and `git diff --check` passed. The separate 12-case experience transaction suite was not rerun for this permission-only repair. No production database or paid provider was accessed.
