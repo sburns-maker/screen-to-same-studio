@@ -35,7 +35,7 @@ export function hasCalendarSuccessClaim(text: string) {
 /** Exact, current user evidence is required; playful hypotheticals do not confer consent. */
 export function acceptsPlan(text: string) {
   return (
-    /^(?:yes\b|yeah\b|yep\b|absolutely\b|sure\b|definitely\b|sounds (?:good|great|perfect)\b|that (?:works|sounds good)\b|i['’]d love to\b|i would love to\b|count me in\b|let['’]s do it\b|i['’]m in\b|you bet\b)/i.test(
+    /^(?:yes\b|yeah\b|yep\b|absolutely\b|sure\b|definitely\b|sounds (?:good|great|perfect)\b|that (?:works|sounds good)\b|i['’]d love to\b|i would love to\b|count me in\b|let['’]s do it\b|i['’]m in\b|you bet\b|(?:at\s+)?(?:[1-9]|1[0-2])(?::[0-5]\d)?\s*(?:a\.?m\.?|p\.?m\.?)\s+works\b)/i.test(
       text.trim(),
     ) && !/\b(?:maybe|might|can't|cannot|but not|if we|if i)\b/i.test(text)
   );
