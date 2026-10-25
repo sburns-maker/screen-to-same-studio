@@ -1,5 +1,7 @@
 # Guarded migration-history recovery (0035–0038)
 
+**Current follow-up:** table default-ACL repair also requires additive migration **0042**. The current normal-runner target is 0042; see the final section below. Earlier recorded results describe prior revisions.
+
 Based on main `7b8ca2f`. This is a source-level compatibility repair, not a manual ledger insertion, blanket no-op or production migration. The user explicitly authorized a code workaround for the permission-blocked migration history. No deployed commit history is rewritten.
 
 ## Problem
@@ -37,8 +39,8 @@ The generated files repeat the verifier so each migration is self-contained; cor
 1. Sync the reviewed commit from GitHub. Do not manually edit migration files to comments, change journal timestamps or reset anything.
 2. Run the contents of `scripts/migration-compat/preflight.sql` through available backend SQL tooling as a read-only check. If the sandbox cannot inspect the necessary catalog metadata, the normal privileged runner performs the same verification internally.
 3. If preflight reports `known_calendar38_permission_repair_required`, it has verified all other properties and identified only the four reviewed anonymous grants below. The normal privileged runner can repair them; the sandbox should not attempt direct DDL. If preflight reports any other mismatch, stop and return the exact object/fingerprint diagnostic. Do not weaken the check, expand the allowlist based only on a status number, or grant the sandbox access to the ledger.
-4. With a verified known installation, run the **normal Lovable/Drizzle migration command once**, with no concurrent migration runner. It should preserve installed 0035–0038, record them itself, then apply missing 0039–0041.
-5. Verify through the server/migration role: `experience_scene_status() = 39`, `calendar_edit_status() = 40`, and `deliver_photo_turn(uuid)` has the reviewed 0041 behavior for `registered public venue required`. Verify ledger entries through 0041 against the current repository files. These status RPCs intentionally are not general anonymous/browser APIs.
+4. With a verified known installation, run the **normal Lovable/Drizzle migration command once**, with no concurrent migration runner. It should preserve installed 0035–0038, record them itself, then apply missing 0039–0042.
+5. Verify through the server/migration role: `experience_scene_status() = 39`, `calendar_edit_status() = 40`, and `deliver_photo_turn(uuid)` has the reviewed 0041 behavior for `registered public venue required`. Verify ledger entries through 0042 against the current repository files. These status RPCs intentionally are not general anonymous/browser APIs.
 6. Report the installed versions and verify paused outings, saved plans/memories and media references remain present. Do not start, finish or simulate the user's experiences merely to test installation.
 7. Do not publish automatically. After migration success, review the normal scene/calendar/photo acceptance checks separately.
 
@@ -89,3 +91,28 @@ No new migration number is needed for this reported state because the normal run
 After review and merge, ask Lovable to sync main, rerun the read-only preflight, and report its status. Either verified status or the narrowly recognized permission-repair-required status permits one normal migration run through 0041. Any other failure must stop. After that run, rerun preflight: it must report `known_calendar38_verified`; confirm anonymous execution is false for the four signatures, status functions return 39/40, and the ledger reaches 0041. Do not publish automatically.
 
 Permission-repair validation: **27 actual PostgreSQL/Drizzle compatibility tests passed**, including the reproduced platform defaults with comment-stripped bodies, read-only preview, denied sandbox mutation, preservation of stored history, fresh install, strict rejection of unrelated authenticated/anon/service privileges, and transactional rollback. **812 application tests passed** (39 opt-in database cases skipped in that run; the 27 compatibility cases ran separately). TypeScript, production build, focused ESLint, deterministic generation and `git diff --check` passed. The separate 12-case experience transaction suite was not rerun for this permission-only repair. No production database or paid provider was accessed.
+
+
+## Receipt-table default ACL repair and additive 0042
+
+The next live preflight correctly stopped at `anon SELECT` on `calendar_action_receipts`. The reported default table ACL grants ALL to anon/authenticated/service_role and SELECT/INSERT to sandbox_exec. Original 0038 granted authenticated SELECT without first revoking inherited creation-time direct grants. The permission-only function repair did not cover that independent table issue.
+
+The receipt manifest continues to require no anon privileges, SELECT-only authenticated privileges and all service-role privileges. A separate exact role/privilege allowlist recognizes only **excess** receipt privileges that can be revoked. Missing required read/service privileges, altered bodies, schema, RLS or owner policy still fail. All other validation completes before any function/table revocation. No global default ACL, ledger history, application records or unrelated table is modified.
+
+Read-only preflight now identifies either function-only, table-only or combined known permission drift as `known_calendar38_permission_repair_required`. It does not mutate permissions or call the failure a verified secure installation. The normal privileged runner conditionally revokes the specific excess grants after validation and checks effective permissions. Grants still inherited through PUBLIC/other roles abort and roll back; the compatibility path never grants missing privileges. PostgreSQL 17's MAINTAIN privilege is checked as well, with a server-version guard for older PostgreSQL versions.
+
+The same defaults also affect 0039's new `experience_scene_transitions` and `character_scene_state` tables. RLS restricts rows but does not constrain TRUNCATE. New additive migration `0042_calendar_scene_privileges.sql` therefore explicitly revokes anon/authenticated table privileges on exactly those two tables and the receipts table, restores authenticated SELECT, preserves existing RLS/policies and service permissions, and verifies the effective privilege matrix. No rows or table definitions are changed. It also revokes the four reviewed anonymous helper-function grants, covering installations whose historical 0035–0041 entries were already recorded and thus skip compatibility wrappers. Running 0042 twice is harmless. Missing RLS/service privileges or unrevocable inherited access stop it transactionally.
+
+Historical 0035–0038 wrappers and preflight are regenerated from the shared verifier/manifest, with archived original SQL payloads byte-for-byte intact. Migrations 0039–0041 and their timestamps are unchanged; 0042 is appended to the journal at timestamp 1792950000003.
+
+### Current Lovable instructions after review and merge
+
+1. Sync main. Run `scripts/migration-compat/preflight.sql` read-only.
+2. If it reports `known_calendar38_verified` or `known_calendar38_permission_repair_required`, run the ordinary migration command once **through 0042**. Any other mismatch must stop. Do not manually insert ledger rows, edit migrations to comments or grant the sandbox owner privileges.
+3. Re-run preflight: it must return `known_calendar38_verified`. Check migration history through 0042, `experience_scene_status() = 39`, `calendar_edit_status() = 40`, and the existing 0041 delivery implementation.
+4. Verify no anon table privileges; only authenticated SELECT; unchanged service access on the receipts and both scene tables, including TRUNCATE and (PostgreSQL 17+) MAINTAIN. Verify anonymous EXECUTE is false on the four reviewed helper functions. Inspect saved data without starting/completing existing user experiences as a test.
+5. Do not publish automatically. Manual app acceptance remains separate from database installation.
+
+Tests reproduce the **combined** reported function/table defaults, including the sandbox grant and comment-stripped bodies, under disposable PostgreSQL 17. They exercise read-only sandbox preflight without ACL/ledger mutation, actual Drizzle recovery, table-only drift, fresh installs, already-recorded history repaired only by 0042, owner-only authenticated receipt reads, denied authenticated TRUNCATE on all three tables, unchanged saved history, idempotency, rejection of missing required permissions/unknown invariants, inherited PUBLIC grants and full rollback when later migration fails. This is scoped hardening of these calendar/scene objects, not an audit or repair of every pre-existing public-schema table.
+
+Table-permission follow-up validation: **36 actual PostgreSQL/Drizzle compatibility tests passed**, plus **12 existing PostgreSQL experience ownership/concurrency tests** with migration 0042 installed. **823 application tests passed** (48 opt-in PostgreSQL cases skipped there and run separately as the 36+12 above). TypeScript, production build, focused ESLint, deterministic generation and `git diff --check` passed. No production SQL, deployment, ledger edits or billable model calls were performed.

@@ -1,4 +1,4 @@
--- Shared validation. Preflight is read-only; runner may revoke ONLY reviewed anon grants.
+-- Shared validation. Preflight is read-only; runner may revoke ONLY reviewed function/receipt grants.
 -- Never mutate permissions until every body, metadata and schema check has passed.
 IF to_regprocedure('public.calendar_contract_status()') IS NOT NULL
  OR to_regprocedure('public.experience_command_before_calendar38(uuid,uuid,uuid,text,integer,jsonb,timestamptz)') IS NOT NULL
@@ -49,8 +49,13 @@ THEN
   INTO actual FROM pg_policies WHERE schemaname='public' AND tablename='calendar_action_receipts';
  IF actual IS DISTINCT FROM expected->'policies' THEN RAISE EXCEPTION 'Calendar 0038 compatibility stopped: receipt owner policy differs'; END IF;
  FOR item IN SELECT value FROM jsonb_array_elements(expected->'tablePermissions') LOOP
+  IF current_setting('server_version_num')::integer < coalesce((item->>'minimumServerVersion')::integer,0) THEN CONTINUE; END IF;
   IF has_table_privilege(item->>'role','public.calendar_action_receipts',item->>'privilege') IS DISTINCT FROM (item->>'allowed')::boolean THEN
-   RAISE EXCEPTION 'Calendar 0038 compatibility stopped: receipt privilege differs for % %',item->>'role',item->>'privilege';
+   IF item->>'allowed'='false' AND expected->'receiptPrivilegeRepair' @> jsonb_build_array(jsonb_build_object('role',item->>'role','privilege',item->>'privilege')) THEN
+    table_repairs:=table_repairs||jsonb_build_array(item);
+   ELSE
+    RAISE EXCEPTION 'Calendar 0038 compatibility stopped: receipt privilege differs for % %',item->>'role',item->>'privilege';
+   END IF;
   END IF;
  END LOOP;
  FOR item IN SELECT value FROM jsonb_array_elements(expected->'triggers') LOOP
@@ -61,9 +66,9 @@ THEN
   SELECT 1 FROM unnest(ARRAY['social_plans','living_experiences']) t WHERE NOT EXISTS(SELECT 1 FROM pg_publication_tables p WHERE p.pubname='supabase_realtime' AND p.schemaname='public' AND p.tablename=t)) THEN
   RAISE EXCEPTION 'Calendar 0038 compatibility stopped: expected Realtime subscription missing';
  END IF;
- IF cardinality(repairs)>0 THEN
+ IF cardinality(repairs)>0 OR jsonb_array_length(table_repairs)>0 THEN
   IF read_only THEN
-   RAISE NOTICE 'Known Calendar 0038 requires anonymous EXECUTE repair on % functions; preflight made no changes. Normal privileged runner will revoke only these grants after full validation.',cardinality(repairs);
+   RAISE NOTICE 'Known Calendar 0038 requires permission repair: % anonymous function grants and % receipt-table privileges; preflight made no changes. Normal privileged runner will revoke only these grants after full validation.',cardinality(repairs),jsonb_array_length(table_repairs);
    RETURN;
   END IF;
   FOREACH fn IN ARRAY repairs LOOP
@@ -72,7 +77,13 @@ THEN
     RAISE EXCEPTION 'Calendar 0038 compatibility stopped: anonymous EXECUTE remains inherited for %. No permission repair committed.',fn;
    END IF;
   END LOOP;
-  RAISE NOTICE 'Revoked reviewed anonymous EXECUTE grants on % functions; no user data or function bodies changed.',cardinality(repairs);
+  FOR item IN SELECT value FROM jsonb_array_elements(table_repairs) LOOP
+   EXECUTE format('REVOKE %s ON TABLE public.calendar_action_receipts FROM %I',item->>'privilege',item->>'role');
+   IF has_table_privilege(item->>'role','public.calendar_action_receipts',item->>'privilege') THEN
+    RAISE EXCEPTION 'Calendar 0038 compatibility stopped: receipt privilege remains inherited for % %. No permission repair committed.',item->>'role',item->>'privilege';
+   END IF;
+  END LOOP;
+  RAISE NOTICE 'Revoked reviewed grants on % functions and % receipt privileges; no user data or function bodies changed.',cardinality(repairs),jsonb_array_length(table_repairs);
  END IF;
  RAISE NOTICE 'Complete known Calendar 0038 installation verified. Preserve installed implementation; normal runner may record this historical migration.';
  RETURN;

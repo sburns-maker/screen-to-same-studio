@@ -184,7 +184,7 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
     ],
     ["missing constraint", "ALTER TABLE social_plans DROP CONSTRAINT plan_parent_owner"],
     ["changed column type", "ALTER TABLE social_plans ALTER COLUMN time_zone TYPE varchar(70)"],
-    ["unsafe privilege", "GRANT INSERT ON calendar_action_receipts TO authenticated"],
+    ["missing required privilege", "REVOKE SELECT ON calendar_action_receipts FROM authenticated"],
     ["disabled RLS", "ALTER TABLE calendar_action_receipts DISABLE ROW LEVEL SECURITY"],
     ["disabled trigger", "ALTER TABLE social_plans DISABLE TRIGGER canonical_plan_context"],
   ])("fails closed on %s and leaves the ledger at 0034", async (_, mutation) => {
@@ -285,10 +285,16 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
       WHERE has_function_privilege('anon',to_regprocedure('public.'||signature),'EXECUTE') ORDER BY signature`;
     return rows.map((r) => r["signature"]);
   }
-  async function platformDefaults() {
+  async function platformDefaults(tables = false) {
     await sql.unsafe(
       "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO anon",
     );
+    if (tables)
+      await sql.unsafe(`
+      DO $$ BEGIN CREATE ROLE sandbox_exec NOINHERIT; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon,authenticated,service_role;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT,INSERT ON TABLES TO sandbox_exec;
+    `);
   }
   it("recognizes platform defaults read-only, then repairs only the four grants through the normal runner", async () => {
     await platformDefaults();
@@ -392,6 +398,154 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
     await sql.unsafe(mutation);
     await expect(run()).rejects.toThrow("function security or metadata differs");
     expect(await anonymousGrants()).toHaveLength(4);
+  });
+  const protectedTables = [
+    "calendar_action_receipts",
+    "experience_scene_transitions",
+    "character_scene_state",
+  ];
+  async function assertTablePrivileges(tables = protectedTables) {
+    for (const table of tables) {
+      for (const item of manifest.tablePermissions) {
+        if (
+          item.minimumServerVersion &&
+          Number((await sql`SHOW server_version_num`)[0]!["server_version_num"]) <
+            item.minimumServerVersion
+        )
+          continue;
+        const [row] =
+          await sql`SELECT has_table_privilege(${item.role},${"public." + table},${item.privilege}) allowed`;
+        expect(row!["allowed"], `${table} ${item.role} ${item.privilege}`).toBe(item.allowed);
+      }
+    }
+  }
+  async function assertOwnerReads() {
+    await sql.unsafe(`GRANT USAGE ON SCHEMA auth TO authenticated;
+      INSERT INTO calendar_action_receipts(user_id,source_kind,source_id,ordinal,payload,result)
+      VALUES('${user}','message',gen_random_uuid(),0,'{}','{}');`);
+    for (const [viewer, count] of [
+      [user, 1],
+      ["10000000-0000-4000-a000-000000000002", 0],
+    ] as const) {
+      await sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE authenticated");
+        await tx`SELECT set_config('request.jwt.claim.sub',${viewer},true)`;
+        expect((await tx`SELECT count(*)::int n FROM calendar_action_receipts`)[0]!["n"]).toBe(
+          count,
+        );
+      });
+    }
+    for (const table of protectedTables) {
+      await expect(
+        sql.begin(async (tx) => {
+          await tx.unsafe("SET LOCAL ROLE authenticated");
+          await tx.unsafe(`TRUNCATE TABLE public.${table} CASCADE`);
+        }),
+      ).rejects.toThrow("permission denied");
+    }
+  }
+  it("repairs combined live function/table defaults after a read-only sandbox preflight and preserves user history", async () => {
+    await platformDefaults(true);
+    await drift();
+    await stripInstalledComments();
+    const before = await preserved();
+    const receiptsAcl =
+      await sql`SELECT relacl::text acl FROM pg_class WHERE oid='calendar_action_receipts'::regclass`;
+    await sql.begin("read only", async (tx) => {
+      await tx.unsafe("SET LOCAL ROLE sandbox_exec");
+      const result = await tx.unsafe(preflight());
+      expect(result.at(-1)?.[0]?.migration_compatibility).toBe(
+        "known_calendar38_permission_repair_required",
+      );
+    });
+    expect(
+      await sql`SELECT relacl::text acl FROM pg_class WHERE oid='calendar_action_receipts'::regclass`,
+    ).toEqual(receiptsAcl);
+    expect(await anonymousGrants()).toHaveLength(4);
+    await run();
+    expect(await preserved()).toEqual(before);
+    expect(await anonymousGrants()).toEqual([]);
+    await assertTablePrivileges();
+    await assertOwnerReads();
+    const result = await sql.begin("read only", (tx) => tx.unsafe(preflight()));
+    expect(result.at(-1)?.[0]?.migration_compatibility).toBe("known_calendar38_verified");
+    const ledger = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    expect(ledger).toHaveLength(journal.entries.length);
+    await run();
+    expect(await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`).toEqual(ledger);
+  });
+  it("reports table-only repair eligibility when all function permissions already match", async () => {
+    await drift();
+    await sql.unsafe("GRANT ALL ON calendar_action_receipts TO anon,authenticated");
+    expect(await anonymousGrants()).toEqual([]);
+    const result = await sql.begin("read only", (tx) => tx.unsafe(preflight()));
+    expect(result.at(-1)?.[0]?.migration_compatibility).toBe(
+      "known_calendar38_permission_repair_required",
+    );
+    await run();
+    await assertTablePrivileges();
+  });
+  it("secures all three tables on a fresh install with full platform defaults", async () => {
+    await platformDefaults(true);
+    await run();
+    await assertTablePrivileges();
+    await assertOwnerReads();
+    expect(await anonymousGrants()).toEqual([]);
+  });
+  it("uses additive 0042 when 0035–0041 were already recorded with original hashes", async () => {
+    await platformDefaults(true);
+    await base(41);
+    await ledger34();
+    for (const e of journal.entries.filter((e: { idx: number }) => e.idx >= 35 && e.idx <= 41))
+      await sql`INSERT INTO drizzle.__drizzle_migrations(hash,created_at) VALUES(${createHash("sha256").update(original(e.tag)).digest("hex")},${e.when})`;
+    const ledger = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    await run();
+    await assertTablePrivileges();
+    expect(await anonymousGrants()).toEqual([]);
+    const after = await sql`SELECT * FROM drizzle.__drizzle_migrations ORDER BY id`;
+    expect(after.slice(0, ledger.length)).toEqual(ledger);
+    expect(after).toHaveLength(ledger.length + 1);
+  });
+  it.each([
+    ["disabled owner trigger", "ALTER TABLE social_plans DISABLE TRIGGER canonical_plan_context"],
+    ["missing service permission", "REVOKE SELECT ON calendar_action_receipts FROM service_role"],
+    ["missing authenticated read", "REVOKE SELECT ON calendar_action_receipts FROM authenticated"],
+  ])("does not revoke any combined grants when %s fails validation", async (_, mutation) => {
+    await platformDefaults(true);
+    await drift();
+    await sql.unsafe(mutation);
+    const before =
+      await sql`SELECT relacl::text acl FROM pg_class WHERE oid='calendar_action_receipts'::regclass`;
+    await expect(run()).rejects.toThrow("Calendar 0038 compatibility stopped");
+    expect(
+      await sql`SELECT relacl::text acl FROM pg_class WHERE oid='calendar_action_receipts'::regclass`,
+    ).toEqual(before);
+    expect(await anonymousGrants()).toHaveLength(4);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+  });
+  it("rolls back both function and receipt repairs when a later pending migration fails", async () => {
+    await platformDefaults(true);
+    await drift();
+    await sql.unsafe("ALTER TABLE living_experiences ADD COLUMN live_scene jsonb");
+    const before =
+      await sql`SELECT relacl::text acl FROM pg_class WHERE oid='calendar_action_receipts'::regclass`;
+    await expect(run()).rejects.toThrow("already exists");
+    expect(
+      await sql`SELECT relacl::text acl FROM pg_class WHERE oid='calendar_action_receipts'::regclass`,
+    ).toEqual(before);
+    expect(await anonymousGrants()).toHaveLength(4);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
+  });
+  it("rejects a receipt grant inherited through PUBLIC instead of pretending it was removed", async () => {
+    await drift();
+    await sql.unsafe("GRANT SELECT ON calendar_action_receipts TO PUBLIC");
+    await expect(run()).rejects.toThrow("receipt privilege remains inherited");
+    expect(
+      (
+        await sql`SELECT has_table_privilege('anon','calendar_action_receipts','SELECT') allowed`
+      )[0]!["allowed"],
+    ).toBe(true);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
   });
   async function stripInstalledComments() {
     for (const variant of COMMENT_VARIANTS) {
