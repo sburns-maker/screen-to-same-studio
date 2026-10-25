@@ -13,6 +13,8 @@ export type PhotoDecisionDetails = {
   canonicalLocation?: string | null;
   requestedScene?: string | null;
   failedRule?: string | null;
+  screeningStage?: string | null;
+  renderedSceneRule?: string | null;
 };
 const LABELS: Record<PhotoDecisionStatus, string> = {
   sent: "Message sent",
@@ -38,7 +40,21 @@ export function photoDecisionDetails(e: {
   const v = (
     p["photoValidation"] && typeof p["photoValidation"] === "object" ? p["photoValidation"] : {}
   ) as Record<string, unknown>;
+  const screen = (
+    p["visualScreening"] && typeof p["visualScreening"] === "object" ? p["visualScreening"] : {}
+  ) as Record<string, unknown>;
   const scene = {
+    screeningStage:
+      screen["stage"] === "rendered_image" ? "Generated image visual screening" : null,
+    renderedSceneRule: [
+      "location",
+      "activity",
+      "required_subject",
+      "visible_detail",
+      "uncertain",
+    ].includes(String(screen["sceneRule"]))
+      ? String(screen["sceneRule"])
+      : null,
     canonicalLocation: str(v["canonicalLocation"]),
     requestedScene: str(v["inferredRequestedScene"]),
     failedRule: str(v["failedRule"]),

@@ -110,6 +110,23 @@ function transitionClause(
       destinationKey: null,
     };
   }
+  // Sitting is a meaningful physical transition without changing the venue.
+  // Use the existing DB-supported talking activity; area retains the position.
+  if (next.locationKind === "park") {
+    if (/\b(?:sit|sat|sitting|settle|settled)\b.{0,35}\b(?:bench|picnic table)\b/i.test(s)) {
+      next = {
+        ...next,
+        activity: "talking",
+        area: /picnic table/i.test(s) ? "seated at a picnic table" : "seated on a bench",
+      };
+    } else if (
+      /\b(?:we|i)\s+(?:(?:start|resume|continue|began|begin)\s+)?(?:walking|walk|strolling|stroll)\b|\b(?:get|got|stand|stood) up\b/i.test(
+        s,
+      )
+    ) {
+      next = { ...next, area: "", activity: /walk|stroll/i.test(s) ? "walking" : "waiting" };
+    }
+  }
   if (next.locationKind === "restaurant" || next.locationKind === "cafe") {
     if (
       /\b(?:finished|finish|done with)\b.{0,35}\b(?:dinner|meal|food|eating)\b|\b(?:paid|pay) (?:the |our )?bill\b/i.test(
@@ -149,6 +166,13 @@ export function sceneContradiction(scene: LiveScene, text: string) {
         ),
     );
   return clauses.some((s) => {
+    if (
+      /^seated (?:on a bench|at a picnic table)$/.test(scene.area) &&
+      /\b(?:we|you) (?:walk|stroll|are walking|are strolling)\b|\b(?:she|he|tess|riley|maya|claire|jordan|ben) (?:walks|strolls)\b.{0,45}\b(?:along|down|up) (?:the )?(?:path|trail)\b/i.test(
+        s,
+      )
+    )
+      return true;
     if (
       scene.locationKind !== "park" &&
       /\b(?:we (?:walk|are walking|stroll)|(?:she|he|riley|tess|maya|claire|jordan) (?:walks|strolls)|you (?:walk|stroll)|(?:the|our) (?:park )?path (?:winds|stretches))\b.{0,65}\b(?:park|trail|path|juniper commons)\b|\b(?:back at|still at|here at|around us at) (?:the )?(?:park|juniper commons)\b/i.test(

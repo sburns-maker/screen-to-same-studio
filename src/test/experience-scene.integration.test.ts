@@ -204,3 +204,25 @@ it("reads later transitions beyond the old 200-moment cutoff", async () => {
     "We arrive at your house.",
   );
 }, 30000);
+
+it("persists the bench across refresh and rejects an unrecorded return to walking", async () => {
+  await turn("We sit on a bench.");
+  const saved = await livingHistory(postgresSupabase(db).admin, user, plan);
+  expect(saved.scene.live_scene).toMatchObject({
+    activity: "talking",
+    area: "seated on a bench",
+    locationKey: "park:local",
+  });
+  model.reply.mockResolvedValueOnce({
+    messages: ["Riley smiles as we walk along the park path."],
+    state_delta: {},
+    photo: null,
+  });
+  await expect(turn("I smile at you.")).rejects.toThrow("current scene is preserved");
+  expect((await livingHistory(client(), user, plan)).scene.live_scene?.area).toBe(
+    "seated on a bench",
+  );
+  expect(
+    (await db.query("SELECT place_key FROM social_plans WHERE id=$1", [plan])).rows[0],
+  ).toEqual({ place_key: "park:local" });
+});

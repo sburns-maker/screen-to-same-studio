@@ -2,7 +2,12 @@
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { screenPhotoVisuals, visualScreenAccepted } from "@/lib/photo-identity-qc.server";
-import { generateTessImage, fictionalGroupScene, mentionsOtherEstablishedCharacter, lovableGatewayProvider } from "@/lib/tess-image.server";
+import {
+  generateTessImage,
+  fictionalGroupScene,
+  mentionsOtherEstablishedCharacter,
+  lovableGatewayProvider,
+} from "@/lib/tess-image.server";
 import { characterFor } from "@/lib/characters";
 import { PROFILE_PORTRAITS } from "@/lib/character-portraits";
 vi.mock("@/lib/photo-text-qc.server", () => ({
@@ -163,14 +168,12 @@ describe("every shared generation path anchors original portraits", () => {
       asset: "owner/profile/maya/approved.jpg",
       sha256: "approved-hash",
     };
-    const generate = vi
-      .fn()
-      .mockResolvedValue({
-        bytes: new Uint8Array([1]),
-        mime: "image/png",
-        provider: "test",
-        model: "test",
-      });
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1]),
+      mime: "image/png",
+      provider: "test",
+      model: "test",
+    });
     const result = await generateTessImage({
       provider: { name: "test", model: "test", referenceConditioning: true, generate },
       canonical: approved,
@@ -263,41 +266,66 @@ describe("every shared generation path anchors original portraits", () => {
   });
   it("recovers an appearance-drift selfie once using the same original anchor", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-only");
-    const verdicts = [
-      { ...good, visual_design: "mismatch", reason: "appearance_drift" },
-      good,
-    ];
+    const verdicts = [{ ...good, visual_design: "mismatch", reason: "appearance_drift" }, good];
     let index = 0;
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () =>
-      Response.json({ choices: [{ message: { content: JSON.stringify(verdicts[index++] ?? good) } }] })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation(async () =>
+        Response.json({
+          choices: [{ message: { content: JSON.stringify(verdicts[index++] ?? good) } }],
+        }),
+      ),
+    );
     const generate = vi.fn().mockResolvedValue({
-      bytes: new Uint8Array([1, 2, 3]), mime: "image/png", provider: "test", model: "test",
+      bytes: new Uint8Array([1, 2, 3]),
+      mime: "image/png",
+      provider: "test",
+      model: "test",
     });
     const result = await generateTessImage({
       provider: { name: "test", model: "test", referenceConditioning: true, generate },
-      type: "casual_selfie", scene: "deadpan selfie with messy bun", expression: "deadpan",
+      type: "casual_selfie",
+      scene: "deadpan selfie with messy bun",
+      expression: "deadpan",
       identity: { key: "tess", name: "Tess", age: 34, pronouns: "she/her", appearance: "" },
     });
     expect(result.diagnostics.retryCount).toBe(1);
     expect(result.diagnostics.retryReasons).toEqual(["appearance_drift"]);
+    expect(result.diagnostics.visualScreening).toMatchObject({
+      sceneConsistent: true,
+      sceneRule: "none",
+    });
     expect(result.diagnostics.validationStatus).toBe("screen_passed");
     expect(generate).toHaveBeenCalledTimes(2);
     expect(generate.mock.calls[1]![0]).toContain("IDENTITY CONTINUITY CORRECTION");
-    expect(await (generate.mock.calls[0]![1][0] as Blob).arrayBuffer())
-      .toEqual(await (generate.mock.calls[1]![1][0] as Blob).arrayBuffer());
+    expect(await (generate.mock.calls[0]![1][0] as Blob).arrayBuffer()).toEqual(
+      await (generate.mock.calls[1]![1][0] as Blob).arrayBuffer(),
+    );
   });
   it("accepts a trivia-team photo with anchored Tess and incidental fictional adults", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-only");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
-      choices: [{ message: { content: JSON.stringify({ ...good, unexpected_people: true }) } }],
-    })));
-    const generate = vi.fn().mockResolvedValue({ bytes: new Uint8Array([1]), mime: "image/png", provider: "test", model: "test" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          choices: [{ message: { content: JSON.stringify({ ...good, unexpected_people: true }) } }],
+        }),
+      ),
+    );
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1]),
+      mime: "image/png",
+      provider: "test",
+      model: "test",
+    });
     const scene = "Group photo of Tess with her trivia team at the bar after a round";
     expect(fictionalGroupScene(scene)).toBe(true);
     expect(mentionsOtherEstablishedCharacter(scene, "tess")).toBe(false);
     const result = await generateTessImage({
       provider: { name: "test", model: "test", referenceConditioning: true, generate },
-      type: "casual_selfie", scene, expression: "amused",
+      type: "casual_selfie",
+      scene,
+      expression: "amused",
       identity: { key: "tess", name: "Tess", age: 34, pronouns: "she/her", appearance: "" },
     });
     expect(result.diagnostics.validationStatus).toBe("screen_passed");
@@ -316,5 +344,70 @@ describe("every shared generation path anchors original portraits", () => {
       }),
     ).rejects.toMatchObject({ diagnostics: { failureReason: "unsupported_group_photo" } });
     expect(generate).not.toHaveBeenCalled();
+  });
+});
+
+describe("candidate scene screening diagnostics", () => {
+  it("screens only the candidate scene and allows a close selfie during a walk", async () => {
+    const fetch = vision();
+    await screenPhotoVisuals(
+      new Blob(["indoor reference portrait"]),
+      candidate,
+      "A close selfie during a park stroll",
+      { expectedLocation: "outdoors" },
+    );
+    const request = JSON.parse(fetch.mock.calls[0]![1].body);
+    expect(request.messages[0].content).toContain("Evaluate ONLY the candidate");
+    expect(request.messages[0].content).toContain("first reference supplies facial design");
+    expect(request.messages[0].content).toContain("brief pause to take a selfie");
+    expect(JSON.parse(request.messages[1].content[0].text)).toMatchObject({
+      expected_location_category: "outdoors",
+    });
+    expect(request.response_format.json_schema.schema.properties.reason.enum).toContain(
+      "scene_consistent",
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("retains an actual rendered-image scene failure without retrying or exposing free text", async () => {
+    const fetch = vision({
+      ...good,
+      scene_consistent: false,
+      reason: "scene_mismatch",
+      scene_rule: "location",
+    });
+    await expect(
+      screenPhotoVisuals(new Blob(["reference"]), candidate, "park selfie", {
+        expectedLocation: "outdoors",
+      }),
+    ).rejects.toMatchObject({
+      message: "scene_mismatch",
+      screening: { stage: "rendered_image", sceneRule: "location", sceneConsistent: false },
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("keeps scene failures distinct from face drift and never regenerates a mismatched scene", async () => {
+    vision({ ...good, scene_consistent: false, reason: "scene_mismatch", scene_rule: "activity" });
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([1]),
+      mime: "image/png",
+      provider: "test",
+      model: "test",
+    });
+    await expect(
+      generateTessImage({
+        provider: { name: "test", model: "test", referenceConditioning: true, generate },
+        type: "casual_selfie",
+        scene: "park selfie",
+        expression: null,
+        identity: { key: "tess", name: "Tess", age: 34, pronouns: "she/her", appearance: "" },
+      }),
+    ).rejects.toMatchObject({
+      diagnostics: {
+        failureReason: "scene_mismatch",
+        retryCount: 0,
+        visualScreening: { stage: "rendered_image", sceneRule: "activity" },
+      },
+    });
+    expect(generate).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,6 +1,6 @@
 import { photoPersonalityPrompt, photographyDiagnostics, type PhotographyPlan } from "./photo-personality";
 import { canonicalProfile } from "./canonical-profile.server";
-import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
+import { PhotoVisualFailure, requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
 import type { CharacterKey } from "./characters";
 import {
   photoTextPrompt,
@@ -205,6 +205,7 @@ export type PhotoDiagnostics = {
   failureReason: string | null;
   retryCount: number;
   retryReasons?: string[];
+  visualScreening?: PhotoVisualFailure["screening"];
   photography?: ReturnType<typeof photographyDiagnostics>;
 };
 export class PhotoGenerationFailure extends Error {
@@ -275,15 +276,17 @@ export async function generateTessImage(args: {
         highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
       });
       try {
-        await screenPhotoVisuals(
+        const screened = await screenPhotoVisuals(
           canonical?.blob ?? null,
           new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
           args.scene,
-          { allowBackgroundAdults: group },
+          { allowBackgroundAdults: group, expectedLocation: args.photography?.location ?? null },
         );
+        diagnostic.visualScreening = screened.screening;
         img = candidate;
         break;
       } catch (screenError) {
+        if (screenError instanceof PhotoVisualFailure) diagnostic.visualScreening = screenError.screening;
         const reason = screenError instanceof Error ? screenError.message : "visual_screen_uncertain";
         retryReasons.push(reason);
         diagnostic.retryReasons = [...retryReasons];
@@ -322,6 +325,7 @@ export async function generateTessImage(args: {
       "reference_obscured",
       "face_not_visible",
       "scene_mismatch",
+      "unexpected_people",
       "uncertain",
       "visual_screen_uncertain",
       "text_verification_unavailable",
