@@ -24,6 +24,7 @@ import {
   livingHistory,
 } from "@/lib/living-experiences.server";
 import { schedulingAgenda } from "@/lib/scheduling-agenda.server";
+import { savePlanEdit } from "@/lib/plan-edit.server";
 import { zonedInstant } from "@/lib/calendar-time";
 import { scheduleActionSchema } from "@/lib/calendar-contract";
 let db: Awaited<ReturnType<typeof worldDatabase>>;
@@ -91,6 +92,8 @@ beforeAll(async () => {
     "0036_mutual_calendar_confirmation",
     "0037_all_character_calendar_proposers",
     "0038_canonical_scheduling",
+    "0039_experience_live_scene",
+    "0040_transactional_plan_edits",
   ]) {
     if (f === "0038_canonical_scheduling") {
       await db.exec(`INSERT INTO conversations(id,user_id,character_id) SELECT '90000000-0000-4000-a000-000000000001','${other}',id FROM characters WHERE key='tess';
@@ -109,6 +112,12 @@ beforeAll(async () => {
         memoryBefore.rows,
       );
       preservedHistoricalRecords = true;
+    } else if (f === "0040_transactional_plan_edits") {
+      const before = await db.query("SELECT * FROM social_plans ORDER BY id");
+      const memories = await db.query("SELECT * FROM memories ORDER BY id");
+      await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
+      expect((await db.query("SELECT * FROM social_plans ORDER BY id")).rows).toEqual(before.rows);
+      expect((await db.query("SELECT * FROM memories ORDER BY id")).rows).toEqual(memories.rows);
     } else await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
   }
   await db.exec(readFileSync("docs/sql/20261024_riley_night_shift.sql", "utf8"));
@@ -552,5 +561,140 @@ describe("one canonical scheduling lifecycle", () => {
     expect(pending.starts_at).toBeNull();
     expect(pending.status).toBe("awaiting_details");
     expect(pending.time_hint).toBe("after lunch");
+  });
+});
+
+describe("manual corrections share canonical scheduling and cannot fabricate agreement", () => {
+  async function agreed() {
+    await msg("Want coffee Sunday at 2 PM at Switchyard Coffee?", "tess");
+    await msg("Absolutely.");
+    return (await plans())[0]!;
+  }
+  function edit(p: Awaited<ReturnType<typeof agreed>>, patch = {}) {
+    return {
+      id: id(),
+      planId: p.id,
+      version: p.version,
+      title: p.title,
+      date: p.date_local!,
+      time: p.time_local!,
+      durationMinutes: p.duration_minutes,
+      place: p.place_key,
+      confirmed: true,
+      ...patch,
+    };
+  }
+  it("preserves mutual agreement on a title correction, with one event, audit and replay receipt", async () => {
+    const p = await agreed();
+    const input = edit(p, { title: "Coffee and catching up" });
+    const first = await savePlanEdit(client(), user, input, clock);
+    const again = await savePlanEdit(client(), user, input, clock);
+    expect(first.status).toBe("accepted");
+    expect(again.replayed).toBe(true);
+    expect(await plans()).toHaveLength(1);
+    expect((await plans())[0]).toMatchObject({
+      id: p.id,
+      title: input.title,
+      user_response: "accepted",
+      character_response: "accepted",
+    });
+    expect((await db.query("select id from messages where id=$1", [input.id])).rows).toHaveLength(
+      1,
+    );
+    expect((await schedulingAgenda(client(), user, clock)).events[0]).toMatchObject({
+      id: p.id,
+      status: "accepted",
+    });
+  });
+  it("changed times require character reconfirmation and then update the same calendar and experience", async () => {
+    const p = await agreed();
+    await experienceSeed(client(), user, clock);
+    const result = await savePlanEdit(client(), user, edit(p, { time: "15:00" }), clock);
+    expect(result.status).toBe("rescheduled");
+    expect((await plans())[0]).toMatchObject({
+      id: p.id,
+      character_response: "invited",
+      user_response: "accepted",
+      time_local: "15:00",
+    });
+    const saved = (await plans())[0]!;
+    await msg("Yes, 3 PM works for me.", "tess");
+    await experienceSeed(client(), user, clock);
+    expect(await plans()).toHaveLength(1);
+    expect((await plans())[0]?.status).toBe("accepted");
+    const h = await livingHistory(client(), user, p.id);
+    expect(h.scene.start_at).toBe(zonedInstant(saved.date_local, "15:00"));
+    expect(new Date(h.scene.claim_deadline).getTime() - Date.parse(h.scene.start_at)).toBe(
+      4 * 3600000,
+    );
+  });
+  it("does not erase missing venues, authorize overlapping plans or forge a character RSVP", async () => {
+    await msg("Want coffee Sunday at 2 PM?", "tess");
+    await msg("Absolutely.");
+    const pending = (await plans())[0]!;
+    await savePlanEdit(client(), user, edit(pending), clock);
+    expect((await plans())[0]).toMatchObject({ status: "awaiting_details", place_key: null });
+    expect((await plans())[0]?.missing_details).toContain("venue");
+  });
+  it("rejects stale revisions, conflicting action reuse, unknown venues, foreign users and protected experiences atomically", async () => {
+    const p = await agreed();
+    const input = edit(p, { title: "A quiet coffee" });
+    await savePlanEdit(client(), user, input, clock);
+    const before = await plans();
+    await expect(savePlanEdit(client(), user, edit(p, { time: "15:00" }), clock)).rejects.toThrow(
+      "Reload",
+    );
+    await expect(
+      savePlanEdit(client(), user, { ...input, title: "different" }, clock),
+    ).rejects.toThrow("Reload");
+    const fresh = (await plans())[0]!;
+    await expect(
+      savePlanEdit(client(), user, edit(fresh, { place: "invented:venue" }), clock),
+    ).rejects.toThrow();
+    await expect(savePlanEdit(client(), other, edit(fresh), clock)).rejects.toThrow("Owned");
+    expect(await plans()).toEqual(before);
+    const at = new Date(fresh.starts_at!);
+    await experienceSeed(client(), user, clock);
+    await experienceCommand(client(), user, p.id, id(), "claim", null, {}, at);
+    await experienceCommand(client(), user, p.id, id(), "pause", null, {}, at);
+    const claimed = (await plans())[0]!;
+    const history = await livingHistory(client(), user, p.id);
+    await expect(
+      savePlanEdit(client(), user, edit(claimed, { time: "16:00" }), at),
+    ).rejects.toThrow("Reload");
+    expect((await livingHistory(client(), user, p.id)).scene).toEqual(history.scene);
+    expect((await plans())[0]).toEqual(claimed);
+  });
+  it("keeps genuine player overlaps visible instead of clearing them during an edit", async () => {
+    const p = await agreed();
+    const second = id();
+    await db.query(
+      "INSERT INTO conversations(id,user_id,character_id) SELECT $1,$2,id FROM characters WHERE key='ben'",
+      [second, user],
+    );
+    await db.query(
+      "INSERT INTO social_plans(user_id,id,organizer,title,place_key,starts_at,ends_at,status,origin,conversation_id,category,user_response,character_response) VALUES($1,$2,'ben','Other confirmed plans','coffee:local','2026-10-25T20:00Z','2026-10-25T21:00Z','accepted','conversation',$3,'coffee','accepted','accepted')",
+      [user, id(), second],
+    );
+    await savePlanEdit(client(), user, edit(p, { time: "16:00" }), clock);
+    const saved = (await plans()).find((x) => x.id === p.id)!;
+    expect(saved.conflicts).toContain("calendar_or_travel_overlap");
+    expect(saved.status).not.toBe("accepted");
+    expect(
+      (await schedulingAgenda(client(), user, clock)).events.find((x) => x.id === p.id)?.conflicts,
+    ).toEqual(saved.conflicts);
+  });
+  it("uses the shared DST validation before storing any edit evidence", async () => {
+    const p = await agreed();
+    const count = (await db.query("select id from messages")).rows.length;
+    for (const patch of [
+      { date: "2027-03-14", time: "02:30" },
+      { date: "2026-11-01", time: "01:30" },
+      { date: "2026-02-30", time: "14:00" },
+    ])
+      await expect(savePlanEdit(client(), user, edit(p, patch), clock)).rejects.toThrow(
+        "unambiguous",
+      );
+    expect((await db.query("select id from messages")).rows).toHaveLength(count);
   });
 });

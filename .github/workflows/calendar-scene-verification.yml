@@ -1,0 +1,27 @@
+name: Calendar and live scene verification
+on:
+  pull_request:
+    paths:
+      - "src/lib/calendar*"
+      - "src/lib/plan-edit*"
+      - "src/lib/scheduling*"
+      - "src/lib/experience-scene*"
+      - "src/components/CalendarBoard.tsx"
+      - "src/components/PlanEditor.tsx"
+      - "src/test/*calendar*"
+      - "src/test/*scheduling*"
+      - "src/test/plan-edit*"
+      - "src/test/experience-scene*"
+      - "drizzle/migrations/0040_transactional_plan_edits.sql"
+      - ".github/workflows/calendar-scene-verification.yml"
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bunx tsc --noEmit
+      - run: bunx vitest run src/test/scheduling-lifecycle.integration.test.ts src/test/scheduling-delivery.integration.test.ts src/test/scheduling-ui.test.tsx src/test/plan-editor.test.tsx src/test/plan-edit.test.ts src/test/calendar-time.test.ts src/test/calendar-commitment.test.ts src/test/experience-scene.test.ts src/test/experience-scene.integration.test.ts
+      - run: bun run build

@@ -337,4 +337,77 @@ suite("PostgreSQL 17 multi-connection ownership and transaction tests", () => {
       ]),
     ).rejects.toThrow("Actual current owned");
   });
+  const editPayload = (time = "14:00") => ({
+    title: "Coffee and conversation",
+    date: "2026-10-25",
+    time,
+    durationMinutes: 60,
+    place: "coffee:local",
+    confirmed: true,
+    schedule_ok: true,
+  });
+  async function prepareEdit() {
+    await sql.unsafe(
+      "UPDATE social_plans SET date_local='2026-10-25',time_local='14:00',duration_minutes=60,user_response='accepted',character_response='accepted' WHERE user_id=$1 AND id=$2",
+      [user, plan],
+    );
+  }
+  const editPlan = (action: string, version: number, time = "14:00") =>
+    sql.unsafe("SELECT calendar_edit_plan($1,$2,$3,$4,$5::jsonb,$6) result", [
+      user,
+      plan,
+      action,
+      version,
+      sql.json(editPayload(time)),
+      now,
+    ]);
+  it("one transaction wins between a reschedule and an interactive claim", async () => {
+    await prepareEdit();
+    const results = await Promise.allSettled([
+      editPlan(crypto.randomUUID(), 0, "15:00"),
+      command(sql, "claim"),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const p = (await sql`SELECT * FROM social_plans`)[0]!;
+    const e = (await sql`SELECT * FROM living_experiences`)[0]!;
+    if (e["state"] === "interactive") {
+      expect(p["time_local"]).toBe("14:00");
+      expect((await sql`SELECT * FROM calendar_action_receipts`).length).toBe(0);
+    } else {
+      expect(p["time_local"]).toBe("15:00");
+      expect(p["character_response"]).toBe("invited");
+      expect(p["status"]).not.toBe("accepted");
+    }
+  });
+  it("deduplicates concurrent edit receipts and synchronizes an unclaimed experience atomically", async () => {
+    await prepareEdit();
+    const action = crypto.randomUUID();
+    const results = await Promise.all([editPlan(action, 0), editPlan(action, 0)]);
+    expect(results[0]![0]!["result"].id).toBe(plan);
+    expect(results[1]![0]!["result"].id).toBe(plan);
+    expect((await sql`SELECT count(*)::int n FROM calendar_action_receipts`)[0]!["n"]).toBe(1);
+    const p = (await sql`SELECT * FROM social_plans`)[0]!;
+    const e = (await sql`SELECT * FROM living_experiences`)[0]!;
+    expect(e["plan_version"]).toBe(p["version"]);
+    expect((await sql`SELECT count(*)::int n FROM messages`)[0]!["n"]).toBe(1);
+    await expect(editPlan(crypto.randomUUID(), 0)).rejects.toThrow("plan changed");
+  });
+  it("restricts manual-edit RPC permissions and rejects cross-owner plans", async () => {
+    await prepareEdit();
+    await expect(
+      sql.begin(async (tx) => {
+        await tx.unsafe("SET LOCAL ROLE authenticated");
+        await tx.unsafe("SELECT calendar_edit_status()");
+      }),
+    ).rejects.toThrow("permission denied");
+    await expect(
+      sql.unsafe("SELECT calendar_edit_plan($1,$2,$3,0,$4::jsonb,$5)", [
+        "10000000-0000-4000-a000-000000000002",
+        plan,
+        crypto.randomUUID(),
+        sql.json(editPayload()),
+        now,
+      ]),
+    ).rejects.toThrow("owned conversation event");
+  });
 });

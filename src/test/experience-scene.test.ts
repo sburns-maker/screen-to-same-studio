@@ -187,3 +187,45 @@ describe("photo blocker regressions", () => {
     ).toBe(false);
   });
 });
+
+describe("paused experience continuity across real days", () => {
+  it.each(["interactive", "paused"])(
+    "keeps the latest home scene authoritative while %s instead of reverting to the old park or weekly schedule",
+    (state) => {
+      const home = {
+        ...initialScene("riley", "home:riley", "Riley's home"),
+        locationKind: "home",
+        activity: "at_front_door" as const,
+        area: "front door (outside)",
+      };
+      const current = activeCommitment(
+        "riley",
+        [
+          {
+            id: "walk",
+            title: "A walk",
+            organizer: "riley",
+            status: "in_progress",
+            starts_at: "2026-10-24T21:00Z",
+            ends_at: "2026-10-24T22:00Z",
+            place_key: "park:local",
+          },
+        ],
+        [
+          {
+            plan_id: "walk",
+            state,
+            synced_at: null,
+            updated_at: "2026-10-24T22:00Z",
+            live_scene: home,
+          },
+        ],
+        new Date("2026-10-28T18:00Z"),
+      );
+      expect(current?.scene).toEqual(home);
+      expect(current?.detail).toContain("Riley's home");
+      expect(current?.detail).not.toContain("Juniper Commons");
+      expect(sceneContradiction(home, "Riley smiles as we stroll along the park path.")).toBe(true);
+    },
+  );
+});

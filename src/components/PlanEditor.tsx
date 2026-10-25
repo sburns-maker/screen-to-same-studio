@@ -45,8 +45,9 @@ export function PlanEditor({
     confirmed: plan.status === "accepted",
   });
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const field = "mt-1 min-h-11 w-full rounded-xl border bg-background p-2";
-  const places = PLACE_REGISTRY;
+  const places = PLACE_REGISTRY.filter((p) => p.public);
   return (
     <form
       aria-label="Edit plan"
@@ -54,44 +55,102 @@ export function PlanEditor({
       onSubmit={async (ev) => {
         ev.preventDefault();
         setBusy(true);
-        await onSave(v);
-        setBusy(false);
+        setError("");
+        try {
+          await onSave(v);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Changes could not be saved");
+        } finally {
+          setBusy(false);
+        }
       }}
     >
       <label className="text-sm">
         Activity
-        <input required maxLength={120} value={v.title} onChange={(e) => setV({ ...v, title: e.target.value })} className={field} />
+        <input
+          required
+          maxLength={120}
+          value={v.title}
+          onChange={(e) => setV({ ...v, title: e.target.value })}
+          className={field}
+        />
       </label>
       <label className="text-sm">
         Venue
-        <select value={v.place ?? ""} onChange={(e) => setV({ ...v, place: e.target.value || null })} className={field}>
+        <select
+          value={v.place ?? ""}
+          onChange={(e) => setV({ ...v, place: e.target.value || null })}
+          className={field}
+        >
           <option value="">Keep current</option>
           {places.map((p) => (
-            <option key={p.key} value={p.key}>{p.label}</option>
+            <option key={p.key} value={p.key}>
+              {p.label}
+            </option>
           ))}
         </select>
       </label>
       <label className="text-sm">
         Date
-        <input required type="date" value={v.date} onChange={(e) => setV({ ...v, date: e.target.value })} className={field} />
+        <input
+          required
+          type="date"
+          value={v.date}
+          onChange={(e) => setV({ ...v, date: e.target.value })}
+          className={field}
+        />
       </label>
       <label className="text-sm">
         Time (Eastern)
-        <input required type="time" value={v.time} onChange={(e) => setV({ ...v, time: e.target.value })} className={field} />
+        <input
+          required
+          type="time"
+          value={v.time}
+          onChange={(e) => setV({ ...v, time: e.target.value })}
+          className={field}
+        />
       </label>
       <label className="text-sm">
         Duration (minutes)
-        <input type="number" min={15} max={720} value={v.durationMinutes} onChange={(e) => setV({ ...v, durationMinutes: Number(e.target.value) })} className={field} />
+        <input
+          type="number"
+          min={15}
+          max={360}
+          value={v.durationMinutes}
+          onChange={(e) => setV({ ...v, durationMinutes: Number(e.target.value) })}
+          className={field}
+        />
       </label>
       <label className="flex min-h-11 items-center gap-2 text-sm">
-        <input type="checkbox" checked={v.confirmed} onChange={(e) => setV({ ...v, confirmed: e.target.checked })} />
-        We both agreed — mark Confirmed
+        <input
+          type="checkbox"
+          checked={v.confirmed}
+          onChange={(e) => setV({ ...v, confirmed: e.target.checked })}
+        />
+        I accept these details
       </label>
+      <p className="text-xs text-muted-foreground sm:col-span-2">
+        Changed times or venues need the character’s agreement. Existing mutual acceptance is
+        preserved when arrangements stay the same.
+      </p>
+      {error && (
+        <p role="alert" className="sm:col-span-2">
+          {error}
+        </p>
+      )}
       <div className="flex gap-2 sm:col-span-2">
-        <button disabled={busy} className="min-h-11 rounded-full bg-primary px-4 text-sm text-primary-foreground">
+        <button
+          disabled={busy}
+          className="min-h-11 rounded-full bg-primary px-4 text-sm text-primary-foreground"
+        >
           {busy ? "Saving…" : "Save changes"}
         </button>
-        <button type="button" onClick={onCancel} className="min-h-11 rounded-full border px-4 text-sm">
+        <button
+          disabled={busy}
+          type="button"
+          onClick={onCancel}
+          className="min-h-11 rounded-full border px-4 text-sm"
+        >
           Cancel
         </button>
       </div>

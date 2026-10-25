@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   events: [] as AgendaEvent[],
   respond: vi.fn(),
   create: vi.fn(),
+  edit: vi.fn(),
   invalidate: vi.fn(),
   navigate: vi.fn(),
 }));
@@ -29,7 +30,10 @@ vi.mock("@/lib/use-schedule", () => ({
   invalidateSchedule: mocks.invalidate,
 }));
 vi.mock("@/lib/interactive-world.functions", () => ({ respondToCalendarPlan: mocks.respond }));
-vi.mock("@/lib/scheduling.functions", () => ({ createPlanDraft: mocks.create, editCalendarPlan: vi.fn() }));
+vi.mock("@/lib/scheduling.functions", () => ({
+  createPlanDraft: mocks.create,
+  editCalendarPlan: mocks.edit,
+}));
 vi.mock("@/components/ExperienceEntry", () => ({
   ExperienceEntry: ({ planId }: { planId: string }) => (
     <a href={"/experiences?plan=" + planId}>Experience this outing</a>
@@ -75,6 +79,7 @@ beforeEach(() => {
   mocks.events = [{ ...fixture }];
   mocks.respond.mockReset().mockResolvedValue({ conversationId: "contact" });
   mocks.create.mockReset().mockResolvedValue({ replyPending: false });
+  mocks.edit.mockReset().mockResolvedValue({ status: "rescheduled" });
   mocks.invalidate.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => cleanup());
@@ -157,4 +162,24 @@ it("manual creation sends an invitation with missing details instead of assuming
     }),
   );
   expect(mocks.invalidate).toHaveBeenCalled();
+});
+
+it("sends versioned edits with a stable retry ID and refreshes the canonical agenda", async () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <CalendarBoard />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(screen.getByText("Edit"));
+  fireEvent.change(screen.getByLabelText("Time (Eastern)"), { target: { value: "15:00" } });
+  fireEvent.click(screen.getByText("Save changes"));
+  await waitFor(() => expect(mocks.edit).toHaveBeenCalledTimes(1));
+  expect(mocks.edit.mock.calls[0]![0].data).toMatchObject({
+    planId: "event",
+    version: 2,
+    time: "15:00",
+    confirmed: true,
+  });
+  expect(mocks.edit.mock.calls[0]![0].data.id).toMatch(/^[0-9a-f-]{36}$/);
+  await waitFor(() => expect(mocks.invalidate).toHaveBeenCalled());
 });

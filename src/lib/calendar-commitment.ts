@@ -90,6 +90,23 @@ export function activeCommitment(
         });
       continue;
     }
+    // An owned interactive scene uses its fictional timeline until explicit resolution.
+    // Real elapsed days (including a paused browser) cannot restore the baseline location.
+    if (ex && ["interactive", "paused"].includes(ex.state) && t >= start) {
+      candidates.push({
+        ...base,
+        phase: "attending",
+        activity: live?.activity ?? "on an outing",
+        availability: "limited",
+        detail: live
+          ? `${OUTING_MARKER}: current live scene at ${where}. This physical location takes priority over the original calendar venue; the protected experience remains ${ex.state}.`
+          : `${OUTING_MARKER}: protected ${ex.state} experience ${p.title} at ${where}. No completion or later travel has been recorded.`,
+        summary: live
+          ? `The protected outing is currently at ${where}.`
+          : `${p.title} is still awaiting explicit resolution.`,
+      });
+      continue;
+    }
     if (t < start - PREPARE_MINUTES * MIN) continue;
     if (t < start) {
       candidates.push({

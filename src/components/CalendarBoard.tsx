@@ -498,14 +498,16 @@ export function CalendarBoard() {
                     )}
                 </>
               )}
-              {!active && e.status !== "completed" && (
-                <button
-                  onClick={() => setEditing(editing === e.id ? "" : e.id)}
-                  className="min-h-11 rounded-full border px-4 text-sm"
-                >
-                  Edit
-                </button>
-              )}
+              {e.origin === "conversation" &&
+                !active &&
+                !["completed", "cancelled", "declined", "missed"].includes(e.status) && (
+                  <button
+                    onClick={() => setEditing(editing === e.id ? "" : e.id)}
+                    className="min-h-11 rounded-full border px-4 text-sm"
+                  >
+                    Edit
+                  </button>
+                )}
               {e.place_key && (
                 <Link
                   to="/place/$placeKey"
@@ -522,10 +524,18 @@ export function CalendarBoard() {
                 onCancel={() => setEditing("")}
                 onSave={async (v) => {
                   try {
-                    await edit({ data: { planId: e.id, ...v } });
+                    const key = JSON.stringify(["edit", e.id, e.version, v]);
+                    const result = await edit({
+                      data: { id: actionId(key), version: e.version, planId: e.id, ...v },
+                    });
+                    pending.current.delete(key);
                     await invalidateSchedule(cache);
                     setEditing("");
-                    toast.success("Plan updated");
+                    toast.success(
+                      result.status === "accepted"
+                        ? "Plan confirmed"
+                        : "Changes saved; check pending details or the character’s response.",
+                    );
                   } catch (err) {
                     toast.error((err as Error).message);
                   }
