@@ -21,8 +21,8 @@ BEGIN
    IF v_error <> 'registered public venue required' THEN RAISE; END IF;
    -- The nested exception rolls back only calendar side-effects.
    -- Do not create a calendar receipt or confirm an invalid reschedule.
-   RAISE LOG '[photo-delivery] skipped invalid calendar venue for job %, message %, plan %',
-     p_job_id,source,detail->'plan'->'scheduleActions';
+   RAISE LOG '[photo-delivery] skipped unregistered venue in calendar action, job %, message %',
+     p_job_id,source;
   END;
  END IF;
  RETURN r;
