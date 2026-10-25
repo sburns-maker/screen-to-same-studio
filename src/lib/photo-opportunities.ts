@@ -70,7 +70,6 @@ export function photoOpportunity(args: {
   // Repeated worker polls for the same moment remain deterministic below.
   if (args.gapHours < 0) return no("a reply is still pending");
   if (!args.context?.trim()) return no("no current visual context");
-  if (photoContextConflicts(args.schedule, args.context)) return no("photo context conflicts with current outing or day off");
   // Stable per opportunity: polling more often (or Practice mode) never rerolls the chance.
   let hash = 2166136261;
   for (const c of key) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
