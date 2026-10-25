@@ -59,3 +59,18 @@ Automated SQL tests do not prove that Lovable's live schema matches this known i
 - Full application suite: **802 passed, 29 opt-in PostgreSQL cases skipped**; those 29 were executed separately as the 17+12 cases above.
 - TypeScript, production build, focused ESLint, deterministic generation check and `git diff --check`: passed. Repository-wide existing lint debt is not represented as passing.
 - No production execution, deployment, raw ledger inserts or paid model requests were performed.
+
+## Verified comment-stripped installation variant
+
+Lovable's live preflight reported two otherwise unchanged function bodies with specific SQL comment lines removed. Their executable SQL was independently checked against the archived original 0038 payload, without trusting a status number or adding arbitrary reported hashes:
+
+- `calendar_event_action`: removing only `-- An exact acceptance of the current proposal may be carried with a structured character action.` changes the normalized body fingerprint from `41f6a8837c5d0fc38856a0988934bf8a` to `71cb35b38c871a4a4e9a220de0fdbb2e`.
+- `experience_command`: removing only the two comments about a days-late parent's follow-up and its real four-hour continuation window changes the fingerprint from `2543995560c57835df411f6b3acb5386` to `efa4885880070f6eaf88ab80ad197db6`.
+
+The manifest accepts only these two additional exact fingerprints. The guard does **not** globally strip comments, relax executable-code matching or change any schema/security/permission check. Original SQL payloads, migration timestamps and executable function logic remain unchanged. The four guarded files and read-only preflight are regenerated from the same verifier/manifest.
+
+The new unit tests derive both hashes directly from the immutable original SQL. The PostgreSQL regression installs those exact comment-stripped function definitions, verifies the read-only preflight, runs the actual Drizzle upgrade through 0041 and checks that the installed function bodies and user history remain intact. A negative case alters an executable ordinal bound in the comment-stripped function and verifies that migration still stops with the ledger at 0034.
+
+After reviewing and merging this follow-up, sync main and rerun the read-only preflight before the normal runner. If another mismatch appears, return its exact diagnostic rather than weakening the checks. Nothing in this follow-up applies production migrations or publishes the app.
+
+Comment-variant follow-up validation: **812 application tests passed** (31 opt-in PostgreSQL cases skipped in that run), and the **19-case actual Drizzle/PostgreSQL compatibility suite passed separately**. TypeScript, production build, focused lint, deterministic generation and whitespace checks passed. The unchanged 12-case external experience transaction suite was not rerun for this narrow manifest follow-up; its earlier results above are historical validation. No live database was accessed.

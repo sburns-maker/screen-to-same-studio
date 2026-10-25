@@ -6,6 +6,7 @@ on:
       - "scripts/build-migration-compat.mjs"
       - "scripts/migration-compat/**"
       - "src/test/migration-compatibility*"
+      - "src/test/migration-comment-variants.ts"
       - "vitest.migration-compat.config.ts"
       - ".github/workflows/migration-compatibility.yml"
   workflow_dispatch:

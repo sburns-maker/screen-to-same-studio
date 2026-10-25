@@ -1,3 +1,4 @@
+import { COMMENT_VARIANTS, withoutReviewedComments } from "./migration-comment-variants";
 // @vitest-environment node
 // Only disposable localhost /migration_compat_tests is accepted. Never production credentials.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -273,5 +274,50 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
     await expect(
       sql.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8")),
     ).rejects.toThrow("Realtime subscription missing");
+  });
+  async function stripInstalledComments() {
+    for (const variant of COMMENT_VARIANTS) {
+      const [row] =
+        await sql`SELECT pg_get_functiondef(to_regprocedure(${"public." + variant.signature})) definition`;
+      await sql.unsafe(withoutReviewedComments(row!["definition"], variant.comments));
+      const [actual] =
+        await sql`SELECT md5(regexp_replace(prosrc,'[[:space:]]','','g')) hash FROM pg_proc WHERE oid=to_regprocedure(${"public." + variant.signature})`;
+      expect(actual!["hash"]).toBe(variant.stripped);
+    }
+  }
+  it("preflights and upgrades the exact live comment-stripped functions without changing their logic or user history", async () => {
+    await drift();
+    await stripInstalledComments();
+    const before = await preserved();
+    const definitions =
+      await sql`SELECT proname,prosrc FROM pg_proc WHERE oid IN('public.calendar_event_action(uuid,text,uuid,integer,jsonb,timestamptz)'::regprocedure,'public.experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure) ORDER BY proname`;
+    await sql.begin("read only", (tx) =>
+      tx.unsafe(readFileSync("scripts/migration-compat/preflight.sql", "utf8")),
+    );
+    await run();
+    expect(await preserved()).toEqual(before);
+    expect(
+      await sql`SELECT proname,prosrc FROM pg_proc WHERE oid IN('public.calendar_event_action(uuid,text,uuid,integer,jsonb,timestamptz)'::regprocedure,'public.experience_command(uuid,uuid,uuid,text,integer,jsonb,timestamptz)'::regprocedure) ORDER BY proname`,
+    ).toEqual(definitions);
+    expect(
+      (await sql`SELECT experience_scene_status() v,calendar_edit_status() e`)[0],
+    ).toMatchObject({ v: 39, e: 40 });
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(
+      journal.entries.length,
+    );
+  });
+  it("still rejects executable changes in a comment-stripped function", async () => {
+    await drift();
+    await stripInstalledComments();
+    const [row] =
+      await sql`SELECT pg_get_functiondef('public.calendar_event_action(uuid,text,uuid,integer,jsonb,timestamptz)'::regprocedure) definition`;
+    expect(row!["definition"]).toContain("p_ordinal NOT BETWEEN 0 AND 3");
+    await sql.unsafe(
+      row!["definition"].replace("p_ordinal NOT BETWEEN 0 AND 3", "p_ordinal NOT BETWEEN 0 AND 4"),
+    );
+    const before = await preserved();
+    await expect(run()).rejects.toThrow("unrecognized function body");
+    expect(await preserved()).toEqual(before);
+    expect((await sql`SELECT count(*)::int n FROM drizzle.__drizzle_migrations`)[0]!["n"]).toBe(35);
   });
 });

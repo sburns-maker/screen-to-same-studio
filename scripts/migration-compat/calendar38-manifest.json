@@ -103,7 +103,8 @@
       "authenticated": false,
       "service_role": true,
       "body_hashes": [
-        "41f6a8837c5d0fc38856a0988934bf8a"
+        "41f6a8837c5d0fc38856a0988934bf8a",
+        "71cb35b38c871a4a4e9a220de0fdbb2e"
       ],
       "return_type": "jsonb",
       "argument_names": [
@@ -273,7 +274,8 @@
       "authenticated": false,
       "service_role": true,
       "body_hashes": [
-        "2543995560c57835df411f6b3acb5386"
+        "2543995560c57835df411f6b3acb5386",
+        "efa4885880070f6eaf88ab80ad197db6"
       ],
       "return_type": "jsonb",
       "argument_names": [

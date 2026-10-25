@@ -1,3 +1,4 @@
+import { COMMENT_VARIANTS, withoutReviewedComments } from "./migration-comment-variants";
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
@@ -33,4 +34,33 @@ describe("generated guarded migration compatibility", () => {
       }),
     ).toContain("verified");
   });
+  it.each(COMMENT_VARIANTS)(
+    "independently derives the comment-only live fingerprint for $name",
+    (variant) => {
+      const archived = readFileSync(
+        "drizzle/migrations/0038_canonical_scheduling.sql",
+        "utf8",
+      ).split("$original_0038$")[1]!;
+      const declaration = archived.indexOf(`CREATE FUNCTION public.${variant.name}(`);
+      expect(declaration).toBeGreaterThan(-1);
+      const start = archived.indexOf("AS $$", declaration) + 5;
+      const body = archived.slice(start, archived.indexOf("$$;", start));
+      const fingerprint = (s: string) =>
+        createHash("md5").update(s.replace(/\s/g, "")).digest("hex");
+      expect(fingerprint(body)).toBe(variant.original);
+      const stripped = withoutReviewedComments(body, variant.comments);
+      expect(fingerprint(stripped)).toBe(variant.stripped);
+      const manifest = JSON.parse(
+        readFileSync("scripts/migration-compat/calendar38-manifest.json", "utf8"),
+      );
+      expect(
+        manifest.functions.find((f: { signature: string }) => f.signature === variant.signature)
+          .body_hashes,
+      ).toContain(variant.stripped);
+      // Changing executable SQL is a different, unapproved fingerprint.
+      expect(fingerprint(stripped.replace("p_user", "p_different_user"))).not.toBe(
+        variant.stripped,
+      );
+    },
+  );
 });
