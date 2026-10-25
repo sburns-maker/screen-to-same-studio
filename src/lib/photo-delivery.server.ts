@@ -62,12 +62,10 @@ export async function recoverPhotoDelivery(
     .eq("user_id", userId)
     .maybeSingle();
   if (convError || !conversation) throw new Error("Photo recovery conversation unavailable");
-  const { characterFor } = await import("./characters");
-  const { currentActivity } = await import("./world-continuity");
-  const def = characterFor(conversation.character?.key);
-  const schedule = currentActivity(def, new Date(), conversation.difficulty === "chaos" ? 2 : 1);
-  if (schedule.availability === "asleep" || schedule.availability === "busy")
-    return { count: 0, lastVisibleAt: null, reason: "photo recovery waits for availability" };
+  // A prepared response has already been generated and paid for. Replaying its
+  // atomic delivery must not depend on what the character is doing *now*:
+  // a later shift/sleep transition is irrelevant to an earlier prepared turn.
+  // The database RPC still verifies ownership and rejects stale turns.
   return deliverPhotoTurn(admin, data.id);
 }
 
