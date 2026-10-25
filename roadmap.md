@@ -12,3 +12,4 @@
 - [x] Restore Riley's agreed October 24, 5 PM Juniper Commons walk from its conversation evidence; signed-in Plans and Experience this outing verified, with no attendance or start recorded. All 15 focused tests pass.
 - [ ] Install missing database migrations 0039 then 0040. Blocked: migration runner replays obsolete 0035 against the newer calendar wrapper; its safety check aborts. The required retirement edit is refused because the migration file is read-only. Unlimited cap already verified in the wrapped implementation; 37 scene/calendar tests pass. Do not reset history or bypass the migration runner.
 - [ ] Apply migration 0041 (unregistered venue message recovery) after 0039/0040. Blocked by the same ledger issue; 0041 is on GitHub main but not yet synced into this workspace.
+- [ ] Repair Tess and Riley's prepared replies using verified venue keys, resume existing delivery without regenerating, and prevent display-name venue failures across calendar paths.
