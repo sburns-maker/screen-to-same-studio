@@ -337,13 +337,13 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     ).toBe("fulfilled");
     expect(await offerDueCallback(admin(), user, new Date())).toBe(false);
   });
-  it("accepts a due callback promised by Riley rather than only Tess", async () => {
+  it("accepts a due callback promised by Maya rather than only Tess", async () => {
     vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
     const conversation = id();
     const source = id();
     const record = id();
     await db.query(
-      "insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key='riley'",
+      "insert into conversations(id,user_id,character_id,real_time_mode) select $1,$2,id,true from characters where key='maya'",
       [conversation, user],
     );
     await db.query(
@@ -351,14 +351,14 @@ describe("in-app phone ledger and actual character brain with fake paid provider
       [source, user, conversation, "I'll call you when I get home."],
     );
     await db.query(
-      "insert into world_records(id,user_id,conversation_id,character_key,kind,key,summary,status,source_message_id,source_quote,due_at,expires_at) values($1,$2,$3,'riley','check_in','callback','Riley promised a callback','pending',$4,$5,$6,$7)",
+      "insert into world_records(id,user_id,conversation_id,character_key,kind,key,summary,status,source_message_id,source_quote,due_at,expires_at) values($1,$2,$3,'maya','check_in','callback','Maya promised a callback','pending',$4,$5,$6,$7)",
       [record,user,conversation,source,"I'll call you when I get home.",
        new Date(now.getTime()-1000).toISOString(),
        new Date(now.getTime()+3600000).toISOString()],
     );
     expect(await offerDueCallback(admin(), user, new Date())).toBe(true);
     const calls=(await phoneSnapshot(admin(), user)).calls;
-    expect(calls[0]?.character_key).toBe("riley");
+    expect(calls[0]?.character_key).toBe("maya");
     expect(calls[0]?.direction).toBe("incoming");
   });
   it("respects quiet hours and keeps incoming calls off by default", async () => {
