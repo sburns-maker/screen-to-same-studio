@@ -8,24 +8,28 @@ function bounded(name: string, min: number, max: number, fallback: number) {
 export function voiceConfiguration() {
   const env = process.env;
   const voices = Object.fromEntries(
-    ["tess", "maya", "claire", "jordan", "ben"].map((k) => [
+    ["tess", "maya", "claire", "jordan", "ben", "riley"].map((k) => [
       k,
       env[`VOICE_${k.toUpperCase()}`] ?? "",
     ]),
   );
-  const ready =
-    env["ENABLE_VOICE_CALLS"] === "true" &&
-    env["VOICE_PROVIDER_VALIDATED"] === "true" &&
-    !!env["OPENAI_API_KEY"] &&
-    !!env["OPENAI_TRANSCRIPTION_MODEL"] &&
-    !!env["OPENAI_SPEECH_MODEL"] &&
-    Object.values(voices).every((v) => /^[a-zA-Z0-9_-]{1,50}$/.test(v)) &&
-    new Set(Object.values(voices)).size === 5 &&
-    bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 0) > 0 &&
-    bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 0) > 0 &&
-    bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 0) > 0;
+  const blockers: string[] = [];
+  if (env["ENABLE_VOICE_CALLS"] !== "true") blockers.push("voice_calls_disabled");
+  if (env["VOICE_PROVIDER_VALIDATED"] !== "true") blockers.push("provider_not_validated");
+  if (!env["OPENAI_API_KEY"]) blockers.push("openai_key_missing");
+  if (!env["OPENAI_TRANSCRIPTION_MODEL"]) blockers.push("transcription_model_missing");
+  if (!env["OPENAI_SPEECH_MODEL"]) blockers.push("speech_model_missing");
+  for (const [key, voice] of Object.entries(voices)) {
+    if (!/^[a-zA-Z0-9_-]{1,50}$/.test(voice)) blockers.push(`voice_${key}_missing_or_invalid`);
+  }
+  if (new Set(Object.values(voices)).size !== 6) blockers.push("voices_not_unique");
+  if (bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 0) <= 0) blockers.push("daily_budget_missing");
+  if (bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 0) <= 0) blockers.push("monthly_budget_missing");
+  if (bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 0) <= 0) blockers.push("turn_budget_missing");
+  const ready = blockers.length === 0;
   return {
     ready,
+    blockers,
     voices,
     transcription: env["OPENAI_TRANSCRIPTION_MODEL"] ?? "",
     speech: env["OPENAI_SPEECH_MODEL"] ?? "",

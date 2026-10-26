@@ -64,6 +64,7 @@ export async function phoneSnapshot(db: Client, user: string, sweep = true) {
   return {
     available: true,
     configured: config.ready,
+    configurationBlockers: config.blockers,
     calls: calls.data ?? [],
     preferences: pref.data ?? { enabled: false, incoming: false, save_transcripts: false },
     provider: "OpenAI speech chain",

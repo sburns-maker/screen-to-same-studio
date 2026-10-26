@@ -109,6 +109,7 @@ beforeEach(async () => {
     VOICE_CLAIRE: "c",
     VOICE_JORDAN: "d",
     VOICE_BEN: "e",
+    VOICE_RILEY: "f",
     VOICE_TURN_RESERVATION_CENTS: "5",
     VOICE_DAILY_BUDGET_CENTS: "100",
     VOICE_MONTHLY_BUDGET_CENTS: "1000",
