@@ -38,6 +38,7 @@ export async function saveManualCalendar(
       confirmed: input.confirmed,
     },
     now,
+    input.confirmed,
   );
   const result = await db.rpc(
     "calendar_manual_action" as never,
