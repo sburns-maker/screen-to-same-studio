@@ -6,6 +6,7 @@ export function useSchedule() {
   return useQuery({
     queryKey: ["schedule"],
     queryFn: () => load(),
+    staleTime: 5_000,
     refetchInterval: 10000,
     retry: false,
   });
