@@ -264,6 +264,8 @@ export async function generateExperience(
       !place.data
     )
       throw new Error("Character context unavailable");
+    const residentialVenue=(await (await import("./housing.server")).housingSnapshot(db,user)).homes.find(h=>h.key===p.data!.place_key);
+    if(residentialVenue)place.data.label=residentialVenue.label;
     const state = Object.fromEntries(
       STATE_KEYS.map((k) => [k, stateR.data[k] ?? def.seedState[k]]),
     ) as TessState;
@@ -306,6 +308,7 @@ export async function generateExperience(
       photoFrequency: "off",
       availabilityDetail: `${liveInstructions} Use fictional appointment time, not phone-open time.`,
       worldKnowledge: [
+        await (await import("./housing.server")).housingContext(db,user,def.key,now),
         ...calendar
           .filter(
             (x) =>
@@ -403,6 +406,7 @@ export async function generateExperience(
         token: job.token,
         body: text,
         scheduleActions,
+        housingActions: kind === "turn" ? reply.housing_actions ?? [] : [],
         delta: (kind === "turn" ? delta : aggregate) as Json,
       },
       now,

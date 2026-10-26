@@ -1,0 +1,40 @@
+name: Private homes and household consent
+on:
+  pull_request:
+    paths:
+      - 'drizzle/migrations/**'
+      - 'src/lib/*housing*'
+      - 'src/lib/*calendar*'
+      - 'src/lib/*scene*'
+      - 'src/lib/town*'
+      - 'src/lib/world.server.ts'
+      - 'src/components/Housing*'
+      - 'src/test/housing*'
+      - 'vitest.housing-postgres.config.ts'
+      - '.github/workflows/housing.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: housing_tests
+          POSTGRES_PASSWORD: local-test-only
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d housing_tests" --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Residential integration and interface regressions
+        run: bunx vitest run src/test/housing.integration.test.ts src/test/housing.test.ts src/test/housing-ui.test.tsx src/test/manual-calendar.integration.test.ts src/test/experience-scene.integration.test.ts
+      - name: PostgreSQL locks and private default ACLs
+        run: bunx vitest run --config vitest.housing-postgres.config.ts
+        env:
+          HOUSING_TEST_DATABASE_URL: postgres://postgres:local-test-only@127.0.0.1:5432/housing_tests
+      - run: bunx tsc --noEmit
+      - run: bun run build

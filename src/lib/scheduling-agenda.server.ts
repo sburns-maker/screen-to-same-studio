@@ -13,6 +13,7 @@ export type AgendaEvent = CalendarPlan & {
   participants: { key: string; name: string; response: string }[];
   experience: ExperienceRow | null;
   followupReady: boolean;
+  residentialReview?: string | undefined;
 };
 export async function schedulingAgenda(db: Client, user: string, now = new Date()) {
   if (!(await interactiveAvailable(db)))
@@ -21,6 +22,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
       manual: false,
       structured: false,
       events: [] as AgendaEvent[],
+      residences: [] as { key: string; label: string }[],
       contacts: [] as { id: string; key: string; name: string }[],
     };
   await syncCalendar(db, user, now);
@@ -41,6 +43,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
     (scenes.error && !["42P01", "PGRST205"].includes(scenes.error.code))
   )
     throw new Error("Shared calendar is unavailable");
+  const homes = (await (await import("./housing.server")).housingSnapshot(db, user)).homes;
   const experiences = (scenes.data ?? []) as ExperienceRow[];
   const events = records
     .filter((p) =>
@@ -71,8 +74,18 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
       const parent = experiences.find((e) => e.plan_id === p.parent_plan_id);
       return {
         ...p,
+        residentialReview:
+          /^(home:|residence:)/.test(p.place_key ?? "") &&
+          !homes.some((h) => h.key === p.place_key && h.canPlan) &&
+          !["completed", "cancelled", "declined", "missed"].includes(p.status)
+            ? "This residence needs a new invitation or venue review; the original plan has been preserved."
+            : undefined,
         time_zone: p.time_zone ?? "America/New_York",
-        venueLabel: placeByKey(p.place_key)?.label ?? p.place_key ?? "Venue undecided",
+        venueLabel:
+          placeByKey(p.place_key)?.label ??
+          homes.find((h) => h.key === p.place_key)?.label ??
+          (p.origin === "housing" ? "Private residence" : p.place_key) ??
+          "Venue undecided",
         participants,
         experience: experiences.find((e) => e.plan_id === p.id) ?? null,
         followupReady: followupCanStart(
@@ -88,6 +101,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
     manual: await (await import("./manual-calendar.server")).manualCalendarReady(db),
     structured: await calendarContractReady(db),
     events,
+    residences: homes.filter((h) => h.canPlan).map((h) => ({ key: h.key, label: h.label })),
     contacts: (cast.data ?? []).flatMap((c) => {
       const person = c.character as { key: string; preferred_name: string } | null;
       return person ? [{ id: c.id, key: person.key, name: person.preferred_name }] : [];

@@ -36,11 +36,8 @@ export async function schedulePayload(
     throw new Error("Calendar follow-up requires an owned parent");
   const date = (patch["date"] ?? target?.date_local ?? null) as string | null,
     time = (patch["time"] ?? target?.time_local ?? null) as string | null,
-    place = await canonicalCalendarVenue(
-      db,
-      user,
-      (patch["place"] ?? target?.place_key ?? null) as string | null,
-    );
+    requestedPlace = (patch["place"] ?? target?.place_key ?? null) as string | null,
+    place = await canonicalCalendarVenue(db, user, requestedPlace);
   const sameTerms =
     !!target &&
     ["accepted", "in_progress"].includes(target.status) &&
@@ -91,6 +88,11 @@ export async function schedulePayload(
       calendarScheduleAllows(key, effectiveDate, effectiveTime, place, {
         durationMinutes: Number(patch["durationMinutes"] ?? target?.duration_minutes ?? 60),
         timeZone: String(patch["timeZone"] ?? target?.time_zone ?? "America/New_York"),
+        privateHome:
+          !!place &&
+          (await (await import("./housing.server")).housingSnapshot(db, user)).homes.some(
+            (h) => h.key === place,
+          ),
       }),
   };
 }
@@ -108,8 +110,29 @@ export async function prepareScheduleActions(
     clock?: Date;
   },
 ) {
-  if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) return [] as Json[];
+  const manual = await (await import("./manual-calendar.server")).manualCalendarReady(db);
+  const housing = await import("./housing.server");
+  if (manual && !(await housing.housingReady(db))) return [] as Json[];
   let proposed = reply.schedule_actions ?? [];
+  if (manual && proposed.length) {
+    const owner = await db
+      .from("conversations")
+      .select("character:characters(key)")
+      .eq("user_id", user)
+      .eq("id", conversation)
+      .maybeSingle();
+    if (owner.error) throw new Error("Residential scheduling character unavailable");
+    const who = (owner.data?.character as { key: string } | null)?.key;
+    const { mentionedHome } = await import("./residential-calendar.server");
+    const homes = {
+      user: await housing.homeFor(db, user, "user", now),
+      character: who ? await housing.homeFor(db, user, who, now) : null,
+    };
+    proposed = proposed.map((a) => ({
+      ...a,
+      place: a.place ?? mentionedHome(reply.messages.join(" "), "character", homes),
+    }));
+  }
   if (hasCalendarSuccessClaim(reply.messages.join(" ")))
     throw new Error("Unverified calendar success claim; confirm through the calendar receipt");
   const ready = await calendarContractReady(db);
@@ -231,6 +254,30 @@ export async function prepareScheduleActions(
     }
     if (context?.parentPlanId && a.action === "invite" && !patch["planId"])
       patch["parentPlanId"] = context.parentPlanId;
+    if (manual) {
+      const target = plans.find((p) => p.id === patch["planId"]);
+      const place = String(patch["place"] ?? target?.place_key ?? "");
+      const owner = await db
+        .from("conversations")
+        .select("character:characters(key)")
+        .eq("user_id", user)
+        .eq("id", conversation)
+        .maybeSingle();
+      if (owner.error) throw new Error("Residential calendar character unavailable");
+      const who = (owner.data?.character as { key: string } | null)?.key;
+      if (!who) continue;
+      const permitted = await db.rpc(
+        "housing_plan_venue_allowed" as never,
+        { p_user: user, p_place: place, p_character: who, p_at: now.toISOString() } as never,
+      );
+      const resident = await db.rpc(
+        "housing_resident" as never,
+        { p_user: user, p_place: place, p_person: who, p_at: now.toISOString() } as never,
+      );
+      if (permitted.error || resident.error)
+        throw new Error("Residential invitation permission unavailable");
+      if (!permitted.data && !resident.data) continue;
+    }
     result.push((await schedulePayload(db, user, conversation, patch, now)) as Json);
   }
   return result;
@@ -241,7 +288,12 @@ export async function syncExperienceScheduling(
   planId: string,
   now: Date,
 ) {
-  if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) return;
+  if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) {
+    await (
+      await import("./residential-calendar.server")
+    ).syncResidentialExperience(db, user, planId, now);
+    return;
+  }
   if (!(await calendarContractReady(db))) return;
   const scene = await db
     .from("living_experiences")

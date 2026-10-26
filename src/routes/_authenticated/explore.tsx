@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { HousingPanel } from "@/components/HousingPanel";
 import { ExplorePlaces } from "@/components/ExplorePlaces";
 import { useTown } from "@/lib/town-queries";
 import { TownLayout } from "@/components/TownLayout";
@@ -25,6 +26,7 @@ function Explore() {
         Venue pins are approximate fictional placements near public community centers. Map tiles
         load from OpenStreetMap.
       </p>
+      <HousingPanel />
       <ExplorePlaces />
     </TownLayout>
   );

@@ -6,7 +6,7 @@ export function CountyMap({
   places = TOWN_PLACES.slice(0, 4),
 }: {
   places?:
-    | readonly Pick<(typeof TOWN_PLACES)[number], "key" | "label" | "latitude" | "longitude">[]
+    | readonly { key: string; label: string; latitude: number; longitude: number; kind?: string }[]
     | undefined;
 }) {
   const [zoom, setZoom] = useState(12),
@@ -28,7 +28,7 @@ export function CountyMap({
         <svg
           viewBox="0 0 768 768"
           role="img"
-          aria-label="Geographic map with fictional public venues"
+          aria-label="Geographic map with fictional venues and permission-filtered homes"
         >
           <title>Virtual places in Blair County</title>
           {Array.from({ length: 9 }, (_, i) => {
@@ -55,7 +55,19 @@ export function CountyMap({
                 aria-label={p.label}
               >
                 <g transform={`translate(${(a.x - left) * 256},${(a.y - top) * 256})`}>
-                  <circle r="19" fill="var(--primary, #1e6159)" stroke="white" strokeWidth="5" />
+                  {p.kind === "home" ? (
+                    <g>
+                      <circle r="20" fill="#845d43" stroke="white" strokeWidth="4" />
+                      <path
+                        d="M -11 0 L 0 -10 L 11 0 M -8 -2 V 11 H 8 V -2 M -2 11 V 4 H 3 V 11"
+                        stroke="white"
+                        fill="none"
+                        strokeWidth="2"
+                      />
+                    </g>
+                  ) : (
+                    <circle r="19" fill="var(--primary, #1e6159)" stroke="white" strokeWidth="5" />
+                  )}
                   <text
                     x="25"
                     y="6"

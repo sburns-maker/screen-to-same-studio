@@ -78,7 +78,7 @@ async function preserved() {
     "storage.objects",
   ]) {
     const rows = await sql.unsafe(
-      `SELECT coalesce(jsonb_agg(x ORDER BY x::text),'[]'::jsonb) rows FROM (SELECT to_jsonb(t) x FROM ${name} t) s`,
+      `SELECT coalesce(jsonb_agg(x ORDER BY x::text),'[]'::jsonb) rows FROM (SELECT to_jsonb(t)${name === "social_plans" ? "-'housing_proposal_id'" : ""} x FROM ${name} t) s`,
     );
     // Added scene columns are expected; compare legacy experience data only.
     if (name === "living_experiences")
@@ -140,6 +140,8 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
       currentJournal.entries.length,
     );
     expect((await sql`SELECT calendar_manual_status() v`)[0]!["v"]).toBe(44);
+    expect((await sql`SELECT housing_status() v`)[0]!["v"]).toBe(45);
+    expect((await sql`SELECT count(*)::int n FROM social_plans WHERE housing_proposal_id IS NOT NULL`)[0]!["n"]).toBe(0);
     expect((await sql`SELECT calendar_pending(${user},${at}) p`)[0]!["p"]).toEqual([]);
   });
   it("reconciles historical drift through the current journal without changing saved user history", async () => {
@@ -148,6 +150,8 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
     await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
     expect(await preserved()).toEqual(before);
     expect((await sql`SELECT calendar_manual_status() v`)[0]!["v"]).toBe(44);
+    expect((await sql`SELECT housing_status() v`)[0]!["v"]).toBe(45);
+    expect((await sql`SELECT count(*)::int n FROM social_plans WHERE housing_proposal_id IS NOT NULL`)[0]!["n"]).toBe(0);
   });
   it("installs the archived repair through 0042 using the actual runner and all original SQL", async () => {
     await run();

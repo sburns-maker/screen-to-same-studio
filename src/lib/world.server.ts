@@ -405,6 +405,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
         report.errors.push("Conversation calendar sync deferred; source evidence retained");
       }
       try {
+        await (await import("./housing.server")).runHousingTick(admin,userId,now);
+      } catch { report.errors.push("Housing changes deferred; existing homes retained"); }
+      try {
         const { runSharedWorldTick } = await import("./shared-world.server");
         await runSharedWorldTick(admin, userId, now);
       } catch {
@@ -520,7 +523,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               currentActivity(def, now, conv.difficulty === "chaos" ? 2 : 1),
               story.event,
             );
-          const sceneContext=await (await import('./photo-scene.server')).resolvePhotoScene(admin,userId,conv.id,baseSchedule,now,true);
+          const sceneContext=await (await import('./photo-scene.server')).resolvePhotoScene(admin,userId,conv.id,shared?baseSchedule:await (await import('./housing.server')).housingSchedule(admin,userId,def.key,baseSchedule,now),now,true);
           const schedule=sceneContext.schedule;
           if (worldReady)
             await persistWorldCheckpoint(admin, {

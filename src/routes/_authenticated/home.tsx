@@ -23,12 +23,13 @@ function Home() {
     inbox = useQuery({ queryKey: ["inbox"], queryFn: () => load({}) }),
     act = useServerFn(actInTown),
     [busy, setBusy] = useState(false);
+  const currentHome=q.data?.housingAvailable ? q.data.housing.primary : "home:user";
   const pos = q.data?.presence,
     travelling = !!pos && Date.parse(pos.arrives_at) > Date.now();
   async function goHome() {
     setBusy(true);
     try {
-      await act({ data: { action: "visit", id: crypto.randomUUID(), place: "home:user" } });
+      await act({ data: { action: "go_home", id: crypto.randomUUID() } });
       await q.refetch();
     } catch (e) {
       toast.error((e as Error).message);
@@ -47,7 +48,7 @@ function Home() {
               ? "Virtual presence unavailable"
               : travelling
                 ? "On your way"
-                : pos && pos.place_key !== "home:user"
+                : pos && pos.place_key !== currentHome
                   ? q.data?.places.find((p) => p.key === pos.place_key)?.label
                   : "A quiet moment at home"}
         </h2>
@@ -57,7 +58,7 @@ function Home() {
             : "A private fictional home, with no real address or GPS tracking."}
         </p>
         <div className="mt-4 flex gap-4 text-sm">
-          {pos && !travelling && pos.place_key !== "home:user" && (
+          {pos && !travelling && pos.place_key !== currentHome && (
             <Link
               to="/place/$placeKey"
               params={{ placeKey: pos.place_key }}
@@ -69,7 +70,7 @@ function Home() {
           <Link to="/explore" className="font-medium underline">
             Head into town
           </Link>
-          {pos?.place_key !== "home:user" && (
+          {currentHome && pos?.place_key !== currentHome && (
             <button
               disabled={busy || travelling}
               onClick={goHome}

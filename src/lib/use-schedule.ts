@@ -19,6 +19,7 @@ export async function invalidateSchedule(cache: QueryClient) {
       "experience-history",
       "experience-diagnostics",
       "town",
+      "housing",
       "inbox",
     ].map((key) => cache.invalidateQueries({ queryKey: [key] })),
   );

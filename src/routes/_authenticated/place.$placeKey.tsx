@@ -7,7 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useTown } from "@/lib/town-queries";
 import { actInTown } from "@/lib/town.functions";
-import { travelMinutes, TOWN_PLACES } from "@/lib/town";
+import { travelMinutes } from "@/lib/town";
 import { TownLayout, card } from "@/components/TownLayout";
 export const Route = createFileRoute("/_authenticated/place/$placeKey")({
   head: () => ({ meta: [
@@ -28,8 +28,8 @@ function Place() {
     presence = q.data?.presence,
     travelling = !!presence && Date.parse(presence.arrives_at) > Date.now(),
     here = presence?.place_key === placeKey && !travelling;
-  const from = TOWN_PLACES.find((p) => p.key === presence?.place_key),
-    to = TOWN_PLACES.find((p) => p.key === placeKey);
+  const from = q.data?.places.find((p) => p.key === presence?.place_key),
+    to = q.data?.places.find((p) => p.key === placeKey);
   async function visit() {
     setBusy(true);
     try {
@@ -60,7 +60,7 @@ function Place() {
             </p>
             <p className="my-5 font-display text-2xl leading-relaxed">{place.description}</p>
             <p className="text-sm text-muted-foreground">
-              {place.opens}:00–{place.closes}:00 Eastern · {place.open ? "Open" : "Closed"}
+              {place.kind === "home" ? (place.open?"Private home · invited access":"Private home · invitation required") : `${place.opens}:00–${place.closes}:00 Eastern · ${place.open ? "Open" : "Closed"}`}
             </p>
           </div>
           {travelling ? (

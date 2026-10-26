@@ -13,7 +13,7 @@ export const actInTown = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        action: z.enum(["visit", "speak", "contact", "read", "followups"]),
+        action: z.enum(["visit", "go_home", "speak", "contact", "read", "followups"]),
         id: z.string().uuid(),
         place: z.string().max(80).default(""),
         npc: z.string().max(80).default(""),
@@ -28,6 +28,12 @@ export const actInTown = createServerFn({ method: "POST" })
     const { initializeTown, visitTown, encounterTurn, townCommand } = await import("./town.server");
     await initializeTown(db, context.userId);
     const now = new Date();
+    if (data.action === "go_home") {
+      const h=await import("./housing.server");
+      const home=await h.homeFor(db,context.userId,"user",now);
+      if(await h.housingReady(db) && !home) throw new Error("Choose a virtual home in Explore first");
+      return visitTown(db,context.userId,home??"home:user",now);
+    }
     if (data.action === "visit") return visitTown(db, context.userId, data.place, now);
     if (data.action === "speak") {
       if (!data.text) throw new Error("Write a message first");

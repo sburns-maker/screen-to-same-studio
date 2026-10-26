@@ -32,10 +32,10 @@ export function calendarScheduleAllows(
   date: string | null,
   time: string | null,
   place: string | null,
-  options: { durationMinutes?: number; timeZone?: string } = {},
+  options: { durationMinutes?: number; timeZone?: string; privateHome?: boolean } = {},
 ) {
   const start = zonedInstant(date, time, options.timeZone),
-    p = placeByKey(place);
+    p = placeByKey(place) ?? (options.privateHome ? {opens:0,closes:24} : null);
   if (!start || !p) return false;
   const at = new Date(start),
     end = new Date(at.getTime() + (options.durationMinutes ?? 60) * 60000);
@@ -326,10 +326,11 @@ export async function calendarContext(
   const lines = [
     ...((await (await import("./manual-calendar.server")).manualCalendarReady(db))
       ? [
-          "USER-CONTROLLED CALENDAR: Discuss and agree to plans naturally, but return schedule_actions=null. The player explicitly adds or edits agreed arrangements in Plans. Never say you updated, canceled or saved the calendar, and never require an extra confirmation message to save an already agreed plan.",
+          "USER-CONTROLLED PUBLIC CALENDAR: Discuss and agree to public outings naturally, but return schedule_actions=null for public venues. If the private housing capability below is available, structured schedule_actions can record explicit residential agreements only. The player explicitly adds or edits agreed arrangements in Plans. Never say you updated, canceled or saved the calendar, and never require an extra confirmation message to save an already agreed plan.",
         ]
       : []),
     placeKnowledge(),
+    await (await import("./housing.server")).housingContext(db,user,character,now),
     ...canonical
       .filter(
         (p) =>
@@ -360,7 +361,7 @@ export async function calendarContext(
       ),
     ...plans.map(
       (p) =>
-        `YOUR CONVERSATION PLAN ${p.id}: ${p.title}; ${p.status}; date ${p.date_local ?? "undecided"}, time ${p.time_local ?? p.time_hint ?? "undecided"} ${p.time_zone ?? "America/New_York"}; parent ${p.parent_plan_id ?? "none"}; venue ${placeByKey(p.place_key)?.label ?? "undecided"}; user ${p.user_response}, you ${p.character_response}; missing ${p.missing_details.join(", ")}; conflicts ${JSON.stringify(p.conflicts)}; followthrough ${JSON.stringify(p.followthrough)}. Choose known venue/time details explicitly if appropriate. A map meeting point is available for fictional places, NOT a verified street address. No host/email/reservation tools exist. Do not claim user attendance.`,
+        `YOUR CONVERSATION PLAN ${p.id}: ${p.title}; ${p.status}; date ${p.date_local ?? "undecided"}, time ${p.time_local ?? p.time_hint ?? "undecided"} ${p.time_zone ?? "America/New_York"}; parent ${p.parent_plan_id ?? "none"}; venue ${placeByKey(p.place_key)?.label ?? (/^(home:|residence:)/.test(p.place_key??"")?`private home ${p.place_key} (address not implied)`:"undecided")}; user ${p.user_response}, you ${p.character_response}; missing ${p.missing_details.join(", ")}; conflicts ${JSON.stringify(p.conflicts)}; followthrough ${JSON.stringify(p.followthrough)}. Choose known venue/time details explicitly if appropriate. A map meeting point is available for fictional places, NOT a verified street address. No host/email/reservation tools exist. Do not claim user attendance.`,
     ),
   ];
   const active = await db
@@ -421,8 +422,9 @@ export async function actAtVenue(
 ) {
   if (!(await interactiveAvailable(db)))
     throw new Error("Review migration 0019 before venue interactions");
-  const p = placeByKey(data.place);
-  if (!p) throw new Error("Unknown public virtual place");
+  const home = (await (await import("./housing.server")).housingSnapshot(db,user)).homes.find(h=>h.key===data.place&&h.canVisit);
+  const p = placeByKey(data.place) ?? home;
+  if (!p) throw new Error("Unknown or unauthorized virtual place");
   let action = data.action,
     quantity = 1;
   if (action === "freeform") {

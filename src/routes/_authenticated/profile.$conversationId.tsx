@@ -1,3 +1,4 @@
+import { HousingPanel } from "@/components/HousingPanel";
 import { CallButton } from "@/components/CallButton";
 import { fictionalNumber } from "@/lib/phone-calls";
 import {
@@ -70,6 +71,7 @@ function Profile() {
         backParams={{ conversationId }}
       />
       <Screen>
+        <HousingPanel character={def.key}/>
         <div className="flex flex-col items-center text-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

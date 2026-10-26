@@ -1,3 +1,4 @@
+import { useHousing } from "@/lib/use-housing";
 import { ExperienceEntry } from "./ExperienceEntry";
 import { VenueExperience } from "./VenueExperience";
 import { useState, useRef } from "react";
@@ -12,6 +13,7 @@ import { type CharacterKey, characterFor } from "@/lib/characters";
 import { messagesQuery } from "@/lib/tess-queries";
 import { card } from "./TownLayout";
 export function VenueScene({ placeKey }: { placeKey: string }) {
+  const housing = useHousing();
   const q = useInteractiveWorld(),
     act = useServerFn(performVenueAction),
     cache = useQueryClient();
@@ -20,7 +22,24 @@ export function VenueScene({ placeKey }: { placeKey: string }) {
     [text, setText] = useState(""),
     [talk, setTalk] = useState(""),
     [status, setStatus] = useState("");
-  const p = placeByKey(placeKey),
+  const home = housing.data?.homes.find((h) => h.key === placeKey && h.canVisit);
+  const p =
+      placeByKey(placeKey) ??
+      (home
+        ? {
+            ...home,
+            activities: [
+              "look",
+              "seat",
+              "wait",
+              "cook",
+              "movie",
+              "games",
+              "chores",
+              "relax",
+            ] as VenueAction[],
+          }
+        : null),
     s = q.data?.session,
     here = s?.place_key === placeKey && !s.departed_at;
   const companions = (q.data?.companions ?? []).filter((c) => c.place_key === placeKey),

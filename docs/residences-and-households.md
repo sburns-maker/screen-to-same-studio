@@ -1,0 +1,60 @@
+# Residences and households
+
+## Architecture
+
+Migration `0045_residences_households.sql` extends the existing owner-scoped `world_places`, `social_plans`, travel RPC, venue sessions and Living Experiences. It does not create a second calendar or replace character generation, memories, relationships, media, voices or the world scheduler.
+
+Public registry rows for homes contain only generic fictional labels, activity types and privacy metadata. Addresses, coordinate overrides, membership, consent, history and household information live in service-only housing tables. Authenticated browsers cannot select these tables or execute housing RPCs directly, even when the platform has permissive default ACLs. The authenticated server endpoints bind the player ID and actor themselves; callers cannot choose another user or act as a character. `housing_snapshot` filters residences for its bound viewer and redacts exact details. Known contacts have approximate markers; unrelated supporting people remain hidden. Visit permission and address disclosure are separate. No GPS or geocoding service is used.
+
+Initial homes use deterministic owner/person IDs and an initialization flag. Existing primary characters, persistent town profiles and supporting `npcs` receive homes, including profiles initialized after installation. Temporary background descriptions do not. Tess retains her established rented townhouse and Mabel. Unestablished housing is explicitly provisional fictional housing, not a replacement for authored facts or memories. Ben's established but unidentified spouse/children are retained as household context; moves into that household require review rather than fabricating their consent. Supporting people without established adult ages cannot be included in shared housing automatically.
+
+One active primary membership per person is enforced by a partial unique index. Temporary stays have their own expiry and do not replace the primary home. A household records membership dates, arrangement, relationships between residents, pets, dependents, invitation rules and optional shared expenses. No financial amounts or marriage/romantic status are inferred. Existing homes and historical plans are never deleted or retargeted on a move.
+
+`housing_command` serializes under the existing calendar lock followed by a housing lock. Requests have stable receipt IDs, exact payload replay checks and proposal revisions. Proposals gather every moving adult and every destination resident; only the initiator starts accepted. The player explicitly confirms adulthood for shared housing and must explicitly agree to their participation or a new household member. A declined, stale, unknown-consent or family-review proposal cannot move anyone. Changed dates reset responses. Conflicting or stale moves enter review. No relationship threshold triggers a move, access or acceptance.
+
+## Calendar, scenes and character intelligence
+
+The existing structured scheduling validator accepts an authorized home reference without a public-business address. Only current residential conversation/experience evidence is processed. Public calendar sweeps remain disabled. There is no historical conversation replay that can cancel or rewrite public dates. Manual calendar saving still works for home venues, including saving an existing agreed plan in place without another SMS.
+
+The shared reply schema adds nullable `housing_actions` for a character's own housing goal, proposal, response or explicit disclosure. Visible character words must contain the exact source quote. Acceptance/disclosure/proposal guards validate the intent; no action can supply player consent. Primary-contact and persistent town-character messages queue actions durably in their existing delivery transactions. Experience commits queue their actions in the existing operation transaction. The bounded worker processes only committed, visible sources; failure is isolated from paid message delivery and recorded as a sanitized diagnostic. These actions use the existing model and budget, with no additional inference call.
+
+The existing world worker processes at most eight due moves per user, separately from AI spending pauses. Active/paused experiences retain ownership and block relevant moves. The move commit updates memberships, household pet ownership, the linked canonical plan, personal memories, character knowledge, shared world history and an audit record atomically. Retries cannot duplicate outcomes. Temporary-stay calendar events represent the move-in activity, not a continuous commitment blocking the entire stay. A breakup has no eviction hook.
+
+Accepted housing changes override outdated baseline living-arrangement descriptions in the shared character context. Co-residence is not co-presence: the player's recorded virtual arrival is checked separately and no move teleports the player. Existing live scenes take priority over home schedules. Residence-aware scene transitions resolve current home keys and meaningful cooking/movie/game/chores activities; a front door stays outside until a performed entry, and entry requires an invitation. Riley's commute uses an explicitly approximate Altoona work-area estimate and changes with her home; other employer routes remain unknown unless registered.
+
+Vacated homes lose visitor access when no resident remains. Future plans keep their historical venue and receive a review warning instead of being silently moved/cancelled. The player can explicitly edit those plans.
+
+## Interfaces
+
+- **Explore → My home & household:** configure a home, display an address or an approximate marker, share/revoke address or visit permission, propose a move/stay, choose a new fictional residence or known home, choose a roommate/partner/family arrangement, review/respond/cancel proposals, remove the primary home and review history.
+- **Contact profile → Home:** permission-filtered home link and relevant household proposals. It does not provide owner editing or private unrelated household details.
+- **Map:** house markers for residences, approximate until exact details are authorized. Explore's searchable list and existing destination page include known homes.
+- **Plans:** authorized residential venue choices, a housing agreement link, canonical housing events and venue-review warnings. Household consent is managed through housing controls, not a generic calendar acceptance.
+- **At a home:** the existing virtual travel and arrival checks apply before persistent home activities. Accepted character outings use the existing Experience interface and completion/memory reconciliation.
+- **Simulation Debug → World → Homes & households:** developer-authorized counts, proposal state/revisions/consent and sanitized failed action sources; no addresses or raw provider errors.
+
+## Installation and Lovable verification
+
+No production migration, merge, deployment or paid provider request is performed by this change. No new provider credential or model setting is required.
+
+1. Review the source changes and migration on the current development branch. Verify that migrations through 0044 are installed **and recorded** in the target migration ledger. Do not edit historical migration files or bypass a failed compatibility check.
+2. In a disposable/staging Lovable database, run the normal migration process, adding only pending 0045. Verify `SELECT housing_status()` returns 45. Re-running the normal runner must skip recorded migrations. Housing is capability-gated until 45 is available; old deployments retain their existing public-world behavior.
+3. Verify anonymous/authenticated roles cannot read housing tables or call the RPCs. Check `housing_snapshot` through the authenticated application for two independent users. Verify a hidden address stays hidden before disclosure, even if the character is a contact.
+4. Test Tess cooking Wednesday **October 28, 2026 at 6:30 PM America/New_York**: edit/complete the existing agreement at My Home, confirm that the same plan ID is accepted, travel virtually, start the experience, cook, pause/resume and finish. Verify one shared memory and no duplicate plan. The automated version mocks the paid dialogue provider; the live response still needs staging acceptance.
+5. Test a solo move, a declined roommate proposal, explicit two-way cohabitation, a temporary stay and expiry, moving out, and two concurrent requests. Verify old plans retain old venues and show review where access changed. Reopen Android Chrome/PWA and verify homes and history persist.
+6. Verify the configured world-worker cron runs with the app closed, including while AI spending is paused. Confirm a due accepted move completes once and a paused experience blocks its move. Local transaction tests do not prove production cron configuration.
+7. Only after review and live acceptance should the owner choose whether to publish. Nothing is published automatically.
+
+## Test commands and limits
+
+- `npm test`, `npx tsc --noEmit`, `npm run build`.
+- Dedicated PostgreSQL 17 transaction tests: `HOUSING_TEST_DATABASE_URL=postgres://...@127.0.0.1:5548/housing_tests npx vitest run --config vitest.housing-postgres.config.ts`. The suite refuses remote/non-disposable targets. Separate existing ownership and migration-compatibility suites remain available.
+- Tests cover stable/new homes, privacy and database ACLs, consent/adulthood, proposals/decline/cancellation, stale/concurrent moves, temporary stays, worker protection, residence activities, the Tess calendar→experience→memory scenario, source deduplication, pronouns/scene continuity, approximate commutes and accessible UI actions. Paid providers are mocked.
+
+This is fictional residential management, not a property market or financial simulator. Expenses are an optional structured slot with no invented balances. Public multi-contact gathering proposals still use the existing public venue contract; residential scheduling currently supports the player and their conversation contact, while household proposals support multiple consenting residents. Detailed packing/transit logistics, secondary-home acquisition controls, adult/household approval for unidentified supporting family members and exact employer routing need further authored data/UI. Only player-managed residences can be edited directly; moving into a character-managed home does not grant permission to rewrite its established housing facts. Home editing changes details of the same residence; use a move for another home/community. Approximate initial neighborhoods are intentionally provisional. Large autonomous housing decisions require an actual character proposal and consent; no random forced relocation is added. Android touch/layout behavior, live model action quality and production worker execution require manual staging checks. Additional housing context increases existing dialogue input tokens modestly; household goals/history/proposals are bounded, and moves themselves make no paid calls.
+
+## Validation for this development pass
+
+The development branch incorporates main through `9fc0983`, preserving photo fixes #92–94. The full app suite passed **948 tests**; its **54 opt-in tests** were also run separately: **12** existing PostgreSQL ownership checks, **4** new PostgreSQL household concurrency/ACL checks, and **38** real-runner migration compatibility checks. The 28 housing application tests include the complete Tess cooking scenario with a mocked dialogue provider. TypeScript and the production build passed. New housing files pass ESLint; changed source was also checked with the legacy formatting rule disabled. Repository-wide `npm run lint` remains red with widespread existing formatting/lint debt (7,912 reported issues); it is not being represented as a clean lint run.
+
+No live database, live AI conversation, paid image/video/voice generation, production cron, Android device or installed PWA was exercised. Those staging acceptance steps above remain required. No production migrations, main merge or deployment were performed.

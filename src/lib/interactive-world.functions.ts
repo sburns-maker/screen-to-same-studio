@@ -31,7 +31,7 @@ export const performVenueAction = createServerFn({ method: "POST" })
           "discuss",
           "leave",
           "speak",
-          "freeform",
+          "freeform", "cook", "movie", "games", "chores", "relax",
         ]),
         text: z.string().trim().max(1500).default(""),
         planId: z.string().uuid().optional(),

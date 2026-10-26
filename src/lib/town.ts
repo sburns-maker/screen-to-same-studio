@@ -351,7 +351,7 @@ export function npcPresent(npc: TownNpc, now: Date) {
   const { hour, day } = easternClock(now);
   return (npc.days as readonly number[]).includes(day) && hour >= npc.start && hour < npc.end;
 }
-export function placeOpen(place: (typeof TOWN_PLACES)[number], now: Date) {
+export function placeOpen(place: {opens:number;closes:number}, now: Date) {
   const { hour } = easternClock(now);
   // Closing hour below opening hour means the place stays open past midnight.
   return place.closes > place.opens
@@ -359,8 +359,8 @@ export function placeOpen(place: (typeof TOWN_PLACES)[number], now: Date) {
     : hour >= place.opens || hour < place.closes;
 }
 export function travelMinutes(
-  from: (typeof TOWN_PLACES)[number] | undefined,
-  to: (typeof TOWN_PLACES)[number],
+  from: {key:string;latitude:number;longitude:number} | undefined,
+  to: {key:string;latitude:number;longitude:number},
 ) {
   if (!from) return 15; // Virtual home has no public address.
   if (from.key === to.key) return 0;
