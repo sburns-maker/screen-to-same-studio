@@ -119,6 +119,7 @@ export async function generatePhotoLabTest(
   conversation: string,
   requestId: string,
   type: PhotoLabType,
+  wardrobe?: string,
 ) {
   const def = await authorize(db, user, conversation);
   if (!PHOTO_LAB_TYPES.includes(type) || !labTypeSupported(def, type))
