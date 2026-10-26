@@ -24,6 +24,8 @@ async function open() {
     checkedAt: "2026-10-25T18:00Z",
     globalBlocks: ["Quiet hours active"],
     characters: [],
+    worker: { lastCheckedAt: null, offered: false, failed: false, lookupFailed: false },
+    serviceNote: "Both Practice and Real-Time contacts are eligible.",
     note: "No call was placed.",
   });
   render(<CallsDebug conversationId="20000000-0000-4000-a000-000000000001" />);
@@ -34,6 +36,12 @@ describe("controlled developer call UI", () => {
   it("only diagnoses on explicit request and cancels test ringing without confirmation", async () => {
     await open();
     expect(mocks.ring).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/None recorded; verify the production world scheduler/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Both Practice and Real-Time contacts are eligible."),
+    ).toBeInTheDocument();
     vi.spyOn(window, "confirm").mockReturnValue(false);
     fireEvent.click(screen.getByText("Trigger one test incoming ring for this character"));
     expect(mocks.ring).not.toHaveBeenCalled();

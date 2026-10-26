@@ -703,3 +703,13 @@ it("a host approves a new housemate without being recorded as moving again", asy
     }),
   ).rejects.toThrow("calendar lifecycle");
 });
+
+it("encourages ordinary home initiative without a score threshold or automatic cohabitation", async () => {
+  const context = await housingContext(client(), user, "tess", now);
+  expect(context).toContain("do not need to wait for the player");
+  expect(context).toContain("friends can host too");
+  expect(context).toContain("do not repeat an unanswered offer");
+  expect(context).toContain("all necessary consent");
+  expect(context).toContain("never an invented street address");
+  expect(context).toContain("Never move anyone or accept for the player");
+});

@@ -416,9 +416,20 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       try {
         const calls = await import("./phone-calls.server");
         const promised = await calls.offerDueCallback(admin, userId, now);
-        if (!promised) await calls.offerSpontaneousCall(admin, userId, now);
+        const offered = promised || await calls.offerSpontaneousCall(admin, userId, now);
+        const checkpoint = await admin.from("world_control").upsert({
+          key: `incoming_calls:${userId}`,
+          value: { offered, failed: false },
+          updated_at: nowIso,
+        });
+        if (checkpoint.error) report.errors.push("Call execution checkpoint unavailable");
       } catch {
         report.errors.push("Call callback offer deferred");
+        await admin.from("world_control").upsert({
+          key: `incoming_calls:${userId}`,
+          value: { offered: false, failed: true },
+          updated_at: nowIso,
+        });
       }
       // Social world: independent circles, shared events, knowledge
       // propagation. Structured simulation only — bounded, idempotent, no AI.

@@ -2,9 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { ACTIVE_CALL_STATES, callAvailability, fictionalNumber } from "./phone-calls";
 type Client = SupabaseClient<Database>;
-export async function incomingCallDiagnostics(db: Client, user: string, now = new Date()) {
-  const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
-  if (!developerPhotosAllowed(user)) throw new Error("Developer diagnostics unavailable");
+/** Shared read-only policy used by the worker and developer diagnostics. Server-only. */
+export async function evaluateIncomingCalls(db: Client, user: string, now = new Date()) {
   const server = await import("./phone-calls.server");
   const cfg = (await import("./voice-provider.server")).voiceConfiguration();
   const installed = await server.phoneAvailable(db);
@@ -25,7 +24,7 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
     .eq("user_id", user);
   const { CHARACTERS } = await import("./characters");
   const { currentActivity } = await import("./world-continuity");
-  const slot = Math.floor(now.getTime() / 3_600_000);
+  const { incomingCallSelection } = await import("./incoming-call-policy");
   const contacts = [];
   for (const conversation of conversations ?? []) {
     const key = (conversation.character as { key?: string } | null)?.key as
@@ -42,18 +41,15 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
     const cooldown = !!snap?.calls.some(
       (c) => c.character_key === key && now.getTime() - Date.parse(c.offered_at) < 6 * 3_600_000,
     );
-    let h = 2166136261;
-    for (const ch of `${user}:${key}:${slot}`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-    const draw = (h >>> 0) / 4294967296;
-    const threshold = Math.min(1, Math.max(0, 0.12 * CHARACTERS[key].initiation.scoreMultiplier));
+    const selection = incomingCallSelection(user, key, now);
+    const availability = callAvailability(key, now);
     const blockers = [
       ...(!fictionalNumber(key) ? ["Contact not provisioned for this calling service"] : []),
-      ...(!conversation.real_time_mode ? ["Practice mode"] : []),
       ...(conversation.muted ? ["Contact muted"] : []),
-      ...(activity.availability !== "free" ? [`Currently ${activity.availability}`] : []),
+      ...(availability.outcome !== "answer" ? [`Currently ${availability.reason}`] : []),
       ...(presenceError ? ["Presence check failed"] : presence ? ["Attending an event"] : []),
       ...(cooldown ? ["Recent call within six hours"] : []),
-      ...(draw > threshold ? ["Not selected this hour"] : []),
+      ...(!selection.selected ? ["Not selected this hour"] : []),
     ];
     contacts.push({
       character: key,
@@ -65,8 +61,8 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
       occupied: !!presence,
       presenceCheckFailed: !!presenceError,
       cooldown,
-      selectedThisHour: draw <= threshold,
-      chanceThisHour: threshold,
+      selectedThisHour: selection.selected,
+      chanceThisHour: selection.chance,
       blockers,
     });
   }
@@ -89,6 +85,30 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
     quietHours: q,
     characters: contacts,
     note: "Read-only snapshot. Random selection is stable per hour; it is not a guarantee that a worker ran. No call was placed.",
+  };
+}
+export async function incomingCallDiagnostics(db: Client, user: string, now = new Date()) {
+  const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+  if (!developerPhotosAllowed(user)) throw new Error("Developer diagnostics unavailable");
+  const [report, checkpoint] = await Promise.all([
+    evaluateIncomingCalls(db, user, now),
+    db
+      .from("world_control")
+      .select("value,updated_at")
+      .eq("key", `incoming_calls:${user}`)
+      .maybeSingle(),
+  ]);
+  const value = checkpoint.data?.value as { offered?: boolean; failed?: boolean } | null;
+  return {
+    ...report,
+    worker: {
+      lastCheckedAt: checkpoint.data?.updated_at ?? null,
+      offered: value?.offered ?? false,
+      failed: value?.failed ?? false,
+      lookupFailed: !!checkpoint.error,
+    },
+    serviceNote:
+      "Incoming offers use the OpenAI speech-chain service, not the separate GPT-Live/Voice Studio service. Both Practice and Real-Time contacts are eligible. Ringing is visible while the app is open; background phone ringing is not implemented.",
   };
 }
 export async function developerTestRing(
@@ -125,8 +145,7 @@ export async function developerTestRing(
     .eq("user_id", user)
     .eq("id", conversationId)
     .maybeSingle();
-  if (error || !conv || conv.muted || !conv.real_time_mode)
-    throw new Error("Choose an unmuted Real-Time conversation");
+  if (error || !conv || conv.muted) throw new Error("Choose an owned, unmuted conversation");
   const key = (conv.character as { key?: string } | null)?.key;
   if (!key || !fictionalNumber(key))
     throw new Error("Contact not provisioned for this calling service");
