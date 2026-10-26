@@ -206,14 +206,16 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
 /** Expose only short, structured provider identifiers, never free-form error messages. */
 export function safeProviderErrorFields(payload: unknown): { code?: string; type?: string; param?: string } {
   if (!payload || typeof payload !== "object") return {};
-  const e = (payload as Record<string, unknown>).error;
+  const e = (payload as Record<string, unknown>)["error"];
   if (!e || typeof e !== "object") return {};
   const record = e as Record<string, unknown>;
-  const clean = (v: unknown) => typeof v === "string" && /^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$/.test(v) ? v : undefined;
+  const clean = (v: unknown): string | null =>
+    typeof v === "string" && /^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$/.test(v) ? v : null;
+  const code = clean(record["code"]), type = clean(record["type"]), param = clean(record["param"]);
   return {
-    ...(clean(record.code) ? { code: clean(record.code) } : {}),
-    ...(clean(record.type) ? { type: clean(record.type) } : {}),
-    ...(clean(record.param) ? { param: clean(record.param) } : {}),
+    ...(code !== null ? { code } : {}),
+    ...(type !== null ? { type } : {}),
+    ...(param !== null ? { param } : {}),
   };
 }
 export class ImageProviderFailure extends Error {
