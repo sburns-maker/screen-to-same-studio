@@ -1,3 +1,4 @@
+import { CharacterAIError, characterAIDiagnostic } from "./character-ai-error";
 import { createOpenAI } from "@ai-sdk/openai";
 import { APICallError, generateText, Output } from "ai";
 import { z } from "zod";
@@ -17,7 +18,9 @@ export async function runStructured<T>(
   instructions: string,
   input: string,
   operation: "reply" | "autonomous" | "debrief" | "unspecified" = "unspecified",
+  context?: { operationId: string },
 ): Promise<T> {
+  const operationId = context?.operationId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(context.operationId) ? context.operationId : undefined;
   const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey) throw new Error("Character AI is not configured");
   if (process.env["CHARACTER_AI_DISABLED"] === "true") throw new Error("Character AI is paused");
@@ -31,7 +34,7 @@ export async function runStructured<T>(
   const reservation = characters + MAX_OUTPUT_TOKENS;
   if (inFlight >= 4 || reservedTokens + reservation > HOURLY_RESERVED_TOKENS) {
     console.warn("[character-ai]", {
-      provider: "openai", model: TEXT_MODEL, status: "blocked", operation,
+      provider: "openai", model: TEXT_MODEL, status: "blocked", operation, operationId,
       failureKind: inFlight >= 4 ? "concurrency_limit" : "capacity_limit",
       reservedTokens, requestedReservation: reservation,
     });
@@ -61,13 +64,14 @@ export async function runStructured<T>(
       reservedTokens = Math.max(0, reservedTokens + actualTokens - reservation);
     }
     // Validate before callers persist messages, memories, or state.
-    if (result.finishReason !== "stop") throw new Error("Incomplete character response");
+    if (result.finishReason !== "stop") throw new CharacterAIError("Incomplete character response", characterAIDiagnostic(TEXT_MODEL, null, null, null, result.finishReason === "length" ? "output_limit" : "invalid_response"));
     const output = schema.parse(result.output);
     console.info("[character-ai]", {
       provider: "openai",
       model: TEXT_MODEL,
       status: "ok",
       operation,
+      operationId,
       instructionCharacters: instructions.length,
       contextCharacters: input.length,
       cachedInputTokens: result.totalUsage.inputTokenDetails?.cacheReadTokens ?? null,
@@ -78,23 +82,26 @@ export async function runStructured<T>(
     });
     return output;
   } catch (error) {
-    // SDK errors may contain headers, request prompts or response bodies. Never forward or log them.
+    const apiError = APICallError.isInstance(error) ? error : null;
+    const diagnostic = error instanceof CharacterAIError ? error.diagnostic : characterAIDiagnostic(
+      TEXT_MODEL, apiError?.statusCode ?? null, apiError?.data,
+      apiError?.responseHeaders?.["x-request-id"],
+      apiError ? undefined : error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "timeout" : "invalid_response",
+    );
+    // No raw SDK errors: those can contain keys, request bodies or private dialogue.
     console.warn("[character-ai]", {
-      provider: "openai",
-      model: TEXT_MODEL,
-      status: "failed",
-      operation,
+      provider: "openai", model: TEXT_MODEL, status: "failed", operation, operationId,
       durationMs: Date.now() - started,
-      statusCode: APICallError.isInstance(error) ? (error.statusCode ?? null) : null,
-      failureKind: APICallError.isInstance(error) ? "provider_http" :
-        error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name)
-          ? "timeout" : "invalid_or_incomplete_response",
+      statusCode: diagnostic.statusCode,
+      failureKind: apiError ? "provider_http" : diagnostic.code === "timeout" ? "timeout" : "invalid_or_incomplete_response",
+      code: diagnostic.code, providerCode: diagnostic.providerCode, param: diagnostic.param,
+      requestId: diagnostic.requestId, retryable: diagnostic.retryable,
     });
-    // Preserve only safe billing/access status codes for the existing world-tick circuit breaker.
-    if (APICallError.isInstance(error) && [402, 403].includes(error.statusCode ?? 0)) {
-      throw new Error(`Character AI access unavailable (${error.statusCode})`);
-    }
-    throw new Error("Character AI is temporarily unavailable; please try again later");
+    // Preserve the existing messages used by world-worker access/cost circuit breakers.
+    const message = [402, 403].includes(diagnostic.statusCode ?? 0)
+      ? `Character AI access unavailable (${diagnostic.statusCode})`
+      : "Character AI is temporarily unavailable; please try again later";
+    throw new CharacterAIError(message, diagnostic);
   } finally {
     inFlight--;
   }

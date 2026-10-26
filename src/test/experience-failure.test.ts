@@ -42,3 +42,24 @@ describe("sanitized durable experience failures", () => {
     expect(readExperienceFailure(null)).toBeNull();
   });
 });
+
+it("keeps non-retryable provider reasons across persistence without exposing raw error fields", async () => {
+  const { CharacterAIError, characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  const diagnostic = characterAIDiagnostic(
+    "gpt-6-luna",
+    400,
+    { error: { code: "invalid_json_schema", param: "text.format.schema", message: "PRIVATE" } },
+    "req_safe",
+  );
+  const failure = experienceFailure(new CharacterAIError("generic", diagnostic), "generation");
+  expect(failure).toMatchObject({
+    code: "model_request_invalid",
+    diagnostic: { statusCode: 400, retryable: false },
+  });
+  expect(readExperienceFailure(JSON.parse(JSON.stringify(failure)))).toEqual(failure);
+  expect(experienceFailureMessage(failure)).toContain("before retrying");
+  expect(JSON.stringify(failure)).not.toContain("PRIVATE");
+  expect(
+    readExperienceFailure({ version: 1, phase: "generation", code: "model_unavailable" }),
+  ).toEqual({ version: 1, phase: "generation", code: "model_unavailable" });
+});

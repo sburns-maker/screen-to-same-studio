@@ -392,6 +392,12 @@ function Experiences() {
                       {history.data.pending.failure && (
                         <p className="mt-2" role="alert">
                           {experienceFailureMessage(history.data.pending.failure)}
+                          {history.data.pending.failure.diagnostic && <span className="block text-xs">
+                            Model: {history.data.pending.failure.diagnostic.model} · HTTP: {history.data.pending.failure.diagnostic.statusCode ?? "not returned"} · Reason: {history.data.pending.failure.diagnostic.code}
+                            {history.data.pending.failure.diagnostic.providerCode ? ` · Provider code: ${history.data.pending.failure.diagnostic.providerCode}` : ""}
+                            {history.data.pending.failure.diagnostic.param ? ` · Parameter: ${history.data.pending.failure.diagnostic.param}` : ""}
+                            {history.data.pending.failure.diagnostic.retryable ? "" : " · Resolve this issue before another generation attempt."}
+                          </span>}
                           <span className="block text-xs">
                             Failure reference: {history.data.pending.id}
                           </span>
