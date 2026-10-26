@@ -70,7 +70,7 @@ function Plans() {
         Keep your agreed outings in one calendar. Use Add agreed plan after discussing the details.
         Existing dates, experience history and memories are preserved.
       </p>
-      <Link to="/experiences" className="mb-3 flex min-h-12 items-center justify-between rounded-2xl border bg-surface px-4 py-3 font-medium">Experiences and outings <span aria-hidden="true">›</span></Link>
+      <Link to="/experiences" search={{ plan: "" }} className="mb-3 flex min-h-12 items-center justify-between rounded-2xl border bg-surface px-4 py-3 font-medium">Experiences and outings <span aria-hidden="true">›</span></Link>
       <details className="mb-5 rounded-2xl border bg-surface p-3"><summary className="min-h-11 cursor-pointer px-2 py-3 font-medium">Trips, event discovery and group gatherings</summary>
       <div className="pt-3">
       <Link to="/travel" className="mb-5 block rounded-2xl border bg-surface p-4 text-center font-medium text-primary">Explore Travel · Road trips, flights, vacations & work trips →</Link>
