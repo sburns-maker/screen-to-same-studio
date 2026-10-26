@@ -25,19 +25,19 @@ export const conversationQuery = (conversationId: string | undefined) =>
     },
   });
 
-export const messagesQuery = (conversationId: string | undefined) =>
+export const messagesQuery = (conversationId: string | undefined, limit = 200) =>
   queryOptions({
-    queryKey: ["messages", conversationId],
+    queryKey: ["messages", conversationId, limit],
     enabled: !!conversationId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("messages")
         .select("id, sender, body, created_at, visible_at, metadata")
         .eq("conversation_id", conversationId!)
-        .order("created_at", { ascending: true })
-        .limit(1000);
+        .order("created_at", { ascending: false })
+        .limit(limit);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).reverse();
     },
   });
 
