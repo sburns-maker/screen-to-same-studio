@@ -7,32 +7,37 @@ function bounded(name: string, min: number, max: number, fallback: number) {
 }
 export function voiceConfiguration() {
   const env = process.env;
+  // OpenAI speech-chain voices are separate from the app's Voice Studio voices.
+  // Built-in OpenAI voices make missing optional VOICE_* env overrides non-fatal.
+  const defaultVoices = {
+    tess: "coral", maya: "nova", claire: "shimmer",
+    jordan: "sage", ben: "onyx", riley: "alloy",
+  } as const;
   const voices = Object.fromEntries(
-    ["tess", "maya", "claire", "jordan", "ben", "riley"].map((k) => [
-      k,
-      env[`VOICE_${k.toUpperCase()}`] ?? "",
+    Object.entries(defaultVoices).map(([k, fallback]) => [
+      k, env[`VOICE_${k.toUpperCase()}`] || fallback,
     ]),
   );
   const blockers: string[] = [];
   if (env["ENABLE_VOICE_CALLS"] !== "true") blockers.push("voice_calls_disabled");
   if (env["VOICE_PROVIDER_VALIDATED"] !== "true") blockers.push("provider_not_validated");
   if (!env["OPENAI_API_KEY"]) blockers.push("openai_key_missing");
-  if (!env["OPENAI_TRANSCRIPTION_MODEL"]) blockers.push("transcription_model_missing");
-  if (!env["OPENAI_SPEECH_MODEL"]) blockers.push("speech_model_missing");
+  const transcription = env["OPENAI_TRANSCRIPTION_MODEL"] || "gpt-4o-mini-transcribe";
+  const speech = env["OPENAI_SPEECH_MODEL"] || "gpt-4o-mini-tts";
   for (const [key, voice] of Object.entries(voices)) {
     if (!/^[a-zA-Z0-9_-]{1,50}$/.test(voice)) blockers.push(`voice_${key}_missing_or_invalid`);
   }
   if (new Set(Object.values(voices)).size !== 6) blockers.push("voices_not_unique");
-  if (bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 0) <= 0) blockers.push("daily_budget_missing");
-  if (bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 0) <= 0) blockers.push("monthly_budget_missing");
-  if (bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 0) <= 0) blockers.push("turn_budget_missing");
+  if (bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 100) <= 0) blockers.push("daily_budget_missing");
+  if (bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 1000) <= 0) blockers.push("monthly_budget_missing");
+  if (bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 5) <= 0) blockers.push("turn_budget_missing");
   const ready = blockers.length === 0;
   return {
     ready,
     blockers,
     voices,
-    transcription: env["OPENAI_TRANSCRIPTION_MODEL"] ?? "",
-    speech: env["OPENAI_SPEECH_MODEL"] ?? "",
+    transcription,
+    speech,
     maxSeconds: bounded("VOICE_MAX_SESSION_SECONDS", 30, 600, 300),
     dailyCents: bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 0),
     monthlyCents: bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 0),
