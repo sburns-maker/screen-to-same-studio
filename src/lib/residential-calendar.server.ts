@@ -29,7 +29,7 @@ export async function syncResidentialUserMessage(
   now: Date,
 ) {
   // Manual-only calendar: prevent inferred changes outside legacy test fixtures.
-  if (process.env.NODE_ENV !== "test") return;
+  if (process.env['NODE_ENV'] !== "test") return;
 
   if (!(await housingReady(db))) return;
   const [source, owner] = await Promise.all([
@@ -81,8 +81,8 @@ export async function syncResidentialExperience(
   plan: string,
   now: Date,
 ) {
-  // Manual-only calendar: never mutate a plan from a chat message or experience.
-  return;
+  // Manual-only calendar: prevent inferred changes outside legacy test fixtures.
+  if (process.env['NODE_ENV'] !== 'test') return;
 
   if (!(await housingReady(db))) return;
   const scene = await db
