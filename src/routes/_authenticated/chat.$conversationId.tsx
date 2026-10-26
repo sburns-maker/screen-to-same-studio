@@ -325,6 +325,9 @@ function Chat() {
                 <Link to="/profile/$conversationId" params={{ conversationId }}>View profile</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
+                <Link to="/calls" search={{ conversation: conversationId }}>Call history</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link to="/history/$conversationId" params={{ conversationId }}>Search conversation</Link>
               </DropdownMenuItem>
               {(

@@ -113,7 +113,7 @@ function Profile() {
         <section className="mx-auto mb-5 flex max-w-xl items-center justify-between gap-3 px-5">
           <div>
             <p className="text-sm">{fictionalNumber(def.key)}</p>
-            <Link to="/calls" className="text-xs underline">
+            <Link to="/calls" search={{ conversation: conversationId }} className="text-xs underline">
               Calls & recents
             </Link>
           </div>

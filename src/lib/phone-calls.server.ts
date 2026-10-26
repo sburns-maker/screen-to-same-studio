@@ -39,7 +39,7 @@ export async function ownedCall(db: Client, user: string, id: string) {
   if (r.error || !r.data) throw new Error("Call unavailable");
   return r.data;
 }
-export async function phoneSnapshot(db: Client, user: string, sweep = true) {
+export async function phoneSnapshot(db: Client, user: string, sweep = true, conversation?: string) {
   const config = voiceConfiguration();
   if (!(await phoneAvailable(db)))
     return {
@@ -52,13 +52,10 @@ export async function phoneSnapshot(db: Client, user: string, sweep = true) {
       models: { transcription: "", speech: "" },
     };
   if (sweep) await phoneCommand(db, user, "00000000-0000-4000-a000-000000000000", "sweep");
+  let history = db.from("phone_calls").select("*").eq("user_id", user);
+  if (conversation) history = history.eq("conversation_id", conversation);
   const [calls, pref] = await Promise.all([
-    db
-      .from("phone_calls")
-      .select("*")
-      .eq("user_id", user)
-      .order("offered_at", { ascending: false })
-      .limit(50),
+    history.order("offered_at", { ascending: false }).limit(50),
     db.from("call_preferences").select("*").eq("user_id", user).maybeSingle(),
   ]);
   if (calls.error || pref.error) throw new Error("Call history unavailable");

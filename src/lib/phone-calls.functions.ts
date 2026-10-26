@@ -3,9 +3,17 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const loadPhone = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((v: unknown) =>
+    z.object({ conversation: z.string().uuid().optional() }).parse(v ?? {}),
+  )
+  .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return (await import("./phone-calls.server")).phoneSnapshot(supabaseAdmin, context.userId);
+    return (await import("./phone-calls.server")).phoneSnapshot(
+      supabaseAdmin,
+      context.userId,
+      true,
+      data.conversation,
+    );
   });
 export const phoneAction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -147,7 +155,13 @@ export const diagnoseIncomingCalls = createServerFn({ method: "POST" })
 export const testIncomingRing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value: unknown) =>
-    z.object({ conversationId: z.string().uuid(), id: z.string().uuid(), force: z.boolean().default(false) }).parse(value),
+    z
+      .object({
+        conversationId: z.string().uuid(),
+        id: z.string().uuid(),
+        force: z.boolean().default(false),
+      })
+      .parse(value),
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -158,4 +172,22 @@ export const testIncomingRing = createServerFn({ method: "POST" })
       data.id,
       data.force,
     );
+  });
+
+/** Owner-scoped voice session history. No provider session IDs or transcripts leave the server. */
+export const loadVoiceHistory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) =>
+    z.object({ conversation: z.string().uuid().optional() }).parse(v ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    let query = db
+      .from("live_character_calls")
+      .select("id,conversation_id,character_key,created_at,ended_at,state,usage_seconds")
+      .eq("user_id", context.userId);
+    if (data.conversation) query = query.eq("conversation_id", data.conversation);
+    const result = await query.order("created_at", { ascending: false }).limit(50);
+    if (result.error) throw new Error("Voice session history unavailable");
+    return result.data;
   });
