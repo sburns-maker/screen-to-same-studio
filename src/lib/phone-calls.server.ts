@@ -45,6 +45,7 @@ export async function phoneSnapshot(db: Client, user: string, sweep = true) {
     return {
       available: false,
       configured: false,
+      incomingLive: incomingLiveMode(),
       calls: [] as CallRow[],
       preferences: { enabled: false, incoming: false, save_transcripts: false } as CallPreferences,
       provider: "OpenAI speech chain",
@@ -64,6 +65,7 @@ export async function phoneSnapshot(db: Client, user: string, sweep = true) {
   return {
     available: true,
     configured: config.ready,
+    incomingLive: incomingLiveMode(),
     configurationBlockers: config.blockers,
     calls: calls.data ?? [],
     preferences: pref.data ?? { enabled: false, incoming: false, save_transcripts: false },
