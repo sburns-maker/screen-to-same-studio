@@ -161,7 +161,10 @@ export const startLiveCall = createServerFn({ method: "POST" })
             delegation: { type: "client" },
             instructions,
             input: [{ type: "message", role: "developer", content: [{ type: "input_text", text: data.incomingCallId ? INCOMING_CALL_OPENING_PROMPT : CALL_OPENING_PROMPT }] }],
-            audio: { output: { voice: { id: voice.voiceId } } },
+            audio: {
+              input: { turn_detection: { type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true } },
+              output: { voice: { id: voice.voiceId } },
+            },
           },
         }),
         signal: AbortSignal.timeout(20_000),
