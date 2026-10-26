@@ -21,8 +21,9 @@ export async function schedulePayload(
   conversation: string,
   patch: Record<string, unknown>,
   now: Date,
+  manualAgreement = false,
 ) {
-  const { calendarPlans, calendarScheduleAllows } = await import("./interactive-world.server");
+  const { calendarPlans, calendarScheduleAllows, calendarVenueAllows } = await import("./interactive-world.server");
   const plans = await calendarPlans(db, user),
     target = plans.find((p) => p.id === patch["planId"] && p.conversation_id === conversation);
   if (patch["planId"] && !target)
@@ -85,7 +86,7 @@ export async function schedulePayload(
     ...(parent ? { parentPlanId: parent.id } : {}),
     schedule_ok:
       sameTerms ||
-      calendarScheduleAllows(key, effectiveDate, effectiveTime, place, {
+      (manualAgreement ? calendarVenueAllows(effectiveDate, effectiveTime, place, {
         durationMinutes: Number(patch["durationMinutes"] ?? target?.duration_minutes ?? 60),
         timeZone: String(patch["timeZone"] ?? target?.time_zone ?? "America/New_York"),
         privateHome:
@@ -93,7 +94,11 @@ export async function schedulePayload(
           (await (await import("./housing.server")).housingSnapshot(db, user)).homes.some(
             (h) => h.key === place,
           ),
-      }),
+      }) : calendarScheduleAllows(key, effectiveDate, effectiveTime, place, {
+        durationMinutes: Number(patch["durationMinutes"] ?? target?.duration_minutes ?? 60),
+        timeZone: String(patch["timeZone"] ?? target?.time_zone ?? "America/New_York"),
+        privateHome: !!place && (await (await import("./housing.server")).housingSnapshot(db, user)).homes.some(h => h.key === place),
+      })),
   };
 }
 export async function prepareScheduleActions(
