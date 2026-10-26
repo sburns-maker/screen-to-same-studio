@@ -88,3 +88,12 @@ Remaining manual checks: real Api18 credit/pricing/CDN details, production inven
 - TypeScript: passed. Production build: passed. `git diff --check`: passed.
 - New/rewritten module and test ESLint checks: passed. Changed legacy files were also checked with only their existing Prettier rule disabled; repository-wide historical formatting debt is not represented as fixed.
 - Remote GitHub CI and live Api18 billing/quality were not verified from this workspace. A reviewed GitHub Actions workflow is included.
+
+
+## Editable mature-romantic wardrobe lab (three options)
+
+Open an authorized character's **Simulation Debug → Developer photo category tests → Mature romantic wardrobe test options**. There are three blank text areas: Wardrobe option 1, 2 and 3. Type clothing descriptions, select a radio option, and press **Generate Mature romantic (non-explicit) test**. Blank options retain the default scene. These settings are stored locally on that device for that conversation only, and not in shared character state.
+
+Only the selected description (max 400 characters) is sent into the isolated developer-test scene. The normal Api18 switch and per-character settings still control provider routing; testing may incur provider charges. The server validates the text with existing non-explicit scene safeguards and applies it only to `mature_romantic` developer tests. It does not change automatic image prompts, chat preferences, character boundaries, or reference approvals. No explicit nude generation is enabled.
+
+To edit the default scene in source, update `PHOTO_LAB_PRESETS.mature_romantic.scene` in `src/lib/developer-photo-lab.ts`. The user-entered choice is appended by `generatePhotoLabTest` in `src/lib/developer-photo-lab.server.ts`; the three user-editable fields are in `src/components/DeveloperPhotoLab.tsx`.
