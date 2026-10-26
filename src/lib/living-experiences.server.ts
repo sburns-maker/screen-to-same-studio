@@ -134,6 +134,23 @@ export async function livingHistory(db: Client, user: string, plan: string) {
           },
   };
 }
+/**
+ * Only the owner's explicit Start/End Experience commands may advance a
+ * manually saved plan. Restrictive status predicates preserve later manual edits.
+ */
+export async function syncExperienceCalendarStatus(
+  db: Client, user: string, planId: string, status: "in_progress" | "completed",
+) {
+  const from = status === "in_progress" ? ["accepted"] : ["in_progress", "accepted"];
+  const result = await db.from("social_plans")
+    .update({ status })
+    .eq("user_id", user)
+    .eq("id", planId)
+    .in("status", from)
+    .select("id");
+  if (result.error) throw new Error("Experience saved, but calendar status could not be synchronized");
+}
+
 export async function experienceCommand(
   db: Client,
   user: string,
