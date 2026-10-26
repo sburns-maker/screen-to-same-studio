@@ -36,11 +36,11 @@ describe("speech-chain low-touch Lovable defaults", () => {
 describe("opt-in GPT-Live incoming transport", () => {
   it("stays off until all independent server switches and OpenAI credential are set", () => {
     vi.stubEnv("ENABLE_INCOMING_GPT_LIVE_CALLS", "true");
-    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "false");
+    vi.stubEnv("ENABLE_LIVE_CHARACTER_CALLS", "false");
     vi.stubEnv("ENABLE_LIVE_CHARACTER_CALLS", "true");
     vi.stubEnv("OPENAI_API_KEY", "fake-test");
     expect(incomingLiveMode()).toBe(false);
-    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    vi.stubEnv("ENABLE_LIVE_CHARACTER_CALLS", "true");
     expect(incomingLiveMode()).toBe(true);
     vi.stubEnv("OPENAI_API_KEY", "");
     expect(incomingLiveMode()).toBe(false);
