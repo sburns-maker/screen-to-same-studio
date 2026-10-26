@@ -1,4 +1,5 @@
 import { WorldHighlights } from "@/components/WorldHighlights";
+import { CalendarDays, Compass, MessageCircle, Phone, Users, Settings2 } from "lucide-react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -38,7 +39,17 @@ function Home() {
     }
   }
   return (
-    <TownLayout title="Life around here" kicker="Home" error={q.error} loading={q.isLoading}>
+    <TownLayout title="Home" kicker="Your phone" error={q.error} loading={q.isLoading}>
+      <p className="mb-4 text-sm text-muted-foreground">What would you like to open?</p>
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        {([{ to: "/inbox", label: "Messages", Icon: MessageCircle, color: "bg-emerald-600" }, { to: "/calls", label: "Phone", Icon: Phone, color: "bg-green-600" }, { to: "/people", label: "Contacts", Icon: Users, color: "bg-blue-600" }, { to: "/plans", label: "Calendar", Icon: CalendarDays, color: "bg-red-500" }, { to: "/explore", label: "Places", Icon: Compass, color: "bg-sky-600" }, { to: "/settings", label: "Settings", Icon: Settings2, color: "bg-slate-600" }] as const).map(({ to, label, Icon, color }) => <Link key={to} to={to} className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-surface px-2 py-3 text-center text-sm font-medium shadow-sm ring-1 ring-border"><span className={`flex h-13 w-13 items-center justify-center rounded-2xl text-white ${color}`}><Icon className="h-7 w-7" aria-hidden="true" /></span>{label}</Link>)}
+      </div>
+      <h2 className="mb-2 text-base font-semibold">Recent messages</h2>
+      <div className="mb-6 divide-y rounded-2xl border bg-surface">
+        {inbox.data?.slice(0, 4).map((c) => <Link key={c.id} to="/chat/$conversationId" params={{ conversationId: c.id }} className="block px-4 py-3"><p className="font-medium">{c.name}</p><p className="truncate text-sm text-muted-foreground">{c.preview}</p></Link>)}
+        {!inbox.data?.length && <p className="px-4 py-4 text-sm text-muted-foreground">Your conversations will appear here.</p>}
+      </div>
+      <details id="world-controls" className="rounded-2xl border bg-surface p-4"><summary className="cursor-pointer py-2 font-medium">World controls and activity</summary><div className="pt-4">
       <div className={`${card} mb-5 bg-primary/5`}>
         <p className="text-xs uppercase tracking-wider text-primary">Your virtual whereabouts</p>
         <h2 className="my-3 font-display text-2xl">
@@ -96,20 +107,6 @@ function Home() {
         </Link>
       </div>
       <WorldHighlights />
-      <h2 className="mb-3 mt-7 text-lg font-semibold">Recent conversations</h2>
-      <div className="divide-y rounded-3xl border">
-        {inbox.data?.slice(0, 3).map((c) => (
-          <Link
-            key={c.id}
-            to="/chat/$conversationId"
-            params={{ conversationId: c.id }}
-            className="block p-4"
-          >
-            <p className="font-medium">{c.name}</p>
-            <p className="mt-1 truncate text-sm text-muted-foreground">{c.preview}</p>
-          </Link>
-        ))}
-      </div>
       <h2 className="mb-3 mt-7 text-lg font-semibold">A change of scenery</h2>
       <Link to="/explore" className={`${card} block`}>
         <p className="font-display text-2xl">Coffee, books, or a small adventure?</p>
@@ -122,6 +119,7 @@ function Home() {
         This dashboard shows your own conversations and plans you arranged. Private character
         activities are not a public feed.
       </p>
+      </div></details>
     </TownLayout>
   );
 }
