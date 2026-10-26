@@ -9,6 +9,7 @@ export async function evaluateIncomingCalls(db: Client, user: string, now = new 
   const installed = await server.phoneAvailable(db);
   const snap = installed ? await server.phoneSnapshot(db, user, false) : null;
   const enabled = process.env["ENABLE_INCOMING_VOICE_CALLS"] === "true";
+  const liveMode = server.incomingLiveMode();
   const { inQuietHours, parseQuietHours } = await import("./world.server");
   const { data: quiet, error: quietError } = await db
     .from("user_profile")
@@ -68,7 +69,7 @@ export async function evaluateIncomingCalls(db: Client, user: string, now = new 
   }
   const blocked = [
     ...(!installed ? ["Database calling migration missing"] : []),
-    ...(!cfg.ready ? [`Voice provider not ready (${cfg.blockers.join(", ")})`] : []),
+    ...(!liveMode && !cfg.ready ? [`Legacy voice provider not ready (${cfg.blockers.join(", ")})`] : []),
     ...(!enabled ? ["Server incoming-call switch disabled"] : []),
     ...(!snap?.preferences.enabled ? ["User outgoing/calling permission disabled"] : []),
     ...(!snap?.preferences.incoming ? ["User incoming-call permission disabled"] : []),
@@ -108,7 +109,9 @@ export async function incomingCallDiagnostics(db: Client, user: string, now = ne
       lookupFailed: !!checkpoint.error,
     },
     serviceNote:
-      "Incoming offers use the OpenAI speech-chain service, not the separate GPT-Live/Voice Studio service. Both Practice and Real-Time contacts are eligible. Ringing is visible while the app is open; background phone ringing is not implemented.",
+      (await import("./phone-calls.server")).incomingLiveMode()
+        ? "Incoming offers use saved GPT-Live Voice Studio voices. Answering starts a billable WebRTC session; declining or expiry does not. Rings appear only while the app is open."
+        : "Incoming offers currently use the legacy OpenAI speech-chain service. Enable the separately guarded GPT-Live incoming mode after deploying its answer bridge. Rings appear only while the app is open.",
   };
 }
 export async function developerTestRing(
