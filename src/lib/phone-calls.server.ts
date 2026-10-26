@@ -228,7 +228,6 @@ export async function processVoiceTurn(
  */
 export function incomingLiveMode() {
   return process.env["ENABLE_INCOMING_GPT_LIVE_CALLS"] === "true" &&
-    process.env["ENABLE_INCOMING_VOICE_CALLS"] === "true" &&
     process.env["ENABLE_LIVE_CHARACTER_CALLS"] === "true" &&
     !!process.env["OPENAI_API_KEY"];
 }
@@ -237,7 +236,7 @@ export function incomingLiveMode() {
 export async function offerDueCallback(db: Client, user: string, now: Date) {
   if (
     (!incomingLiveMode() && !voiceConfiguration().ready) ||
-    process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" ||
+    (process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" && !incomingLiveMode()) ||
     !(await phoneAvailable(db))
   )
     return false;
