@@ -36,7 +36,7 @@ export function WorldNavigation() {
             <DropdownMenuLabel>More apps</DropdownMenuLabel>
             <DropdownMenuItem asChild><Link to="/plans"><CalendarDays className="mr-2 h-4 w-4" />Calendar & plans</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/explore"><Compass className="mr-2 h-4 w-4" />Explore places</Link></DropdownMenuItem>
-            <DropdownMenuItem asChild><Link to="/experiences"><Sparkles className="mr-2 h-4 w-4" />Experiences</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link to="/experiences" search={{ plan: "" }}><Sparkles className="mr-2 h-4 w-4" />Experiences</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Behind the scenes</DropdownMenuLabel>
             <DropdownMenuItem asChild><Link to="/settings"><Settings className="mr-2 h-4 w-4" />Settings & privacy</Link></DropdownMenuItem>
