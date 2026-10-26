@@ -194,3 +194,26 @@ it("includes call-ledger facts in both text character prompts", async () => {
   await generateContactReply({ ...args, character: CHARACTERS.maya, worldKnowledge: calls });
   expect(model.run.mock.calls.at(-1)?.[2]).toContain("Do not deny a recorded attempt");
 });
+
+it.each(Object.keys(CHARACTERS) as CharacterKey[])("ends %s's text task with its own history-aware delivery check, using one model call", async (key) => {
+  const messages = [
+    { sender: "tess", body: "Objection, your honor.", created_at: "2026-10-26T15:00Z" },
+    { sender: "tess", body: "Exhibit A is your coffee.", created_at: "2026-10-26T15:01Z" },
+    { sender: "user", body: "How was your day?", created_at: "2026-10-26T15:02Z" },
+  ];
+  const payload = { ...args, messages };
+  if (key === "tess") await generateTessReply(payload);
+  else await generateContactReply({ ...payload, character: CHARACTERS[key] });
+  const input = model.run.mock.calls[0]![2] as string;
+  expect(input.lastIndexOf("NEXT TEXT DELIVERY")).toBeGreaterThan(input.lastIndexOf("TASK:"));
+  expect(input.slice(input.lastIndexOf("NEXT TEXT DELIVERY"))).toContain(DIALOGUE_PROFILES[key].texting);
+  expect(input.slice(input.lastIndexOf("NEXT TEXT DELIVERY"))).toContain("Retire that comic routine");
+  expect(input).toContain("Exhibit A is your coffee.");
+  expect(model.run).toHaveBeenCalledTimes(1);
+});
+it("does not add the text delivery check to speech-chain voice or in-person scenes", async () => {
+  await generateContactReply({ ...args, character: CHARACTERS.maya, deliveryChannel: "voice" });
+  expect(model.run.mock.calls.at(-1)?.[2]).not.toContain("NEXT TEXT DELIVERY");
+  await generateTessReply({ ...args, experience: { at: "2026-10-26T15:00Z", instruction: "IN PERSON\nEXPERIENCE HISTORY\nAt the table." } });
+  expect(model.run.mock.calls.at(-1)?.[2]).not.toContain("NEXT TEXT DELIVERY");
+});

@@ -29,6 +29,7 @@ export const Route = createFileRoute("/_authenticated/debug/$conversationId")({
 });
 
 type Snapshot = {
+  dialogueDelivery?: { revision: string; character: string; recentPatterns: string[]; repeatedRoutines: string[] } | null;
   world?: Record<string, unknown>;
   photography?: unknown;
   photoIdentity?: { profileUrl: string; comparisonUrl: string | null; canonical: Record<string, string | number> | null; latest: Record<string, unknown> | null; source: string | null; delivery: string } | null;
@@ -169,6 +170,7 @@ function Debug() {
         {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Calendar scheduling" collapsible><SchedulingDebug conversationId={conversationId}/></Section>}
         {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Homes & households" collapsible><HousingDiagnostics/></Section>}
         {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Living Experiences" collapsible><LivingExperiencesDebug conversationId={conversationId}/></Section>}
+        {activeTab === "social" && snap?.photoDeveloperTools && snap.dialogueDelivery && <Section title="Dialogue delivery" collapsible><p className="text-sm">Active server rules: {snap.dialogueDelivery.revision}</p><p className="mt-2 text-sm">Character: {snap.dialogueDelivery.character}</p><p className="mt-2 text-sm">Recent delivery patterns: {[...snap.dialogueDelivery.recentPatterns, ...snap.dialogueDelivery.repeatedRoutines].join(", ") || "None detected"}</p><p className="mt-2 text-xs text-muted-foreground">This identifies the current server rules, not a quality score or proof that earlier replies used them. Only same-conversation visible text is analyzed; no private transcript is shown.</p></Section>}
         {activeTab === "social" && snap?.photoDeveloperTools&&<Section title="Calls" collapsible><CallsDebug conversationId={conversationId}/></Section>}
         {activeTab === "technical" && snap?.photoDeveloperTools && <Link to="/voice-studio" className="mb-3 block rounded-2xl border bg-surface p-4 text-sm font-medium">🎙️ Open Voice Studio <span className="block text-xs font-normal text-muted-foreground">Create and compare private fictional character voices</span></Link>}
         {activeTab === "world" && snap?.photoDeveloperTools&&<Section title="Interactive world & calendar" collapsible><InteractiveWorldDebug/></Section>}

@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - "src/lib/dialogue-personality.ts"
+      - "src/lib/dialogue-turn.ts"
+      - "src/lib/tess.functions.ts"
       - "src/lib/characters.ts"
       - "src/lib/tess.server.ts"
       - "src/lib/tess-voice.ts"
@@ -23,5 +25,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx tsc --noEmit
-      - run: bunx vitest run src/test/dialogue-personality.test.ts src/test/dialogue-generation.test.ts src/test/tess-voice.test.ts src/test/tess-topics.test.ts src/test/experience-channel.test.ts src/test/live-calls.test.ts src/test/town.integration.test.ts
+      - run: bunx vitest run src/test/dialogue-turn.test.ts src/test/dialogue-personality.test.ts src/test/dialogue-generation.test.ts src/test/tess-voice.test.ts src/test/tess-topics.test.ts src/test/experience-channel.test.ts src/test/live-calls.test.ts src/test/town.integration.test.ts
       - run: bun run build
