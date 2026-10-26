@@ -21,6 +21,17 @@ describe("distinct delivery without a universal joke template", () => {
     expect(dialogueRules("riley")).toContain("sleepy fragment");
     expect(dialogueRules("future-npc")).not.toContain("Tess's composed deadpan");
   });
+  it("keeps mundane texting and variable emoji guidance character-specific and out of voice calls", () => {
+    for (const key of Object.keys(DIALOGUE_PROFILES)) {
+      const text = dialogueRules(key, "text");
+      expect(text).toContain("EVERYDAY VARIATION");
+      expect(text).toContain("Most routine messages can have no emoji");
+      expect(text).toContain("never split a sentence");
+      expect(text).toContain(DIALOGUE_PROFILES[key as keyof typeof DIALOGUE_PROFILES].texting);
+      expect(dialogueRules(key, "voice")).not.toContain("EMOJIS AND MESSINESS");
+      expect(dialogueRules(key, "experience")).not.toContain("MESSAGE LENGTH:");
+    }
+  });
   it("detects repeated patterns across characters without inventing events or banning factual subjects", () => {
     const lines = ["Objection, your honor.", "Exhibit A is your coffee."];
     expect(repeatedDialogueRoutines(lines)).toContain("courtroom/legal comic routine");
