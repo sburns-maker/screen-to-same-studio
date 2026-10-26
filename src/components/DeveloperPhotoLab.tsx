@@ -17,21 +17,31 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const pending = useRef<{ category: PhotoLabType; id: string } | null>(null);
-  const [wardrobes, setWardrobes] = useState(["", "", ""]);
-  const [chosenWardrobe, setChosenWardrobe] = useState(0);
+  type MatureCategory = "mature_romantic" | "mature_adult";
+  const [scenes, setScenes] = useState<Record<MatureCategory,string[][]>>({
+    mature_romantic: [["", "", ""]],
+    mature_adult: [["", "", ""]],
+  });
+  const [chosen, setChosen] = useState<Record<MatureCategory,number>>({ mature_romantic: 0, mature_adult: 0 });
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(`photo-lab-wardrobes:${conversationId}`);
-      const parsed: unknown = raw ? JSON.parse(raw) : null;
-      setWardrobes(Array.isArray(parsed) && parsed.length === 3
-        ? parsed.map((v) => typeof v === "string" ? v.slice(0, 400) : "") : ["", "", ""]);
-    } catch { setWardrobes(["", "", ""]); }
-    setChosenWardrobe(0);
+    const next: Record<MatureCategory,string[][]> = { mature_romantic: [["", "", ""]], mature_adult: [["", "", ""]] };
+    for (const category of ["mature_romantic", "mature_adult"] as const) {
+      try {
+        const raw = localStorage.getItem(`photo-lab-scenes:${conversationId}:${category}`);
+        const parsed: unknown = raw ? JSON.parse(raw) : null;
+        next[category] = [Array.isArray(parsed) && parsed.length === 3
+          ? parsed.map((v) => typeof v === "string" ? v.slice(0,400) : "") : ["","",""]];
+      } catch { /* local storage disabled */ }
+    }
+    setScenes(next);
+    setChosen({ mature_romantic: 0, mature_adult: 0 });
   }, [conversationId]);
-  function updateWardrobe(index: number, value: string) {
-    const next = wardrobes.map((v, i) => i === index ? value.slice(0, 400) : v);
-    setWardrobes(next);
-    try { localStorage.setItem(`photo-lab-wardrobes:${conversationId}`, JSON.stringify(next)); } catch { /* private browsing */ }
+  function updateScene(category: MatureCategory, index: number, value: string) {
+    const previous = scenes[category][0] ?? ["","",""];
+    const values = previous.map((v, i) => i === index ? value.slice(0,400) : v);
+    setScenes(old => ({ ...old, [category]: [values] }));
+    try { localStorage.setItem(`photo-lab-scenes:${conversationId}:${category}`, JSON.stringify(values)); }
+    catch { /* private browsing */ }
   }
   const refresh = useCallback(async () => {
     const r = await command({ data: { action: "list", conversationId } });
@@ -63,8 +73,9 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           conversationId,
           category,
           requestId: request.id,
-          ...(category === "mature_romantic" && wardrobes[chosenWardrobe]?.trim()
-            ? { wardrobe: wardrobes[chosenWardrobe]!.trim() } : {}),
+          ...((category === "mature_romantic" || category === "mature_adult") &&
+              scenes[category][0]?.[chosen[category]]?.trim()
+            ? { customScene: scenes[category][0]![chosen[category]]!.trim() } : {}),
           confirmation: "GENERATE DEVELOPER PHOTO TEST",
         },
       });
@@ -121,32 +132,34 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {error}
         </p>
       )}
-      <details className="rounded-xl border p-3">
-        <summary className="cursor-pointer font-medium">Mature romantic wardrobe test options (non-explicit)</summary>
-        <p className="my-2 text-xs text-muted-foreground">
-          Three editable descriptions, saved on this device for this contact. Leave any option blank
-          to use the original outfit prompt. Choose one before generating the Mature romantic test;
-          nothing here changes spontaneous photos or character preferences.
-        </p>
-        <div className="space-y-3">
-          {wardrobes.map((wardrobe, index) => (
-            <label key={index} className="block space-y-1">
-              <span className="flex items-center gap-2 text-sm">
-                <input type="radio" name={`wardrobe-${conversationId}`}
-                  checked={chosenWardrobe === index} onChange={() => setChosenWardrobe(index)} />
-                Wardrobe option {index + 1}
-              </span>
-              <textarea
-                aria-label={`Wardrobe option ${index + 1} description`}
-                rows={3} maxLength={400} value={wardrobe}
-                onChange={(e) => updateWardrobe(index, e.target.value)}
-                placeholder="Describe clothing, styling, and fit here..."
-                className="w-full rounded-xl border bg-background p-3 text-sm"
-              />
-            </label>
-          ))}
-        </div>
-      </details>
+      {(["mature_romantic", "mature_adult"] as const).map((category) => (
+        <details key={category} className="rounded-xl border p-3">
+          <summary className="cursor-pointer font-medium">
+            {category === "mature_romantic" ? "Mature Romantic" : "Mature Adult"} — 3 custom scene options
+          </summary>
+          <p className="my-2 text-xs text-muted-foreground">
+            Describe clothing, pose, setting and atmosphere. Each option is blank until you fill it in.
+            Stored on this device for this character. Only used for explicit developer tests, not automatic photos.
+          </p>
+          <div className="space-y-3">
+            {(scenes[category][0] ?? ["","",""]).map((value,index) => (
+              <label key={index} className="block space-y-1">
+                <span className="flex items-center gap-2 text-sm">
+                  <input type="radio" name={`scene-${category}-${conversationId}`}
+                    checked={chosen[category] === index}
+                    onChange={() => setChosen(old => ({...old, [category]: index}))}/>
+                  Custom scene {index + 1}
+                </span>
+                <textarea aria-label={`${category} custom scene ${index+1}`}
+                  rows={3} maxLength={400} value={value}
+                  onChange={e => updateScene(category,index,e.target.value)}
+                  placeholder="Describe an adult, non-explicit photo scene..."
+                  className="w-full rounded-xl border bg-background p-3 text-sm"/>
+              </label>
+            ))}
+          </div>
+        </details>
+      ))}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {snapshot?.types.map((t) => (
           <button
