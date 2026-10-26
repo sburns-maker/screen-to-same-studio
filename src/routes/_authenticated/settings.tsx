@@ -98,10 +98,7 @@ function SettingsPage() {
   return (
     <>
       <ScreenHeader title="Settings" />
-      <Link to="/calls" className="mx-auto block max-w-xl px-5 py-4 text-sm underline">Calls, microphone privacy & fictional phone service</Link>
       <Screen>
-        <PhotoSetup tessConversationId={tessConv?.id} />
-        <details className="my-4 rounded-2xl border p-4"><summary className="min-h-11 cursor-pointer font-medium">Reference Library</summary><ReferenceLibrary /></details>
         <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <NotificationsRow />
@@ -117,7 +114,9 @@ function SettingsPage() {
           </Row>
         </div>
 
-        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Simulation</h3>
+        <details className="mt-7 rounded-2xl border bg-surface p-3"><summary className="flex min-h-11 cursor-pointer items-center px-2 font-semibold">Simulation and world settings</summary>
+        <div className="pt-2">
+        <h3 className="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Simulation</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-4 text-[15px]">
@@ -170,6 +169,9 @@ function SettingsPage() {
           </div>
         </div>
 
+        <div className="mt-5"><PhotoSetup tessConversationId={tessConv?.id} /></div>
+        <details className="my-4 rounded-2xl border p-4"><summary className="min-h-11 cursor-pointer font-medium">Reference Library</summary><ReferenceLibrary /></details>
+        </div></details>
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">About</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <div className="px-4 py-3 text-sm leading-relaxed text-muted-foreground">
@@ -181,7 +183,8 @@ function SettingsPage() {
           </Link>
         </div>
 
-        <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Start over</h3>
+        <details className="mt-7 rounded-2xl border bg-surface p-3"><summary className="flex min-h-11 cursor-pointer items-center px-2 font-semibold text-destructive">Reset and data management</summary>
+        <h3 className="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Start over</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <Confirm title="Reset Tess?" body="Your history with Tess is erased and you're back to the night you met at trivia. Other contacts are untouched." action="Reset" onConfirm={doReset}>
             <button type="button" className="w-full px-4 py-3 text-left text-[15px]">Reset Tess / new scenario</button>
@@ -193,6 +196,8 @@ function SettingsPage() {
             Sign out
           </button>
         </div>
+        </details>
+        <Link to="/calls" className="mt-4 block rounded-2xl border bg-surface p-4 text-sm">Phone settings, call history and microphone privacy →</Link>
         <p className="mt-8 text-center text-xs text-muted-foreground">All contacts are fictional.</p>
       </Screen>
     </>
