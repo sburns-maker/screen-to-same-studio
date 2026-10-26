@@ -364,7 +364,7 @@ export async function offerSpontaneousCall(db: Client, user: string, now: Date) 
     const reason=`I had a free moment and wanted to catch up. ${activity.detail}`.slice(0,200);
     try{
       await phoneCommand(db,user,crypto.randomUUID(),"start",{
-        conversation:conv.id,direction:"incoming",outcome:"answer",reason,ring:incomingLiveMode() ? 60 : 25
+        conversation:conv.id,direction:"incoming",outcome:"answer",reason,ring:incomingLiveMode() ? 30 : 25
       },now);
       return true;
     }catch{throw new Error("Incoming call offer could not be confirmed");}
