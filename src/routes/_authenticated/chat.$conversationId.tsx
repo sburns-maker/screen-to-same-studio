@@ -13,7 +13,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Camera, ChevronLeft, Gamepad2, MoreVertical } from "lucide-react";
+import { ArrowUp, Camera, ChevronLeft, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { markRead, tessRespond } from "@/lib/tess.functions";
@@ -316,7 +316,6 @@ function Chat() {
             </div>
           </Link>
           <CallButton conversationId={conversationId} name={def.preferredName}/>
-          <Link to="/games/$conversationId" params={{ conversationId }} aria-label="Play games" title="Play games" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted"><Gamepad2 className="h-5 w-5" /></Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label="Conversation options" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted">
@@ -326,6 +325,9 @@ function Chat() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem asChild>
                 <Link to="/profile/$conversationId" params={{ conversationId }}>View profile</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/games/$conversationId" params={{ conversationId }}>Games</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/calls" search={{ conversation: conversationId }}>Call history</Link>
