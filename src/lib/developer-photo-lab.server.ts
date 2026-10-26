@@ -124,6 +124,7 @@ export async function generatePhotoLabTest(
   const def = await authorize(db, user, conversation);
   if (!PHOTO_LAB_TYPES.includes(type) || !labTypeSupported(def, type))
     throw new Error("This category is unavailable for this adult character");
+  if (wardrobe && (!safePhotoScene(wardrobe) || wardrobe.length > 400)) throw new Error("Wardrobe description outside supported boundaries");
   const id = await photoActionId(`developer-photo-lab:${user}:${conversation}:${requestId}`);
   const old = await db.from("job_runs").select("*").eq("id", id).maybeSingle();
   if (old.error) throw new Error("Photo test reservation unavailable");
