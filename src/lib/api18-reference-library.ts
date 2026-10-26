@@ -1,3 +1,6 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+import { currentCanonical } from "./profile-media.server";
 import { CHARACTERS, type CharacterKey } from "./characters";
 
 export const REFERENCE_ROLES = ["canonical", "half_body", "alternate_angle"] as const;
@@ -64,4 +67,22 @@ export function referenceLibrarySummary(candidates: readonly ReferenceCandidate[
     pendingReview: candidates.filter(c=>c.status==="needs_visual_review").length,
     ready: candidates.length===3 && candidates.every(c=>c.status==="approved"),
   };
+}
+
+/** Read-only inventory of the user's own delivered generated photos. No copies or public URLs. */
+export async function inventoryExistingCharacterPhotos(
+  db: SupabaseClient<Database>, userId: string, character: CharacterKey,
+): Promise<ReferenceCandidate[]> {
+  const characterRow = await db.from("characters").select("id").eq("key", character).single();
+  if (characterRow.error || !characterRow.data) throw new Error("reference_character_missing");
+  const conversation = await db.from("conversations").select("id")
+    .eq("user_id", userId).eq("character_id", characterRow.data.id).single();
+  if (conversation.error || !conversation.data) throw new Error("reference_conversation_missing");
+  const { data, error } = await db.from("messages").select("created_at,visible_at,metadata")
+    .eq("user_id", userId).eq("conversation_id", conversation.data.id)
+    .eq("sender", "tess").lte("visible_at", new Date().toISOString())
+    .order("created_at", {ascending:false}).limit(250);
+  if (error) throw new Error("reference_history_unavailable");
+  const canonical = await currentCanonical(db, userId, character);
+  return pickReferenceCandidates(character, canonical, data ?? [], userId);
 }
