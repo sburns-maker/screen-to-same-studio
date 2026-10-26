@@ -74,9 +74,11 @@ describe("photo autonomy and boundaries", () => {
   it("pressure suppresses mature portraits", () => {
     expect(eligiblePhotoCategories({ ...romantic, perceived_pressure: 30 }, { ...context, matureEnabled: true })).not.toContain("mature_romantic");
   });
-  it("explicit and unverified lingerie scenes are rejected", () => {
-    for (const scene of ["nude portrait", "topless", "sheer lingerie", "boudoir", "teenager portrait"]) expect(safePhotoScene(scene)).toBe(false);
-    expect(safePhotoScene("adult in opaque elegant sleepwear" )).toBe(true);
+  it("permits adult opaque lingerie descriptions but still rejects explicit or age-ambiguous scenes", () => {
+    for (const scene of ["adult in matching bra and panties", "adult in tasteful lingerie", "opaque bralette and robe", "boudoir-style non-nude portrait"])
+      expect(safePhotoScene(scene)).toBe(true);
+    for (const scene of ["nude portrait", "topless", "sheer lingerie", "exposed nipples", "teenager portrait", "sexual activity"])
+      expect(safePhotoScene(scene)).toBe(false);
   });
   it("Tess curated couch photo still permits genuine platonic closeness", () => {
     expect(eligiblePhotos(close).map(p => p.id)).toContain("selfie-couch");
