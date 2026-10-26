@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   CALL_OPENING_PROMPT,
+  INCOMING_CALL_OPENING_PROMPT,
   LIVE_CALL_CHARACTERS,
   VOICE_ID_PATTERN,
   buildCallInstructions,
@@ -160,7 +161,7 @@ export const startLiveCall = createServerFn({ method: "POST" })
             model: "gpt-live-1",
             delegation: { type: "client" },
             instructions,
-            input: [{ type: "message", role: "developer", content: [{ type: "input_text", text: CALL_OPENING_PROMPT }] }],
+            input: [{ type: "message", role: "developer", content: [{ type: "input_text", text: data.incomingCallId ? INCOMING_CALL_OPENING_PROMPT : CALL_OPENING_PROMPT }] }],
             audio: { output: { voice: { id: voice.voiceId } } },
           },
         }),
