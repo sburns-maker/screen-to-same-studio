@@ -185,7 +185,7 @@ export async function developerTestRing(
     direction: "incoming",
     outcome: "answer",
     reason: force ? "Developer-forced GPT-Live test ring (not character-initiated)" : "Developer-triggered test ring (not character-initiated)",
-    ring: 30,
+    ring: force ? 30 : 25,
   });
   return {
     id,
