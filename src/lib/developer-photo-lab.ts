@@ -38,7 +38,7 @@ export const PHOTO_LAB_PRESETS: Record<PhotoLabType, { label: string; scene: str
   mature_romantic: {
     label: "Mature romantic (non-explicit)",
     scene:
-      "A non-explicit romantic personal phone portrait of the referenced clearly adult person, fully covered in an opaque elegant long-sleeved outfit, natural softly lit indoor surroundings, a subtle affectionate expression. Fully covered, opaque clothing and an ordinary relaxed posture.",
+      "A non-explicit romantic personal phone portrait of the referenced clearly adult person in a tasteful opaque adult outfit, natural softly lit indoor surroundings, a subtle affectionate expression and relaxed posture. Follow a supplied wardrobe variation if present; otherwise use elegant, fully covering clothes. No nudity or explicit activity.",
   },
 };
 export type PhotoLabResult = {
