@@ -4,7 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { MoreVertical, Search } from "lucide-react";
+import { MoreVertical, Search, Phone } from "lucide-react";
 import { ensureConversations, inboxOverview, tessMaybeInitiate } from "@/lib/tess.functions";
 import { userTz } from "@/lib/tess-queries";
 import { characterFor } from "@/lib/characters";
@@ -71,7 +71,7 @@ function Inbox() {
   );
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
+    <div className="flex min-h-dvh flex-col bg-background pb-20">
       <Link to="/calls" className="mx-auto flex min-h-11 max-w-xl items-center justify-end px-5 text-sm text-primary">Calls & recents</Link>
       <header className="pt-safe sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-xl items-center gap-1 px-3">
