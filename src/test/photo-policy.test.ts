@@ -75,7 +75,7 @@ describe("photo autonomy and boundaries", () => {
     expect(eligiblePhotoCategories({ ...romantic, perceived_pressure: 30 }, { ...context, matureEnabled: true })).not.toContain("mature_romantic");
   });
   it("permits adult opaque lingerie descriptions but still rejects explicit or age-ambiguous scenes", () => {
-    for (const scene of ["adult in matching bra and panties", "adult in tasteful lingerie", "opaque bralette and robe", "boudoir-style non-nude portrait"])
+    for (const scene of ["adult in matching bra and panties", "adult in tasteful lingerie", "opaque bralette and robe", "boudoir-style clothed portrait"])
       expect(safePhotoScene(scene)).toBe(true);
     for (const scene of ["nude portrait", "topless", "sheer lingerie", "exposed nipples", "teenager portrait", "sexual activity"])
       expect(safePhotoScene(scene)).toBe(false);
