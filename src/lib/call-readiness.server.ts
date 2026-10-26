@@ -8,7 +8,7 @@ export async function evaluateIncomingCalls(db: Client, user: string, now = new 
   const cfg = (await import("./voice-provider.server")).voiceConfiguration();
   const installed = await server.phoneAvailable(db);
   const snap = installed ? await server.phoneSnapshot(db, user, false) : null;
-  const enabled = process.env["ENABLE_INCOMING_VOICE_CALLS"] === "true";
+  const enabled = process.env["ENABLE_INCOMING_VOICE_CALLS"] === "true" || server.incomingLiveMode();
   const liveMode = server.incomingLiveMode();
   const { inQuietHours, parseQuietHours } = await import("./world.server");
   const { data: quiet, error: quietError } = await db
