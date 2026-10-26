@@ -3,22 +3,25 @@ import type { ImageProvider, GeneratedImage } from "./tess-image.server";
 /** Api18 accepts remotely retrievable reference URLs, not multipart images.
  * Callers must supply a short-lived, scoped signed URL to a fictional character portrait.
  */
-export function api18Provider(apiKey: string, referenceUrl: string): ImageProvider {
+export function api18Provider(apiKey: string, referenceUrls: readonly string[]): ImageProvider {
   if (!apiKey.trim()) throw new Error("api18_not_configured");
-  const url = new URL(referenceUrl);
-  if (url.protocol !== "https:") throw new Error("api18_reference_must_be_https");
+  if (referenceUrls.length < 1 || referenceUrls.length > 3) throw new Error("api18_reference_count_invalid");
+  for (const referenceUrl of referenceUrls) {
+    const url = new URL(referenceUrl);
+    if (url.protocol !== "https:") throw new Error("api18_reference_must_be_https");
+  }
   return {
     name: "api18",
     model: "hera-1.0-image-edit",
     referenceConditioning: true,
     async generate(prompt: string, references: Blob[]): Promise<GeneratedImage> {
-      if (references.length !== 1) throw new Error("api18_single_reference_required");
+      if (references.length !== referenceUrls.length) throw new Error("api18_reference_count_mismatch");
       const res = await fetch("https://api18.dev/v1/generate?wait=true", {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "hera-1.0-image-edit", prompt: prompt.slice(0, 2500),
-          images: [referenceUrl], enable_prompt_expansion: false,
+          images: [...referenceUrls], enable_prompt_expansion: false,
         }),
         signal: AbortSignal.timeout(95_000),
       });
