@@ -316,6 +316,9 @@ async function runTurnUnlocked(
   if (initiation?.developerPhoto !== "preview" && calendarAdmin && await (await import("./calendar-coordinator.server")).calendarContractReady(calendarAdmin)) {
     await (await import("./interactive-world.server")).syncCalendar(calendarAdmin, userId, new Date());
   }
+  if(calendarAdmin && initiation?.developerPhoto!=="preview") {
+    await (await import("./housing.server")).processHousingActions(calendarAdmin,userId,new Date());
+  }
   const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
   if (photoAdmin && !voice && initiation?.developerPhoto === "preview") {
     const { inspectPhotoReservation, pendingPhotoResult } = await import("./photo-delivery.server");
@@ -353,6 +356,10 @@ async function runTurnUnlocked(
           .limit(5)
       : Promise.resolve({ data: null }),
   ]);
+  if(calendarAdmin && !initiation && !voice) {
+    const source=(msgs??[]).find(m=>m.sender==="user");
+    if(source) await (await import("./residential-calendar.server")).syncResidentialUserMessage(calendarAdmin,userId,conv.id,source.id,new Date());
+  }
   const actionAnchor = initiation
     ? (initiation.photoKey ?? `${conv.id}:${def.key}:${Math.floor(Date.now() / (PHOTO_TENDENCIES[def.key].hours * 3_600_000))}`)
     : `reply:${(msgs ?? []).find((m) => m.sender === "user")?.id ?? "initial"}`;
@@ -425,7 +432,8 @@ async function runTurnUnlocked(
   const { scheduledPopulationContext } = await import("./npc-schedules");
   worldKnowledge.push(...scheduledPopulationContext(def.key,now));
   const baseSchedule = shared ?? storySchedule(currentActivity(def, now, difficulty === "chaos" ? 2 : 1), story.event);
-  const sceneContext=await resolvePhotoScene(photoAdmin??supabase,userId,conv.id,baseSchedule,now,!!photoAdmin&&initiation?.developerPhoto!=="preview");
+  const residentialSchedule = shared || !photoAdmin ? baseSchedule : await (await import("./housing.server")).housingSchedule(photoAdmin??supabase,userId,def.key,baseSchedule,now);
+  const sceneContext=await resolvePhotoScene(photoAdmin??supabase,userId,conv.id,residentialSchedule,now,!!photoAdmin&&initiation?.developerPhoto!=="preview");
   const schedule=sceneContext.schedule;
   worldKnowledge.unshift(`CURRENT PHYSICAL CONTEXT (${sceneContext.source}): ${schedule.detail}. This takes priority over older storylines, old photographs and the original calendar venue. Do not invent travel to make a photograph fit an old topic.`);
   const realTime = !!conv.real_time_mode;
@@ -690,6 +698,7 @@ async function runTurnUnlocked(
         tags: reply.event_tags,
         initiated: !!initiation,
         notification_group: notificationGroup,
+        ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,

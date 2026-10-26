@@ -9,6 +9,11 @@ export const SCENE_ACTIVITIES = [
   "finished_meal",
   "at_front_door",
   "waiting",
+  "cooking",
+  "watching_movie",
+  "playing_game",
+  "household_chore",
+  "relaxing",
 ] as const;
 export type LiveScene = {
   locationKey: string;
@@ -23,7 +28,8 @@ export function initialScene(character: string, place: string, label: string): L
   return {
     locationKey: place,
     locationLabel: label,
-    locationKind: placeByKey(place)?.kind ?? "place",
+    locationKind:
+      placeByKey(place)?.kind ?? (/^(?:home:|residence:)/.test(place) ? "home" : "place"),
     area: "",
     activity: placeByKey(place)?.kind === "park" ? "walking" : "talking",
     participants: ["user", character],
@@ -36,6 +42,7 @@ function transitionClause(
   text: string,
   character: string,
   name: string,
+  homes?: { user: string | null; character: string | null },
 ): LiveScene | null {
   const s = text.trim();
   if (
@@ -47,11 +54,20 @@ function transitionClause(
   let next = { ...current };
   const home =
     new RegExp(
-      `\\b(?:your|her|his|${name}(?:['’]s)?|${character}(?:['’]s)?)\\s+(?:home|house|apartment|front door|doorstep)\\b`,
+      `\\b(?:your|her|his|${name}(?:['’]s)?|${character}(?:['’]s)?)\\s+(?:home|house|apartment|place|front door|doorstep)\\b`,
       "i",
     ).test(s) || /\b(?:drive|drove|driving|take|took|taking) (?:you|her|him) home\b/i.test(s);
+  const playerHome = /\b(?:my|our)\s+(?:home|house|apartment|place)\b/i.test(s);
+  const homeDestination = homes
+    ? playerHome
+      ? homes.user
+      : homes.character
+    : playerHome
+      ? "home:user"
+      : `home:${character}`;
+  const atResidence = home || playerHome;
   const places = venueFromText(s);
-  const destination = home ? `home:${character}` : places.length === 1 ? places[0]!.key : null;
+  const destination = atResidence ? homeDestination : places.length === 1 ? places[0]!.key : null;
   const arrived =
     /\b(?:arriv(?:e|ed|ing)|made it to|got (?:back )?to|pull(?:ed)? (?:up|in)|park(?:ed|s)? (?:outside|at|in front of|the car)|(?:we['’]re|we are|we['’]ve arrived) (?:now )?(?:at|inside|outside)|(?:walk|walked|step|stepped|go|went) (?:up )?(?:in(?:to)?|to)|reach(?:ed)?)\b/i.test(
       s,
@@ -65,10 +81,10 @@ function transitionClause(
     next = {
       ...next,
       locationKey: destination,
-      locationLabel: home ? `${name}'s home` : p!.label,
-      locationKind: home ? "home" : p!.kind,
-      area: home ? "outside" : "",
-      activity: home && /front door|doorstep|porch/i.test(s) ? "at_front_door" : "arriving",
+      locationLabel: atResidence ? (playerHome ? "Your home" : `${name}'s home`) : p!.label,
+      locationKind: atResidence ? "home" : p!.kind,
+      area: atResidence ? "outside" : "",
+      activity: atResidence && /front door|doorstep|porch/i.test(s) ? "at_front_door" : "arriving",
       destinationKey: null,
     };
   } else if (driving) {
@@ -84,7 +100,9 @@ function transitionClause(
   } else if (arrived && current.locationKind === "vehicle" && current.destinationKey) {
     const key = current.destinationKey,
       p = placeByKey(key),
-      atHome = key === `home:${character}`;
+      atHome = homes
+        ? key === homes.character || key === homes.user
+        : key === `home:${character}` || key === "home:user";
     if (p || atHome)
       next = {
         ...next,
@@ -96,14 +114,15 @@ function transitionClause(
         destinationKey: null,
       };
   } else if (
-    home &&
+    atResidence &&
+    homeDestination &&
     /\b(?:front door|doorstep|porch)\b/i.test(s) &&
     /\b(?:stand|standing|at|walk|walked|reach|reached)\b/i.test(s)
   ) {
     next = {
       ...next,
-      locationKey: `home:${character}`,
-      locationLabel: `${name}'s home`,
+      locationKey: homeDestination,
+      locationLabel: playerHome ? "Your home" : `${name}'s home`,
       locationKind: "home",
       area: "front door (outside)",
       activity: "at_front_door",
@@ -120,6 +139,20 @@ function transitionClause(
     else if (/\b(?:order|ordered)\b/i.test(s)) next.activity = "ordering";
     else if (/\b(?:eat|eating|dining|food arrives)\b/i.test(s)) next.activity = "dining";
   }
+  if (next.locationKind === "home" && !/\b(?:front door|doorstep|porch)\b/i.test(s)) {
+    if (/\b(?:we|i) (?:enter|entered|step inside|stepped inside|go inside|went inside)\b/i.test(s))
+      next.area = "inside";
+    if (!/outside|front door/.test(next.area)) {
+      if (/\b(?:cook|cooking|chop|chopping|prepare|preparing)\b/i.test(s))
+        next.activity = "cooking";
+      else if (/\b(?:watch|watching|put on)\b.{0,35}\b(?:movie|film)\b/i.test(s))
+        next.activity = "watching_movie";
+      else if (/\b(?:play|playing)\b.{0,25}\b(?:game|cards)\b/i.test(s))
+        next.activity = "playing_game";
+      else if (/\b(?:clean|cleaning|tidy|chores)\b/i.test(s)) next.activity = "household_chore";
+      else if (/\b(?:relax|relaxing|settle|settled)\b/i.test(s)) next.activity = "relaxing";
+    }
+  }
   if (next.locationKind === "home" && /\b(?:front door|doorstep|porch)\b/i.test(s))
     next.area = "front door (outside)";
   return JSON.stringify(next) === JSON.stringify(current) ? null : next;
@@ -129,10 +162,11 @@ export function transitionScene(
   text: string,
   character: string,
   name: string,
+  homes?: { user: string | null; character: string | null },
 ): LiveScene | null {
   let scene = current;
   for (const clause of text.match(/[^.!?\n]+[.!?]?/g) ?? [])
-    scene = transitionClause(scene, clause, character, name) ?? scene;
+    scene = transitionClause(scene, clause, character, name, homes) ?? scene;
   return JSON.stringify(scene) === JSON.stringify(current) ? null : scene;
 }
 export function liveSceneInstructions(scene: LiveScene) {

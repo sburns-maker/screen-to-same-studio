@@ -14,10 +14,12 @@ type Values = {
 export function PlanEditor({
   plan,
   manual = false,
+  residences = [],
   onSave,
   onCancel,
 }: {
   manual?: boolean;
+  residences?: { key: string; label: string }[] | undefined;
   plan: {
     title: string;
     starts_at: string | null;
@@ -49,7 +51,7 @@ export function PlanEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const field = "mt-1 min-h-11 w-full rounded-xl border bg-background p-2";
-  const places = PLACE_REGISTRY.filter((p) => p.public);
+  const places = [...PLACE_REGISTRY.filter((p) => p.public), ...residences];
   return (
     <form
       aria-label="Edit plan"

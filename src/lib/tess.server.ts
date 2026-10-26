@@ -111,7 +111,9 @@ const deltaSchema = z.object({
   romantic_intent: z.number(),
 });
 
+import {housingActionsSchema,HOUSING_ACTION_RULES} from "./housing";
 export const replySchema = z.object({
+  housing_actions: housingActionsSchema,
   schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
@@ -275,7 +277,7 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(tessLines, args.initiation ? "" : lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
@@ -428,7 +430,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${system}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
+  const reply = await runStructured(replySchema, `${system}\n${HOUSING_ACTION_RULES}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}`, args.initiation ? "autonomous" : "reply");
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });

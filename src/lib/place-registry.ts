@@ -11,8 +11,14 @@ export type VenueAction =
   | "browse"
   | "join"
   | "discuss"
-  | "leave";
+  | "leave"
+  | "cook"
+  | "movie"
+  | "games"
+  | "chores"
+  | "relax";
 const actions: Record<string, readonly VenueAction[]> = {
+  home: ["look", "seat", "wait", "cook", "movie", "games", "chores", "relax"],
   bar: ["look", "menu", "order_food", "seat", "join", "discuss", "wait"],
   cafe: ["look", "menu", "order_coffee", "seat", "wait"],
   restaurant: ["look", "menu", "seat", "order_food", "wait"],
@@ -24,6 +30,11 @@ const actions: Record<string, readonly VenueAction[]> = {
   shop: ["look", "browse"],
 };
 export const ACTION_LABELS: Record<VenueAction, string> = {
+  cook: "Prepare a meal",
+  movie: "Watch a movie",
+  games: "Play a game",
+  chores: "Work on household chores",
+  relax: "Relax",
   look: "Look around",
   menu: "Browse the fictional menu",
   order_coffee: "Order a virtual coffee",
@@ -47,7 +58,8 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
       ? ("unverified_real_name_fictional_scene" as const)
       : ("fictional" as const),
   address: (VERIFIED_ADDRESSES[p.key] ?? null) as string | null,
-  addressStatus: (VERIFIED_ADDRESSES[p.key] ? "verified" : "unverified") as "verified" | "unverified",
+  addressStatus: (VERIFIED_ADDRESSES[p.key] ? "verified" : "unverified") as
+    "verified" | "unverified",
   state: "PA",
   zip: null as string | null,
   coordinatesStatus: "illustrative_fictional" as const,
@@ -72,9 +84,9 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
         ? ["drinks", "date", "meetup"]
         : p.kind === "bar"
           ? ["trivia", "meetup"]
-        : p.kind === "restaurant"
-          ? ["dinner", "meetup"]
-          : ["coffee", "walk", "meetup"],
+          : p.kind === "restaurant"
+            ? ["dinner", "meetup"]
+            : ["coffee", "walk", "meetup"],
   associations:
     p.key === "reading:lantern" || p.key === "books:hollidaysburg" ? ["claire"] : ([] as string[]),
   marker: {
@@ -102,8 +114,7 @@ const VENUE_ALIASES: Record<string, readonly string[]> = {
   "dinner:fanellis": ["fanelli", "finelli"],
   "bar:4ds": ["4d's", "4ds", "4d", "four d's"],
 };
-const normalizeVenueText = (text: string) =>
-  text.toLocaleLowerCase().replace(/[’‘`]/g, "'");
+const normalizeVenueText = (text: string) => text.toLocaleLowerCase().replace(/[’‘`]/g, "'");
 export function venueFromText(text: string) {
   const s = normalizeVenueText(text);
   return PLACE_REGISTRY.filter((p) => {
@@ -131,6 +142,11 @@ export function interpretVenueAction(
     return { action: "order_coffee", quantity: /\btwo\b|\b2\b/.test(s) ? 2 : 1 };
   if (/\b(?:order|buy|get)\b.*\b(?:food|meal|dinner)\b/.test(s))
     return { action: "order_food", quantity: 1 };
+  if (/\b(?:cook|cooking|prepare.*meal)\b/.test(s)) return { action: "cook", quantity: 1 };
+  if (/\b(?:watch|put on)\b.*\b(?:movie|film)\b/.test(s)) return { action: "movie", quantity: 1 };
+  if (/\bplay\b.*\bgame\b/.test(s)) return { action: "games", quantity: 1 };
+  if (/\b(?:clean|chores|tidy)\b/.test(s)) return { action: "chores", quantity: 1 };
+  if (/\brelax\b/.test(s)) return { action: "relax", quantity: 1 };
   if (/\b(?:sit|seat|table|bench)\b/.test(s)) return { action: "seat", quantity: 1 };
   if (/\b(?:look|find|around)\b/.test(s)) return { action: "look", quantity: 1 };
   if (/\bmenu\b/.test(s)) return { action: "menu", quantity: 1 };

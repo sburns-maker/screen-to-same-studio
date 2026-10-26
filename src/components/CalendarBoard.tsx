@@ -336,11 +336,13 @@ export function CalendarBoard() {
               className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2"
             >
               <option value="">Undecided</option>
-              {PLACE_REGISTRY.filter((p) => p.public).map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
+              {[...PLACE_REGISTRY.filter((p) => p.public), ...(q.data?.residences ?? [])].map(
+                (p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label}
+                  </option>
+                ),
+              )}
             </select>
           </label>
           <label className="text-sm">
@@ -437,6 +439,11 @@ export function CalendarBoard() {
                 {e.time_hint && e.time_hint !== "after_parent" ? ` (${e.time_hint})` : ""}
               </p>
             )}
+            {e.residentialReview && (
+              <p role="status" className="rounded-xl border border-amber-500/40 p-3 text-sm">
+                {e.residentialReview}
+              </p>
+            )}
             {e.conflicts.length > 0 && (
               <p role="status" className="rounded-xl border border-amber-500/40 p-3 text-sm">
                 Scheduling conflict:{" "}
@@ -466,6 +473,11 @@ export function CalendarBoard() {
                   Attendance: {e.user_attendance.replaceAll("_", " ")}. Event {e.id}
                 </p>
               </div>
+            )}
+            {e.origin === "housing" && (
+              <Link to="/explore" className="block min-h-11 text-sm underline">
+                Manage housing agreement & consent
+              </Link>
             )}
             <div className="flex flex-wrap gap-2">
               {e.conversation_id && (
@@ -551,6 +563,7 @@ export function CalendarBoard() {
             </div>
             {editing === e.id && (
               <PlanEditor
+                residences={q.data?.residences}
                 manual={q.data.manual}
                 plan={e}
                 onCancel={() => setEditing("")}
