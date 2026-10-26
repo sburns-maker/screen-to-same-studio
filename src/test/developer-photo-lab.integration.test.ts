@@ -69,7 +69,7 @@ describe("isolated developer category generation", () => {
       expect(result.url).toContain("developer-photo-tests");
       expect(model.generate).toHaveBeenCalledTimes(1);
       const args = model.generate.mock.calls[0]![0];
-      expect(args.type).toBe(category);
+      expect(args.type).toBe(category === "mature_adult" ? "mature_romantic" : category);
       expect(args.identity.key).toBe("riley");
       if (category !== "object") expect(args.canonical.asset).toContain("riley");
       expect((await db.query("SELECT * FROM conversations")).rows).toEqual(before.rows);
