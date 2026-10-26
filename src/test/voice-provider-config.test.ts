@@ -21,7 +21,7 @@ describe("OpenAI voice chain configuration", () => {
     expect(cfg.ready).toBe(true);
     expect(cfg.blockers).toEqual([]);
     expect(Object.keys(cfg.voices)).toEqual([...keys]);
-    expect(cfg.voices.riley).toBe("shimmer");
+    expect(cfg.voices["riley"]).toBe("shimmer");
   });
   it("identifies missing Riley voice without revealing API credentials", () => {
     valid();
