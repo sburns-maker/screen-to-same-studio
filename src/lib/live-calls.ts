@@ -134,3 +134,17 @@ export const summarySchema = z
     importance: z.number().int().min(1).max(5),
   })
   .strict();
+
+/** Pure preflight: never reserve a paid GPT-Live session for the wrong/stale ring. */
+export function validIncomingLiveOffer(
+  offer: { conversation_id: string; character_key: string; direction: string; state: string; ring_until: string },
+  expected: { conversationId: string; character: string },
+  nowMs: number,
+): boolean {
+  return offer.conversation_id === expected.conversationId &&
+    offer.character_key === expected.character &&
+    offer.direction === "incoming" &&
+    offer.state === "ringing" &&
+    Number.isFinite(Date.parse(offer.ring_until)) &&
+    Date.parse(offer.ring_until) > nowMs;
+}
