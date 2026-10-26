@@ -87,7 +87,7 @@ export async function encryptPayload(payload: string, keys: PushSubscriptionKeys
 export type PushResult = { ok: boolean; status: number; gone: boolean };
 
 /** Send one push message. `gone` means the subscription expired and should be deleted. */
-export async function sendWebPush(target: PushTarget, payload: string, vapidPublic: string, vapidPrivate: string): Promise<PushResult> {
+export async function sendWebPush(target: PushTarget, payload: string, vapidPublic: string, vapidPrivate: string, options?: { ttlSeconds?: number; urgent?: boolean }): Promise<PushResult> {
   const jwt = await vapidJwt(target.endpoint, vapidPublic, vapidPrivate);
   const body = await encryptPayload(payload, target.keys);
   const res = await fetch(target.endpoint, {
@@ -96,8 +96,8 @@ export async function sendWebPush(target: PushTarget, payload: string, vapidPubl
       Authorization: `vapid t=${jwt},k=${vapidPublic}`,
       "Content-Encoding": "aes128gcm",
       "Content-Type": "application/octet-stream",
-      TTL: "86400",
-      Urgency: "normal",
+      TTL: String(Math.max(0, Math.min(86400, options?.ttlSeconds ?? 86400))),
+      Urgency: options?.urgent ? "high" : "normal",
     },
     body: body as BodyInit,
   });
