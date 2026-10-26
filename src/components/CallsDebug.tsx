@@ -28,7 +28,7 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
       <p>The saved Voice Studio character voices are used by GPT-Live calls. The provider setup below describes only the older speech-chain system, not your saved GPT-Live voices.</p>
       <button className="min-h-11 rounded-full border px-3 text-xs" onClick={() => void liveStatus({ data: { conversationId } }).then((r) => setStudioStatus(`GPT-Live: ${r.voiceSet ? "saved character voice found" : "no saved character voice"}; ${r.enabled ? "enabled" : "server switch disabled"}.`)).catch(() => setStudioStatus("GPT-Live status check unavailable"))}>Check saved voice and GPT-Live readiness (no generation)</button>
       {studioStatus && <p role="status">{studioStatus}</p>}
-      <Link className="inline-block min-h-11 py-3 underline" to="/live-call/$conversationId" params={{ conversationId }}>Open the call screen that uses Voice Studio voices</Link>
+      <Link className="inline-block min-h-11 py-3 underline" to="/live-call/$conversationId" params={{ conversationId }} search={{}}>Open the call screen that uses Voice Studio voices</Link>
       <p className="font-semibold">Legacy speech-chain calling diagnostics</p>
       <p>
         Calling capability:{" "}
