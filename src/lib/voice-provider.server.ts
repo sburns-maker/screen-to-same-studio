@@ -2,7 +2,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { transcribe, generateSpeech } from "ai";
 import type { CharacterKey } from "./characters";
 function bounded(name: string, min: number, max: number, fallback: number) {
-  const v = Number(process.env[name] ?? fallback);
+  const configured = process.env[name];
+  const v = configured == null || configured.trim() === "" ? fallback : Number(configured);
   return Number.isInteger(v) && v >= min && v <= max ? v : fallback;
 }
 export function voiceConfiguration() {
