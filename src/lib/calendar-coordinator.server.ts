@@ -110,6 +110,11 @@ export async function prepareScheduleActions(
     clock?: Date;
   },
 ) {
+  // User-controlled calendar: character conversation is never authorized to
+  // create, accept, reschedule, cancel, or revert a calendar event.
+  // Only saveManualCalendar / calendar_manual_action writes user edits.
+  void db; void user; void conversation; void reply; void now; void context;
+  return [] as Json[];
   const manual = await (await import("./manual-calendar.server")).manualCalendarReady(db);
   const housing = await import("./housing.server");
   if (manual && !(await housing.housingReady(db))) return [] as Json[];
