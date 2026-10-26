@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure } from "@/lib/tess-image.server";
+import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure, safeProviderErrorFields } from "@/lib/tess-image.server";
 
 describe("image prompt builder", () => {
   it("treats the canonical reference as identity only, not pose", () => {
@@ -132,5 +132,16 @@ describe("safe image error diagnostics", () => {
     expect(classifyImageFailure(new Error("face_structure_drift"), "visual_screen")).toBe("face_structure_drift");
     expect(classifyImageFailure(new Error("unrecognized screening exception"), "visual_screen")).toBe("visual_screen_failed");
     expect(classifyImageFailure(new Error("text provider unavailable"), "text_quality")).toBe("text_quality_check_failed");
+  });
+});
+
+describe("provider error field privacy", () => {
+  it("keeps only safe structured identifiers from HTTP errors", () => {
+    expect(safeProviderErrorFields({error:{code:"content_policy_violation",type:"invalid_request_error",param:"prompt",message:"private prompt and sk-secret"}}))
+      .toEqual({code:"content_policy_violation",type:"invalid_request_error",param:"prompt"});
+    expect(safeProviderErrorFields({error:{code:"unsafe value with secrets",type:"request_error",param:"input[0].image_url"}}))
+      .toEqual({type:"request_error"});
+    expect(safeProviderErrorFields({error:{message:"don't publish this"}})).toEqual({});
+    expect(safeProviderErrorFields(null)).toEqual({});
   });
 });
