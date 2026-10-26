@@ -7,15 +7,11 @@ function bounded(name: string, min: number, max: number, fallback: number) {
 }
 export function voiceConfiguration() {
   const env = process.env;
-  // OpenAI speech-chain voices are separate from the app's Voice Studio voices.
-  // Built-in OpenAI voices make missing optional VOICE_* env overrides non-fatal.
-  const defaultVoices = {
-    tess: "coral", maya: "nova", claire: "shimmer",
-    jordan: "sage", ben: "onyx", riley: "alloy",
-  } as const;
+  // Existing per-character voice assignments must be resolved from Voice Studio
+  // before voice calling is enabled; never silently substitute a different voice.
   const voices = Object.fromEntries(
-    Object.entries(defaultVoices).map(([k, fallback]) => [
-      k, env[`VOICE_${k.toUpperCase()}`] || fallback,
+    ["tess", "maya", "claire", "jordan", "ben", "riley"].map((k) => [
+      k, env[`VOICE_${k.toUpperCase()}`] ?? "",
     ]),
   );
   const blockers: string[] = [];
