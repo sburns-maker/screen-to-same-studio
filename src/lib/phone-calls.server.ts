@@ -345,7 +345,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
  * Promised callbacks remain separate and have priority in the world worker.
  */
 export async function offerSpontaneousCall(db: Client, user: string, now: Date) {
-  if ((!incomingLiveMode() && !voiceConfiguration().ready) || process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" || !(await phoneAvailable(db))) return false;
+  if ((!incomingLiveMode() && !voiceConfiguration().ready) || (process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" && !incomingLiveMode()) || !(await phoneAvailable(db))) return false;
   const snap = await phoneSnapshot(db, user);
   if (!snap.preferences.enabled || !snap.preferences.incoming || !snap.preferences.save_transcripts ||
       snap.calls.some(c=>ACTIVE_CALL_STATES.includes(c.state))) return false;
