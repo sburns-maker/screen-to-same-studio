@@ -1,3 +1,4 @@
+import { PhoneIncoming, PhoneOutgoing, PhoneMissed, ChevronRight } from "lucide-react";
 import { VoiceSessionHistory } from "@/components/VoiceSessionHistory";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -5,7 +6,6 @@ import { usePhone } from "@/lib/phone-queries";
 import { phoneAction } from "@/lib/phone-calls.functions";
 import { characterFor } from "@/lib/characters";
 import {
-  contactPhoneNumber,
   CALL_LABELS,
   ACTIVE_CALL_STATES,
   type CallPreferences,
@@ -101,7 +101,7 @@ function Calls() {
           </>
         )}
       </details>
-      <RingtoneSettings />
+      <details className={`${card} mb-5`}><summary className="min-h-11 cursor-pointer font-medium">Ringtone and sound</summary><div className="pt-3"><RingtoneSettings /></div></details>
       {conversation && (
         <Link to="/calls" search={{}} className="mb-4 block underline">
           All contacts’ calls
@@ -118,17 +118,17 @@ function Calls() {
           No calls recorded{conversation ? " for this conversation" : ""}.
         </p>
       )}
-      <div className="space-y-3">
+      <div className="divide-y overflow-hidden rounded-2xl border bg-surface">
         {q.data?.calls.map((c) => {
           const def = characterFor(c.character_key);
           return (
-            <article key={c.id} className={`${card} space-y-2`}>
-              <div className="flex items-center justify-between gap-3">
-                <Link to="/call/$callId" params={{ callId: c.id }} className="min-w-0">
+            <article key={c.id} className="px-3 py-3 sm:px-4">
+              <div className="flex min-h-14 items-center gap-3">
+                <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">{c.state === "missed" ? <PhoneMissed className="h-5 w-5" /> : c.direction === "incoming" ? <PhoneIncoming className="h-5 w-5" /> : <PhoneOutgoing className="h-5 w-5" />}</span>
+                <Link to="/call/$callId" params={{ callId: c.id }} className="min-w-0 flex-1">
                   <h3 className="font-medium">{def.preferredName}</h3>
                   <p className="text-xs text-muted-foreground">
-                    {contactPhoneNumber(def.key)} ·{" "}
-                    {c.direction === "incoming" ? "Incoming" : "Outgoing"}
+                    {c.state === "missed" ? "Missed" : c.direction === "incoming" ? "Incoming" : "Outgoing"} · {new Date(c.offered_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </p>
                 </Link>
                 <CallButton conversationId={c.conversation_id} name={def.preferredName} />
@@ -149,7 +149,7 @@ function Calls() {
                 {new Date(c.offered_at).toLocaleString("en-US", { timeZone: "America/New_York" })}{" "}
                 Eastern
               </p>
-              {c.summary && <p className="text-sm text-muted-foreground">{c.summary}</p>}
+              <details className="mt-1 text-sm"><summary className="flex min-h-9 cursor-pointer items-center gap-1 text-xs text-muted-foreground">Details <ChevronRight className="h-3.5 w-3.5" /></summary><div className="pt-2">              {c.summary && <p className="text-sm text-muted-foreground">{c.summary}</p>}
               {!ACTIVE_CALL_STATES.includes(c.state) && (
                 <div className="flex flex-wrap gap-3">
                   <button
@@ -185,6 +185,7 @@ function Calls() {
                   </button>
                 </div>
               )}
+              </div></details>
             </article>
           );
         })}
