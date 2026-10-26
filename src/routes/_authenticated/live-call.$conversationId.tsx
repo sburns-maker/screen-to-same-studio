@@ -2,7 +2,7 @@ import { contactPhoneNumber } from "@/lib/contact-numbers";
 import { ContactPending } from "@/components/ContactPending";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 import { characterFor } from "@/lib/characters";
@@ -30,6 +30,7 @@ function LiveCallScreen() {
   const { conversationId } = Route.useParams();
   const { incomingCallId } = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const statusFn = useServerFn(liveCallStatus);
   const startFn = useServerFn(startLiveCall);
   const beatFn = useServerFn(liveCallHeartbeat);
@@ -45,6 +46,7 @@ function LiveCallScreen() {
   const callId = useRef<string | null>(null);
   const deadline = useRef<number>(0);
   const finished = useRef(false);
+  const acceptedOffer = useRef<string | undefined>(undefined);
   const [state, setState] = useState<LiveCallState | "idle">("idle");
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
@@ -59,10 +61,13 @@ function LiveCallScreen() {
     finished.current = true;
     const transcript = call.current?.transcript() ?? [];
     try {
-      const r = await endFn({ data: { callId: callId.current, transcript, ...(incomingCallId ? { incomingCallId } : {}) } });
+      const r = await endFn({ data: { callId: callId.current, transcript, ...(acceptedOffer.current ? { incomingCallId: acceptedOffer.current } : {}) } });
       if (r.saved) setNote(`${def.preferredName} will remember this call.`);
     } catch {
       /* the server deadline and scheduled sweep still close it */
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: ["phone"] });
+      void queryClient.invalidateQueries({ queryKey: ["voice-history"] });
     }
   }
 
@@ -102,6 +107,8 @@ function LiveCallScreen() {
     setError("");
     setNote("");
     finished.current = false;
+    const offerId = state === "idle" ? incomingCallId : undefined;
+    acceptedOffer.current = offerId;
     const c = createLiveCall({
       audio: audio.current,
       onState: (s) => {
@@ -112,7 +119,8 @@ function LiveCallScreen() {
       onTranscript: setLines,
       onSpeaking: setSpeaking,
       connect: async (sdp) => {
-        const r = await startFn({ data: { conversationId, sdp, ...(incomingCallId ? { incomingCallId } : {}) } });
+        try {
+        const r = await startFn({ data: { conversationId, sdp, ...(offerId ? { incomingCallId: offerId } : {}) } });
         if (!r.answered) {
           setNote(r.reason);
           return null;
@@ -120,6 +128,10 @@ function LiveCallScreen() {
         callId.current = r.callId;
         deadline.current = Date.parse(r.deadlineAt);
         return { sdp: r.sdp };
+        } finally {
+          void queryClient.invalidateQueries({ queryKey: ["phone"] });
+          void queryClient.invalidateQueries({ queryKey: ["voice-history"] });
+        }
       },
     });
     call.current = c;
@@ -177,7 +189,7 @@ function LiveCallScreen() {
       <div className="mt-8 flex justify-center gap-5">
         {!active && state !== "ending" && (
           <button
-            aria-label={`${incomingCallId ? "Answer" : "Call"} ${def.preferredName}`}
+            aria-label={`${incomingCallId && state === "idle" ? "Answer" : "Call"} ${def.preferredName}`}
             disabled={!status.data || !!unavailable}
             onClick={() => {
               call.current = null;

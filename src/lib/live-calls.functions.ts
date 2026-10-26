@@ -1,9 +1,8 @@
+import { liveCallRequest, liveCallFailure } from "./live-call-request";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  CALL_OPENING_PROMPT,
-  INCOMING_CALL_OPENING_PROMPT,
   LIVE_CALL_CHARACTERS,
   VOICE_ID_PATTERN,
   buildCallInstructions,
@@ -61,153 +60,161 @@ export const startLiveCall = createServerFn({ method: "POST" })
     z.object({ conversationId: z.string().uuid(), sdp: z.string().min(10).max(20_000), incomingCallId: z.string().uuid().optional() }).strict().parse(v),
   )
   .handler(async ({ context, data }) => {
-    if (!liveCallsEnabled(process.env)) throw new Error("Calling is turned off");
-    const key = process.env["OPENAI_API_KEY"]!;
-    const conv = await ownedConversation(context.supabase as never, context.userId, data.conversationId);
-    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-    const { resolveCharacterVoice, liveCalls } = await import("./live-calls.server");
-    const { characterFor, characterAvailability } = await import("./characters");
-    const def = characterFor(conv.key);
-    const now = new Date();
-    const availability = await (await import('./shared-world.server')).sharedPlanContext(db,context.userId,conv.key,now) ?? characterAvailability(def, now);
-    const calendar = await (await import('./interactive-world.server')).calendarContext(db,context.userId,conv.id,conv.key,now);
-    if (availability.availability === "asleep")
-      return { answered: false as const, reason: `${def.preferredName} didn't pick up. It's late and they're probably asleep.` };
-    const voice = await resolveCharacterVoice(db, conv.key);
-    if (!voice) throw new Error(`${def.preferredName} has no phone voice yet. Set one in Voice Studio.`);
-    // Verify and claim the existing zero-cost incoming ring before any paid session.
-    // Legacy phone calls are never eligible to enter this path.
-    if (data.incomingCallId) {
-      const old = await import("./phone-calls.server");
-      if (!old.incomingLiveMode()) throw new Error("Incoming GPT-Live calls are not enabled");
-      const offer = await old.ownedCall(db, context.userId, data.incomingCallId);
-      if (!validIncomingLiveOffer(offer, { conversationId: conv.id, character: conv.key }, now.getTime()))
-        throw new Error("This incoming call has expired or was already answered");
-      await old.phoneCommand(db, context.userId, offer.id, "answer");
-      const claimed = await old.ownedCall(db, context.userId, offer.id);
-      if (claimed.state !== "connecting") throw new Error("Incoming call is no longer available");
-    }
-
-    const [mems, msgs] = await Promise.all([
-      context.supabase
-        .from("memories")
-        .select("summary, importance")
-        .eq("conversation_id", conv.id)
-        .order("importance", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(40),
-      context.supabase
-        .from("messages")
-        .select("sender, body")
-        .eq("conversation_id", conv.id)
-        .lte("visible_at", now.toISOString())
-        .order("created_at", { ascending: false })
-        .limit(10),
-    ]);
-    const bible = conv.key === "tess" ? (await import("./tess.server")).CHARACTER_BIBLE : def.bible;
-    const instructions = buildCallInstructions({
-      callHistory: await (await import("./call-history-context.server")).recentCallContext(db, context.userId, conv.id, def.key, now),
-      characterKey: def.key,
-      fullName: def.fullName,
-      preferredName: def.preferredName,
-      age: def.age,
-      pronouns: def.pronouns,
-      bible,
-      calendar,
-      stage: conv.stage,
-      availability,
-      localTime: now.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }),
-      memories: (mems.data ?? []) as { summary: string; importance: number }[],
-      recent: ((msgs.data ?? []) as { sender: string; body: string }[]).reverse(),
-    });
-
-    const limits = liveCallLimits(process.env);
-    const r = await db.rpc("reserve_live_call" as never, {
-      p_user: context.userId,
-      p_conversation: conv.id,
-      p_character: conv.key,
-      p_voice: voice.voiceId,
-      p_now: now.toISOString(),
-      p_limit_seconds: limits.seconds,
-      p_lease_seconds: limits.leaseSeconds,
-      p_daily_count: limits.daily,
-      p_monthly_seconds: limits.monthlySeconds,
-    } as never);
-    if (r.error) {
-      if (data.incomingCallId) await (await import("./phone-calls.server")).phoneCommand(db, context.userId, data.incomingCallId, "fail").catch(() => {});
-      throw new Error("Call safeguards unavailable");
-    }
-    const lease = r.data as unknown as { ok: boolean; reason?: string; id?: string; deadline_at?: string };
-    if (!lease.ok || !lease.id || !lease.deadline_at) {
-      if (data.incomingCallId) await (await import("./phone-calls.server")).phoneCommand(db, context.userId, data.incomingCallId, "fail").catch(() => {});
-      throw new Error(liveCallReservationError(lease.reason));
-    }
-    const fail = async (reason: string) => {
-      await liveCalls(db).update({ state: "failed", close_reason: reason, ended_at: new Date().toISOString() }).eq("id", lease.id);
+    let incomingClaimed = false;
+    try {
+      if (!liveCallsEnabled(process.env)) throw new Error("Calling is turned off");
+      const key = process.env["OPENAI_API_KEY"]!;
+      const conv = await ownedConversation(context.supabase as never, context.userId, data.conversationId);
+      const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+      const { resolveCharacterVoice, liveCalls } = await import("./live-calls.server");
+      const { characterFor, characterAvailability } = await import("./characters");
+      const def = characterFor(conv.key);
+      const now = new Date();
+      const availability = await (await import('./shared-world.server')).sharedPlanContext(db,context.userId,conv.key,now) ?? characterAvailability(def, now);
+      const calendar = await (await import('./interactive-world.server')).calendarContext(db,context.userId,conv.id,conv.key,now);
+      if (availability.availability === "asleep")
+        return { answered: false as const, reason: `${def.preferredName} didn't pick up. It's late and they're probably asleep.` };
+      const voice = await resolveCharacterVoice(db, conv.key);
+      if (!voice) throw new Error(`${def.preferredName} has no phone voice yet. Set one in Voice Studio.`);
+      // Validate now, then acquire the per-user lease before claiming the incoming offer.
+      // Legacy phone calls are never eligible to enter this path.
       if (data.incomingCallId) {
         const old = await import("./phone-calls.server");
-        await old.phoneCommand(db, context.userId, data.incomingCallId, "fail").catch(() => {});
+        if (!old.incomingLiveMode()) throw new Error("Incoming GPT-Live calls are not enabled");
+        const offer = await old.ownedCall(db, context.userId, data.incomingCallId);
+        if (!validIncomingLiveOffer(offer, { conversationId: conv.id, character: conv.key }, now.getTime()))
+          throw new Error("This incoming call has expired or was already answered");
       }
-    };
 
-    let res: Response;
-    try {
-      res = await fetch("https://api.openai.com/v1/live/sessions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transport: { type: "webrtc", sdp: data.sdp },
-          session: {
-            model: "gpt-live-1",
-            delegation: { type: "client" },
-            instructions,
-            input: [{ type: "message", role: "developer", content: [{ type: "input_text", text: data.incomingCallId ? INCOMING_CALL_OPENING_PROMPT : CALL_OPENING_PROMPT }] }],
-            audio: {
-              input: { turn_detection: { type: "semantic_vad", eagerness: "low", create_response: true, interrupt_response: true } },
-              output: { voice: { id: voice.voiceId } },
-            },
-          },
-        }),
-        signal: AbortSignal.timeout(20_000),
+      const [mems, msgs] = await Promise.all([
+        context.supabase
+          .from("memories")
+          .select("summary, importance")
+          .eq("conversation_id", conv.id)
+          .order("importance", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(40),
+        context.supabase
+          .from("messages")
+          .select("sender, body")
+          .eq("conversation_id", conv.id)
+          .lte("visible_at", now.toISOString())
+          .order("created_at", { ascending: false })
+          .limit(10),
+      ]);
+      const bible = conv.key === "tess" ? (await import("./tess.server")).CHARACTER_BIBLE : def.bible;
+      const instructions = buildCallInstructions({
+        callHistory: await (await import("./call-history-context.server")).recentCallContext(db, context.userId, conv.id, def.key, now),
+        characterKey: def.key,
+        fullName: def.fullName,
+        preferredName: def.preferredName,
+        age: def.age,
+        pronouns: def.pronouns,
+        bible,
+        calendar,
+        stage: conv.stage,
+        availability,
+        localTime: now.toLocaleString("en-US", { timeZone: "America/New_York", weekday: "long", hour: "numeric", minute: "2-digit" }),
+        memories: (mems.data ?? []) as { summary: string; importance: number }[],
+        recent: ((msgs.data ?? []) as { sender: string; body: string }[]).reverse(),
       });
-    } catch {
-      await fail("provider_unreachable");
-      throw new Error("The call didn't connect. No automatic retry was made.");
-    }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error("live call provider error", res.status, detail.slice(0, 300));
-      await fail(`http_${res.status}`);
-      throw new Error(
-        res.status === 429
-          ? "Calling is busy or over quota right now. Try later."
-          : res.status === 403
-            ? "The voice service denied this call."
-            : `The call failed (code ${res.status}). No automatic retry was made.`,
-      );
-    }
-    const j = (await res.json()) as { transport?: { sdp?: string }; session?: { id?: string } };
-    if (!j.transport?.sdp || !j.session?.id) {
-      await fail("invalid_response");
-      throw new Error("The call didn't connect.");
-    }
-    await liveCalls(db).update({ state: "active", session_id: j.session.id }).eq("id", lease.id);
-    if (data.incomingCallId) {
-      const old = await import("./phone-calls.server");
-      try {
-        await old.phoneCommand(db, context.userId, data.incomingCallId, "connect", {
-          max_seconds: limits.seconds,
-        });
-        const connected = await old.ownedCall(db, context.userId, data.incomingCallId);
-        if (connected.state !== "connected") throw new Error("Offer expired");
-      } catch {
-        await (await import("./live-calls.server")).closeLiveCall(db, {
-          id: lease.id, session_id: j.session.id,
-        }, "incoming_offer_expired", "failed");
-        throw new Error("Incoming call expired while connecting");
+
+      const limits = liveCallLimits(process.env);
+      const r = await db.rpc("reserve_live_call" as never, {
+        p_user: context.userId,
+        p_conversation: conv.id,
+        p_character: conv.key,
+        p_voice: voice.voiceId,
+        p_now: now.toISOString(),
+        p_limit_seconds: limits.seconds,
+        p_lease_seconds: limits.leaseSeconds,
+        p_daily_count: limits.daily,
+        p_monthly_seconds: limits.monthlySeconds,
+      } as never);
+      if (r.error) {
+        throw new Error("Call safeguards unavailable");
       }
+      const lease = r.data as unknown as { ok: boolean; reason?: string; id?: string; deadline_at?: string };
+      if (!lease.ok || !lease.id || !lease.deadline_at) {
+        throw new Error(liveCallReservationError(lease.reason));
+      }
+      const fail = async (reason: string) => {
+        await liveCalls(db).update({ state: "failed", close_reason: reason, ended_at: new Date().toISOString() }).eq("id", lease.id).eq("user_id", context.userId);
+        if (incomingClaimed && data.incomingCallId) {
+          const old = await import("./phone-calls.server");
+          await old.phoneCommand(db, context.userId, data.incomingCallId, "fail").catch(() => {});
+        }
+      };
+
+      if (data.incomingCallId) {
+        try {
+          const old = await import("./phone-calls.server");
+          const offer = await old.ownedCall(db, context.userId, data.incomingCallId);
+          if (!validIncomingLiveOffer(offer, { conversationId: conv.id, character: conv.key }, Date.now()))
+            throw new Error("This incoming call has expired or was already answered");
+          await old.phoneCommand(db, context.userId, offer.id, "answer");
+          const claimed = await old.ownedCall(db, context.userId, offer.id);
+          if (claimed.state !== "connecting") throw new Error("Incoming call is no longer available");
+          incomingClaimed = true;
+        } catch (error) {
+          await fail("incoming_claim_failed");
+          throw error;
+        }
+      }
+      let res: Response;
+      try {
+        res = await fetch("https://api.openai.com/v1/live/sessions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify(liveCallRequest(data.sdp, voice.voiceId, instructions, !!data.incomingCallId)),
+          signal: AbortSignal.timeout(20_000),
+        });
+      } catch {
+        await fail("provider_unreachable");
+        throw new Error("The call didn't connect. No automatic retry was made.");
+      }
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        const failure = liveCallFailure(res.status, detail, res.headers.get("x-request-id"));
+        console.error("[live-call-provider]", { status: failure.status, code: failure.code, param: failure.param, requestId: failure.requestId });
+        await fail(`http_${failure.status}:${failure.code}${failure.param ? `:${failure.param}` : ""}`);
+        throw new Error(failure.message);
+      }
+      const parsed = z.object({ transport: z.object({ sdp: z.string().min(10) }), session: z.object({ id: z.string().min(1) }) }).safeParse(await res.json().catch(() => null));
+      if (!parsed.success) {
+        await fail("invalid_response");
+        throw new Error("The call didn't connect. The voice service returned an invalid response.");
+      }
+      const j = parsed.data;
+      const activated = await liveCalls(db).update({ state: "active", session_id: j.session.id }).eq("id", lease.id).eq("user_id", context.userId);
+      if (activated.error) {
+        await (await import("./live-calls.server")).closeLiveCall(db, { id: lease.id, session_id: j.session.id }, "activation_failed", "failed");
+        await fail("activation_failed");
+        throw new Error("The call connection could not be confirmed.");
+      }
+      if (data.incomingCallId) {
+        const old = await import("./phone-calls.server");
+        try {
+          await old.phoneCommand(db, context.userId, data.incomingCallId, "connect", {
+            max_seconds: limits.seconds,
+          });
+          const connected = await old.ownedCall(db, context.userId, data.incomingCallId);
+          if (connected.state !== "connected") throw new Error("Offer expired");
+        } catch {
+          await (await import("./live-calls.server")).closeLiveCall(db, {
+            id: lease.id, session_id: j.session.id,
+          }, "incoming_offer_expired", "failed");
+          throw new Error("Incoming call expired while connecting");
+        }
+      }
+      return { answered: true as const, sdp: j.transport.sdp, callId: lease.id, deadlineAt: lease.deadline_at };
+    } catch (error) {
+      if (incomingClaimed && data.incomingCallId) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await (await import("./phone-calls.server")).phoneCommand(supabaseAdmin, context.userId, data.incomingCallId, "fail").catch(() => {});
+      }
+      throw error;
     }
-    return { answered: true as const, sdp: j.transport.sdp, callId: lease.id, deadlineAt: lease.deadline_at };
   });
 
 /** Browser keep-alive; the server hangs up once the deadline passes. */

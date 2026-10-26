@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 const mocks = vi.hoisted(() => ({
   start: vi.fn(),
   stop: vi.fn(),
@@ -21,6 +21,7 @@ vi.mock("@/lib/use-portrait", () => ({ usePortraits: () => ({ data: {} }) }));
 vi.mock("@/lib/call-ringtone", () => ({ startRingtone: mocks.start, enableRingtone: vi.fn() }));
 import { IncomingCall } from "@/components/IncomingCall";
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.clearAllMocks();
   mocks.calls = [];
@@ -39,6 +40,7 @@ it("rings an incoming offer and stops immediately on answer, before polling", as
   render(<IncomingCall />);
   await waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByText("Answer"));
+  expect(screen.queryByLabelText("Incoming call")).not.toBeInTheDocument();
   await waitFor(() => expect(mocks.stop).toHaveBeenCalledTimes(1));
 });
 it("shows a blocked-audio explanation and never implies a missed call rang audibly", async () => {
@@ -48,5 +50,17 @@ it("shows a blocked-audio explanation and never implies a missed call rang audib
   expect(await screen.findByText(/Silent ring/)).toBeInTheDocument();
   mocks.calls = [{ ...offer(), state: "missed" }];
   view.rerender(<IncomingCall />);
+  expect(screen.queryByLabelText("Incoming call")).not.toBeInTheDocument();
+});
+
+it("removes an expired ringing banner without waiting for the next server poll", async () => {
+  vi.useFakeTimers();
+  mocks.calls = [{ ...offer(), ring_until: new Date(Date.now() + 1000).toISOString() }];
+  mocks.start.mockResolvedValue(mocks.stop);
+  render(<IncomingCall />);
+  expect(screen.getByLabelText("Incoming call")).toBeInTheDocument();
+  await act(async () => {
+    vi.advanceTimersByTime(1001);
+  });
   expect(screen.queryByLabelText("Incoming call")).not.toBeInTheDocument();
 });

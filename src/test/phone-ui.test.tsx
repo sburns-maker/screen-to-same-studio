@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 const mocks = vi.hoisted(() => ({
   act: vi.fn().mockResolvedValue({}),
   refetch: vi.fn(),
-  call: { id: "call", direction: "incoming", state: "ringing", character_key: "tess" },
+  call: { id: "call", direction: "incoming", state: "ringing", character_key: "tess", ring_until: new Date(Date.now() + 30000).toISOString() },
 }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
