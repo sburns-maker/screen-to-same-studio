@@ -1,5 +1,12 @@
 /** Safe error facts only. Never retain provider bodies, messages, headers, prompts or keys. */
 export type CharacterAIDiagnostic = {
+  hint?:
+    | "schema_rejected"
+    | "unsupported_parameter"
+    | "model_access"
+    | "context_size"
+    | "output_limit"
+    | "authentication";
   model: string;
   statusCode: number | null;
   code:
@@ -81,9 +88,35 @@ export function characterAIDiagnostic(
       .flatMap((e) => [e["code"], e["type"]])
       .find((value): value is string => typeof value === "string" && providerCodes.has(value)) ??
     null;
-  const param =
+  const message =
     candidates
-      .map((e) => e["param"])
+      .map((e) => e["message"])
+      .find((value): value is string => typeof value === "string") ?? "";
+  const hint: CharacterAIDiagnostic["hint"] =
+    /invalid schema|schema.*not supported|unsupported.*schema|additionalProperties|schema.*required/i.test(
+      message,
+    )
+      ? "schema_rejected"
+      : /unsupported parameter|unknown parameter|unsupported value/i.test(message)
+        ? "unsupported_parameter"
+        : /model.*(?:does not exist|not found|not supported|do not have access|no access)|do not have access.*model/i.test(
+              message,
+            )
+          ? "model_access"
+          : /context length|maximum context|too many tokens|input.*too long|input.*exceeds/i.test(
+                message,
+              )
+            ? "context_size"
+            : /max_output_tokens|maximum output|output.*limit/i.test(message)
+              ? "output_limit"
+              : /incorrect api key|invalid api key|authentication/i.test(message)
+                ? "authentication"
+                : undefined;
+  const quotedParam = /(?:parameter|param|argument|field)\s*[:=]?\s*['"]([^'"]+)['"]/i.exec(
+    message,
+  )?.[1];
+  const param =
+    [...candidates.map((e) => e["param"]), quotedParam]
       .flatMap((value) =>
         typeof value === "string"
           ? params.filter(
@@ -112,6 +145,7 @@ export function characterAIDiagnostic(
                   ? "rate_limited"
                   : "provider_unavailable");
   return {
+    ...(hint ? { hint } : {}),
     model,
     statusCode,
     code,
@@ -176,5 +210,18 @@ export function readCharacterAIDiagnostic(value: unknown): CharacterAIDiagnostic
     local,
   );
   // Never let a persisted retryable flag or inconsistent category override a permanent HTTP error.
+  const hint = v["hint"];
+  if (
+    typeof hint === "string" &&
+    [
+      "schema_rejected",
+      "unsupported_parameter",
+      "model_access",
+      "context_size",
+      "output_limit",
+      "authentication",
+    ].includes(hint)
+  )
+    safe.hint = hint as NonNullable<CharacterAIDiagnostic["hint"]>;
   return safe.code === code ? safe : null;
 }

@@ -1,8 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { experienceDiagnostics } from "@/lib/living-experiences.functions";
+import { experienceDiagnostics, experienceProviderCheck } from "@/lib/living-experiences.functions";
 export function LivingExperiencesDebug({ conversationId }: { conversationId: string }) {
   const read = useServerFn(experienceDiagnostics);
+  const check = useServerFn(experienceProviderCheck);
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState<Awaited<ReturnType<typeof check>> | null>(null);
+  const [error, setError] = useState("");
   const q = useQuery({
     queryKey: ["experience-diagnostics", conversationId],
     queryFn: () => read({ data: { conversationId } }),
@@ -17,6 +22,49 @@ export function LivingExperiencesDebug({ conversationId }: { conversationId: str
     );
   return (
     <div className="space-y-4 text-sm">
+      <section className="rounded-xl border p-3">
+        <p className="font-medium">Isolated character provider check</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Uses one text-AI request with the production schema and a short test prompt. It does not
+          use outing history, send a message, advance an outing or consume its retries. Counts
+          against the existing AI budget. One check per account per UTC day; repeats read the saved
+          result.
+        </p>
+        <button
+          disabled={checking}
+          className="mt-3 min-h-11 rounded-full border px-4"
+          onClick={async () => {
+            setChecking(true);
+            setError("");
+            try {
+              setResult(await check({ data: { conversationId } }));
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Provider check unavailable");
+            } finally {
+              setChecking(false);
+            }
+          }}
+        >
+          {checking ? "Checking…" : "Run one provider check (uses text AI)"}
+        </button>
+        {error && <p role="alert">{error}</p>}
+        {result && (
+          <div role="status" className="mt-2">
+            <p>
+              {result.state}: {result.note}
+            </p>
+            {result.diagnostic && (
+              <p>
+                HTTP {result.diagnostic.statusCode ?? "not returned"} · {result.diagnostic.model} ·{" "}
+                {result.diagnostic.code} · Hint: {result.diagnostic.hint ?? "not returned"} ·
+                Provider code: {result.diagnostic.providerCode ?? "not returned"} · Parameter:{" "}
+                {result.diagnostic.param ?? "not returned"} · Request ID:{" "}
+                {result.diagnostic.requestId ?? "not returned"}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
       {q.isLoading
         ? "Loading…"
         : !q.data?.length
@@ -43,8 +91,16 @@ export function LivingExperiencesDebug({ conversationId }: { conversationId: str
                       ? "recoverable automatic claim"
                       : "protected / not due"}
                 </p>
-                <p>Current scene: {e.live_scene?.locationLabel ?? "not indexed yet"} · {e.live_scene?.activity ?? "unknown"} · scene revision {e.scene_revision}</p>
-                {e.live_scene && <p>Participants: {e.live_scene.participants.join(", ")} · area: {e.live_scene.area || "not specified"}</p>}
+                <p>
+                  Current scene: {e.live_scene?.locationLabel ?? "not indexed yet"} ·{" "}
+                  {e.live_scene?.activity ?? "unknown"} · scene revision {e.scene_revision}
+                </p>
+                {e.live_scene && (
+                  <p>
+                    Participants: {e.live_scene.participants.join(", ")} · area:{" "}
+                    {e.live_scene.area || "not specified"}
+                  </p>
+                )}
                 <p>Failure: {e.last_failure ?? "none"}</p>
                 <p>
                   Outcome: {e.outcome_id ?? "none"} · Calendar / memory synchronized:{" "}
