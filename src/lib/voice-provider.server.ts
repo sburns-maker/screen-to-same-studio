@@ -4,6 +4,7 @@ import type { CharacterKey } from "./characters";
 function bounded(name: string, min: number, max: number, fallback: number) {
   const configured = process.env[name];
   const v = configured == null || configured.trim() === "" ? fallback : Number(configured);
+  if (configured?.trim() === "0") return 0;
   return Number.isInteger(v) && v >= min && v <= max ? v : fallback;
 }
 export function voiceConfiguration() {
@@ -36,9 +37,9 @@ export function voiceConfiguration() {
     transcription,
     speech,
     maxSeconds: bounded("VOICE_MAX_SESSION_SECONDS", 30, 600, 300),
-    dailyCents: bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 0),
-    monthlyCents: bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 0),
-    turnCents: bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 0),
+    dailyCents: bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 100),
+    monthlyCents: bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 1000),
+    turnCents: bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 5),
   };
 }
 export async function recognizeSpeech(audio: Uint8Array) {
