@@ -522,6 +522,7 @@ async function runTurnUnlocked(
   let reply: import("./tess.server").TessReply;
   if (isTess) {
     reply = await generateTessReply({
+      deliveryChannel: voice ? "voice" : "text",
       state, stage: deriveStage(state), difficulty, messages: messageList, photos, generateTypes,
       photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
       tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
@@ -530,6 +531,7 @@ async function runTurnUnlocked(
     });
   } else {
     reply = await generateContactReply({
+      deliveryChannel: voice ? "voice" : "text",
       character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
       memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
       availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
@@ -1231,7 +1233,11 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       const profileUrl = canonical?.asset.startsWith(`${userId}/profile/${def.key}/`) && !canonical.asset.includes('..') ? (await supabase.storage.from('tess-photos').createSignedUrl(canonical.asset,120)).data?.signedUrl ?? def.avatar : def.avatar;
       photoIdentity = {canonical, profileUrl, latest:metadata?.photo_identity ?? null, source:metadata?.photo_source ?? null, delivery:lastPhoto?"delivered":"none", comparisonUrl};
     }
+    const { DIALOGUE_DELIVERY_REVISION, deliveryPatterns } = await import("./dialogue-turn");
+    const { repeatedDialogueRoutines } = await import("./dialogue-personality");
+    const ownTexts = [...(recentMsgs ?? [])].reverse().filter(m => m.sender === "tess" && (m.metadata as {channel?: string} | null)?.channel !== "voice").map(m => m.body);
     return {
+      dialogueDelivery: developerTools ? { revision: DIALOGUE_DELIVERY_REVISION, character: def.key, recentPatterns: deliveryPatterns(ownTexts), repeatedRoutines: repeatedDialogueRoutines(ownTexts) } : null,
       photoIdentity,
       photography: developerTools ? {canonicalScene:{location:photoSceneCheck(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule}),"",sceneContext.source).canonicalLocation,source:sceneContext.source,version:sceneContext.version,observedAt:sceneContext.observation?.observedAt??null},profile:photographyProfile(def.key), current:photographyDiagnostics(planPhotography({character:def.key,key:`debug:${conv.id}`,now,schedule,userText:list.find(m=>m.sender==='user')?.body??'',weather:weather?.condition??null,previous:previousDeliveredPhoto(list,def.key,now)}),null),latest:(list.find(m=>(m.metadata as {photo_identity?:{photography?:unknown}}|null)?.photo_identity?.photography)?.metadata as {photo_identity?:unknown}|undefined)?.photo_identity??null,latestDecision:(list.find(m=>(m.metadata as {photo_decision?:unknown}|null)?.photo_decision)?.metadata as {photo_decision?:unknown}|undefined)?.photo_decision??null,pacingReason:debugPacing.reason,eligibleTypes:genTypes,lastFailure:events?.find(e=>e.kind==='photo_generation_failure')??null} : null,
       world: { checkpoint, records: records ?? [], events: events ?? [], imageAttemptsThisMonth: attempts?.length ?? 0, imageAttempts: attempts ?? [],
