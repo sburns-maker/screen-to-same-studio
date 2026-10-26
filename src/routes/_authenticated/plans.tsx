@@ -61,8 +61,8 @@ function Plans() {
   }
   return (
     <TownLayout
-      title="Something to look forward to"
-      kicker="Plans"
+      title="Calendar"
+      kicker="Your plans"
       error={q.error}
       loading={q.isLoading}
     >
@@ -70,10 +70,15 @@ function Plans() {
         Keep your agreed outings in one calendar. Use Add agreed plan after discussing the details.
         Existing dates, experience history and memories are preserved.
       </p>
+      <Link to="/experiences" search={{ plan: "" }} className="mb-3 flex min-h-12 items-center justify-between rounded-2xl border bg-surface px-4 py-3 font-medium">Experiences and outings <span aria-hidden="true">›</span></Link>
+      <details className="mb-5 rounded-2xl border bg-surface p-3"><summary className="min-h-11 cursor-pointer px-2 py-3 font-medium">Trips, event discovery and group gatherings</summary>
+      <div className="pt-3">
       <Link to="/travel" className="mb-5 block rounded-2xl border bg-surface p-4 text-center font-medium text-primary">Explore Travel · Road trips, flights, vacations & work trips →</Link>
       {(tripQuery.data??[]).filter(t=>!["cancelled","completed"].includes(t.status)).slice(0,4).map(t=><Link key={t.id} to="/travel" className="mb-2 block rounded-xl border p-3 text-sm"><strong>{t.title}</strong><span className="block text-muted-foreground">{t.startDate??"Dates undecided"} · {t.destination} · {t.status}</span></Link>)}
       <div className="mb-4 grid gap-2 sm:grid-cols-2"><Link to="/ppg-arena" className="block rounded-2xl border p-4"><strong>Find an event</strong><span className="mt-1 block text-sm text-muted-foreground">Concerts, shows and arena outings · invite a character →</span></Link><Link to="/travel" className="block rounded-2xl border p-4"><strong>Manage a trip</strong><span className="mt-1 block text-sm text-muted-foreground">Dates, companions and itinerary →</span></Link></div>
+      </div></details>
       <CalendarBoard />
+      <details className="mt-5 rounded-2xl border bg-surface p-3"><summary className="min-h-11 cursor-pointer px-2 py-3 font-medium">Advanced: suggest a character gathering</summary><div className="pt-3">
       {decision && (
         <p role="status" className={`${card} mb-4 text-sm`}>
           {decision}
@@ -183,6 +188,7 @@ function Plans() {
           </button>
         </form>
       )}
+      </div></details>
     </TownLayout>
   );
 }
