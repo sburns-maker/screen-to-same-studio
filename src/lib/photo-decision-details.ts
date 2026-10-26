@@ -71,10 +71,12 @@ export function photoDecisionDetails(e: {
   else if (p["selected"] === false) status = "skipped";
   else status = "offered";
   const gen = p["generationRequested"];
+  const photoQueued=status==="sent"&&p["photoSent"]===true&&typeof p["deliveryAt"]==="string"&&Date.parse(p["deliveryAt"])>Date.now();
+  if(photoQueued)status="deferred";
   return {
     ...scene,
     status,
-    statusLabel:
+    statusLabel:photoQueued?"Photo scheduled for delivery":
       status === "sent" && p["photoSent"] === true
         ? "Photo sent"
         : status === "sent" && p["photoSent"] === false

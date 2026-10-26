@@ -205,3 +205,10 @@ describe("ordinary photos without a special event", () => {
     expect(story.selected).toBe(ordinary.selected);
   });
 });
+
+it("offers photos more often while keeping character differences and the frequency setting",()=>{
+ expect(PHOTO_TENDENCIES.tess.chance).toBe(0.5);expect(PHOTO_TENDENCIES.maya.chance).toBe(0.75);expect(PHOTO_TENDENCIES.jordan.chance).toBe(0.22);
+ const samples=(character:typeof base.character|"maya"|"jordan",frequency:"rare"|"normal"|"frequent")=>Array.from({length:1000},(_,n)=>photoOpportunity({...base,character,frequency,conversationId:`frequency-sample-${n}`,preview:false,context:"relaxing at home"})).filter(r=>r.selected).length;
+ expect(samples("maya","normal")).toBeGreaterThan(samples("tess","normal"));expect(samples("tess","normal")).toBeGreaterThan(samples("jordan","normal"));
+ expect(samples("tess","rare")).toBeLessThan(samples("tess","normal"));expect(samples("tess","normal")).toBeLessThan(samples("tess","frequent"));
+});

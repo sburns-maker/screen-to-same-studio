@@ -42,7 +42,7 @@ export const PHOTOGRAPHY_PROFILES = {
     hairstyles: ["long blonde curly hair fully down", "loose blonde curls worn over both shoulders"],
     selfies: ["front camera selfie", "break-room candid", "casual mirror photo"],
     captionVoice: "Playfully sarcastic, warm, naturally funny, independent; never imply attraction that has not developed.",
-    spontaneity: 0.34, hours: 9, messages: 5,
+    spontaneity: 0.44, hours: 9, messages: 5,
     subjects: "night-shift observations, coffee, odd dreams, music, ordinary local life, a rare sleepy selfie",
     scenarios: { coffee_break: 1.5, reaction_selfie: 1.2, post_work: 1.4, playful_reply: 1.2 }
   },
@@ -64,7 +64,7 @@ export const PHOTOGRAPHY_PROFILES = {
     selfies: ["reaction selfie", "unposed desk photo", "casual front camera"],
     captionVoice:
       "Dry, clever, concise observations; understated teasing or subtle affection when earned. Do not explain the joke.",
-    spontaneity: 0.38,
+    spontaneity: 0.5,
     hours: 8,
     messages: 4,
     subjects:
@@ -103,7 +103,7 @@ export const PHOTOGRAPHY_PROFILES = {
     selfies: ["spontaneous front camera", "imperfect candid", "situational selfie"],
     captionVoice:
       "Warm, playful, conversational and specific. Allow genuine tiredness or vulnerability; do not manufacture cheerfulness.",
-    spontaneity: 0.6,
+    spontaneity: 0.75,
     hours: 6,
     messages: 3,
     subjects:
@@ -123,7 +123,7 @@ export const PHOTOGRAPHY_PROFILES = {
     selfies: ["occasional understated selfie", "environment first"],
     captionVoice:
       "Thoughtful, specific, calm observations. Let a small discovery stand without a generic question or repeated inside joke.",
-    spontaneity: 0.35,
+    spontaneity: 0.45,
     hours: 12,
     messages: 5,
     subjects: "garden, plants, small outdoor discoveries; an occasional quiet natural selfie",
@@ -139,7 +139,7 @@ export const PHOTOGRAPHY_PROFILES = {
     selfies: ["selective casual selfie", "specific object or detail first"],
     captionVoice:
       "Brief, dry, direct and meaningful. Allow sincerity; no automatic emotional challenge, deflection or performative guardedness.",
-    spontaneity: 0.16,
+    spontaneity: 0.22,
     hours: 24,
     messages: 8,
     subjects: "a specific interesting detail worth sharing; rarely a selfie, never a performance",
@@ -155,7 +155,7 @@ export const PHOTOGRAPHY_PROFILES = {
     selfies: ["occasional casual selfie", "project or object first"],
     captionVoice:
       "Plainspoken friendly humor, entirely platonic; concise project updates without claiming unestablished work was completed.",
-    spontaneity: 0.25,
+    spontaneity: 0.34,
     hours: 12,
     messages: 5,
     subjects: "an everyday oddity, project or joke; entirely platonic",

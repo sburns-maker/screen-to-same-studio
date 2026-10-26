@@ -175,14 +175,14 @@ export async function recordPhotoDecision(
 /** Appends the recorded outcome of a selected opportunity; never rewrites the original decision fields. */
 export async function recordPhotoDecisionOutcome(
   admin: Admin,
-  args: { id: string; userId: string; outcome: "message_sent" | "not_sent" | "blocked"; reason?: string | null; photoSent?: boolean; generationRequested?: boolean },
+  args: { id: string; userId: string; outcome: "message_sent" | "not_sent" | "blocked"; reason?: string | null; photoSent?: boolean; generationRequested?: boolean;deliveryAt?:string|null },
 ) {
   const { data } = await admin.from("world_events").select("payload").eq("id", args.id).eq("user_id", args.userId).maybeSingle();
   const prev = (data?.payload ?? {}) as Record<string, unknown>;
   if (prev["outcome"]) return;
   await admin
     .from("world_events")
-    .update({ payload: { ...prev, outcome: args.outcome, outcomeReason: args.reason?.slice(0, 300) ?? null, ...(typeof args.photoSent === "boolean" ? {photoSent:args.photoSent}:{}), ...(typeof args.generationRequested === "boolean" ? {generationRequested:args.generationRequested}:{}) } })
+    .update({ payload: { ...prev, outcome: args.outcome, outcomeReason: args.reason?.slice(0, 300) ?? null,...(args.deliveryAt?{deliveryAt:args.deliveryAt}:{}), ...(typeof args.photoSent === "boolean" ? {photoSent:args.photoSent}:{}), ...(typeof args.generationRequested === "boolean" ? {generationRequested:args.generationRequested}:{}) } })
     .eq("id", args.id)
     .eq("user_id", args.userId);
 }
