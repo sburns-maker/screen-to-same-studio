@@ -177,10 +177,16 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
           body: JSON.stringify({ model, prompt, size: "1024x1536", quality }),
         });
       }
-      if (!res.ok) throw new Error(`image provider unavailable (${res.status})`);
+      if (!res.ok) {
+        const code = res.status === 400 || res.status === 422 ? "provider_invalid_request" :
+          res.status === 401 || res.status === 403 ? "provider_auth_or_access" :
+          res.status === 429 ? "provider_rate_limited" :
+          res.status >= 500 ? "provider_server_error" : "provider_http_error";
+        throw new ImageProviderFailure(code, res.status);
+      }
       const json = (await res.json()) as { data?: { b64_json?: string }[] };
       const b64 = json.data?.[0]?.b64_json;
-      if (!b64) throw new Error("image: empty result");
+      if (!b64) throw new ImageProviderFailure("provider_empty_result");
       const bin = atob(b64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -194,6 +200,25 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
   };
 }
 
+/** Safe operational errors: never retain raw provider bodies, prompts or credentials. */
+export class ImageProviderFailure extends Error {
+  constructor(public readonly code: string, public readonly httpStatus?: number) {
+    super(code);
+  }
+}
+export function classifyImageFailure(error: unknown, stage: string): string {
+  if (error instanceof ImageProviderFailure) return error.code;
+  if (error instanceof Error) {
+    if (["TimeoutError", "AbortError"].includes(error.name)) return "provider_timeout";
+    if (error instanceof SyntaxError && stage === "provider_generation") return "provider_invalid_response";
+    if (/^(unsupported_group_photo|canonical_character_missing|reference_conditioning_unverified|visual_screen_unavailable|face_structure_drift|appearance_drift|reference_obscured|face_not_visible|scene_mismatch|uncertain|visual_screen_uncertain|text_verification_unavailable)$/.test(error.message)) return error.message;
+  }
+  return stage === "provider_generation" ? "provider_request_failed" :
+    stage === "visual_screen" ? "visual_screen_failed" :
+    stage === "text_quality" ? "text_quality_check_failed" :
+    stage === "canonical_reference" ? "canonical_reference_unavailable" :
+    "generation_or_quality_check_failed";
+}
 export type PhotoDiagnostics = {
   canonicalAsset: string | null;
   canonicalSha256: string | null;
@@ -204,6 +229,8 @@ export type PhotoDiagnostics = {
   validationStatus: "pending" | "screen_passed" | "failed";
   failureReason: string | null;
   retryCount: number;
+  failureStage?: string;
+  providerHttpStatus?: number;
   retryReasons?: string[];
   photography?: ReturnType<typeof photographyDiagnostics>;
 };
@@ -238,6 +265,7 @@ export async function generateTessImage(args: {
     retryCount: 0,
     ...(args.photography ? {photography:photographyDiagnostics(args.photography,args.style)} : {}),
   };
+  let stage = "preflight";
   try {
     const group = needsRef && fictionalGroupScene(args.scene);
     if ((group && mentionsOtherEstablishedCharacter(args.scene, args.identity?.key ?? "")) ||
@@ -245,6 +273,7 @@ export async function generateTessImage(args: {
       throw new Error("unsupported_group_photo");
     let canonical: (Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }) | null = null;
     if (needsRef) {
+      stage = "canonical_reference";
       if (!args.identity) throw new Error("canonical_character_missing");
       canonical = args.canonical ?? await canonicalProfile(args.identity.key as CharacterKey);
       diagnostic.canonicalAsset = canonical.asset;
@@ -252,6 +281,7 @@ export async function generateTessImage(args: {
       if (!args.provider.referenceConditioning)
         throw new Error("reference_conditioning_unverified");
     }
+    stage = "preflight";
     requireVisualScreen(); // Fail before any paid image if screening cannot run.
     const text = validatePhotoText(args.text);
     const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
@@ -271,9 +301,11 @@ export async function generateTessImage(args: {
     // Retry only a visual-design mismatch, once, with stronger face continuity instructions.
     for (let attempt = 0; attempt < 2; attempt++) {
       const retryPrompt = attempt === 0 ? prompt : `${prompt}\n\nSECOND ATTEMPT — IDENTITY CONTINUITY CORRECTION: The previous candidate did not match the approved fictional character portrait. Use the ORIGINAL supplied reference as the identity source, not the prior generation. Preserve facial geometry, eye shape, nose, lips, jawline, complexion and approximate age. The requested messy bun, expression, outfit and lighting are legitimate variations and must remain possible. Do not reproduce the portrait pose or setting.`;
+      stage = "provider_generation";
       const candidate = await args.provider.generate(retryPrompt, references, {
         highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
       });
+      stage = "visual_screen";
       try {
         await screenPhotoVisuals(
           canonical?.blob ?? null,
@@ -295,6 +327,7 @@ export async function generateTessImage(args: {
       }
     }
     if (!img) throw new Error("visual_screen_uncertain");
+    stage = "text_quality";
     const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
     diagnostic.validationStatus = "screen_passed";
     const identityUsed = [
@@ -312,27 +345,11 @@ export async function generateTessImage(args: {
       identityReferenceUsed: identityUsed || "none",
     };
   } catch (error) {
-    const known = [
-      "unsupported_group_photo",
-      "canonical_character_missing",
-      "reference_conditioning_unverified",
-      "visual_screen_unavailable",
-      "face_structure_drift",
-      "appearance_drift",
-      "reference_obscured",
-      "face_not_visible",
-      "scene_mismatch",
-      "uncertain",
-      "visual_screen_uncertain",
-      "text_verification_unavailable",
-    ];
     diagnostic.validationStatus = "failed";
-    diagnostic.failureReason =
-      error instanceof Error && known.includes(error.message)
-        ? error.message
-        : diagnostic.canonicalAsset === null && needsRef
-          ? "canonical_reference_unavailable"
-          : "generation_or_quality_check_failed";
+    diagnostic.failureStage = stage;
+    diagnostic.failureReason = classifyImageFailure(error, stage);
+    if (error instanceof ImageProviderFailure && error.httpStatus)
+      diagnostic.providerHttpStatus = error.httpStatus;
     throw new PhotoGenerationFailure(diagnostic);
   }
 }

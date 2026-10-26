@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildImagePrompt, includesTess, sceneHasMabel } from "@/lib/tess-image.server";
+import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure } from "@/lib/tess-image.server";
 
 describe("image prompt builder", () => {
   it("treats the canonical reference as identity only, not pose", () => {
@@ -120,5 +120,17 @@ describe("casual phone realism preserves identity and explicit scene", () => {
     expect(p).toContain("No nudity");
     expect(p).toContain("CASUAL PHONE CAPTURE");
     expect(p).toContain("PORTRAIT DETAIL");
+  });
+});
+
+describe("safe image error diagnostics", () => {
+  it("classifies provider failures without leaking provider messages", () => {
+    const secret = "a potentially sensitive provider response";
+    expect(classifyImageFailure(new Error(secret), "provider_generation")).toBe("provider_request_failed");
+    expect(classifyImageFailure(new ImageProviderFailure("provider_rate_limited", 429), "provider_generation")).toBe("provider_rate_limited");
+    expect(classifyImageFailure(Object.assign(new Error("network timeout"), { name: "TimeoutError" }), "provider_generation")).toBe("provider_timeout");
+    expect(classifyImageFailure(new Error("face_structure_drift"), "visual_screen")).toBe("face_structure_drift");
+    expect(classifyImageFailure(new Error("unrecognized screening exception"), "visual_screen")).toBe("visual_screen_failed");
+    expect(classifyImageFailure(new Error("text provider unavailable"), "text_quality")).toBe("text_quality_check_failed");
   });
 });
