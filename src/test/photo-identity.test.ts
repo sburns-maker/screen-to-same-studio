@@ -318,3 +318,10 @@ describe("every shared generation path anchors original portraits", () => {
     expect(generate).not.toHaveBeenCalled();
   });
 });
+
+it("withholds Api18 identity drift without buying an automatic second image",async()=>{
+ vision({...good,visual_design:"mismatch",reason:"face_structure_drift"});
+ const generate=vi.fn().mockResolvedValue({bytes:new Uint8Array([1]),mime:"image/png",provider:"api18",model:"hera-1.0-image-edit"});
+ await expect(generateTessImage({provider:{name:"api18",model:"hera-1.0-image-edit",referenceConditioning:true,allowIdentityRetry:false,maxPromptCharacters:2500,generate},type:"mature_romantic",scene:"At home in opaque non-nude evening clothing",expression:null,identity:{key:"maya",name:"Maya",age:31,pronouns:"she/her",appearance:""}})).rejects.toMatchObject({diagnostics:{failureReason:"face_structure_drift",retryCount:0}});
+ expect(generate).toHaveBeenCalledTimes(1);expect(generate.mock.calls[0]![0].length).toBeLessThanOrEqual(2500);
+});

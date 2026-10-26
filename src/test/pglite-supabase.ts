@@ -65,6 +65,11 @@ export function postgresSupabase(db: PGlite) {
       return q;
     };
     const q = {
+      not(key: string, operator: string, value: unknown) {
+        if (operator !== "is" || value !== null) throw new Error("Unsupported test negation");
+        conditions.push(`${column(key)} IS NOT NULL`);
+        return q;
+      },
       select(f = "*", options?: { head?: boolean; count?: string }) {
         fields = f;
         head = !!options?.head;

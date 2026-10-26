@@ -1,0 +1,30 @@
+name: Private photo reference library
+on:
+  pull_request:
+    paths:
+      - 'drizzle/migrations/**'
+      - 'src/lib/*reference-library*'
+      - 'src/lib/api18*'
+      - 'src/lib/photo-provider-router.server.ts'
+      - 'src/components/ReferenceLibrary.tsx'
+      - 'src/routes/_authenticated/settings.tsx'
+      - 'src/lib/tess.functions.ts'
+      - 'src/integrations/supabase/types.ts'
+      - 'src/test/*reference*'
+      - 'src/test/api18*'
+      - '.github/workflows/reference-library.yml'
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Mocked provider and SQL-backed private reference tests
+        run: bunx vitest run src/test/api18-reference-library.test.ts src/test/api18-provider.test.ts src/test/photo-reference-library.integration.test.ts src/test/reference-library-ui.test.tsx
+      - name: Existing photo and identity regressions
+        run: bunx vitest run src/test/photo-policy.test.ts src/test/photo-identity.test.ts src/test/tess-image.test.ts src/test/profile-media.integration.test.ts src/test/photo-personality.test.ts
+      - run: bunx tsc --noEmit
+      - run: bun run build

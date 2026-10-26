@@ -166,7 +166,7 @@ export async function generatePhotoLabTest(
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
-      provider: lovableGatewayProvider(key),
+      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,type,lovableGatewayProvider(key),id,conversation),
       canonical,
       type,
       scene,

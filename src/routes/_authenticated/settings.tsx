@@ -1,3 +1,4 @@
+import { ReferenceLibrary } from "@/components/ReferenceLibrary";
 import { PhotoSetup } from "@/components/PhotoSetup";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -100,6 +101,7 @@ function SettingsPage() {
       <Link to="/calls" className="mx-auto block max-w-xl px-5 py-4 text-sm underline">Calls, microphone privacy & fictional phone service</Link>
       <Screen>
         <PhotoSetup tessConversationId={tessConv?.id} />
+        <details className="my-4 rounded-2xl border p-4"><summary className="min-h-11 cursor-pointer font-medium">Reference Library</summary><ReferenceLibrary /></details>
         <h3 className="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">General</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <NotificationsRow />
