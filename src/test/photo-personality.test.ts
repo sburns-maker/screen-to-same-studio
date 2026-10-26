@@ -247,7 +247,7 @@ describe("typed character photography", () => {
   it("keeps mature category named and makes it suggestive rather than generic sleepwear", () => {
     const mature = buildImagePrompt("mature_romantic", "adult at home, an affectionate private selfie", "playful",
       null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
-    expect(mature).toContain("matching bra and underwear");
+    expect(mature).toContain("coordinated bra and underwear");
     expect(mature).toContain("deliberately suggestive");
     expect(mature).toContain("No nudity");
     expect(mature).toContain("provider's content policy");
