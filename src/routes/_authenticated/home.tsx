@@ -1,6 +1,6 @@
 import { WorldHighlights } from "@/components/WorldHighlights";
 import { CalendarDays, Compass, MessageCircle, Phone, Users, Settings2 } from "lucide-react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/home")({
     { name: "twitter:card", content: "summary" },
   ] }), component: Home });
 function Home() {
+  const location = useLocation();
   const q = useTown(),
     load = useServerFn(inboxOverview),
     inbox = useQuery({ queryKey: ["inbox"], queryFn: () => load({}) }),
@@ -49,7 +50,7 @@ function Home() {
         {inbox.data?.slice(0, 4).map((c) => <Link key={c.id} to="/chat/$conversationId" params={{ conversationId: c.id }} className="block px-4 py-3"><p className="font-medium">{c.name}</p><p className="truncate text-sm text-muted-foreground">{c.preview}</p></Link>)}
         {!inbox.data?.length && <p className="px-4 py-4 text-sm text-muted-foreground">Your conversations will appear here.</p>}
       </div>
-      <details id="world-controls" className="rounded-2xl border bg-surface p-4"><summary className="cursor-pointer py-2 font-medium">World controls and activity</summary><div className="pt-4">
+      <details id="world-controls" open={location.hash === "world-controls"} className="rounded-2xl border bg-surface p-4"><summary className="cursor-pointer py-2 font-medium">World controls and activity</summary><div className="pt-4">
       <div className={`${card} mb-5 bg-primary/5`}>
         <p className="text-xs uppercase tracking-wider text-primary">Your virtual whereabouts</p>
         <h2 className="my-3 font-display text-2xl">
