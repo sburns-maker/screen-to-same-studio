@@ -26,7 +26,7 @@ export function CalendarBoard() {
     edit = useServerFn(editCalendarPlan),
     cache = useQueryClient(),
     navigate = useNavigate();
-  const [mode, setMode] = useState<"month" | "week" | "agenda">("month"),
+  const [mode, setMode] = useState<"month" | "week" | "agenda">("agenda"),
     [filter, setFilter] = useState("upcoming"),
     [day, setDay] = useState(""),
     [selected, setSelected] = useState(""),
@@ -149,18 +149,18 @@ export function CalendarBoard() {
       <div className={`${card} space-y-3`}>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-2xl">Your calendar</h2>
+            <h2 className="font-display text-xl">Calendar</h2>
             <p className="text-xs text-muted-foreground">World time · America/New_York</p>
           </div>
           <button
             disabled={!q.data.structured}
             onClick={() => setManual(!manual)}
-            className="min-h-11 rounded-full border px-4 text-sm"
+            className="min-h-11 rounded-full border px-3 text-sm"
           >
             {q.data.manual ? "Add agreed plan" : "New invitation"}
           </button>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           {q.data.manual
             ? "After you agree in conversation, add the plan here. Conversation sweeps do not rewrite or cancel it, and saving sends no message."
             : "Make plans naturally in Messages or during an outing. Mutual agreement confirms them here. A plan is not evidence that it happened."}
