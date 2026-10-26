@@ -1,7 +1,8 @@
+export { contactPhoneNumber } from "./contact-numbers";
 import { characterFor, type CharacterKey } from "./characters";
 import { currentActivity } from "./world-continuity";
 import { scheduleFor } from "./tess-life";
-/** Explicit allocations: append future contacts; never derive numbers from an array's current order. */
+/** Legacy reserved service allocations; not display aliases. Explicit allocations: append future contacts; never derive numbers from an array's current order. */
 export const FICTIONAL_NUMBERS: Record<string, number> = {
   tess: 100,
   maya: 101,

@@ -5,7 +5,7 @@ import { usePhone } from "@/lib/phone-queries";
 import { phoneAction } from "@/lib/phone-calls.functions";
 import { characterFor } from "@/lib/characters";
 import {
-  fictionalNumber,
+  contactPhoneNumber,
   CALL_LABELS,
   ACTIVE_CALL_STATES,
   type CallPreferences,
@@ -59,9 +59,9 @@ function Calls() {
       <details open={!q.data?.configured} className={`${card} mb-5`}>
         <summary className="min-h-11 cursor-pointer font-medium">Call settings</summary>
         <p className="my-3 text-sm text-muted-foreground">
-          This is a fictional in-app phone service. Numbers use the reserved 814-555-0100–0199 range
-          and never dial a real carrier. Microphone audio is processed only during an answered call
-          and is not saved.
+          This is a fictional in-app phone service. Contact numbers are display-only identifiers and
+          cannot dial or text a real phone. Microphone audio is processed only during an answered
+          call and is not saved.
         </p>
         {!q.data?.available ? (
           <p className="text-sm">Calls setup is incomplete. Existing Messages still works.</p>
@@ -127,7 +127,7 @@ function Calls() {
                 <Link to="/call/$callId" params={{ callId: c.id }} className="min-w-0">
                   <h3 className="font-medium">{def.preferredName}</h3>
                   <p className="text-xs text-muted-foreground">
-                    {fictionalNumber(def.key)} ·{" "}
+                    {contactPhoneNumber(def.key)} ·{" "}
                     {c.direction === "incoming" ? "Incoming" : "Outgoing"}
                   </p>
                 </Link>

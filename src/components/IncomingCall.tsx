@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { usePhone } from "@/lib/phone-queries";
 import { phoneAction } from "@/lib/phone-calls.functions";
 import { characterFor } from "@/lib/characters";
-import { fictionalNumber } from "@/lib/phone-calls";
+import { contactPhoneNumber } from "@/lib/phone-calls";
 import { usePortraits } from "@/lib/use-portrait";
 export function IncomingCall() {
   const q = usePhone(),
@@ -55,7 +55,9 @@ export function IncomingCall() {
       />
       <div className="min-w-0 flex-1">
         <p className="font-medium">{def.preferredName}</p>
-        <p className="text-xs text-muted-foreground">Incoming call · {fictionalNumber(def.key)}</p>
+        <p className="text-xs text-muted-foreground">
+          Incoming call · {contactPhoneNumber(def.key)}
+        </p>
         {soundBlocked && (
           <button
             className="min-h-11 text-xs underline"

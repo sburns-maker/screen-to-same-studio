@@ -5,7 +5,7 @@ import { PhoneOff, Mic, MicOff, Volume2, Phone } from "lucide-react";
 import { usePhone } from "@/lib/phone-queries";
 import { phoneAction, phoneSpeech } from "@/lib/phone-calls.functions";
 import { characterFor } from "@/lib/characters";
-import { fictionalNumber, CALL_LABELS, ACTIVE_CALL_STATES, callDuration } from "@/lib/phone-calls";
+import { contactPhoneNumber, CALL_LABELS, ACTIVE_CALL_STATES, callDuration } from "@/lib/phone-calls";
 import { usePortraits } from "@/lib/use-portrait";
 import { PhoneAudio } from "@/lib/phone-browser";
 export const Route = createFileRoute("/_authenticated/call/$callId")({
@@ -173,7 +173,7 @@ function CallScreen() {
             className={`h-36 w-36 rounded-full object-cover shadow-lg ${["calling", "ringing"].includes(c.state) ? "animate-pulse" : ""}`}
           />
           <h1 className="mt-6 font-display text-4xl">{def.preferredName}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{fictionalNumber(def.key)}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{contactPhoneNumber(def.key)}</p>
           <p role="status" className="mt-4 text-lg">
             {CALL_LABELS[c.state] ?? c.state}
           </p>
