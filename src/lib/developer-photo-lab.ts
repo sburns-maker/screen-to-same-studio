@@ -7,6 +7,7 @@ export const PHOTO_LAB_TYPES = [
   "personal_selfie",
   "intimate_selfie",
   "mature_romantic",
+  "mature_adult",
 ] as const;
 export type PhotoLabType = (typeof PHOTO_LAB_TYPES)[number];
 export const PHOTO_LAB_PRESETS: Record<PhotoLabType, { label: string; scene: string }> = {
@@ -35,6 +36,10 @@ export const PHOTO_LAB_PRESETS: Record<PhotoLabType, { label: string; scene: str
     scene:
       "A quiet affectionate close-up phone portrait of the referenced adult in a fully covering opaque long-sleeved top, a soft sincere expression and warm ordinary indoor light. Non-explicit, fully covered, calm everyday posture.",
   },
+  mature_adult: {
+    label: "Mature adult (non-explicit)",
+    scene: "Photorealistic private portrait of a clearly adult person with sophisticated styling and a confident expression in warm indoor lighting. Opaque clothing and tasteful composition. Follow the selected custom scene description if provided.",
+  },
   mature_romantic: {
     label: "Mature romantic (non-explicit)",
     scene:
@@ -53,6 +58,7 @@ export type PhotoLabResult = {
   diagnostics: string | null;
 };
 export function labTypeSupported(def: CharacterDef, type: PhotoLabType) {
+  if (type === "mature_adult") return labTypeSupported(def, "mature_romantic");
   return photoCapabilities({
     age: def.age,
     enabled: def.photosEnabled,
