@@ -1,7 +1,6 @@
 import { ContactPending } from "@/components/ContactPending";
 import { invalidateSchedule } from "@/lib/use-schedule";
 import { CallButton } from "@/components/CallButton";
-import { contactPhoneNumber } from "@/lib/phone-calls";
 import { ConversationPlans } from "@/components/ConversationPlans";
 import { ConversationMedia } from "@/components/ConversationMedia";
 import { NpcIntroductionChip } from "@/components/NpcIntroductionChip";
@@ -14,7 +13,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Camera, ChevronLeft, Gamepad2, History, MoreVertical } from "lucide-react";
+import { ArrowUp, Camera, ChevronLeft, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { markRead, tessRespond } from "@/lib/tess.functions";
@@ -313,11 +312,10 @@ function Chat() {
             <img src={portraits.data?.[def.key]??def.avatar} alt="" width={1024} height={1024} className="h-9 w-9 shrink-0 rounded-full object-cover" />
             <div className="min-w-0 leading-tight">
               <div className="truncate text-[15px] font-semibold">{def.preferredName}</div>
-              <div className="text-xs text-muted-foreground">{showTyping ? "typing…" : contactPhoneNumber(def.key)??"Tap for info"}</div>
+              <div className="text-xs text-muted-foreground">{showTyping ? "typing…" : "Tap for contact info"}</div>
             </div>
           </Link>
           <CallButton conversationId={conversationId} name={def.preferredName}/>
-          <Link to="/games/$conversationId" params={{ conversationId }} aria-label="Play games" title="Play games" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted"><Gamepad2 className="h-5 w-5" /></Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label="Conversation options" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted">
@@ -327,6 +325,9 @@ function Chat() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem asChild>
                 <Link to="/profile/$conversationId" params={{ conversationId }}>View profile</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/games/$conversationId" params={{ conversationId }}>Games</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to="/calls" search={{ conversation: conversationId }}>Call history</Link>
@@ -351,9 +352,6 @@ function Chat() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-        <div className="mx-auto flex max-w-xl justify-end px-3">
-          <Link to="/calls" search={{ conversation: conversationId }} aria-label={`Call history with ${def.preferredName}`} className="flex min-h-11 items-center gap-2 text-sm text-primary"><History className="h-4 w-4" />Call history</Link>
         </div>
       </header>
 
