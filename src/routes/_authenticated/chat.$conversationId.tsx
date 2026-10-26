@@ -14,7 +14,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Camera, ChevronLeft, Gamepad2, History, MoreVertical } from "lucide-react";
+import { ArrowUp, Camera, ChevronLeft, Gamepad2, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { markRead, tessRespond } from "@/lib/tess.functions";
@@ -351,9 +351,6 @@ function Chat() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-        <div className="mx-auto flex max-w-xl justify-end px-3">
-          <Link to="/calls" search={{ conversation: conversationId }} aria-label={`Call history with ${def.preferredName}`} className="flex min-h-11 items-center gap-2 text-sm text-primary"><History className="h-4 w-4" />Call history</Link>
         </div>
       </header>
 
