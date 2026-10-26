@@ -114,3 +114,11 @@ export const experienceDiagnostics = createServerFn({ method: "POST" })
       }),
     );
   });
+
+export const experienceProviderCheck = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ conversationId: uuid }).strict().parse(v))
+  .handler(async ({ context, data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return (await import("./experience-provider-check.server")).checkExperienceProvider(supabaseAdmin, context.userId, data.conversationId);
+  });
