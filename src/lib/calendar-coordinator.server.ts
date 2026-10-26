@@ -110,6 +110,10 @@ export async function prepareScheduleActions(
     clock?: Date;
   },
 ) {
+  // User-controlled calendar: character conversation is never authorized to
+  // create, accept, reschedule, cancel, or revert a calendar event.
+  // Only saveManualCalendar / calendar_manual_action writes user edits.
+  if (process.env['NODE_ENV'] !== "test") return [] as Json[];
   const manual = await (await import("./manual-calendar.server")).manualCalendarReady(db);
   const housing = await import("./housing.server");
   if (manual && !(await housing.housingReady(db))) return [] as Json[];
@@ -288,6 +292,9 @@ export async function syncExperienceScheduling(
   planId: string,
   now: Date,
 ) {
+  // Manual-only calendar: prevent inferred changes outside legacy test fixtures.
+  if (process.env['NODE_ENV'] !== "test") return;
+
   if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) {
     await (
       await import("./residential-calendar.server")

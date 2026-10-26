@@ -39,34 +39,26 @@ export const experienceAction = createServerFn({ method: "POST" })
     const s = await import("./living-experiences.server");
     if (!(await s.experienceSeed(db, context.userId)))
       throw new Error("Living Experiences are not enabled");
-    if (data.action === "turn" || data.action === "finish" || data.action === "automatic")
-      return {
-        experience: (
-          await s.generateExperience(
-            db,
-            context.userId,
-            data.planId,
-            data.id,
-            data.action,
-            data.text,
-            data.revision,
-            data.action === "automatic",
-          )
-        ).experience,
-      };
-    return {
-      experience: (
-        await s.experienceCommand(
-          db,
-          context.userId,
-          data.planId,
-          data.id,
-          data.action,
-          data.revision,
-          { hours: data.hours },
-        )
-      ).experience,
-    };
+    // Explicit user interaction is the only trigger for these calendar transitions.
+    // Never infer status changes from conversation text or a scheduled clock.
+    if (data.action === "turn" || data.action === "finish" || data.action === "automatic") {
+      const result = await s.generateExperience(
+        db, context.userId, data.planId, data.id, data.action,
+        data.text, data.revision, data.action === "automatic",
+      );
+      if (result.experience.state === "completed" && data.action === "finish") {
+        await s.syncExperienceCalendarStatus(db, context.userId, data.planId, "completed");
+      }
+      return { experience: result.experience };
+    }
+    const result = await s.experienceCommand(
+      db, context.userId, data.planId, data.id, data.action,
+      data.revision, { hours: data.hours },
+    );
+    if (data.action === "claim" && result.experience.state !== "scheduled") {
+      await s.syncExperienceCalendarStatus(db, context.userId, data.planId, "in_progress");
+    }
+    return { experience: result.experience };
   });
 export const recoverExperienceOperation = createServerFn({method:"POST"})
   .middleware([requireSupabaseAuth])
