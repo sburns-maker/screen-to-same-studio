@@ -10,7 +10,7 @@ export function ScreenHeader({ title, right, backTo = "/inbox", backParams }: { 
         <Link to={backTo} {...paramProps} aria-label="Back" className="flex h-10 w-10 items-center justify-center rounded-full text-foreground hover:bg-muted">
           <ChevronLeft className="h-6 w-6" />
         </Link>
-        <h1 className="flex-1 text-[17px] font-semibold">{title}</h1>
+        <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold">{title}</h1>
         {right}
       </div>
     </header>
@@ -18,5 +18,5 @@ export function ScreenHeader({ title, right, backTo = "/inbox", backParams }: { 
 }
 
 export function Screen({ children }: { children: ReactNode }) {
-  return <main className="pb-safe mx-auto max-w-xl px-4 py-5">{children}</main>;
+  return <main className="pb-safe mx-auto max-w-xl px-4 py-4 pb-24">{children}</main>;
 }
