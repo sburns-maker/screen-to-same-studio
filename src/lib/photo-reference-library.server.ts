@@ -188,7 +188,7 @@ export async function reviewReference(db: Client, user: string, input: Reference
     p_version: input.version,
     p_undo: input.undo,
     p_reviewed_sha: input.reviewedSha,
-  });
+  } as never);
   if (r.error) {
     const known = [
       "Canonical identity changed; refresh references",
@@ -222,7 +222,7 @@ async function validatedAsset(
     p_character: key,
     p_message: message,
     p_hash: hash,
-  });
+  } as never);
   if (r.error || typeof r.data !== "string")
     throw new Error("Reference is missing, unread or no longer compatible");
   return r.data;

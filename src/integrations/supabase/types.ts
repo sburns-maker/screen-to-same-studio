@@ -16,177 +16,58 @@ export type Database = {
     Tables: {
       api18_jobs: {
         Row: {
-          user_id: string
           action_id: string
+          character_key: string
           conversation_id: string | null
-          character_key: string
-          request_hash: string
-          job_id: string | null
-          status: string
-          reserved_cents: number
           cost_usd: number | null
-          refund_expected: boolean
+          created_at: string
           failure_code: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          user_id: string
-          action_id: string
-          conversation_id?: string | null
-          character_key: string
+          job_id: string | null
+          refund_expected: boolean
           request_hash: string
-          job_id?: string | null
-          status: string
           reserved_cents: number
-          cost_usd?: number | null
-          refund_expected?: boolean
-          failure_code?: string | null
-          created_at?: string
-          updated_at?: string
+          status: string
+          updated_at: string
+          user_id: string
         }
-        Update: {
-          user_id?: string
-          action_id?: string
+        Insert: {
+          action_id: string
+          character_key: string
           conversation_id?: string | null
-          character_key?: string
-          request_hash?: string
-          job_id?: string | null
-          status?: string
-          reserved_cents?: number
           cost_usd?: number | null
-          refund_expected?: boolean
+          created_at?: string
           failure_code?: string | null
-          created_at?: string
+          job_id?: string | null
+          refund_expected?: boolean
+          request_hash: string
+          reserved_cents: number
+          status: string
           updated_at?: string
-        }
-        Relationships: [
-          {foreignKeyName:"api18_jobs_conversation_id_fkey";columns:["conversation_id"];isOneToOne:false;referencedRelation:"conversations";referencedColumns:["id"]}
-        ]
-      }
-      photo_reference_state: {
-        Row: {
           user_id: string
-          character_key: string
-          api18_enabled: boolean
-          adult_confirmed: boolean
-          version: number
-          last_action: string | null
-        }
-        Insert: {
-          user_id: string
-          character_key: string
-          api18_enabled?: boolean
-          adult_confirmed?: boolean
-          version?: number
-          last_action?: string | null
         }
         Update: {
-          user_id?: string
+          action_id?: string
           character_key?: string
-          api18_enabled?: boolean
-          adult_confirmed?: boolean
-          version?: number
-          last_action?: string | null
-        }
-        Relationships: []
-      }
-      photo_reference_slots: {
-        Row: {
-          user_id: string
-          character_key: string
-          role: string
-          asset: string
-          source_message_id: string | null
-          content_sha256: string
-          canonical_sha256: string
-          reviewed_at: string
-        }
-        Insert: {
-          user_id: string
-          character_key: string
-          role: string
-          asset: string
-          source_message_id?: string | null
-          content_sha256: string
-          canonical_sha256: string
-          reviewed_at?: string
-        }
-        Update: {
-          user_id?: string
-          character_key?: string
-          role?: string
-          asset?: string
-          source_message_id?: string | null
-          content_sha256?: string
-          canonical_sha256?: string
-          reviewed_at?: string
-        }
-        Relationships: [
-          {foreignKeyName: "photo_reference_slots_source_message_id_fkey";columns:["source_message_id"];isOneToOne:false;referencedRelation:"messages";referencedColumns:["id"]},
-          {foreignKeyName: "photo_reference_slots_user_id_character_key_fkey";columns:["user_id","character_key"];isOneToOne:false;referencedRelation:"photo_reference_state";referencedColumns:["user_id","character_key"]}
-        ]
-      }
-      photo_reference_rejections: {
-        Row: {
-          user_id: string
-          character_key: string
-          asset: string
-          source_message_id: string
-          canonical_sha256: string
-          reviewed_at: string
-        }
-        Insert: {
-          user_id: string
-          character_key: string
-          asset: string
-          source_message_id: string
-          canonical_sha256: string
-          reviewed_at?: string
-        }
-        Update: {
-          user_id?: string
-          character_key?: string
-          asset?: string
-          source_message_id?: string
-          canonical_sha256?: string
-          reviewed_at?: string
-        }
-        Relationships: [
-          {foreignKeyName: "photo_reference_rejections_source_message_id_fkey";columns:["source_message_id"];isOneToOne:false;referencedRelation:"messages";referencedColumns:["id"]},
-          {foreignKeyName: "photo_reference_rejections_user_id_character_key_fkey";columns:["user_id","character_key"];isOneToOne:false;referencedRelation:"photo_reference_state";referencedColumns:["user_id","character_key"]}
-        ]
-      }
-      photo_reference_actions: {
-        Row: {
-          user_id: string
-          id: string
-          character_key: string
-          request: Json
-          previous: Json
-          result: Json
-          created_at: string
-        }
-        Insert: {
-          user_id: string
-          id: string
-          character_key: string
-          request: Json
-          previous: Json
-          result: Json
+          conversation_id?: string | null
+          cost_usd?: number | null
           created_at?: string
-        }
-        Update: {
+          failure_code?: string | null
+          job_id?: string | null
+          refund_expected?: boolean
+          request_hash?: string
+          reserved_cents?: number
+          status?: string
+          updated_at?: string
           user_id?: string
-          id?: string
-          character_key?: string
-          request?: Json
-          previous?: Json
-          result?: Json
-          created_at?: string
         }
         Relationships: [
-          {foreignKeyName: "photo_reference_actions_user_id_character_key_fkey";columns:["user_id","character_key"];isOneToOne:false;referencedRelation:"photo_reference_state";referencedColumns:["user_id","character_key"]}
+          {
+            foreignKeyName: "api18_jobs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       calendar_action_receipts: {
@@ -1959,6 +1840,161 @@ export type Database = {
         }
         Relationships: []
       }
+      photo_reference_actions: {
+        Row: {
+          character_key: string
+          created_at: string
+          id: string
+          previous: Json
+          request: Json
+          result: Json
+          user_id: string
+        }
+        Insert: {
+          character_key: string
+          created_at?: string
+          id: string
+          previous: Json
+          request: Json
+          result: Json
+          user_id: string
+        }
+        Update: {
+          character_key?: string
+          created_at?: string
+          id?: string
+          previous?: Json
+          request?: Json
+          result?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_reference_actions_user_id_character_key_fkey"
+            columns: ["user_id", "character_key"]
+            isOneToOne: false
+            referencedRelation: "photo_reference_state"
+            referencedColumns: ["user_id", "character_key"]
+          },
+        ]
+      }
+      photo_reference_rejections: {
+        Row: {
+          asset: string
+          canonical_sha256: string
+          character_key: string
+          reviewed_at: string
+          source_message_id: string
+          user_id: string
+        }
+        Insert: {
+          asset: string
+          canonical_sha256: string
+          character_key: string
+          reviewed_at?: string
+          source_message_id: string
+          user_id: string
+        }
+        Update: {
+          asset?: string
+          canonical_sha256?: string
+          character_key?: string
+          reviewed_at?: string
+          source_message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_reference_rejections_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_reference_rejections_user_id_character_key_fkey"
+            columns: ["user_id", "character_key"]
+            isOneToOne: false
+            referencedRelation: "photo_reference_state"
+            referencedColumns: ["user_id", "character_key"]
+          },
+        ]
+      }
+      photo_reference_slots: {
+        Row: {
+          asset: string
+          canonical_sha256: string
+          character_key: string
+          content_sha256: string
+          reviewed_at: string
+          role: string
+          source_message_id: string | null
+          user_id: string
+        }
+        Insert: {
+          asset: string
+          canonical_sha256: string
+          character_key: string
+          content_sha256: string
+          reviewed_at?: string
+          role: string
+          source_message_id?: string | null
+          user_id: string
+        }
+        Update: {
+          asset?: string
+          canonical_sha256?: string
+          character_key?: string
+          content_sha256?: string
+          reviewed_at?: string
+          role?: string
+          source_message_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_reference_slots_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_reference_slots_user_id_character_key_fkey"
+            columns: ["user_id", "character_key"]
+            isOneToOne: false
+            referencedRelation: "photo_reference_state"
+            referencedColumns: ["user_id", "character_key"]
+          },
+        ]
+      }
+      photo_reference_state: {
+        Row: {
+          adult_confirmed: boolean
+          api18_enabled: boolean
+          character_key: string
+          last_action: string | null
+          user_id: string
+          version: number
+        }
+        Insert: {
+          adult_confirmed?: boolean
+          api18_enabled?: boolean
+          character_key: string
+          last_action?: string | null
+          user_id: string
+          version?: number
+        }
+        Update: {
+          adult_confirmed?: boolean
+          api18_enabled?: boolean
+          character_key?: string
+          last_action?: string | null
+          user_id?: string
+          version?: number
+        }
+        Relationships: []
+      }
       profile_identity_changes: {
         Row: {
           canonical_changed: boolean
@@ -3321,13 +3357,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      api18_status: {Args:never;Returns:number}
-      api18_job_reserve: {Args:{p_user:string;p_action:string;p_conversation:string;p_character:string;p_hash:string;p_cents:number;p_daily:number;p_monthly:number};Returns:Json}
-      api18_job_update: {Args:{p_user:string;p_action:string;p_job:string|null;p_status:string;p_cost:number|null;p_failure:string|null};Returns:boolean}
-      photo_reference_preferences: { Args: {p_user:string;p_character:string;p_enabled:boolean;p_adult:boolean;p_version:number}; Returns:boolean }
-      photo_reference_status: { Args: never; Returns: number }
-      photo_reference_candidate: { Args: { p_user: string; p_character: string; p_message: string | null; p_hash: string }; Returns: string }
-      photo_reference_command: { Args: { p_user: string; p_id: string; p_character: string; p_action: string; p_role: string | null; p_message: string | null; p_hash: string; p_version: number; p_undo?: string | null; p_reviewed_sha?: string | null }; Returns: Json }
+      api18_job_reserve: {
+        Args: {
+          p_action: string
+          p_cents: number
+          p_character: string
+          p_conversation: string
+          p_daily: number
+          p_hash: string
+          p_monthly: number
+          p_user: string
+        }
+        Returns: Json
+      }
+      api18_job_update: {
+        Args: {
+          p_action: string
+          p_cost: number
+          p_failure: string
+          p_job: string
+          p_status: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      api18_status: { Args: never; Returns: number }
       calendar_advance: {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number
@@ -3596,6 +3650,41 @@ export type Database = {
         Returns: Json
       }
       phone_status: { Args: never; Returns: number }
+      photo_reference_candidate: {
+        Args: {
+          p_character: string
+          p_hash: string
+          p_message: string
+          p_user: string
+        }
+        Returns: string
+      }
+      photo_reference_command: {
+        Args: {
+          p_action: string
+          p_character: string
+          p_hash: string
+          p_id: string
+          p_message: string
+          p_reviewed_sha?: string
+          p_role: string
+          p_undo?: string
+          p_user: string
+          p_version: number
+        }
+        Returns: Json
+      }
+      photo_reference_preferences: {
+        Args: {
+          p_adult: boolean
+          p_character: string
+          p_enabled: boolean
+          p_user: string
+          p_version: number
+        }
+        Returns: boolean
+      }
+      photo_reference_status: { Args: never; Returns: number }
       record_npc_introduction: {
         Args: { p_message: string; p_npc: string; p_user: string }
         Returns: boolean
