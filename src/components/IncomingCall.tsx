@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import { enableRingtone, startRingtone } from "@/lib/call-ringtone";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { usePhone } from "@/lib/phone-queries";
@@ -10,6 +12,34 @@ export function IncomingCall() {
     act = useServerFn(phoneAction),
     portraits = usePortraits(),
     c = q.data?.calls.find((c) => c.direction === "incoming" && c.state === "ringing");
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const [silencedCall, setSilencedCall] = useState<string | null>(null);
+  const [soundRevision, setSoundRevision] = useState(0);
+  useEffect(() => {
+    const changed = () => setSoundRevision((v) => v + 1);
+    window.addEventListener("call-ringtone-change", changed);
+    return () => window.removeEventListener("call-ringtone-change", changed);
+  }, []);
+  const ringingId = c?.id;
+  const ringUntil = c?.ring_until;
+  useEffect(() => {
+    if (!ringingId || !ringUntil || silencedCall === ringingId) return;
+    let disposed = false;
+    let stop: (() => void) | undefined;
+    setSoundBlocked(false);
+    void startRingtone(ringUntil)
+      .then((cleanup) => {
+        if (disposed) cleanup();
+        else stop = cleanup;
+      })
+      .catch(() => {
+        if (!disposed) setSoundBlocked(true);
+      });
+    return () => {
+      disposed = true;
+      stop?.();
+    };
+  }, [ringingId, ringUntil, soundRevision, silencedCall]);
   if (!c) return null;
   const def = characterFor(c.character_key);
   return (
@@ -26,8 +56,17 @@ export function IncomingCall() {
       <div className="min-w-0 flex-1">
         <p className="font-medium">{def.preferredName}</p>
         <p className="text-xs text-muted-foreground">Incoming call · {fictionalNumber(def.key)}</p>
+        {soundBlocked && (
+          <button
+            className="min-h-11 text-xs underline"
+            onClick={() => void enableRingtone().catch(() => setSoundBlocked(true))}
+          >
+            Silent ring · tap to enable sound
+          </button>
+        )}
       </div>
       <Link
+        onClick={() => setSilencedCall(c.id)}
         to={q.data?.incomingLive ? "/live-call/$conversationId" : "/call/$callId"}
         params={q.data?.incomingLive ? { conversationId: c.conversation_id } : { callId: c.id }}
         search={q.data?.incomingLive ? { incomingCallId: c.id } : {}}
@@ -37,7 +76,15 @@ export function IncomingCall() {
       </Link>
       <button
         className="min-h-11 text-sm"
-        onClick={() => void act({ data: { id: c.id, command: "decline" } }).then(() => q.refetch())}
+        onClick={() => {
+          setSilencedCall(c.id);
+          void act({ data: { id: c.id, command: "decline" } })
+            .then(() => q.refetch())
+            .catch(() => {
+              setSilencedCall(null);
+              void q.refetch();
+            });
+        }}
       >
         Decline
       </button>

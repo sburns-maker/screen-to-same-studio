@@ -242,6 +242,23 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     expect((await db.query("select * from memories")).rows.length).toBeGreaterThan(0);
     expect((await db.query("select * from storage.objects")).rows).toHaveLength(0);
   });
+  it("filters a character's call history on the server and never exposes another owner's calls", async () => {
+    const call = id();
+    await phoneCommand(admin(), user, call, "start", {
+      conversation: cid,
+      direction: "incoming",
+      outcome: "answer",
+      reason: "callback",
+      ring: 5,
+    });
+    vi.setSystemTime(new Date(now.getTime() + 10000));
+    const history = await phoneSnapshot(admin(), user, true, cid);
+    expect(history.calls.map((c) => c.id)).toEqual([call]);
+    expect(history.calls[0]?.state).toBe("missed");
+    expect((await phoneSnapshot(admin(), other, true, cid)).calls).toEqual([]);
+    expect((await phoneSnapshot(admin(), user, true, id())).calls).toEqual([]);
+    expect(mocks.text).not.toHaveBeenCalled();
+  });
   it("handles declined, asleep and expired calls without paid inference", async () => {
     expect(callAvailability("tess", new Date("2026-10-23T07:00:00Z")).outcome).toBe("missed");
     const incoming = id();

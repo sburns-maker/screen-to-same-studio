@@ -1,3 +1,4 @@
+import { VoiceSessionHistory } from "@/components/VoiceSessionHistory";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { usePhone } from "@/lib/phone-queries";
@@ -11,18 +12,32 @@ import {
 } from "@/lib/phone-calls";
 import { TownLayout, card } from "@/components/TownLayout";
 import { CallButton } from "@/components/CallButton";
+import { RingtoneSettings } from "@/components/RingtoneSettings";
+import { z } from "zod";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_authenticated/calls")({
-  head: () => ({ meta: [
-    { title: "Calls \u00b7 AI Town" },
-    { name: "description", content: "Your fictional call history and voice preferences in AI Town." },
-    { property: "og:title", content: "Calls \u00b7 AI Town" },
-    { property: "og:description", content: "Your fictional call history and voice preferences in AI Town." },
-    { property: "og:type", content: "website" },
-    { name: "twitter:card", content: "summary" },
-  ] }), component: Calls });
+  validateSearch: z.object({ conversation: z.string().uuid().optional() }),
+  head: () => ({
+    meta: [
+      { title: "Calls \u00b7 AI Town" },
+      {
+        name: "description",
+        content: "Your fictional call history and voice preferences in AI Town.",
+      },
+      { property: "og:title", content: "Calls \u00b7 AI Town" },
+      {
+        property: "og:description",
+        content: "Your fictional call history and voice preferences in AI Town.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: Calls,
+});
 function Calls() {
-  const q = usePhone(),
+  const { conversation } = Route.useSearch();
+  const q = usePhone(conversation),
     act = useServerFn(phoneAction);
   async function preferences(patch: Partial<CallPreferences>) {
     if (!q.data) return;
@@ -86,9 +101,22 @@ function Calls() {
           </>
         )}
       </details>
-      <h2 className="mb-3 text-lg font-semibold">Recents</h2>
-      {!q.data?.calls.length && (
-        <p className={`${card} text-sm text-muted-foreground`}>Your calls will appear here.</p>
+      <RingtoneSettings />
+      {conversation && (
+        <Link to="/calls" search={{}} className="mb-4 block underline">
+          All contacts’ calls
+        </Link>
+      )}
+      <h2 className="mb-3 text-lg font-semibold">
+        {conversation && q.data?.calls[0]
+          ? `${characterFor(q.data.calls[0].character_key).preferredName} · `
+          : ""}
+        Recents
+      </h2>
+      {q.data && !q.data.calls.length && (
+        <p className={`${card} text-sm text-muted-foreground`}>
+          No calls recorded{conversation ? " for this conversation" : ""}.
+        </p>
       )}
       <div className="space-y-3">
         {q.data?.calls.map((c) => {
@@ -105,11 +133,17 @@ function Calls() {
                 </Link>
                 <CallButton conversationId={c.conversation_id} name={def.preferredName} />
               </div>
-              <p className="text-sm">
+              <p
+                className={
+                  c.state === "missed" ? "text-sm font-medium text-destructive" : "text-sm"
+                }
+              >
                 {c.state === "missed" && c.direction === "incoming"
                   ? "Missed call"
                   : (CALL_LABELS[c.state] ?? c.state)}
-                {c.answered_at ? ` · ${c.duration_seconds}s` : ""}
+                {c.answered_at
+                  ? ` · ${Math.floor(c.duration_seconds / 60)}m ${c.duration_seconds % 60}s`
+                  : " · Not answered"}
               </p>
               <p className="text-xs text-muted-foreground">
                 {new Date(c.offered_at).toLocaleString("en-US", { timeZone: "America/New_York" })}{" "}
@@ -155,6 +189,7 @@ function Calls() {
           );
         })}
       </div>
+      <VoiceSessionHistory conversation={conversation} />
     </TownLayout>
   );
 }
