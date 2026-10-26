@@ -68,7 +68,7 @@ export async function evaluateIncomingCalls(db: Client, user: string, now = new 
   }
   const blocked = [
     ...(!installed ? ["Database calling migration missing"] : []),
-    ...(!cfg.ready ? ["Voice provider not ready"] : []),
+    ...(!cfg.ready ? [`Voice provider not ready (${cfg.blockers.join(", ")})`] : []),
     ...(!enabled ? ["Server incoming-call switch disabled"] : []),
     ...(!snap?.preferences.enabled ? ["User outgoing/calling permission disabled"] : []),
     ...(!snap?.preferences.incoming ? ["User incoming-call permission disabled"] : []),
