@@ -244,6 +244,17 @@ describe("typed character photography", () => {
     expect(objectPrompt).toContain("Do not add a human");
     expect(objectPrompt).not.toContain("Hairstyle possibilities");
   });
+  it("keeps mature category named and makes it suggestive rather than generic sleepwear", () => {
+    const mature = buildImagePrompt("mature_romantic", "adult at home, an affectionate private selfie", "playful",
+      null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
+    expect(mature).toContain("coordinated bra and underwear");
+    expect(mature).toContain("intentionally flirtatious and sensual");
+    expect(mature).toContain("No nudity");
+    expect(mature).toContain("provider's content policy");
+    const ordinary = buildImagePrompt("intimate_selfie", "warm evening at home", null,
+      null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
+    expect(ordinary).not.toContain("matching bra and underwear");
+  });
   it("keeps caption guidance specific to the character and selected scene", () => {
     const tess = photographyGuidance(plan()),
       maya = photographyGuidance(plan("maya"));

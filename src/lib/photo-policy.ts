@@ -71,7 +71,7 @@ export function nextPhotoBoundary(current: PhotoBoundary, decision: "unchanged" 
   return decision;
 }
 
-/** Conservative input rejection; provider moderation remains authoritative. */
+/** Allow adult non-nude lingerie styling; provider moderation remains authoritative. */
 export function safePhotoScene(scene: string): boolean {
-  return !/\b(nud(?:e|ity)|naked|topless|bottomless|genitals?|nipples?|porn(?:ographic)?|sex(?:ual)?\s+act(?:ivity)?|intercourse|masturbat\w*|see[ -]?through|sheer|lingerie|boudoir|underwear|schoolgirl|schoolboy|teen(?:ager)?|underage|child|minor)\b/i.test(scene);
+  return !/\b(nud(?:e|ity)|naked|topless|bottomless|genitals?|nipples?|porn(?:ographic)?|sex(?:ual)?\s+act(?:ivity)?|intercourse|masturbat\w*|see[ -]?through|sheer|schoolgirl|schoolboy|teen(?:ager)?|underage|child|minor)\b/i.test(scene);
 }
