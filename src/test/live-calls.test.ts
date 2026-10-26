@@ -1,3 +1,4 @@
+import { validIncomingLiveOffer } from "@/lib/live-calls";
 import { describe, expect, it } from "vitest";
 import {
   buildCallInstructions,
@@ -42,5 +43,26 @@ describe("live character call rules", () => {
     });
     expect(text.length).toBeLessThanOrEqual(9000);
     expect(text.indexOf("brought her coffee")).toBeLessThan(text.indexOf("minor") === -1 ? Infinity : text.indexOf("minor"));
+  });
+});
+
+describe("incoming GPT-Live ring authorization", () => {
+  const now = Date.parse("2026-10-26T13:00:00Z");
+  const good = {
+    conversation_id: "20000000-0000-4000-a000-000000000001",
+    character_key: "riley",
+    direction: "incoming",
+    state: "ringing",
+    ring_until: "2026-10-26T13:00:20Z",
+  };
+  const target = { conversationId: good.conversation_id, character: good.character_key };
+  it("accepts only the right unexpired incoming ring", () => {
+    expect(validIncomingLiveOffer(good, target, now)).toBe(true);
+    expect(validIncomingLiveOffer({ ...good, direction: "outgoing" }, target, now)).toBe(false);
+    expect(validIncomingLiveOffer({ ...good, conversation_id: "other" }, target, now)).toBe(false);
+    expect(validIncomingLiveOffer({ ...good, character_key: "tess" }, target, now)).toBe(false);
+    expect(validIncomingLiveOffer({ ...good, state: "connecting" }, target, now)).toBe(false);
+    expect(validIncomingLiveOffer({ ...good, ring_until: "2026-10-26T13:00:00Z" }, target, now)).toBe(false);
+    expect(validIncomingLiveOffer({ ...good, ring_until: "malformed" }, target, now)).toBe(false);
   });
 });
