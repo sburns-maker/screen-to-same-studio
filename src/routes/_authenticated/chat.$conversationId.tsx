@@ -1,3 +1,4 @@
+import { ContactPending } from "@/components/ContactPending";
 import { invalidateSchedule } from "@/lib/use-schedule";
 import { CallButton } from "@/components/CallButton";
 import { fictionalNumber } from "@/lib/phone-calls";
@@ -13,7 +14,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Camera, ChevronLeft, Gamepad2, MoreVertical } from "lucide-react";
+import { ArrowUp, Camera, ChevronLeft, Gamepad2, History, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { markRead, tessRespond } from "@/lib/tess.functions";
@@ -77,7 +78,8 @@ function Chat() {
   const conv = useQuery(conversationQuery(conversationId));
   const convId = conv.data?.id;
   const msgs = useQuery(messagesQuery(convId));
-  const def = characterFor((conv.data?.character as { key?: string } | null)?.key);
+  const characterKey = (conv.data?.character as { key?: string } | null)?.key;
+  const def = characterFor(characterKey);
 
   const [now, setNow] = useState(() => Date.now());
   const [text, setText] = useState("");
@@ -293,6 +295,8 @@ function Chat() {
     return thinking || pending.length ? "Read" : "Delivered";
   })();
 
+  if (!characterKey) return <ContactPending conversationId={conversationId} failed={!!conv.error || !conv.isPending} retry={() => void conv.refetch()} />;
+
   return (
     <ConversationMedia messages={visible} character={def.key}><div className="flex h-dvh flex-col bg-background">
       <header className="pt-safe z-10 border-b bg-background/90 backdrop-blur">
@@ -347,6 +351,9 @@ function Chat() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+        <div className="mx-auto flex max-w-xl justify-end px-3">
+          <Link to="/calls" search={{ conversation: conversationId }} aria-label={`Call history with ${def.preferredName}`} className="flex min-h-11 items-center gap-2 text-sm text-primary"><History className="h-4 w-4" />Call history</Link>
         </div>
       </header>
 
