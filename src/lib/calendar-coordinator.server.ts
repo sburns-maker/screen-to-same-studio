@@ -293,6 +293,9 @@ export async function syncExperienceScheduling(
   planId: string,
   now: Date,
 ) {
+  // Manual-only calendar: never mutate a plan from a chat message or experience.
+  return;
+
   if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) {
     await (
       await import("./residential-calendar.server")
