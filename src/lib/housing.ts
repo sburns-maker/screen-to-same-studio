@@ -27,6 +27,7 @@ export const housingHomeSchema = z.object({
   longitude: z.number(),
   address: z.string().nullable(),
   exact: z.boolean(),
+  canEdit: z.boolean(),
   canVisit: z.boolean(),
   canPlan: z.boolean(),
   primaryFor: z.array(z.string()),

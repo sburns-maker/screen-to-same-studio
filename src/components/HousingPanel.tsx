@@ -132,7 +132,11 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
       {!character && (
         <>
           <div className="flex flex-wrap gap-3 text-sm">
-            <button className="min-h-11 underline" onClick={openEdit} disabled={!home || busy}>
+            <button
+              className="min-h-11 underline"
+              onClick={openEdit}
+              disabled={!home?.canEdit || busy}
+            >
               Edit home
             </button>
             <button

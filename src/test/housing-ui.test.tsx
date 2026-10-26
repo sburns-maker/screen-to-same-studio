@@ -18,6 +18,7 @@ const mock = vi.hoisted(() => ({
         description: "My fictional apartment",
         address: null,
         exact: false,
+        canEdit: true,
         canVisit: true,
         canPlan: true,
         primaryFor: ["user"],
