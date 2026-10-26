@@ -1,7 +1,6 @@
 import { ContactPending } from "@/components/ContactPending";
 import { invalidateSchedule } from "@/lib/use-schedule";
 import { CallButton } from "@/components/CallButton";
-import { fictionalNumber } from "@/lib/phone-calls";
 import { ConversationPlans } from "@/components/ConversationPlans";
 import { ConversationMedia } from "@/components/ConversationMedia";
 import { NpcIntroductionChip } from "@/components/NpcIntroductionChip";
@@ -313,7 +312,7 @@ function Chat() {
             <img src={portraits.data?.[def.key]??def.avatar} alt="" width={1024} height={1024} className="h-9 w-9 shrink-0 rounded-full object-cover" />
             <div className="min-w-0 leading-tight">
               <div className="truncate text-[15px] font-semibold">{def.preferredName}</div>
-              <div className="text-xs text-muted-foreground">{showTyping ? "typing…" : fictionalNumber(def.key)??"Tap for info"}</div>
+              <div className="text-xs text-muted-foreground">{showTyping ? "typing…" : "Tap for contact info"}</div>
             </div>
           </Link>
           <CallButton conversationId={conversationId} name={def.preferredName}/>
