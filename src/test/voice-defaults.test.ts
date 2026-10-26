@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { voiceConfiguration } from "@/lib/voice-provider.server";
+import { incomingLiveMode } from "@/lib/phone-calls.server";
 afterEach(() => vi.unstubAllEnvs());
 describe("speech-chain low-touch Lovable defaults", () => {
   it("provides model and cost defaults without overwriting Voice Studio voices", () => {
@@ -29,5 +30,28 @@ describe("speech-chain low-touch Lovable defaults", () => {
     const c = voiceConfiguration();
     expect(c.voices["riley"]).toBe("marin");
     expect(c.voices["tess"]).not.toBe("coral");
+  });
+});
+
+describe("opt-in GPT-Live incoming transport", () => {
+  it("stays off until all independent server switches and OpenAI credential are set", () => {
+    vi.stubEnv("ENABLE_INCOMING_GPT_LIVE_CALLS", "true");
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "false");
+    vi.stubEnv("ENABLE_LIVE_CHARACTER_CALLS", "true");
+    vi.stubEnv("OPENAI_API_KEY", "fake-test");
+    expect(incomingLiveMode()).toBe(false);
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    expect(incomingLiveMode()).toBe(true);
+    vi.stubEnv("OPENAI_API_KEY", "");
+    expect(incomingLiveMode()).toBe(false);
+  });
+  it("does not depend on legacy TTS model and five/six environment voices", () => {
+    vi.stubEnv("ENABLE_INCOMING_GPT_LIVE_CALLS", "true");
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    vi.stubEnv("ENABLE_LIVE_CHARACTER_CALLS", "true");
+    vi.stubEnv("OPENAI_API_KEY", "fake-test");
+    vi.stubEnv("VOICE_TESS", "");
+    expect(incomingLiveMode()).toBe(true);
+    expect(voiceConfiguration().ready).toBe(false);
   });
 });
