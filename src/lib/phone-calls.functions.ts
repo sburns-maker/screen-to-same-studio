@@ -147,7 +147,7 @@ export const diagnoseIncomingCalls = createServerFn({ method: "POST" })
 export const testIncomingRing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value: unknown) =>
-    z.object({ conversationId: z.string().uuid(), id: z.string().uuid() }).parse(value),
+    z.object({ conversationId: z.string().uuid(), id: z.string().uuid(), force: z.boolean().default(false) }).parse(value),
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -156,5 +156,6 @@ export const testIncomingRing = createServerFn({ method: "POST" })
       context.userId,
       data.conversationId,
       data.id,
+      data.force,
     );
   });
