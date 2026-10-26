@@ -1,6 +1,6 @@
 import { experienceFailureMessage } from "@/lib/experience-failure";
 import { invalidateSchedule } from "@/lib/use-schedule";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -179,8 +179,9 @@ function Experiences() {
   }
   return (
     <>
-      <ScreenHeader title={plan ? plan.title : "Living Experiences"} backTo="/plans" />
+      <ScreenHeader title={plan ? plan.title : "Experiences"} backTo="/plans" />
       <Screen>
+        {!active && <div className="mb-4 rounded-2xl border bg-surface px-4 py-3 text-sm"><p className="font-medium">Outings and experiences</p><p className="mt-1 text-muted-foreground">Start with a plan on your calendar, then manage the experience here. Your previous experiences and progress stay saved.</p><Link to="/plans" className="mt-2 inline-flex min-h-10 items-center font-medium text-primary">Open Calendar →</Link></div>}
         <div className="space-y-4 pb-24">
           <p className="text-sm text-muted-foreground">
             Begin within the start window; the outing begins at its fictional scheduled time.
