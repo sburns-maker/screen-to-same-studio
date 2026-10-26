@@ -119,12 +119,12 @@ export async function generatePhotoLabTest(
   conversation: string,
   requestId: string,
   type: PhotoLabType,
-  wardrobe?: string,
+  customScene?: string,
 ) {
   const def = await authorize(db, user, conversation);
   if (!PHOTO_LAB_TYPES.includes(type) || !labTypeSupported(def, type))
     throw new Error("This category is unavailable for this adult character");
-  if (wardrobe && (!safePhotoScene(wardrobe) || wardrobe.length > 400)) throw new Error("Wardrobe description outside supported boundaries");
+  if (customScene && (!safePhotoScene(customScene) || customScene.length > 400)) throw new Error("Custom scene outside supported boundaries");
   const id = await photoActionId(`developer-photo-lab:${user}:${conversation}:${requestId}`);
   const old = await db.from("job_runs").select("*").eq("id", id).maybeSingle();
   if (old.error) throw new Error("Photo test reservation unavailable");
@@ -157,9 +157,12 @@ export async function generatePhotoLabTest(
     return present(db, active.data, user, conversation);
   }
   try {
-    const scene = wardrobe?.trim() ? `${PHOTO_LAB_PRESETS[type].scene} Wardrobe variation: ${wardrobe.trim()}. Keep this adult fully clothed in opaque garments.` : PHOTO_LAB_PRESETS[type].scene;
+    const scene = customScene?.trim() && (type === "mature_romantic" || type === "mature_adult")
+      ? `${PHOTO_LAB_PRESETS[type].scene} Custom styling and scene: ${customScene.trim()}. Opaque clothing and tasteful non-explicit composition.`
+      : PHOTO_LAB_PRESETS[type].scene;
     if (!safePhotoScene(scene)) throw new Error("Photo test scene rejected");
-    const canonical = includesTess(type)
+    const generationType = type === "mature_adult" ? "mature_romantic" : type;
+    const canonical = includesTess(generationType)
       ? await currentCanonical(db, user, def.key as CharacterKey)
       : undefined;
     const key = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
@@ -168,9 +171,9 @@ export async function generatePhotoLabTest(
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
-      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,type,lovableGatewayProvider(key),id,conversation),
+      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation),
       canonical,
-      type,
+      type: generationType,
       scene,
       expression: null,
       identity: {
