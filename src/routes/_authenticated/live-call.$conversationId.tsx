@@ -10,6 +10,7 @@ import { createLiveCall, type LiveCallState } from "@/lib/live-call-client";
 import { LIVE_CALL_HEARTBEAT_MS, type TranscriptLine } from "@/lib/live-calls";
 
 export const Route = createFileRoute("/_authenticated/live-call/$conversationId")({
+  validateSearch: (search: Record<string, unknown>) => ({ incomingCallId: typeof search['incomingCallId'] === "string" && /^[0-9a-f-]{36}$/i.test(search['incomingCallId']) ? search['incomingCallId'] : undefined }),
   head: () => ({
     meta: [
       { title: "Voice call · AI Town" },
@@ -25,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/live-call/$conversationId"
 
 function LiveCallScreen() {
   const { conversationId } = Route.useParams();
+  const { incomingCallId } = Route.useSearch();
   const navigate = useNavigate();
   const statusFn = useServerFn(liveCallStatus);
   const startFn = useServerFn(startLiveCall);
@@ -55,7 +57,7 @@ function LiveCallScreen() {
     finished.current = true;
     const transcript = call.current?.transcript() ?? [];
     try {
-      const r = await endFn({ data: { callId: callId.current, transcript } });
+      const r = await endFn({ data: { callId: callId.current, transcript, ...(incomingCallId ? { incomingCallId } : {}) } });
       if (r.saved) setNote(`${def.preferredName} will remember this call.`);
     } catch {
       /* the server deadline and scheduled sweep still close it */
@@ -108,7 +110,7 @@ function LiveCallScreen() {
       onTranscript: setLines,
       onSpeaking: setSpeaking,
       connect: async (sdp) => {
-        const r = await startFn({ data: { conversationId, sdp } });
+        const r = await startFn({ data: { conversationId, sdp, ...(incomingCallId ? { incomingCallId } : {}) } });
         if (!r.answered) {
           setNote(r.reason);
           return null;
@@ -169,7 +171,7 @@ function LiveCallScreen() {
       <div className="mt-8 flex justify-center gap-5">
         {!active && state !== "ending" && (
           <button
-            aria-label={`Call ${def.preferredName}`}
+            aria-label={`${incomingCallId ? "Answer" : "Call"} ${def.preferredName}`}
             disabled={!status.data || !!unavailable}
             onClick={() => {
               call.current = null;

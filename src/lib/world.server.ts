@@ -162,7 +162,7 @@ async function writeAiPause(admin: Admin, paused: boolean, reason?: string) {
 async function pushToUser(
   admin: Admin,
   userId: string,
-  payload: { title: string; body: string; url: string; tag: string },
+  payload: { title: string; body: string; url: string; tag: string; kind?: string; expiresAt?: string },
 ): Promise<{ sent: number; removed: number; skipped: string | null }> {
   const vapidPrivate = process.env["VAPID_PRIVATE_KEY"];
   if (!vapidPrivate) return { sent: 0, removed: 0, skipped: "no VAPID key" };
@@ -180,6 +180,7 @@ async function pushToUser(
         JSON.stringify(payload),
         VAPID_PUBLIC_KEY,
         vapidPrivate,
+        payload.kind === "incoming_call" ? { ttlSeconds: Math.max(0, Math.ceil((Date.parse(payload.expiresAt ?? "") - Date.now()) / 1000)), urgent: true } : undefined,
       );
       if (result.ok) {
         sent++;
@@ -417,6 +418,31 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
         const calls = await import("./phone-calls.server");
         const promised = await calls.offerDueCallback(admin, userId, now);
         const offered = promised || await calls.offerSpontaneousCall(admin, userId, now);
+        if (offered && calls.incomingLiveMode()) {
+          // Only an actually persisted, still-ringing offer may cause a background call push.
+          const ring = await admin.from("phone_calls")
+            .select("id,conversation_id,character_key,ring_until")
+            .eq("user_id", userId).eq("direction", "incoming").eq("state", "ringing")
+            .gte("ring_until", new Date().toISOString())
+            .order("offered_at", { ascending: false }).limit(1).maybeSingle();
+          if (!ring.error && ring.data) {
+            const expiresIn = Math.max(0, Math.floor((Date.parse(ring.data.ring_until) - Date.now()) / 1000));
+            if (expiresIn > 0) {
+              const { characterFor } = await import("./characters");
+              const name = characterFor(ring.data.character_key).preferredName;
+              const callUrl = `/live-call/${ring.data.conversation_id}?incomingCallId=${ring.data.id}`;
+              const pushed = await pushToUser(admin, userId, {
+                title: `Incoming call · ${name}`,
+                body: `${name} is calling. Tap Answer to open the call screen.`,
+                url: callUrl,
+                tag: `incoming-call-${ring.data.id}`,
+                kind: "incoming_call",
+                expiresAt: ring.data.ring_until,
+              });
+              report.pushed += pushed.sent;
+            }
+          }
+        }
         const checkpoint = await admin.from("world_control").upsert({
           key: `incoming_calls:${userId}`,
           value: { offered, failed: false },

@@ -28,8 +28,9 @@ export function IncomingCall() {
         <p className="text-xs text-muted-foreground">Incoming call · {fictionalNumber(def.key)}</p>
       </div>
       <Link
-        to="/call/$callId"
-        params={{ callId: c.id }}
+        to={q.data?.incomingLive ? "/live-call/$conversationId" : "/call/$callId"}
+        params={q.data?.incomingLive ? { conversationId: c.conversation_id } : { callId: c.id }}
+        search={q.data?.incomingLive ? { incomingCallId: c.id } : {}}
         className="rounded-full bg-primary px-3 py-3 text-sm text-primary-foreground"
       >
         Answer

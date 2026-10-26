@@ -119,6 +119,8 @@ ${recent || "(none)"}`;
   return text.slice(0, max);
 }
 
+export const INCOMING_CALL_OPENING_PROMPT = "You initiated this phone call because you wanted to talk. The other person has just answered. Greet them naturally, in a few words, then give them room to speak.";
+
 export const CALL_OPENING_PROMPT =
   "Your phone is ringing and you can see it's them. Answer it now with a short, natural hello in your own voice (a few words), then wait for them to talk.";
 
@@ -132,3 +134,17 @@ export const summarySchema = z
     importance: z.number().int().min(1).max(5),
   })
   .strict();
+
+/** Pure preflight: never reserve a paid GPT-Live session for the wrong/stale ring. */
+export function validIncomingLiveOffer(
+  offer: { conversation_id: string; character_key: string; direction: string; state: string; ring_until: string },
+  expected: { conversationId: string; character: string },
+  nowMs: number,
+): boolean {
+  return offer.conversation_id === expected.conversationId &&
+    offer.character_key === expected.character &&
+    offer.direction === "incoming" &&
+    offer.state === "ringing" &&
+    Number.isFinite(Date.parse(offer.ring_until)) &&
+    Date.parse(offer.ring_until) > nowMs;
+}

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 const mocks = vi.hoisted(() => ({ diagnose: vi.fn(), ring: vi.fn(), refetch: vi.fn() }));
+vi.mock("@tanstack/react-router", () => ({ Link: ({ children }: { children: React.ReactNode }) => <span>{children}</span> }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (f: unknown) => f }));
+vi.mock("@/lib/live-calls.functions", () => ({ liveCallStatus: vi.fn() }));
 vi.mock("@/lib/phone-calls.functions", () => ({
   diagnoseIncomingCalls: mocks.diagnose,
   testIncomingRing: mocks.ring,

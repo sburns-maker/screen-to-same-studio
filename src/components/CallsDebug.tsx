@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+import { liveCallStatus } from "@/lib/live-calls.functions";
 import { useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -8,18 +10,26 @@ import {
 import { usePhone } from "@/lib/phone-queries";
 import { CALL_LABELS } from "@/lib/phone-calls";
 export function CallsDebug({ conversationId }: { conversationId: string }) {
-  const check = useServerFn(checkVoiceModelAccess),
+  const liveStatus = useServerFn(liveCallStatus),
+    check = useServerFn(checkVoiceModelAccess),
     diagnose = useServerFn(diagnoseIncomingCalls),
     testRing = useServerFn(testIncomingRing),
     [diagnosis, setDiagnosis] = useState<Awaited<ReturnType<typeof diagnose>> | null>(null),
     [callTest, setCallTest] = useState(""),
     [access, setAccess] = useState("");
+  const [studioStatus, setStudioStatus] = useState("");
   const [ringBusy, setRingBusy] = useState(false);
   const ringId = useRef<string | null>(null);
   const q = usePhone(),
     c = q.data?.calls.find((c) => c.conversation_id === conversationId);
   return (
     <div className="space-y-2 text-sm">
+      <p className="font-semibold">Two separate calling systems are installed.</p>
+      <p>The saved Voice Studio character voices are used by GPT-Live calls. The provider setup below describes only the older speech-chain system, not your saved GPT-Live voices.</p>
+      <button className="min-h-11 rounded-full border px-3 text-xs" onClick={() => void liveStatus({ data: { conversationId } }).then((r) => setStudioStatus(`GPT-Live: ${r.voiceSet ? "saved character voice found" : "no saved character voice"}; ${r.enabled ? "enabled" : "server switch disabled"}.`)).catch(() => setStudioStatus("GPT-Live status check unavailable"))}>Check saved voice and GPT-Live readiness (no generation)</button>
+      {studioStatus && <p role="status">{studioStatus}</p>}
+      <Link className="inline-block min-h-11 py-3 underline" to="/live-call/$conversationId" params={{ conversationId }} search={{ incomingCallId: undefined }}>Open the call screen that uses Voice Studio voices</Link>
+      <p className="font-semibold">Legacy speech-chain calling diagnostics</p>
       <p>
         Calling capability:{" "}
         {q.data?.available
@@ -60,8 +70,7 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
           Incoming call diagnostics and test ring
         </summary>
         <p className="my-2 text-xs">
-          Read-only diagnostics show current blockers, worker checks and the stable hourly
-          selection. Incoming calls work in both Practice and Real-Time mode.
+          Read-only diagnostics for the older incoming-call service. These are not GPT-Live provider checks; incoming GPT-Live ringing is not yet connected.
         </p>
         <button
           className="min-h-11 rounded-full border px-3 text-xs"
