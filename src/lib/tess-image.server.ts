@@ -182,7 +182,9 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
           res.status === 401 || res.status === 403 ? "provider_auth_or_access" :
           res.status === 429 ? "provider_rate_limited" :
           res.status >= 500 ? "provider_server_error" : "provider_http_error";
-        throw new ImageProviderFailure(code, res.status);
+        let fields: ReturnType<typeof safeProviderErrorFields> = {};
+        try { fields = safeProviderErrorFields(await res.json()); } catch { /* no usable structured body */ }
+        throw new ImageProviderFailure(code, res.status, fields);
       }
       const json = (await res.json()) as { data?: { b64_json?: string }[] };
       const b64 = json.data?.[0]?.b64_json;
@@ -201,8 +203,23 @@ export function lovableGatewayProvider(gatewayKey: string): ImageProvider {
 }
 
 /** Safe operational errors: never retain raw provider bodies, prompts or credentials. */
+/** Expose only short, structured provider identifiers, never free-form error messages. */
+export function safeProviderErrorFields(payload: unknown): { code?: string; type?: string; param?: string } {
+  if (!payload || typeof payload !== "object") return {};
+  const e = (payload as Record<string, unknown>)["error"];
+  if (!e || typeof e !== "object") return {};
+  const record = e as Record<string, unknown>;
+  const clean = (v: unknown): string | null =>
+    typeof v === "string" && /^[a-zA-Z][a-zA-Z0-9_.-]{0,63}$/.test(v) ? v : null;
+  const code = clean(record["code"]), type = clean(record["type"]), param = clean(record["param"]);
+  return {
+    ...(code !== null ? { code } : {}),
+    ...(type !== null ? { type } : {}),
+    ...(param !== null ? { param } : {}),
+  };
+}
 export class ImageProviderFailure extends Error {
-  constructor(public readonly code: string, public readonly httpStatus?: number) {
+  constructor(public readonly code: string, public readonly httpStatus?: number, public readonly providerError?: { code?: string; type?: string; param?: string }) {
     super(code);
   }
 }
@@ -231,6 +248,7 @@ export type PhotoDiagnostics = {
   retryCount: number;
   failureStage?: string;
   providerHttpStatus?: number;
+  providerError?: { code?: string; type?: string; param?: string };
   retryReasons?: string[];
   photography?: ReturnType<typeof photographyDiagnostics>;
 };
@@ -348,8 +366,10 @@ export async function generateTessImage(args: {
     diagnostic.validationStatus = "failed";
     diagnostic.failureStage = stage;
     diagnostic.failureReason = classifyImageFailure(error, stage);
-    if (error instanceof ImageProviderFailure && error.httpStatus)
-      diagnostic.providerHttpStatus = error.httpStatus;
+    if (error instanceof ImageProviderFailure) {
+      if (error.httpStatus) diagnostic.providerHttpStatus = error.httpStatus;
+      if (error.providerError && Object.keys(error.providerError).length) diagnostic.providerError = error.providerError;
+    }
     throw new PhotoGenerationFailure(diagnostic);
   }
 }
