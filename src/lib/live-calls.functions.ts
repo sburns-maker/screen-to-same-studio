@@ -8,6 +8,7 @@ import {
   VOICE_ID_PATTERN,
   buildCallInstructions,
   hasUserSpeech,
+  validIncomingLiveOffer,
   liveCallLimits,
   liveCallReservationError,
   liveCallsEnabled,
@@ -80,9 +81,7 @@ export const startLiveCall = createServerFn({ method: "POST" })
       const old = await import("./phone-calls.server");
       if (!old.incomingLiveMode()) throw new Error("Incoming GPT-Live calls are not enabled");
       const offer = await old.ownedCall(db, context.userId, data.incomingCallId);
-      if (offer.conversation_id !== conv.id || offer.character_key !== conv.key ||
-          offer.direction !== "incoming" || offer.state !== "ringing" ||
-          Date.parse(offer.ring_until) <= now.getTime())
+      if (!validIncomingLiveOffer(offer, { conversationId: conv.id, character: conv.key }, now.getTime()))
         throw new Error("This incoming call has expired or was already answered");
       await old.phoneCommand(db, context.userId, offer.id, "answer");
       const claimed = await old.ownedCall(db, context.userId, offer.id);
