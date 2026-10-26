@@ -1,3 +1,4 @@
+import { ContactPending } from "@/components/ContactPending";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
@@ -129,8 +130,11 @@ function LiveCallScreen() {
   const left = deadline.current ? Math.max(0, Math.ceil((deadline.current - now) / 1000)) : 0;
   const unavailable = status.data && (!status.data.enabled || !status.data.voiceSet);
 
+  if (!status.data?.character) return <ContactPending conversationId={conversationId} failed={!!status.error || !status.isPending} retry={() => void status.refetch()} />;
+
   return (
     <main className="flex min-h-dvh flex-col items-center px-6 pb-28 pt-10 text-center">
+      <Link to="/calls" search={{ conversation: conversationId }} className="mb-5 min-h-11 py-3 underline">Call history</Link>
       <audio ref={audio} autoPlay playsInline />
       <img
         src={portraits.data?.[def.key] ?? def.avatar}

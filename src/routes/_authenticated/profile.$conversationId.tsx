@@ -1,3 +1,4 @@
+import { ContactPending } from "@/components/ContactPending";
 import { HousingPanel } from "@/components/HousingPanel";
 import { CallButton } from "@/components/CallButton";
 import { fictionalNumber } from "@/lib/phone-calls";
@@ -47,7 +48,8 @@ function Profile() {
   const qc = useQueryClient();
   const conv = useQuery(conversationQuery(conversationId));
   const update = useServerFn(updateSettings);
-  const def = characterFor((conv.data?.character as { key?: string } | null)?.key);
+  const characterKey = (conv.data?.character as { key?: string } | null)?.key;
+  const def = characterFor(characterKey);
 
   async function set(patch: {
     real_time_mode?: boolean;
@@ -62,6 +64,8 @@ function Profile() {
       toast.error("Couldn't save this preference. Please try again.");
     }
   }
+
+  if (!characterKey) return <ContactPending conversationId={conversationId} failed={!!conv.error || !conv.isPending} retry={() => void conv.refetch()} />;
 
   return (
     <>
