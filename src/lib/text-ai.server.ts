@@ -87,6 +87,7 @@ export async function runStructured<T>(
       TEXT_MODEL, apiError?.statusCode ?? null, apiError?.data,
       apiError?.responseHeaders?.["x-request-id"],
       apiError ? undefined : error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "timeout" : "invalid_response",
+      apiError?.responseBody,
     );
     // No raw SDK errors: those can contain keys, request bodies or private dialogue.
     console.warn("[character-ai]", {

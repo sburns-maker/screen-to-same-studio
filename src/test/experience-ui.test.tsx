@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
     status: string;
     failure?: ExperienceFailure;
   },
+  lastFailure: null as string | null,
   available: true,
   historyScene: undefined as
     undefined | { id: string; plan_id: string; revision: number; state: string },
@@ -48,7 +49,7 @@ vi.mock("@/lib/use-experiences", () => ({
           claim_deadline: "2026-10-25T22:00:00Z",
           mode: "interactive",
           summary: "",
-          last_failure: null,
+          last_failure: mocks.lastFailure,
         },
       ],
       plans: [
@@ -68,6 +69,7 @@ vi.mock("@/lib/living-experiences.functions", () => ({
 import { Route } from "@/routes/_authenticated/experiences";
 beforeEach(() => {
   mocks.state = "interactive";
+  mocks.lastFailure = null;
   mocks.moments = [];
   mocks.pending = null;
   mocks.available = true;
@@ -232,8 +234,46 @@ it("shows the rejected request status and saved action without starting an autom
     },
   };
   view();
-  expect(await screen.findByText(/HTTP: 400/)).toHaveTextContent("invalid_json_schema");
+  expect(await screen.findByLabelText("Saved provider rejection details")).toHaveTextContent(
+    "invalid_json_schema",
+  );
   expect(screen.getByText("Failure reference: saved-operation")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Retry pending scene" })).toBeInTheDocument();
+  expect(mocks.act).not.toHaveBeenCalled();
+});
+
+it("shows saved rejection details before history and removes misleading generic retry advice without a new request", async () => {
+  const { characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  mocks.lastFailure = "Generation interrupted; retry the same action safely";
+  mocks.pending = {
+    id: "saved-operation",
+    kind: "turn",
+    body: "Continue the afternoon at Juniper Commons",
+    status: "failed",
+    failure: {
+      version: 1,
+      phase: "generation",
+      code: "model_request_invalid",
+      diagnostic: characterAIDiagnostic(
+        "gpt-6-luna",
+        400,
+        { error: { code: "unsupported_parameter", param: "reasoning.effort" } },
+        "req_saved",
+      ),
+    },
+  };
+  mocks.moments = [{ id: "previous", body: "Earlier saved dialogue", source: "character" }];
+  view();
+  const details = await screen.findByLabelText("Saved provider rejection details");
+  expect(details).toHaveTextContent("unsupported_parameter");
+  expect(details).toHaveTextContent("reasoning.effort");
+  expect(
+    details.compareDocumentPosition(screen.getByText("Earlier saved dialogue")) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    screen.queryByText("Generation interrupted; retry the same action safely"),
+  ).not.toBeInTheDocument();
+  expect(mocks.lastFailure).toBe("Generation interrupted; retry the same action safely"); // Display change only.
   expect(mocks.act).not.toHaveBeenCalled();
 });
