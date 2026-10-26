@@ -8,10 +8,16 @@ import { characterFor } from "@/lib/characters";
 import { contactPhoneNumber } from "@/lib/phone-calls";
 import { usePortraits } from "@/lib/use-portrait";
 export function IncomingCall() {
+  const [now, setNow] = useState(Date.now);
   const q = usePhone(),
     act = useServerFn(phoneAction),
     portraits = usePortraits(),
-    c = q.data?.calls.find((c) => c.direction === "incoming" && c.state === "ringing");
+    c = q.data?.calls.find(
+      (c) =>
+        c.direction === "incoming" &&
+        c.state === "ringing" &&
+        Date.parse(c.ring_until) > Math.max(now, Date.now()),
+    );
   const [soundBlocked, setSoundBlocked] = useState(false);
   const [silencedCall, setSilencedCall] = useState<string | null>(null);
   const [soundRevision, setSoundRevision] = useState(0);
@@ -22,6 +28,14 @@ export function IncomingCall() {
   }, []);
   const ringingId = c?.id;
   const ringUntil = c?.ring_until;
+  useEffect(() => {
+    if (!ringUntil) return;
+    const timer = setTimeout(
+      () => setNow(Date.now()),
+      Math.max(0, Date.parse(ringUntil) - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [ringUntil]);
   useEffect(() => {
     if (!ringingId || !ringUntil || silencedCall === ringingId) return;
     let disposed = false;
@@ -40,7 +54,7 @@ export function IncomingCall() {
       stop?.();
     };
   }, [ringingId, ringUntil, soundRevision, silencedCall]);
-  if (!c) return null;
+  if (!c || silencedCall === c.id) return null;
   const def = characterFor(c.character_key);
   return (
     <aside
