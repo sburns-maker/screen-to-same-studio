@@ -141,7 +141,11 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
     );
     expect((await sql`SELECT calendar_manual_status() v`)[0]!["v"]).toBe(44);
     expect((await sql`SELECT housing_status() v`)[0]!["v"]).toBe(45);
-    expect((await sql`SELECT count(*)::int n FROM social_plans WHERE housing_proposal_id IS NOT NULL`)[0]!["n"]).toBe(0);
+    expect(
+      (
+        await sql`SELECT count(*)::int n FROM social_plans WHERE housing_proposal_id IS NOT NULL`
+      )[0]!["n"],
+    ).toBe(0);
     expect((await sql`SELECT calendar_pending(${user},${at}) p`)[0]!["p"]).toEqual([]);
   });
   it("reconciles historical drift through the current journal without changing saved user history", async () => {
@@ -151,7 +155,67 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
     expect(await preserved()).toEqual(before);
     expect((await sql`SELECT calendar_manual_status() v`)[0]!["v"]).toBe(44);
     expect((await sql`SELECT housing_status() v`)[0]!["v"]).toBe(45);
-    expect((await sql`SELECT count(*)::int n FROM social_plans WHERE housing_proposal_id IS NOT NULL`)[0]!["n"]).toBe(0);
+    expect(
+      (
+        await sql`SELECT count(*)::int n FROM social_plans WHERE housing_proposal_id IS NOT NULL`
+      )[0]!["n"],
+    ).toBe(0);
+  });
+  it("installs pending 0044 and 0045 with saved users and no service JWT, then seeds only through the service path", async () => {
+    const beforeHousing = mkdtempSync(join(tmpdir(), "housing43-install-"));
+    try {
+      mkdirSync(join(beforeHousing, "meta"));
+      const entries = currentJournal.entries.filter((e: { idx: number }) => e.idx <= 43);
+      writeFileSync(
+        join(beforeHousing, "meta/_journal.json"),
+        JSON.stringify({ ...currentJournal, entries }),
+      );
+      for (const e of entries)
+        copyFileSync(`drizzle/migrations/${e.tag}.sql`, join(beforeHousing, `${e.tag}.sql`));
+      await migrate(drizzle(sql), { migrationsFolder: beforeHousing });
+      await sql.unsafe(`INSERT INTO conversations(id,user_id,character_id) SELECT '${conv}','${user}',id FROM characters WHERE key='tess';
+        INSERT INTO tess_state(user_id,conversation_id) VALUES('${user}','${conv}');
+        INSERT INTO memories(user_id,conversation_id,summary) VALUES('${user}','${conv}','Preserve this before housing installation');
+        INSERT INTO messages(user_id,conversation_id,sender,body) VALUES('${user}','${conv}','user','Existing conversation before the homes update');
+        CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$SELECT nullif(current_setting('request.jwt.claim.role',true),'')$$;
+        SELECT set_config('request.jwt.claim.role','',false);`);
+      const history = await preserved();
+      expect((await sql`SELECT auth.role() role`)[0]!["role"]).toBeNull();
+      expect(
+        (await sql`SELECT max(created_at)::text stamp FROM drizzle.__drizzle_migrations`)[0]![
+          "stamp"
+        ],
+      ).toBe(String(entries.at(-1).when));
+      await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
+      expect(await preserved()).toEqual(history);
+      expect((await sql`SELECT calendar_manual_status() v, housing_status() h`)[0]).toEqual({
+        v: 44,
+        h: 45,
+      });
+      expect((await sql`SELECT count(*)::int n FROM housing_residences`)[0]!["n"]).toBe(0);
+      await expect(sql`SELECT housing_seed(${user})`).rejects.toThrow("service role required");
+      await sql.begin(async (tx) => {
+        await tx`SELECT set_config('request.jwt.claim.role','service_role',true)`;
+        await tx`SELECT housing_seed(${user})`;
+      });
+      const homes =
+        await sql`SELECT id, place_key FROM housing_residences WHERE user_id=${user} ORDER BY id`;
+      expect(homes.map((h) => h["place_key"])).toEqual(
+        expect.arrayContaining(["home:user", "home:tess", "home:maya", "home:claire"]),
+      );
+      await sql.begin(async (tx) => {
+        await tx`SELECT set_config('request.jwt.claim.role','service_role',true)`;
+        await tx`SELECT housing_seed(${user})`;
+      });
+      expect(
+        await sql`SELECT id, place_key FROM housing_residences WHERE user_id=${user} ORDER BY id`,
+      ).toEqual(homes);
+      // A rerun must skip recorded migrations, not replay any DDL or seed calls.
+      await migrate(drizzle(sql), { migrationsFolder: "drizzle/migrations" });
+      expect(await preserved()).toEqual(history);
+    } finally {
+      rmSync(beforeHousing, { recursive: true, force: true });
+    }
   });
   it("installs the archived repair through 0042 using the actual runner and all original SQL", async () => {
     await run();
