@@ -76,7 +76,8 @@ function Chat() {
 
   const conv = useQuery(conversationQuery(conversationId));
   const convId = conv.data?.id;
-  const msgs = useQuery(messagesQuery(convId));
+  const [historyLimit, setHistoryLimit] = useState(200);
+  const msgs = useQuery(messagesQuery(convId, historyLimit));
   const characterKey = (conv.data?.character as { key?: string } | null)?.key;
   const def = characterFor(characterKey);
 
@@ -89,6 +90,7 @@ function Chat() {
   const inFlight = useRef(false);
   const again = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
+  const olderScrollHeight = useRef<number | null>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   const all = msgs.data ?? [];
@@ -271,8 +273,17 @@ function Chat() {
   }, [visible, def.preferredName, conversationId]);
 
   useLayoutEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
-  }, [visible.length, pending.length]);
+    const element = scroller.current;
+    if (!element) return;
+    if (olderScrollHeight.current !== null) {
+      if (!msgs.isFetching) {
+        element.scrollTop += element.scrollHeight - olderScrollHeight.current;
+        olderScrollHeight.current = null;
+      }
+      return;
+    }
+    element.scrollTo({ top: element.scrollHeight });
+  }, [visible.length, pending.length, msgs.isFetching]);
 
   useLayoutEffect(() => {
     const ta = taRef.current;
@@ -359,6 +370,7 @@ function Chat() {
       <div ref={scroller} className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-xl flex-col px-3 py-4">
           {msgs.isLoading ? <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p> : null}
+          {all.length >= historyLimit && <button type="button" disabled={msgs.isFetching} className="mx-auto mb-4 min-h-11 rounded-full border px-4 text-sm text-primary disabled:opacity-50" onClick={() => { olderScrollHeight.current = scroller.current?.scrollHeight ?? null; setHistoryLimit(n => n + 200); }}>{msgs.isFetching ? "Loading earlier messages…" : "Load older messages"}</button>}
           {visible.map((m, i) => {
             const prev = visible[i - 1];
             const next = visible[i + 1];
