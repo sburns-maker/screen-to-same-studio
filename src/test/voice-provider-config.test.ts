@@ -36,8 +36,8 @@ describe("OpenAI voice chain configuration", () => {
     vi.stubEnv("OPENAI_TRANSCRIPTION_MODEL", "");
     vi.stubEnv("OPENAI_SPEECH_MODEL", "");
     const cfg = voiceConfiguration();
-    expect(cfg.blockers).toContain("transcription_model_missing");
-    expect(cfg.blockers).toContain("speech_model_missing");
+    expect(cfg.transcription).toBe("gpt-4o-mini-transcribe");
+    expect(cfg.speech).toBe("gpt-4o-mini-tts");
   });
   it("keeps provider validation and budgets mandatory", () => {
     valid();
