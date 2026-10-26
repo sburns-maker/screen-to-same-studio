@@ -383,15 +383,13 @@ function Chat() {
                     return null;
                   })()}
                   {!mine&&<NpcIntroductionChip messageId={m.id} text={m.body}/>}
-                  {m.body && <div
-                    title={fmtTime(t)}
-                    className={cn(
-                      "bubble-in whitespace-pre-wrap break-words px-3.5 py-2 text-[15px] leading-snug",
-                      mine ? "rounded-2xl rounded-br-md bg-bubble-me text-bubble-me-foreground" : "rounded-2xl rounded-bl-md bg-bubble-them text-bubble-them-foreground",
-                    )}
-                  >
-                    {m.body}
-                  </div>}
+                  {m.body && <ReactionBubble
+                    messageId={m.id}
+                    conversationId={conversationId}
+                    mine={mine}
+                    timestamp={fmtTime(t)}
+                    body={m.body}
+                  />}
                   </div>
                 </div>
                 {i === lastUserIdx && readReceipt && (
@@ -489,5 +487,78 @@ function GeneratedPhoto({ path, name, mediaId }: { path: string; name: string; m
       onError={() => setFailed(true)}
       className="bubble-in w-60 rounded-2xl rounded-bl-md object-cover"
     /></PhotoViewer>
+  );
+}
+
+
+const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "😡"] as const;
+const reactionStorageKey = (conversationId: string, messageId: string) =>
+  `chats:local-reaction:${conversationId}:${messageId}`;
+
+/** Initial device-local UI: no AI generation, message mutation or relationship impact. */
+function ReactionBubble({ messageId, conversationId, mine, timestamp, body }: {
+  messageId: string; conversationId: string; mine: boolean; timestamp: string; body: string;
+}) {
+  const key = reactionStorageKey(conversationId, messageId);
+  const [reaction, setReaction] = useState<string | null>(() => {
+    try { return typeof window === "undefined" ? null : window.localStorage.getItem(key); }
+    catch { return null; }
+  });
+  const [open, setOpen] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPress = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+  const choose = (emoji: string) => {
+    const next = reaction === emoji ? null : emoji;
+    setReaction(next);
+    try {
+      if (next) window.localStorage.setItem(key, next);
+      else window.localStorage.removeItem(key);
+    } catch { /* private browsing can block local storage */ }
+    setOpen(false);
+  };
+  useEffect(() => () => clearPress(), []);
+  return (
+    <div className="relative max-w-full">
+      <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            title={`${timestamp} · React to message`}
+            aria-label={`React to message: ${body.slice(0, 80)}`}
+            onPointerDown={(e) => {
+              if (e.pointerType === "touch") {
+                clearPress();
+                pressTimer.current = setTimeout(() => setOpen(true), 450);
+              }
+            }}
+            onPointerUp={clearPress}
+            onPointerCancel={clearPress}
+            onPointerLeave={clearPress}
+            onContextMenu={(e) => { e.preventDefault(); clearPress(); setOpen(true); }}
+            className={cn(
+              "bubble-in block max-w-full whitespace-pre-wrap break-words px-3.5 py-2 text-left text-[15px] leading-snug",
+              mine ? "rounded-2xl rounded-br-md bg-bubble-me text-bubble-me-foreground" : "rounded-2xl rounded-bl-md bg-bubble-them text-bubble-them-foreground",
+            )}
+          >{body}</button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align={mine ? "end" : "start"} side="top" className="flex min-w-0 gap-1 rounded-full p-1.5">
+          {REACTION_EMOJIS.map((emoji) => (
+            <DropdownMenuItem key={emoji} onSelect={() => choose(emoji)}
+              aria-label={`React with ${emoji}`}
+              className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full p-0 text-xl focus:bg-muted">
+              {emoji}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {reaction && <button type="button" onClick={() => setOpen(true)}
+        aria-label={`Current reaction ${reaction}. Tap to change or remove`}
+        className={cn("relative -mt-1.5 flex w-fit min-h-7 items-center rounded-full border bg-background px-2 text-sm shadow-sm", mine ? "ml-auto mr-1" : "ml-1")}>
+        {reaction}
+      </button>}
+    </div>
   );
 }
