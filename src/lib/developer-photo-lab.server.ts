@@ -157,7 +157,7 @@ export async function generatePhotoLabTest(
     return present(db, active.data, user, conversation);
   }
   try {
-    const scene = PHOTO_LAB_PRESETS[type].scene;
+    const scene = wardrobe?.trim() ? `${PHOTO_LAB_PRESETS[type].scene} Wardrobe variation: ${wardrobe.trim()}. Keep this adult fully clothed in opaque garments.` : PHOTO_LAB_PRESETS[type].scene;
     if (!safePhotoScene(scene)) throw new Error("Photo test scene rejected");
     const canonical = includesTess(type)
       ? await currentCanonical(db, user, def.key as CharacterKey)
