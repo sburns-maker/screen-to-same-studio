@@ -8,6 +8,11 @@ on:
       - "src/components/CallsDebug.tsx"
       - "src/test/calls-debug.test.tsx"
       - "src/test/phone-calls.integration.test.ts"
+      - "src/test/live-calls.test.ts"
+      - "src/lib/live-calls.ts"
+      - "src/lib/live-calls.functions.ts"
+      - "src/components/IncomingCall.tsx"
+      - "src/routes/_authenticated/live-call.$conversationId.tsx"
       - "src/test/voice-defaults.test.ts"
       - "src/test/voice-provider-config.test.ts"
       - "src/lib/voice-provider.server.ts"
@@ -30,5 +35,5 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx vitest run src/test/photo-pacing.test.ts src/test/photo-opportunities.test.ts src/test/photo-policy.test.ts src/test/photo-personality.test.ts
       - run: bunx tsc --noEmit
-      - run: bunx vitest run src/test/voice-provider-config.test.ts src/test/voice-defaults.test.ts src/test/phone-calls.integration.test.ts src/test/calls-debug.test.tsx
+      - run: bunx vitest run src/test/live-calls.test.ts src/test/voice-provider-config.test.ts src/test/voice-defaults.test.ts src/test/phone-calls.integration.test.ts src/test/calls-debug.test.tsx
       - run: bun run build
