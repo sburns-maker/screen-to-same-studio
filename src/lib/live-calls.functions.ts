@@ -141,8 +141,13 @@ export const startLiveCall = createServerFn({ method: "POST" })
       if (data.incomingCallId) await (await import("./phone-calls.server")).phoneCommand(db, context.userId, data.incomingCallId, "fail").catch(() => {});
       throw new Error(liveCallReservationError(lease.reason));
     }
-    const fail = (reason: string) =>
-      liveCalls(db).update({ state: "failed", close_reason: reason, ended_at: new Date().toISOString() }).eq("id", lease.id);
+    const fail = async (reason: string) => {
+      await liveCalls(db).update({ state: "failed", close_reason: reason, ended_at: new Date().toISOString() }).eq("id", lease.id);
+      if (data.incomingCallId) {
+        const old = await import("./phone-calls.server");
+        await old.phoneCommand(db, context.userId, data.incomingCallId, "fail").catch(() => {});
+      }
+    };
 
     let res: Response;
     try {
