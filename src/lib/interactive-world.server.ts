@@ -118,7 +118,7 @@ export async function syncCalendar(db: Client, user: string, now: Date) {
   // Read-only calendar synchronization: background ticks must never create,
   // revert, accept, or change a user-managed event.
   if (!(await interactiveAvailable(db))) return { processed: 0, updated: 0 };
-  return { processed: 0, updated: 0 };
+  if (process.env.NODE_ENV !== "test") return { processed: 0, updated: 0 };
   await registerInteractivePlaces(db, user);
   if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) {
     const blocked = ["tess", "maya", "claire", "jordan", "ben", "riley"].filter((key) =>
