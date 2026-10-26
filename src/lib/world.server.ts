@@ -180,6 +180,7 @@ async function pushToUser(
         JSON.stringify(payload),
         VAPID_PUBLIC_KEY,
         vapidPrivate,
+        payload.kind === "incoming_call" ? { ttlSeconds: Math.max(0, Math.ceil((Date.parse(payload.expiresAt ?? "") - Date.now()) / 1000)), urgent: true } : undefined,
       );
       if (result.ok) {
         sent++;
