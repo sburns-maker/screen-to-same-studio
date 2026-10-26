@@ -330,6 +330,20 @@
       "when": 1793050000001,
       "tag": "0046_verify_pending_housing_installation",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793050000002,
+      "tag": "0047_photo_reference_library",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793050000003,
+      "tag": "0048_api18_generation_jobs",
+      "breakpoints": true
     }
   ]
 }

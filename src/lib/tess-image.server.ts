@@ -30,6 +30,8 @@ export interface ImageProvider {
   name: string;
   model: string;
   referenceConditioning?: boolean;
+  allowIdentityRetry?: boolean;
+  maxPromptCharacters?:number;
   /** With references: identity-conditioned edit (Tess first, Mabel second). Without: plain generation. */
   generate(
     prompt: string,
@@ -227,6 +229,7 @@ export function classifyImageFailure(error: unknown, stage: string): string {
   if (error instanceof ImageProviderFailure) return error.code;
   if (error instanceof Error) {
     if (["TimeoutError", "AbortError"].includes(error.name)) return "provider_timeout";
+    if (/^api18_[a-z0-9_]{1,80}$/.test(error.message)) return error.message;
     if (error instanceof SyntaxError && stage === "provider_generation") return "provider_invalid_response";
     if (/^(unsupported_group_photo|canonical_character_missing|reference_conditioning_unverified|visual_screen_unavailable|face_structure_drift|appearance_drift|reference_obscured|face_not_visible|scene_mismatch|uncertain|visual_screen_uncertain|text_verification_unavailable)$/.test(error.message)) return error.message;
   }
@@ -307,7 +310,12 @@ export async function generateTessImage(args: {
     const groupInstructions = group
       ? "\n\nFICTIONAL GROUP MOMENT: The approved reference image belongs ONLY to the main foreground character. Keep that character recognizable, and add 1–4 generic fictional adult teammates appropriate to the established scene. Give the teammates distinct ordinary appearances; do not claim they are known or named contacts. No real patrons, clients, patients, private screens or identifying material. Compose like a casual phone group selfie, not a studio portrait."
       : "";
-    const prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\n\n${photoTextPrompt(text)}`;
+    let prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\n\n${photoTextPrompt(text)}`;
+    if(args.provider.maxPromptCharacters){
+      if(args.type!=="mature_romantic"||text||group||sceneHasMabel(args.scene))throw new Error("api18_scene_features_unsupported");
+      prompt=compactRomanticPrompt(args.identity!,args.scene,args.expression,args.style,args.photography);
+      if(prompt.length>args.provider.maxPromptCharacters)throw new Error("api18_prompt_too_long");
+    }
     const references: Blob[] = [];
     if (canonical) references.push(canonical.blob); // Always primary, original portrait.
     if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)
@@ -337,7 +345,7 @@ export async function generateTessImage(args: {
         const reason = screenError instanceof Error ? screenError.message : "visual_screen_uncertain";
         retryReasons.push(reason);
         diagnostic.retryReasons = [...retryReasons];
-        if (attempt === 0 && canonical && ["appearance_drift", "face_structure_drift"].includes(reason)) {
+        if (attempt === 0 && canonical && args.provider.allowIdentityRetry !== false && ["appearance_drift", "face_structure_drift"].includes(reason)) {
           diagnostic.retryCount = 1;
           continue;
         }
@@ -372,4 +380,15 @@ export async function generateTessImage(args: {
     }
     throw new PhotoGenerationFailure(diagnostic);
   }
+}
+
+/** Preserves identity, factual scene and explicit style within Hera's documented 2500-character limit.
+ * Never truncate an explicit scene or weaken non-nude/safety rules to fit.
+ */
+export function compactRomanticPrompt(identity:CharacterIdentity,scene:string,expression:string|null,style?:PhotoStyle|null,photography?:PhotographyPlan){
+ return `One fictional adult ${identity.name}, age ${identity.age}. Reference 1 is the authoritative canonical identity; any later references show the SAME person at other angles. Preserve exact recognizable face, facial structure, age and body proportions. References define identity, not wardrobe, pose, lighting or location. Never copy another person's identity.
+CURRENT CONFIRMED SCENE: ${scene}
+Expression: ${expression??"natural, consistent with the scene"}. Explicit style: ${JSON.stringify(style??{})}.
+Visual continuity: ${JSON.stringify(photography?.continuity??{})}.
+A privately shared NON-NUDE romantic smartphone photo. Context-appropriate opaque clothing or opaque lingerie only; nipples and genitals fully covered. No nudity, transparent clothing, sexual acts or pornographic posing. One adult only; no minors, bystanders, private records or screens. Preserve the agreed scene, actual location, activity, outfit and boundaries. Realistic skin texture, ordinary ambient light, believable phone camera geometry and relaxed varied framing. No glamour airbrushing, repeated portrait pose, text overlays or watermark.`;
 }

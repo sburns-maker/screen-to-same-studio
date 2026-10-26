@@ -28,6 +28,15 @@ describe("photo autonomy and boundaries", () => {
   it("opt-in with developed romance permits consideration", () => {
     expect(eligiblePhotoCategories(romantic, { ...context, matureEnabled: true })).toContain("mature_romantic");
   });
+  it("keeps the separate nude category disabled without BOTH adult verification and opt-in", () => {
+    const opts = { ...context, matureEnabled: true };
+    expect(eligiblePhotoCategories(romantic, opts)).not.toContain("mature_nude");
+    expect(eligiblePhotoCategories(romantic, { ...opts, nudeEnabled: true })).not.toContain("mature_nude");
+    expect(eligiblePhotoCategories(romantic, { ...opts, adultVerified: true })).not.toContain("mature_nude");
+    expect(eligiblePhotoCategories(romantic, { ...opts, adultVerified: true, nudeEnabled: true })).toContain("mature_nude");
+    expect(eligiblePhotoCategories(romantic, { ...opts, adultVerified: true, nudeEnabled: true, boundary: "mature" })).not.toContain("mature_nude");
+    expect(eligiblePhotoCategories(romantic, { ...opts, adultVerified: true, nudeEnabled: true, age: 17 })).not.toContain("mature_nude");
+  });
   it("attraction alone does not establish romantic intent", () => {
     expect(eligiblePhotoCategories({ ...romantic, romantic_intent: 0 }, { ...context, matureEnabled: true })).not.toContain("mature_romantic");
   });

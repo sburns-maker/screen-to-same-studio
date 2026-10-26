@@ -43,7 +43,7 @@ it("has a separate button for each exact category and does not generate on openi
   const button = await screen.findByRole("button", {
     name: "Generate Mature romantic (non-explicit) test",
   });
-  expect(screen.getAllByRole("button", { name: /^Generate/ })).toHaveLength(6);
+  expect(screen.getAllByRole("button", { name: /^Generate/ })).toHaveLength(7);
   expect(mocks.command).toHaveBeenCalledTimes(1);
   fireEvent.click(button);
   await screen.findByAltText("Riley Mature romantic (non-explicit) developer test");

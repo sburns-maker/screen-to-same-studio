@@ -14,6 +14,7 @@ export const developerPhotoLab = createServerFn({ method: "POST" })
           conversationId,
           requestId: z.string().uuid(),
           category: z.enum(PHOTO_LAB_TYPES),
+          customScene: z.string().max(400).optional(),
           confirmation: z.literal("GENERATE DEVELOPER PHOTO TEST"),
         }),
         z.object({ action: z.literal("release"), conversationId, id: z.string().uuid() }),
@@ -32,6 +33,7 @@ export const developerPhotoLab = createServerFn({ method: "POST" })
           data.conversationId,
           data.requestId,
           data.category,
+          data.customScene,
         ),
       };
     return {

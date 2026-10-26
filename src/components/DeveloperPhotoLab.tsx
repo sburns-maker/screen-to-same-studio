@@ -17,6 +17,32 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const pending = useRef<{ category: PhotoLabType; id: string } | null>(null);
+  type MatureCategory = "mature_romantic" | "mature_adult";
+  const [scenes, setScenes] = useState<Record<MatureCategory,string[][]>>({
+    mature_romantic: [["", "", ""]],
+    mature_adult: [["", "", ""]],
+  });
+  const [chosen, setChosen] = useState<Record<MatureCategory,number>>({ mature_romantic: 0, mature_adult: 0 });
+  useEffect(() => {
+    const next: Record<MatureCategory,string[][]> = { mature_romantic: [["", "", ""]], mature_adult: [["", "", ""]] };
+    for (const category of ["mature_romantic", "mature_adult"] as const) {
+      try {
+        const raw = localStorage.getItem(`photo-lab-scenes:${conversationId}:${category}`);
+        const parsed: unknown = raw ? JSON.parse(raw) : null;
+        next[category] = [Array.isArray(parsed) && parsed.length === 3
+          ? parsed.map((v) => typeof v === "string" ? v.slice(0,400) : "") : ["","",""]];
+      } catch { /* local storage disabled */ }
+    }
+    setScenes(next);
+    setChosen({ mature_romantic: 0, mature_adult: 0 });
+  }, [conversationId]);
+  function updateScene(category: MatureCategory, index: number, value: string) {
+    const previous = scenes[category][0] ?? ["","",""];
+    const values = previous.map((v, i) => i === index ? value.slice(0,400) : v);
+    setScenes(old => ({ ...old, [category]: [values] }));
+    try { localStorage.setItem(`photo-lab-scenes:${conversationId}:${category}`, JSON.stringify(values)); }
+    catch { /* private browsing */ }
+  }
   const refresh = useCallback(async () => {
     const r = await command({ data: { action: "list", conversationId } });
     if (r.snapshot) setSnapshot(r.snapshot);
@@ -47,6 +73,9 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           conversationId,
           category,
           requestId: request.id,
+          ...((category === "mature_romantic" || category === "mature_adult") &&
+              scenes[category][0]?.[chosen[category]]?.trim()
+            ? { customScene: scenes[category][0]![chosen[category]]!.trim() } : {}),
           confirmation: "GENERATE DEVELOPER PHOTO TEST",
         },
       });
@@ -103,6 +132,34 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {error}
         </p>
       )}
+      {(["mature_romantic", "mature_adult"] as const).map((category) => (
+        <details key={category} className="rounded-xl border p-3">
+          <summary className="cursor-pointer font-medium">
+            {category === "mature_romantic" ? "Mature Romantic" : "Mature Adult"} — 3 custom scene options
+          </summary>
+          <p className="my-2 text-xs text-muted-foreground">
+            Describe clothing, pose, setting and atmosphere. Each option is blank until you fill it in.
+            Stored on this device for this character. Only used for explicit developer tests, not automatic photos.
+          </p>
+          <div className="space-y-3">
+            {(scenes[category][0] ?? ["","",""]).map((value,index) => (
+              <label key={index} className="block space-y-1">
+                <span className="flex items-center gap-2 text-sm">
+                  <input type="radio" name={`scene-${category}-${conversationId}`}
+                    checked={chosen[category] === index}
+                    onChange={() => setChosen(old => ({...old, [category]: index}))}/>
+                  Custom scene {index + 1}
+                </span>
+                <textarea aria-label={`${category} custom scene ${index+1}`}
+                  rows={3} maxLength={400} value={value}
+                  onChange={e => updateScene(category,index,e.target.value)}
+                  placeholder="Describe an adult, non-explicit photo scene..."
+                  className="w-full rounded-xl border bg-background p-3 text-sm"/>
+              </label>
+            ))}
+          </div>
+        </details>
+      ))}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {snapshot?.types.map((t) => (
           <button
