@@ -13,18 +13,24 @@ self.addEventListener("push", (event) => {
   if (!event.data) return;
   let payload;
   try { payload = event.data.json(); } catch { return; }
+  const incoming = payload.kind === "incoming_call";
+  if (incoming && (!payload.expiresAt || Date.parse(payload.expiresAt) <= Date.now())) return;
   event.waitUntil(
     self.registration.showNotification(payload.title || "Chats", {
       body: payload.body || "New message",
       tag: payload.tag || "chats",
-      renotify: false,
-      data: { url: payload.url || "/inbox" },
+      renotify: incoming,
+      requireInteraction: incoming,
+      actions: incoming ? [{ action: "answer", title: "Answer" }, { action: "dismiss", title: "Dismiss" }] : [],
+      data: { url: payload.url || "/inbox", kind: incoming ? "incoming_call" : "message", expiresAt: payload.expiresAt || null },
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
+  if (event.action === "dismiss") return;
+  if (event.notification.data?.kind === "incoming_call" && Date.parse(event.notification.data.expiresAt || "") <= Date.now()) return;
   const path = (event.notification.data && event.notification.data.url) || "/inbox";
   const url = new URL(path, self.location.origin).href;
   event.waitUntil(
