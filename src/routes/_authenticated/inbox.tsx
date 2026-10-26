@@ -4,7 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { MoreVertical, Search, Phone } from "lucide-react";
+import { Search, Phone } from "lucide-react";
 import { ensureConversations, inboxOverview, tessMaybeInitiate } from "@/lib/tess.functions";
 import { userTz } from "@/lib/tess-queries";
 import { characterFor } from "@/lib/characters";
@@ -84,13 +84,6 @@ function Inbox() {
           >
             <Search className="h-5 w-5" />
           </button>
-          <Link
-            to="/settings"
-            aria-label="Settings"
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted"
-          >
-            <MoreVertical className="h-5 w-5" />
-          </Link>
         </div>
         {searchOpen && (
           <div className="mx-auto max-w-xl px-3 pb-2">
