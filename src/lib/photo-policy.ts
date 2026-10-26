@@ -1,7 +1,7 @@
 import type { TessState } from "./tess-logic";
 import { allowedGeneratedTypes, type GeneratedType } from "./tess-photos";
 
-export type PhotoCategory = GeneratedType | "mature_romantic";
+export type PhotoCategory = GeneratedType | "mature_romantic" | "mature_nude";
 export type PhotoBoundary = "none" | "selfies" | "all_photos" | "mature";
 export type PhotoContext = {
   age: number;
@@ -9,6 +9,9 @@ export type PhotoContext = {
   romanticCapable: boolean;
   supported: readonly string[];
   matureEnabled: boolean;
+  /** Separate verified-adult and explicit-photo opt-ins. Never inferred from matureEnabled. */
+  adultVerified?: boolean;
+  nudeEnabled?: boolean;
   boundary: PhotoBoundary;
 };
 
@@ -17,13 +20,13 @@ export function photoCapabilities(c: PhotoContext): PhotoCategory[] {
   if (!c.enabled || !Number.isInteger(c.age) || c.age < 18) return [];
   const ordinary = c.supported.filter((t): t is GeneratedType =>
     ["object", "tess_candid", "casual_selfie", "personal_selfie", "intimate_selfie"].includes(t));
-  return c.romanticCapable ? [...ordinary, "mature_romantic"] : ordinary;
+  return c.romanticCapable ? [...ordinary, "mature_romantic", "mature_nude"] : ordinary;
 }
 
 export function boundaryAllows(boundary: PhotoBoundary, type: PhotoCategory): boolean {
   if (boundary === "all_photos") return false;
   if (boundary === "selfies") return type === "object";
-  return boundary !== "mature" || type !== "mature_romantic";
+  return boundary !== "mature" || (type !== "mature_romantic" && type !== "mature_nude");
 }
 
 /** Romantic intent is independent of attraction, warmth, and photo willingness. */
@@ -38,7 +41,9 @@ export function eligiblePhotoCategories(s: TessState, c: PhotoContext): PhotoCat
   return photoCapabilities(c).filter((t) => boundaryAllows(c.boundary, t) &&
     (t === "mature_romantic"
       ? c.matureEnabled && romanticPhotoEligible(s, c)
-      : ordinary.includes(t)));
+      : t === "mature_nude"
+        ? c.matureEnabled && c.nudeEnabled === true && c.adultVerified === true && romanticPhotoEligible(s, c)
+        : ordinary.includes(t)));
 }
 
 export function photoDecisionReason(args: {
@@ -52,7 +57,9 @@ export function photoDecisionReason(args: {
     return `photo boundary blocks ${args.type} (boundary: ${args.context.boundary})`;
   if (!args.eligible.includes(args.type))
     return `photo category ${args.type} not eligible (allowed: ${args.eligible.join(", ") || "none"})`;
-  if (args.type === "mature_romantic" &&
+  if (args.type === "mature_nude" && (!args.context.adultVerified || !args.context.nudeEnabled))
+    return "nude category requires verified adult and separate explicit opt-in";
+  if ((args.type === "mature_romantic" || args.type === "mature_nude") &&
       (!args.context.matureEnabled || args.framing !== "romantic"))
     return "mature romantic category requires enabled preference and romantic framing";
   if (args.framing === "romantic" && !romanticPhotoEligible(args.state, args.context))
