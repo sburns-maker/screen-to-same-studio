@@ -22,7 +22,7 @@ function Home() {
   const location = useLocation();
   const q = useTown(),
     load = useServerFn(inboxOverview),
-    inbox = useQuery({ queryKey: ["inbox"], queryFn: () => load({}) }),
+    inbox = useQuery({ queryKey: ["inbox"], queryFn: () => load({}), staleTime: 15_000 }),
     act = useServerFn(actInTown),
     [busy, setBusy] = useState(false);
   const currentHome=q.data?.housingAvailable ? q.data.housing.primary : "home:user";
