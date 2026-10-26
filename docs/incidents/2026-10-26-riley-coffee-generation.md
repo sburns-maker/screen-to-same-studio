@@ -33,3 +33,13 @@ The exact upstream rejection cause and a successful live recovery remain unverif
 - Disposable local PostgreSQL 17: **12 actual multi-connection transaction tests passed**, including claim races, duplicate completion and atomic rollback; the container was removed afterward.
 - TypeScript, production build, focused ESLint (legacy formatting rule disabled on existing files) and diff checks passed.
 - Provider responses are mocked. No paid generation, production retry or direct production database validation was performed.
+
+## Screenshot follow-up: visible diagnostics and legacy wording
+
+A subsequent screenshot shows the new HTTP 400 classification alongside the old database summary “retry the same action safely.” That old summary describes persistence idempotency and must not imply the rejected generation will succeed. Render that exact legacy summary as neutral “review saved failure details” advice without altering its stored value.
+
+Display the already-saved model/status/providerCode/parameter/request ID above the conversation history, so the user does not need to scroll through 50 moments. Reading/refetching diagnostics is not a generation attempt. Missing saved values are explicitly labelled “not recorded”; the UI cannot reconstruct past error bodies. Do not assume the earlier 2/3 attempt count is still current after a later attempt.
+
+The sanitizer now accepts direct or nested error objects and uses a bounded JSON `responseBody` fallback when the SDK cannot parse its usual error envelope. Only allowlisted code/parameter roots are returned; raw messages, response bodies, prompts and credentials are never exposed. Synthetic regression fixtures use `unsupported_parameter`/`reasoning.effort` to test extraction; those are NOT claims about the actual production rejection. Exact upstream cause remains pending the saved production diagnostic fields.
+
+Follow-up verification: **1,069 default tests passed / 55 opt-in skipped**; 65 focused tests passed; TypeScript, production build, focused lint (legacy formatting rule disabled on existing files) and diff checks passed. No production generation or retry was triggered.

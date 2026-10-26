@@ -211,6 +211,16 @@ function Experiences() {
               </button>
             </p>
           )}
+          {history.data?.pending?.status === "failed" && history.data.pending.failure?.diagnostic && (
+            <section aria-label="Saved provider rejection details" className="rounded-xl border border-destructive p-3 text-sm">
+              <p className="font-medium">Saved provider details</p>
+              <p>Model: {history.data.pending.failure.diagnostic.model} · HTTP: {history.data.pending.failure.diagnostic.statusCode ?? "not recorded"}</p>
+              <p>Provider code: {history.data.pending.failure.diagnostic.providerCode ?? "not recorded"}</p>
+              <p>Parameter: {history.data.pending.failure.diagnostic.param ?? "not recorded"}</p>
+              {history.data.pending.failure.diagnostic.requestId && <p>Request ID: {history.data.pending.failure.diagnostic.requestId}</p>}
+              <p className="mt-2 text-xs text-muted-foreground">These are saved diagnostics. Reading or refreshing them does not generate another scene.</p>
+            </section>
+          )}
           {q.isLoading ? (
             <p role="status">Loading outings…</p>
           ) : !q.data?.available ? (
@@ -360,7 +370,7 @@ function Experiences() {
                         )}
                       </div>
                       {e.last_failure && (
-                        <p className="text-sm text-destructive">{e.last_failure}</p>
+                        <p className="text-sm text-destructive">{e.last_failure === "Generation interrupted; retry the same action safely" ? "Generation interrupted. Review the saved failure details before retrying." : e.last_failure}</p>
                       )}
                     </article>
                   );

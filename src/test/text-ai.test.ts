@@ -245,4 +245,56 @@ describe("correlated structured provider diagnostics", () => {
     check(body.text.format.schema);
     expect(body.model).toBe("gpt-6-luna");
   });
+  it("recovers safe details when the provider body does not match the SDK error envelope", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      Response.json(
+        {
+          code: "unsupported_parameter",
+          param: "reasoning.effort",
+          message: "PRIVATE ERROR BODY",
+        },
+        { status: 400 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const { runStructured } = await import("@/lib/text-ai.server");
+    await expect(runStructured(schema, "canon", "context")).rejects.toThrow();
+    const logs = JSON.stringify(vi.mocked(console.warn).mock.calls);
+    expect(logs).toContain('"providerCode":"unsupported_parameter"');
+    expect(logs).toContain('"param":"reasoning.effort"');
+    expect(logs).not.toContain("PRIVATE ERROR BODY");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+it("extracts allowlisted rejection details from direct SDK data or a bounded raw-body fallback without exposing messages", async () => {
+  const { characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  for (const data of [
+    undefined,
+    { code: "unsupported_parameter", param: "reasoning.effort", message: "PRIVATE" },
+  ]) {
+    const diagnostic = characterAIDiagnostic(
+      "gpt-6-luna",
+      400,
+      data,
+      null,
+      undefined,
+      JSON.stringify({
+        error: { code: "unsupported_parameter", param: "reasoning.effort", message: "PRIVATE" },
+      }),
+    );
+    expect(diagnostic).toMatchObject({
+      providerCode: "unsupported_parameter",
+      param: "reasoning.effort",
+      retryable: false,
+    });
+    expect(JSON.stringify(diagnostic)).not.toContain("PRIVATE");
+  }
+  expect(
+    characterAIDiagnostic("gpt-6-luna", 400, null, null, undefined, "PRIVATE unstructured error")
+      .providerCode,
+  ).toBeNull();
+  expect(
+    characterAIDiagnostic("gpt-6-luna", 400, null, null, undefined, "x".repeat(32001)).providerCode,
+  ).toBeNull();
 });

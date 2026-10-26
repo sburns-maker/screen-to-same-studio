@@ -56,21 +56,42 @@ export function characterAIDiagnostic(
   data: unknown,
   requestId: unknown,
   local?: "timeout" | "invalid_response" | "output_limit",
+  responseBody?: unknown,
 ): CharacterAIDiagnostic {
-  const container = data && typeof data === "object" ? (data as Record<string, unknown>) : {};
-  const error =
-    container["error"] && typeof container["error"] === "object"
+  const unpack = (value: unknown): Record<string, unknown> => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    const container = value as Record<string, unknown>;
+    return container["error"] &&
+      typeof container["error"] === "object" &&
+      !Array.isArray(container["error"])
       ? (container["error"] as Record<string, unknown>)
-      : {};
-  const rawCode = error["code"] ?? error["type"];
-  const providerCode = typeof rawCode === "string" && providerCodes.has(rawCode) ? rawCode : null;
-  const rawParam = error["param"];
+      : container;
+  };
+  let body: unknown;
+  if (typeof responseBody === "string" && responseBody.length <= 32000) {
+    try {
+      body = JSON.parse(responseBody);
+    } catch {
+      /* Never display unstructured error text. */
+    }
+  }
+  const candidates = [unpack(data), unpack(body)];
+  const providerCode =
+    candidates
+      .flatMap((e) => [e["code"], e["type"]])
+      .find((value): value is string => typeof value === "string" && providerCodes.has(value)) ??
+    null;
   const param =
-    typeof rawParam === "string"
-      ? (params.find(
-          (p) => rawParam === p || rawParam.startsWith(p + ".") || rawParam.startsWith(p + "["),
-        ) ?? null)
-      : null;
+    candidates
+      .map((e) => e["param"])
+      .flatMap((value) =>
+        typeof value === "string"
+          ? params.filter(
+              (p) => value === p || value.startsWith(p + ".") || value.startsWith(p + "["),
+            )
+          : [],
+      )
+      .at(0) ?? null;
   const code: CharacterAIDiagnostic["code"] =
     local ??
     (providerCode === "context_length_exceeded"
