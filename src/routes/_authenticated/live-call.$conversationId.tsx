@@ -10,7 +10,7 @@ import { createLiveCall, type LiveCallState } from "@/lib/live-call-client";
 import { LIVE_CALL_HEARTBEAT_MS, type TranscriptLine } from "@/lib/live-calls";
 
 export const Route = createFileRoute("/_authenticated/live-call/$conversationId")({
-  validateSearch: (search: Record<string, unknown>) => ({ incomingCallId: typeof search.incomingCallId === "string" && /^[0-9a-f-]{36}$/i.test(search.incomingCallId) ? search.incomingCallId : undefined }),
+  validateSearch: (search: Record<string, unknown>) => ({ incomingCallId: typeof search['incomingCallId'] === "string" && /^[0-9a-f-]{36}$/i.test(search['incomingCallId']) ? search['incomingCallId'] : undefined }),
   head: () => ({
     meta: [
       { title: "Voice call · AI Town" },
