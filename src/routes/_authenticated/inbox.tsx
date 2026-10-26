@@ -49,6 +49,7 @@ function Inbox() {
     queryKey: ["inbox"],
     queryFn: () => inboxFn({}),
     enabled: ensured.isSuccess,
+    staleTime: 15_000,
     refetchInterval: 30_000,
   });
 
