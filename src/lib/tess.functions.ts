@@ -420,7 +420,8 @@ async function runTurnUnlocked(
           return [] as string[];
         })
     : [];
-  const worldKnowledge = [...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
+  const callHistory = await (await import("./call-history-context.server")).recentCallContext(photoAdmin ?? supabase, userId, conv.id, def.key, now);
+  const worldKnowledge = [...callHistory,...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];

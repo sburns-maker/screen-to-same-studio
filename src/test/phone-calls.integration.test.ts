@@ -152,6 +152,24 @@ describe("in-app phone ledger and actual character brain with fake paid provider
     );
     expect(Object.values(FICTIONAL_NUMBERS).every((n) => n >= 100 && n <= 199)).toBe(true);
   });
+  it("shares a missed call with later text replies without fabricating an SMS or cross-owner knowledge", async () => {
+    const call = id();
+    await phoneCommand(admin(), user, call, "start", { conversation: cid, direction: "incoming", outcome: "answer", reason: "spontaneous", ring: 5 });
+    vi.setSystemTime(new Date(now.getTime() + 10000));
+    await phoneSnapshot(admin(), user);
+    const { recentCallContext } = await import("@/lib/call-history-context.server");
+    const facts = await recentCallContext(admin(), user, cid, "maya", new Date());
+    expect(facts.join(" ")).toContain("You called the player; missed / not answered");
+    expect(await recentCallContext(admin(), other, cid, "maya", new Date())).toEqual([]);
+    expect(await recentCallContext(admin(), user, cid, "tess", new Date())).toEqual([]);
+    expect(await recentCallContext(admin(), user, id(), "maya", new Date())).toEqual([]);
+    expect((await db.query("select * from messages")).rows).toHaveLength(0);
+    expect((await db.query("select * from memories")).rows).toHaveLength(0);
+    const { runTurn } = await import("@/lib/tess.functions");
+    await runTurn(admin(), user, cid, "America/New_York");
+    const args = mocks.text.mock.calls.at(-1)?.[0];
+    expect(args.worldKnowledge.join(" ")).toContain("You called the player; missed / not answered");
+  });
   it("rings without charging, connects explicitly, logs actual duration and prevents concurrent calls", async () => {
     const call = await open();
     expect(mocks.asr).not.toHaveBeenCalled();

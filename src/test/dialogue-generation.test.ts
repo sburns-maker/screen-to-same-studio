@@ -128,6 +128,7 @@ describe("real character adapters share voice guidance without canned response r
   });
   it("keeps dialogue tendencies available in bounded live voice prompts without authorizing calendar writes", () => {
     const prompt = buildCallInstructions({
+      callHistory: ["CALL RECORD: You called the player; missed / not answered; no conversation occurred."],
       characterKey: "jordan",
       fullName: CHARACTERS.jordan.fullName,
       preferredName: "Jordan",
@@ -140,6 +141,7 @@ describe("real character adapters share voice guidance without canned response r
       memories: [],
       recent: args.messages,
     });
+    expect(prompt).toContain("CALL RECORD: You called the player; missed / not answered");
     expect(prompt).toContain(DIALOGUE_PROFILES.jordan.openness);
     expect(prompt).toContain("no write tool during this live call");
     expect(prompt).toContain("courtroom/legal comic routine");
@@ -181,4 +183,14 @@ it.each(["tess","maya"] as const)("gives %s a photo-first task for a selected sp
  const request={...args,generateTypes:["casual_selfie"],initiation:{gapHours:0,spontaneousPhoto:true as const},initiationReason:"Current quiet break"};
  if(key==="tess")await generateTessReply(request);else await generateContactReply({...request,character:CHARACTERS[key]});
  const [,system,input]=model.run.mock.calls[0]!;expect(input).toContain("Decide about the photo first");expect(input).toContain("photo=null is valid");expect(system).toContain("Consider the photo first for this selected opportunity");expect(model.run).toHaveBeenCalledTimes(1);
+});
+
+
+it("includes call-ledger facts in both text character prompts", async () => {
+  const { callHistoryLines } = await import("@/lib/call-history-context");
+  const calls = callHistoryLines([{ direction: "incoming", state: "missed", offered_at: "2026-10-26T16:15:03Z", ring_until: "2026-10-26T16:15:33Z", answered_at: null, ended_at: null, reason: "spontaneous" }], new Date("2026-10-26T17:00:00Z"));
+  await generateTessReply({ ...args, worldKnowledge: calls });
+  expect(model.run.mock.calls.at(-1)?.[2]).toContain("You called the player; missed / not answered");
+  await generateContactReply({ ...args, character: CHARACTERS.maya, worldKnowledge: calls });
+  expect(model.run.mock.calls.at(-1)?.[2]).toContain("Do not deny a recorded attempt");
 });
