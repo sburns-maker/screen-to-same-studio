@@ -38,6 +38,7 @@ import {
   processVoiceTurn,
   ownedCall,
   offerDueCallback,
+  offerSpontaneousCall,
 } from "@/lib/phone-calls.server";
 import { callAvailability, fictionalNumber, FICTIONAL_NUMBERS } from "@/lib/phone-calls";
 import { encodeWave } from "@/lib/phone-audio";
@@ -114,7 +115,7 @@ beforeEach(async () => {
   }))
     vi.stubEnv(k, v);
   await db.exec(
-    "TRUNCATE user_profile;TRUNCATE conversations CASCADE;TRUNCATE job_runs CASCADE;TRUNCATE call_preferences;TRUNCATE world_places CASCADE;TRUNCATE character_knowledge;",
+    "TRUNCATE world_control;TRUNCATE user_profile;TRUNCATE conversations CASCADE;TRUNCATE job_runs CASCADE;TRUNCATE call_preferences;TRUNCATE world_places CASCADE;TRUNCATE character_knowledge;",
   );
   mocks.admin = postgresSupabase(db).admin;
   await db.query(
@@ -358,6 +359,7 @@ describe("in-app phone ledger and actual character brain with fake paid provider
         new Date(now.getTime() + 3600000).toISOString(),
       ],
     );
+    await db.query("update conversations set real_time_mode=false where id=$1", [conversation]);
     expect(await offerDueCallback(admin(), user, new Date())).toBe(true);
     const calls = (await phoneSnapshot(admin(), user)).calls;
     expect(calls[0]?.character_key).toBe("maya");
@@ -443,7 +445,7 @@ describe("developer incoming-call readiness and controlled ringing", () => {
       save_transcripts: true,
     });
     await expect(developerTestRing(admin(), user, id(), id())).rejects.toThrow(
-      "Real-Time conversation",
+      "owned, unmuted conversation",
     );
     await db.query("insert into user_profile(user_id,key,value) values($1,'quiet_hours','18-08')", [
       user,
@@ -464,5 +466,107 @@ describe("developer incoming-call readiness and controlled ringing", () => {
       "Another call active",
     );
     await expect(developerTestRing(admin(), user, cid, id())).rejects.toThrow("Another call");
+  });
+});
+
+describe("autonomous calls independent of texting mode", () => {
+  async function selectedTime() {
+    const { incomingCallSelection } = await import("@/lib/incoming-call-policy");
+    // Find a selected free evening in a deterministic user/contact hourly draw.
+    for (let day = 23; day < 31; day++) {
+      const candidate = new Date(`2026-10-${day}T23:30:00Z`);
+      if (
+        incomingCallSelection(user, "maya", candidate).selected &&
+        callAvailability("maya", candidate).outcome === "answer"
+      )
+        return candidate;
+    }
+    throw new Error("Selected fixture missing");
+  }
+  it("offers a real persisted incoming call in Practice mode, without paid inference or repeated rings", async () => {
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    const when = await selectedTime();
+    vi.setSystemTime(when);
+    await db.query("update conversations set real_time_mode=false where id=$1", [cid]);
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(true);
+    const call = (await phoneSnapshot(admin(), user)).calls[0]!;
+    expect(call).toMatchObject({ character_key: "maya", direction: "incoming", state: "ringing" });
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(false);
+    await phoneCommand(admin(), user, call.id, "decline");
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(false);
+    expect((await db.query("select * from phone_calls")).rows).toHaveLength(1);
+    expect(mocks.text).not.toHaveBeenCalled();
+    expect(mocks.asr).not.toHaveBeenCalled();
+    expect(mocks.tts).not.toHaveBeenCalled();
+  });
+  it("shares eligibility with diagnostics and supports Practice-mode developer rings", async () => {
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    vi.stubEnv("ENABLE_DEV_PHOTO_ACTIONS", "true");
+    vi.stubEnv("DEVELOPER_PHOTO_USER_IDS", user);
+    const when = await selectedTime();
+    vi.setSystemTime(when);
+    await db.query("update conversations set real_time_mode=false where id=$1", [cid]);
+    const { incomingCallDiagnostics, developerTestRing } =
+      await import("@/lib/call-readiness.server");
+    const report = await incomingCallDiagnostics(admin(), user, when);
+    expect(report.globalBlocks).toEqual([]);
+    expect(report.characters[0]).toMatchObject({
+      realTime: false,
+      selectedThisHour: true,
+      blockers: [],
+    });
+    expect(report.worker.lastCheckedAt).toBeNull();
+    await db.query("insert into world_control(key,value,updated_at) values($1,$2,$3)", [
+      `incoming_calls:${other}`,
+      JSON.stringify({ offered: true }),
+      when.toISOString(),
+    ]);
+    expect((await incomingCallDiagnostics(admin(), user, when)).worker.lastCheckedAt).toBeNull();
+    await db.query("insert into world_control(key,value,updated_at) values($1,$2,$3)", [
+      `incoming_calls:${user}`,
+      JSON.stringify({ offered: false, failed: true }),
+      when.toISOString(),
+    ]);
+    expect((await incomingCallDiagnostics(admin(), user, when)).worker).toMatchObject({
+      failed: true,
+      offered: false,
+    });
+    await developerTestRing(admin(), user, cid, id());
+    expect((await db.query("select * from phone_calls")).rows).toHaveLength(1);
+  });
+  it("still respects quiet hours, mute, occupied presence and opt-out in Practice mode", async () => {
+    vi.stubEnv("ENABLE_INCOMING_VOICE_CALLS", "true");
+    const when = await selectedTime();
+    vi.setSystemTime(when);
+    await db.query("update conversations set real_time_mode=false,muted=true where id=$1", [cid]);
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(false);
+    await db.query("update conversations set muted=false where id=$1", [cid]);
+    await db.query("insert into user_profile(user_id,key,value) values($1,'quiet_hours','18-08')", [
+      user,
+    ]);
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(false);
+    await db.query("delete from user_profile");
+    const plan = id();
+    await db.query(
+      "insert into world_places(user_id,key,label,kind) values($1,'call-test-venue','Test venue','cafe')",
+      [user],
+    );
+    await db.query(
+      "insert into social_plans(user_id,id,organizer,place_key,title,starts_at,ends_at) values($1,$2,'maya','call-test-venue','Test event',$3,$4)",
+      [user, plan, when.toISOString(), new Date(when.getTime() + 3600000).toISOString()],
+    );
+    await db.query(
+      "insert into social_presence(user_id,character_key,plan_id,place_key,until_at) values($1,'maya',$2,'call-test-venue',$3)",
+      [user, plan, new Date(when.getTime() + 3600000).toISOString()],
+    );
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(false);
+    await db.query("delete from social_presence");
+    await phoneCommand(admin(), user, id(), "preferences", {
+      enabled: true,
+      incoming: false,
+      save_transcripts: true,
+    });
+    expect(await offerSpontaneousCall(admin(), user, when)).toBe(false);
+    expect((await db.query("select * from phone_calls")).rows).toHaveLength(0);
   });
 });

@@ -60,8 +60,8 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
           Incoming call diagnostics and test ring
         </summary>
         <p className="my-2 text-xs">
-          Read-only diagnostics show current blockers, each contact's availability, Real-Time mode
-          and the stable hourly selection. This does not prove the worker has run.
+          Read-only diagnostics show current blockers, worker checks and the stable hourly
+          selection. Incoming calls work in both Practice and Real-Time mode.
         </p>
         <button
           className="min-h-11 rounded-full border px-3 text-xs"
@@ -79,6 +79,16 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
             <p>
               Global blockers:{" "}
               {diagnosis.globalBlocks.length ? diagnosis.globalBlocks.join("; ") : "None detected"}
+            </p>
+            <p>{diagnosis.serviceNote}</p>
+            <p>
+              Last worker call check:{" "}
+              {diagnosis.worker?.lastCheckedAt
+                ? new Date(diagnosis.worker.lastCheckedAt).toLocaleString()
+                : "None recorded; verify the production world scheduler"}
+              {diagnosis.worker?.failed ? " · Check failed" : ""}
+              {diagnosis.worker?.offered ? " · Call offered" : ""}
+              {diagnosis.worker?.lookupFailed ? " · Checkpoint lookup failed" : ""}
             </p>
             {diagnosis.characters.map((c) => (
               <div key={c.conversationId} className="rounded-lg border p-2">

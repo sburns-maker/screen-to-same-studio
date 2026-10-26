@@ -362,6 +362,10 @@ describe("offline living world through the normal character pipeline (fake paid 
     expect(await count("shared_events")).toBeGreaterThan(0);
     expect(await count("messages")).toBe(0);
     expect(mocks.text).not.toHaveBeenCalled();
+    const checkpoint = (await db.query<{value:{offered:boolean;failed:boolean};updated_at:Date}>(
+      "select value,updated_at from world_control where key=$1", [`incoming_calls:${user}`])).rows[0];
+    expect(checkpoint?.value).toEqual({ offered: false, failed: false });
+    expect(new Date(checkpoint!.updated_at).toISOString()).toBe(now.toISOString());
   });
   it("sends background messages in Practice mode when initiation is due", async () => {
     await db.query("update conversations set real_time_mode=false where id=$1", [cid]);
