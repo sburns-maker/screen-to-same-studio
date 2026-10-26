@@ -16,19 +16,20 @@ export function ConversationPlans({ conversationId }: { conversationId: string }
         p.conversation_id === conversationId &&
         !["completed", "missed", "cancelled", "declined"].includes(p.status),
     )
-    .slice(0, 2);
+    .sort((a, b) => Number(b.status === "in_progress") - Number(a.status === "in_progress") || Number(b.status === "accepted") - Number(a.status === "accepted"))
+    .slice(0, 1);
   if (!plans.length) return null;
   return (
     <nav
       aria-label="Plans from this conversation"
-      className="mx-auto flex w-full max-w-xl gap-2 overflow-x-auto px-3 py-2"
+      className="mx-auto flex w-full max-w-xl gap-2 overflow-x-auto border-b px-3 py-1.5"
     >
       {plans.map((p) => (
         <Link
           key={p.id}
           to="/plans"
           hash={`plan-${p.id}`}
-          className="shrink-0 rounded-full border bg-surface px-3 py-2 text-xs"
+          className="max-w-full truncate rounded-full border bg-surface px-3 py-1.5 text-xs"
         >
           {p.title} · {calendarStatus(p)}
           {p.missing_details.length ? " · details needed" : ""}
