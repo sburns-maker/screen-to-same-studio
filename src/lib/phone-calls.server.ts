@@ -221,10 +221,20 @@ export async function processVoiceTurn(
     );
   }
 }
+/** GPT-Live incoming offer uses the existing zero-cost ring transport, not legacy TTS.
+ * Separately gated; callers must still explicitly answer to start paid WebRTC.
+ */
+export function incomingLiveMode() {
+  return process.env["ENABLE_INCOMING_GPT_LIVE_CALLS"] === "true" &&
+    process.env["ENABLE_INCOMING_VOICE_CALLS"] === "true" &&
+    process.env["ENABLE_LIVE_CHARACTER_CALLS"] === "true" &&
+    !!process.env["OPENAI_API_KEY"];
+}
+
 /** Offers only explicit, due callback promises. No inference, no generic hourly calls, no external ringing. */
 export async function offerDueCallback(db: Client, user: string, now: Date) {
   if (
-    !voiceConfiguration().ready ||
+    (!incomingLiveMode() && !voiceConfiguration().ready) ||
     process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" ||
     !(await phoneAvailable(db))
   )
@@ -299,6 +309,10 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     // Character replies use the shared tess transport sender; identity comes from
     // the owned conversation, not from the transport label.
     if (source.error || source.data?.sender !== "tess" || !source.data.body.includes(r.source_quote)) continue;
+    if (incomingLiveMode()) {
+      const { resolveCharacterVoice } = await import("./live-calls.server");
+      if (!(await resolveCharacterVoice(db as never, key))) continue;
+    }
     try {
       await phoneCommand(
         db,
@@ -330,7 +344,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
  * Promised callbacks remain separate and have priority in the world worker.
  */
 export async function offerSpontaneousCall(db: Client, user: string, now: Date) {
-  if (!voiceConfiguration().ready || process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" || !(await phoneAvailable(db))) return false;
+  if ((!incomingLiveMode() && !voiceConfiguration().ready) || process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" || !(await phoneAvailable(db))) return false;
   const snap = await phoneSnapshot(db, user);
   if (!snap.preferences.enabled || !snap.preferences.incoming || !snap.preferences.save_transcripts ||
       snap.calls.some(c=>ACTIVE_CALL_STATES.includes(c.state))) return false;
@@ -342,6 +356,10 @@ export async function offerSpontaneousCall(db: Client, user: string, now: Date) 
     const key = contact.character;
     const activity = { detail: contact.activity };
     const conv = { id: contact.conversationId };
+    if (incomingLiveMode()) {
+      const { resolveCharacterVoice } = await import("./live-calls.server");
+      if (!(await resolveCharacterVoice(db as never, key))) continue;
+    }
     const reason=`I had a free moment and wanted to catch up. ${activity.detail}`.slice(0,200);
     try{
       await phoneCommand(db,user,crypto.randomUUID(),"start",{
