@@ -27,6 +27,20 @@ export async function interactiveAvailable(db: Client) {
   if (r.error) throw new Error("Interactive world unavailable");
   return r.data === 19;
 }
+/** Explicit user-confirmed plans override fictional character routine, not venue hours. */
+export function calendarVenueAllows(
+  date: string | null,
+  time: string | null,
+  place: string | null,
+  options: { durationMinutes?: number; timeZone?: string; privateHome?: boolean } = {},
+) {
+  const start = zonedInstant(date, time, options.timeZone);
+  const venue = placeByKey(place) ?? (options.privateHome ? { opens: 0, closes: 24 } : null);
+  if (!start || !venue) return false;
+  const from = new Date(start);
+  const end = new Date(from.getTime() + (options.durationMinutes ?? 60) * 60000 - 1);
+  return placeOpen(venue, from) && placeOpen(venue, end);
+}
 export function calendarScheduleAllows(
   character: string,
   date: string | null,
