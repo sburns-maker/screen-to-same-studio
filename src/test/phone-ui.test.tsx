@@ -21,11 +21,12 @@ afterEach(() => {
   mocks.act.mockClear();
 });
 describe("foreground phone controls", () => {
-  it("shows identity, reserved number and accessible answer/decline controls without requesting microphone", async () => {
+  it("shows identity, display-only number and accessible answer/decline controls without requesting microphone", async () => {
     render(<IncomingCall />);
     expect(screen.getByText("Tess")).toBeInTheDocument();
-    expect(screen.getByText(/555-0100/)).toBeInTheDocument();
+    expect(screen.getByText(/684-2739/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Answer" })).toBeInTheDocument();
+    for (const link of screen.getAllByRole("link")) expect(link.getAttribute("href")).not.toMatch(/^(tel|sms):/i);
     fireEvent.click(screen.getByRole("button", { name: "Decline" }));
     await waitFor(() =>
       expect(mocks.act).toHaveBeenCalledWith({ data: { id: "call", command: "decline" } }),

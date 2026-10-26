@@ -1,7 +1,7 @@
 import { ContactPending } from "@/components/ContactPending";
 import { HousingPanel } from "@/components/HousingPanel";
 import { CallButton } from "@/components/CallButton";
-import { fictionalNumber } from "@/lib/phone-calls";
+import { contactPhoneNumber } from "@/lib/phone-calls";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -116,7 +116,7 @@ function Profile() {
 
         <section className="mx-auto mb-5 flex max-w-xl items-center justify-between gap-3 px-5">
           <div>
-            <p className="text-sm">{fictionalNumber(def.key)}</p>
+            <p className="text-sm">{contactPhoneNumber(def.key)}</p>
             <Link to="/calls" search={{ conversation: conversationId }} className="text-xs underline">
               Calls & recents
             </Link>

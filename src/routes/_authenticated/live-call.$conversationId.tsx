@@ -1,3 +1,4 @@
+import { contactPhoneNumber } from "@/lib/contact-numbers";
 import { ContactPending } from "@/components/ContactPending";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -142,6 +143,7 @@ function LiveCallScreen() {
         className={`h-32 w-32 rounded-full object-cover ${speaking ? "ring-4 ring-primary" : ""}`}
       />
       <h1 className="mt-4 text-2xl font-semibold">{def.preferredName}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{contactPhoneNumber(def.key)}</p>
       <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
         {state === "dialing"
           ? "Calling…"
