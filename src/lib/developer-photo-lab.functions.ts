@@ -33,6 +33,7 @@ export const developerPhotoLab = createServerFn({ method: "POST" })
           data.conversationId,
           data.requestId,
           data.category,
+          data.wardrobe,
         ),
       };
     return {
