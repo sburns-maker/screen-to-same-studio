@@ -106,6 +106,7 @@ export const startLiveCall = createServerFn({ method: "POST" })
     ]);
     const bible = conv.key === "tess" ? (await import("./tess.server")).CHARACTER_BIBLE : def.bible;
     const instructions = buildCallInstructions({
+      callHistory: await (await import("./call-history-context.server")).recentCallContext(db, context.userId, conv.id, def.key, now),
       characterKey: def.key,
       fullName: def.fullName,
       preferredName: def.preferredName,

@@ -65,6 +65,7 @@ export function hasUserSpeech(lines: TranscriptLine[]) {
 }
 
 export type CallContext = {
+  callHistory?: string[];
   characterKey?: string;
   calendar?: string[];
   fullName: string;
@@ -107,9 +108,11 @@ ${dialogueContext(
 HOW TO TALK: natural spoken English, short turns (one to three sentences), contractions, real reactions, occasional pauses or "hm". Let them talk; ask a follow-up sometimes, not every turn. No lists, no narration of actions, no emojis.
 VOICE DELIVERY: Keep a relaxed, clear, expressive speaking rhythm. Use normal-length vowels and natural word stress, not stretched syllables or exaggerated breathy phrasing. Do not perform hesitation or add fillers to sound human: use "um", "uh", "yeah", and repeated starts only when spontaneous and genuinely fitting, generally no more than one per turn. Avoid repeating a sentence opening or padding silence. Finish thoughts cleanly, with varied sentence lengths and light warmth rather than a performative voice.
 LISTENING: Give the caller room to complete a thought, including pauses in the middle of a phrase. Never jump in just because the caller pauses briefly. Respond to the meaning of the whole sentence, not partial words or transcripts.
-HONESTY: only reference facts from your personality, memories and recent texts below. Don't invent shared history. You may discuss plans, but don't confirm new specific dates, times or places as settled; say you'll text to lock it in.
+HONESTY: only reference facts from your personality, memories, recent texts, calendar and recorded call attempts below. Don't invent shared history. You may discuss plans, but don't confirm new specific dates, times or places as settled; say you'll text to lock it in.
 BOUNDARIES: keep it non-explicit. If pressured, respond like a real person (deflect, set a boundary, or end the call).
 Answer everything yourself from what you know; never hand off or wait for a lookup.
+RECENT CALL ATTEMPTS (authoritative facts, not conversation transcripts):
+${(c.callHistory ?? []).join("\n").slice(0, 3500)}
 CANONICAL CALENDAR (read-only, no write tool during this live call):
 ${(c.calendar ?? []).join("\n").slice(0, 2500)}
 PERSONALITY:

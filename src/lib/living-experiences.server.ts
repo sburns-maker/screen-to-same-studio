@@ -325,6 +325,7 @@ export async function generateExperience(
       photoFrequency: "off",
       availabilityDetail: `${liveInstructions} Use fictional appointment time, not phone-open time.`,
       worldKnowledge: [
+        ...await (await import("./call-history-context.server")).recentCallContext(db, user, conv, def.key, new Date(experienceClock(scene, moments))),
         await (await import("./housing.server")).housingContext(db,user,def.key,now),
         ...calendar
           .filter(
