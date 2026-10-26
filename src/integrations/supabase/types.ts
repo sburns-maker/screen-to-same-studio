@@ -97,6 +97,51 @@ export type Database = {
           },
         ]
       }
+      calendar_manual_actions: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          payload: Json
+          plan_id: string | null
+          plan_version: number | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id: string
+          payload: Json
+          plan_id?: string | null
+          plan_version?: number | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          plan_id?: string | null
+          plan_version?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_manual_actions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_manual_actions_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       calendar_transitions: {
         Row: {
           created_at: string
@@ -824,6 +869,440 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      housing_access: {
+        Row: {
+          expires_at: string | null
+          granted_at: string
+          permission: string
+          plan_id: string | null
+          residence_id: string
+          source: string
+          user_id: string
+          viewer: string
+        }
+        Insert: {
+          expires_at?: string | null
+          granted_at?: string
+          permission: string
+          plan_id?: string | null
+          residence_id: string
+          source: string
+          user_id: string
+          viewer: string
+        }
+        Update: {
+          expires_at?: string | null
+          granted_at?: string
+          permission?: string
+          plan_id?: string | null
+          residence_id?: string
+          source?: string
+          user_id?: string
+          viewer?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housing_access_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "housing_access_user_id_residence_id_fkey"
+            columns: ["user_id", "residence_id"]
+            isOneToOne: false
+            referencedRelation: "housing_residences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      housing_action_outbox: {
+        Row: {
+          actions: Json
+          created_at: string
+          failure: string | null
+          processed: boolean
+          source_id: string
+          source_kind: string
+          user_id: string
+        }
+        Insert: {
+          actions: Json
+          created_at?: string
+          failure?: string | null
+          processed?: boolean
+          source_id: string
+          source_kind: string
+          user_id: string
+        }
+        Update: {
+          actions?: Json
+          created_at?: string
+          failure?: string | null
+          processed?: boolean
+          source_id?: string
+          source_kind?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      housing_events: {
+        Row: {
+          detail: Json
+          event_type: string
+          id: string
+          occurred_at: string
+          person_key: string | null
+          residence_id: string | null
+          user_id: string
+        }
+        Insert: {
+          detail: Json
+          event_type: string
+          id: string
+          occurred_at: string
+          person_key?: string | null
+          residence_id?: string | null
+          user_id: string
+        }
+        Update: {
+          detail?: Json
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          person_key?: string | null
+          residence_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      housing_goals: {
+        Row: {
+          created_at: string
+          goal: string
+          person_key: string
+          source_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          goal: string
+          person_key: string
+          source_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          goal?: string
+          person_key?: string
+          source_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      housing_households: {
+        Row: {
+          arrangement: string
+          consent_review_required: boolean
+          dependents: Json
+          id: string
+          permissions: Json
+          pets: Json
+          residence_id: string
+          shared_expenses: Json
+          user_id: string
+        }
+        Insert: {
+          arrangement?: string
+          consent_review_required?: boolean
+          dependents?: Json
+          id: string
+          permissions?: Json
+          pets?: Json
+          residence_id: string
+          shared_expenses?: Json
+          user_id: string
+        }
+        Update: {
+          arrangement?: string
+          consent_review_required?: boolean
+          dependents?: Json
+          id?: string
+          permissions?: Json
+          pets?: Json
+          residence_id?: string
+          shared_expenses?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housing_households_user_id_residence_id_fkey"
+            columns: ["user_id", "residence_id"]
+            isOneToOne: true
+            referencedRelation: "housing_residences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      housing_memberships: {
+        Row: {
+          ended_at: string | null
+          expires_at: string | null
+          household_id: string
+          id: string
+          kind: string
+          person_key: string
+          relation: string
+          residence_id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          ended_at?: string | null
+          expires_at?: string | null
+          household_id: string
+          id: string
+          kind?: string
+          person_key: string
+          relation?: string
+          residence_id: string
+          started_at: string
+          user_id: string
+        }
+        Update: {
+          ended_at?: string | null
+          expires_at?: string | null
+          household_id?: string
+          id?: string
+          kind?: string
+          person_key?: string
+          relation?: string
+          residence_id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housing_memberships_user_id_household_id_fkey"
+            columns: ["user_id", "household_id"]
+            isOneToOne: false
+            referencedRelation: "housing_households"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "housing_memberships_user_id_person_key_fkey"
+            columns: ["user_id", "person_key"]
+            isOneToOne: false
+            referencedRelation: "housing_people"
+            referencedColumns: ["user_id", "person_key"]
+          },
+          {
+            foreignKeyName: "housing_memberships_user_id_residence_id_fkey"
+            columns: ["user_id", "residence_id"]
+            isOneToOne: false
+            referencedRelation: "housing_residences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      housing_people: {
+        Row: {
+          initialized: boolean
+          label: string
+          person_key: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          initialized?: boolean
+          label: string
+          person_key: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          initialized?: boolean
+          label?: string
+          person_key?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      housing_proposals: {
+        Row: {
+          created_at: string
+          ends_at: string | null
+          from_homes: Json
+          id: string
+          initiator: string
+          kind: string
+          movers: string[]
+          plan_id: string | null
+          purpose: string
+          required: string[]
+          residence_id: string
+          responses: Json
+          starts_at: string | null
+          status: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          ends_at?: string | null
+          from_homes: Json
+          id: string
+          initiator: string
+          kind: string
+          movers: string[]
+          plan_id?: string | null
+          purpose?: string
+          required: string[]
+          residence_id: string
+          responses: Json
+          starts_at?: string | null
+          status?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string | null
+          from_homes?: Json
+          id?: string
+          initiator?: string
+          kind?: string
+          movers?: string[]
+          plan_id?: string | null
+          purpose?: string
+          required?: string[]
+          residence_id?: string
+          responses?: Json
+          starts_at?: string | null
+          status?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housing_proposals_user_id_plan_id_fkey"
+            columns: ["user_id", "plan_id"]
+            isOneToOne: false
+            referencedRelation: "social_plans"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "housing_proposals_user_id_residence_id_fkey"
+            columns: ["user_id", "residence_id"]
+            isOneToOne: false
+            referencedRelation: "housing_residences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      housing_receipts: {
+        Row: {
+          actor: string
+          command: string
+          id: string
+          payload: Json
+          result: Json
+          user_id: string
+        }
+        Insert: {
+          actor: string
+          command: string
+          id: string
+          payload: Json
+          result: Json
+          user_id: string
+        }
+        Update: {
+          actor?: string
+          command?: string
+          id?: string
+          payload?: Json
+          result?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      housing_residences: {
+        Row: {
+          address: string | null
+          arrangement: string
+          community: string
+          created_at: string
+          created_by: string | null
+          description: string
+          exact_latitude: number | null
+          exact_longitude: number | null
+          housing_type: string
+          id: string
+          label: string
+          latitude: number
+          longitude: number
+          neighborhood: string
+          place_key: string
+          provisional: boolean
+          show_exact: boolean
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          arrangement?: string
+          community?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          exact_latitude?: number | null
+          exact_longitude?: number | null
+          housing_type?: string
+          id: string
+          label: string
+          latitude?: number
+          longitude?: number
+          neighborhood?: string
+          place_key: string
+          provisional?: boolean
+          show_exact?: boolean
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          arrangement?: string
+          community?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          exact_latitude?: number | null
+          exact_longitude?: number | null
+          housing_type?: string
+          id?: string
+          label?: string
+          latitude?: number
+          longitude?: number
+          neighborhood?: string
+          place_key?: string
+          provisional?: boolean
+          show_exact?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "housing_residences_user_id_place_key_fkey"
+            columns: ["user_id", "place_key"]
+            isOneToOne: true
+            referencedRelation: "world_places"
+            referencedColumns: ["user_id", "key"]
           },
         ]
       }
@@ -1570,6 +2049,7 @@ export type Database = {
           duration_minutes: number
           ends_at: string | null
           followthrough: Json
+          housing_proposal_id: string | null
           id: string
           last_message_id: string | null
           missing_details: string[]
@@ -1601,6 +2081,7 @@ export type Database = {
           duration_minutes?: number
           ends_at?: string | null
           followthrough?: Json
+          housing_proposal_id?: string | null
           id: string
           last_message_id?: string | null
           missing_details?: string[]
@@ -1632,6 +2113,7 @@ export type Database = {
           duration_minutes?: number
           ends_at?: string | null
           followthrough?: Json
+          housing_proposal_id?: string | null
           id?: string
           last_message_id?: string | null
           missing_details?: string[]
@@ -1653,6 +2135,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "housing_plan_proposal"
+            columns: ["user_id", "housing_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "housing_proposals"
+            referencedColumns: ["user_id", "id"]
+          },
           {
             foreignKeyName: "plan_parent_owner"
             columns: ["user_id", "parent_plan_id"]
@@ -2708,6 +3197,19 @@ export type Database = {
         Args: { p_now: string; p_plan: string; p_user: string }
         Returns: boolean
       }
+      calendar_manual_action: {
+        Args: {
+          p_conversation: string
+          p_id: string
+          p_now: string
+          p_payload: Json
+          p_plan: string
+          p_user: string
+          p_version: number
+        }
+        Returns: Json
+      }
+      calendar_manual_status: { Args: never; Returns: number }
       calendar_pending: {
         Args: { p_now: string; p_user: string }
         Returns: Json
@@ -2785,6 +3287,80 @@ export type Database = {
       finalize_game_match: {
         Args: { p_id: string; p_summary: string; p_user_id: string }
         Returns: undefined
+      }
+      housing_adult_known: {
+        Args: { p_person: string; p_user: string }
+        Returns: boolean
+      }
+      housing_can_enter: {
+        Args: {
+          p_at: string
+          p_place: string
+          p_user: string
+          p_viewer: string
+        }
+        Returns: boolean
+      }
+      housing_command: {
+        Args: {
+          p_actor: string
+          p_command: string
+          p_id: string
+          p_now: string
+          p_payload: Json
+          p_user: string
+        }
+        Returns: Json
+      }
+      housing_current_home: {
+        Args: { p_now: string; p_person: string; p_user: string }
+        Returns: string
+      }
+      housing_diagnostics: { Args: { p_user: string }; Returns: Json }
+      housing_ensure_person: {
+        Args: {
+          p_label: string
+          p_person: string
+          p_source: string
+          p_user: string
+        }
+        Returns: undefined
+      }
+      housing_plan_venue_allowed: {
+        Args: {
+          p_at: string
+          p_character: string
+          p_place: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      housing_primary: {
+        Args: { p_person: string; p_user: string }
+        Returns: string
+      }
+      housing_process_actions: {
+        Args: { p_now: string; p_user: string }
+        Returns: number
+      }
+      housing_resident: {
+        Args: {
+          p_at: string
+          p_person: string
+          p_place: string
+          p_user: string
+        }
+        Returns: boolean
+      }
+      housing_seed: { Args: { p_user: string }; Returns: undefined }
+      housing_snapshot: {
+        Args: { p_user: string; p_viewer?: string }
+        Returns: Json
+      }
+      housing_status: { Args: never; Returns: number }
+      housing_tick: {
+        Args: { p_blocked?: Json; p_now: string; p_user: string }
+        Returns: number
       }
       interactive_world_status: { Args: never; Returns: number }
       living_experience_action_v25: {

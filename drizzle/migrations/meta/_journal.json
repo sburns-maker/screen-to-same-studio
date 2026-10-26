@@ -323,6 +323,13 @@
       "when": 1793050000000,
       "tag": "0045_residences_households",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1793050000001,
+      "tag": "0046_verify_pending_housing_installation",
+      "breakpoints": true
     }
   ]
 }
