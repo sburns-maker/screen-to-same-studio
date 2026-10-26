@@ -20,6 +20,7 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
   const [studioStatus, setStudioStatus] = useState("");
   const [ringBusy, setRingBusy] = useState(false);
   const ringId = useRef<string | null>(null);
+  const forcedRingId = useRef<string | null>(null);
   const q = usePhone(),
     c = q.data?.calls.find((c) => c.conversation_id === conversationId);
   return (
@@ -141,6 +142,22 @@ export function CallsDebug({ conversationId }: { conversationId: string }) {
               }}
             >
               Trigger one test incoming ring for this character
+            </button>
+            <button
+              disabled={ringBusy}
+              className="min-h-11 rounded-full border border-amber-500/50 px-3 text-xs disabled:opacity-50"
+              onClick={() => {
+                if (ringBusy || !window.confirm("Force one developer-only GPT-Live test ring for this contact? This bypasses fictional working/asleep availability only. Answering may incur OpenAI charges.")) return;
+                setRingBusy(true);
+                setCallTest("");
+                forcedRingId.current ??= crypto.randomUUID();
+                void testRing({ data: { conversationId, id: forcedRingId.current, force: true } })
+                  .then((r) => { setCallTest(r.note); forcedRingId.current = null; void q.refetch(); })
+                  .catch((e) => setCallTest((e as Error).message))
+                  .finally(() => setRingBusy(false));
+              }}
+            >
+              Force GPT-Live test ring (developer only)
             </button>
             <p>
               Test ringing creates an incoming call record. Do not answer unless you want to test a
