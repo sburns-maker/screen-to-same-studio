@@ -7,7 +7,7 @@ export function CallButton({ conversationId, name }: { conversationId: string; n
     <Link
       to="/live-call/$conversationId"
       params={{ conversationId }}
-      search={{}}
+      search={{ incomingCallId: undefined }}
       aria-label={`Call ${name}`}
       className="flex h-11 w-11 items-center justify-center rounded-full border"
     >
