@@ -123,10 +123,10 @@ export async function developerTestRing(
   const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
   if (!developerPhotosAllowed(user)) throw new Error("Developer diagnostics unavailable");
   const server = await import("./phone-calls.server");
-  if (process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true")
+  if (process.env["ENABLE_INCOMING_VOICE_CALLS"] !== "true" && !server.incomingLiveMode())
     throw new Error("Server incoming-call switch disabled");
   const readiness = (await import("./voice-provider.server")).voiceConfiguration();
-  if (!readiness.ready || !(await server.phoneAvailable(db)))
+  if ((!server.incomingLiveMode() && !readiness.ready) || !(await server.phoneAvailable(db)))
     throw new Error("Voice service or call database is not ready");
   const snap = await server.phoneSnapshot(db, user);
   const previous = snap.calls.find((c) => c.id === id);
@@ -152,6 +152,10 @@ export async function developerTestRing(
   const key = (conv.character as { key?: string } | null)?.key;
   if (!key || !fictionalNumber(key))
     throw new Error("Contact not provisioned for this calling service");
+  if (server.incomingLiveMode()) {
+    const voice = await (await import("./live-calls.server")).resolveCharacterVoice(db as never, key as never);
+    if (!voice) throw new Error("The character needs an approved GPT-Live voice");
+  }
   const availability = callAvailability(key as Parameters<typeof callAvailability>[0], new Date());
   if (availability.outcome !== "answer")
     throw new Error(`Contact unavailable: ${availability.reason}`);
