@@ -115,25 +115,134 @@ describe("direct OpenAI structured character generation", () => {
     const fetchMock = vi.fn().mockImplementation(async () => response());
     vi.stubGlobal("fetch", fetchMock);
     const { runStructured } = await import("@/lib/text-ai.server");
-    for (let i = 0; i < 8; i++)
-      await runStructured(schema, "canon", "x".repeat(90_000));
+    for (let i = 0; i < 8; i++) await runStructured(schema, "canon", "x".repeat(90_000));
     expect(fetchMock).toHaveBeenCalledTimes(8);
   });
 
   it("rejects excessive context and retains reservations for unknown failed usage", async () => {
-    const fetchMock = vi.fn().mockImplementation(async () => Response.json(
-      { error: { message: "unavailable", type: "server_error" } }, { status: 500 },
-    ));
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () =>
+        Response.json({ error: { message: "unavailable", type: "server_error" } }, { status: 500 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
     const { runStructured } = await import("@/lib/text-ai.server");
     await expect(runStructured(schema, "canon", "x".repeat(100_000))).rejects.toThrow(
       "context limit",
     );
-    await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow("temporarily unavailable");
-    await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow("temporarily unavailable");
+    await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow(
+      "temporarily unavailable",
+    );
+    await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow(
+      "temporarily unavailable",
+    );
     await expect(runStructured(schema, "canon", "x".repeat(90_000))).rejects.toThrow(
       "capacity limit",
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("correlated structured provider diagnostics", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.stubEnv("OPENAI_API_KEY", "test-only-secret");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "info").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+  it.each([
+    [400, "invalid_json_schema", "request_invalid", false],
+    [401, "invalid_api_key", "authentication", false],
+    [404, "model_not_found", "model_not_found", false],
+    [429, "insufficient_quota", "billing", false],
+    [429, "rate_limit_exceeded", "rate_limited", true],
+    [400, "context_length_exceeded", "context_limit", false],
+    [503, "server_error", "provider_unavailable", true],
+  ] as const)(
+    "preserves HTTP %s / %s safely without paid retries",
+    async (status, code, expected, retryable) => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            error: {
+              code,
+              param: "text.format.schema.PRIVATE-DETAIL",
+              message: "test-only-secret private transcript",
+            },
+          },
+          { status, headers: { "x-request-id": "req_safe" } },
+        ),
+      );
+      vi.stubGlobal("fetch", fetchMock);
+      const { runStructured } = await import("@/lib/text-ai.server");
+      const { experienceFailure } = await import("@/lib/experience-failure");
+      const operationId = "00000000-0000-4000-a000-000000000123";
+      let failure: unknown;
+      try {
+        await runStructured(schema, "private canon", "private transcript", "reply", {
+          operationId,
+        });
+      } catch (error) {
+        failure = error;
+      }
+      expect(experienceFailure(failure, "generation")).toMatchObject({
+        diagnostic: {
+          model: "gpt-6-luna",
+          statusCode: status,
+          code: expected,
+          retryable,
+          providerCode: code,
+          param: "text.format.schema",
+          requestId: "req_safe",
+        },
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const logs = JSON.stringify(vi.mocked(console.warn).mock.calls);
+      expect(logs).toContain(operationId);
+      expect(logs).not.toMatch(/test-only-secret|private transcript|private canon|PRIVATE-DETAIL/);
+    },
+  );
+  it("serializes the production character reply schema through the actual SDK without optional object properties", async () => {
+    const { replySchema } = await import("@/lib/tess.server");
+    const { SEED_STATE } = await import("@/lib/tess-logic");
+    const full = {
+      housing_actions: null,
+      schedule_actions: null,
+      continuity: null,
+      messages: ["Yes, let's continue the afternoon there."],
+      send_delay_seconds: 3,
+      state_delta: SEED_STATE,
+      memory_candidates: [],
+      photo: null,
+      tone: "warm",
+      event_tags: [],
+      character_perspective: null,
+      photo_boundary_decision: "unchanged",
+    };
+    const fetchMock = vi.fn().mockResolvedValue(response(JSON.stringify(full)));
+    vi.stubGlobal("fetch", fetchMock);
+    const { runStructured } = await import("@/lib/text-ai.server");
+    expect(await runStructured(replySchema, "canon", "context")).toMatchObject({
+      messages: full.messages,
+    });
+    const body = JSON.parse(fetchMock.mock.calls[0]![1].body);
+    function check(value: unknown) {
+      if (!value || typeof value !== "object") return;
+      const v = value as Record<string, unknown>;
+      if (v["type"] === "object") {
+        expect(v["additionalProperties"]).toBe(false);
+        expect([...(v["required"] as string[])].sort()).toEqual(
+          Object.keys(v["properties"] as object).sort(),
+        );
+      }
+      for (const child of Object.values(v)) check(child);
+    }
+    check(body.text.format.schema);
+    expect(body.model).toBe("gpt-6-luna");
   });
 });

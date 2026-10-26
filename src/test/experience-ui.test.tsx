@@ -183,7 +183,7 @@ describe("mobile experience controls", () => {
     };
     mocks.moments = [{ id: "m", body: "Earlier dialogue", source: "user" }];
     view();
-    const diagnostic = await screen.findByText(/response service is temporarily unavailable/);
+    const diagnostic = await screen.findByText(/Investigate the failure reference before retrying/);
     expect(screen.getByText("Failure reference: saved-operation")).toBeInTheDocument();
     expect(
       diagnostic.compareDocumentPosition(screen.getByText("Earlier dialogue")) &
@@ -210,4 +210,30 @@ describe("mobile experience controls", () => {
     );
     expect(mocks.act.mock.calls[0]![0].data.id).not.toBe(mocks.act.mock.calls[1]![0].data.id);
   });
+});
+
+it("shows the rejected request status and saved action without starting an automatic retry", async () => {
+  const { characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  mocks.pending = {
+    id: "saved-operation",
+    kind: "turn",
+    body: "Continue at Juniper Commons",
+    status: "failed",
+    failure: {
+      version: 1,
+      phase: "generation",
+      code: "model_request_invalid",
+      diagnostic: characterAIDiagnostic(
+        "gpt-6-luna",
+        400,
+        { error: { code: "invalid_json_schema", param: "text.format.schema" } },
+        "req_safe",
+      ),
+    },
+  };
+  view();
+  expect(await screen.findByText(/HTTP: 400/)).toHaveTextContent("invalid_json_schema");
+  expect(screen.getByText("Failure reference: saved-operation")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Retry pending scene" })).toBeInTheDocument();
+  expect(mocks.act).not.toHaveBeenCalled();
 });

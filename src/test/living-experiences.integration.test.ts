@@ -526,3 +526,58 @@ describe("Living Experiences against real PostgreSQL engine and real migrations"
     await expect(cmd("automatic", null, { explicit: true })).rejects.toThrow();
   });
 });
+
+it("retains a rejected request and its exact action without automatically retrying a permanent provider failure", async () => {
+  const { CharacterAIError, characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  await experienceSeed(client(), user, now);
+  model.reply.mockRejectedValueOnce(new CharacterAIError("generic", characterAIDiagnostic("gpt-6-luna", 400, { error: { code: "invalid_json_schema", param: "text.format.schema", message: "private" } }, "req_safe")));
+  const at = new Date("2026-10-25T22:00:00Z");
+  await expect(runExperienceTick(client(), user, at)).rejects.toThrow("before retrying");
+  const failed = await livingHistory(client(), user, plan);
+  expect(failed.pending).toMatchObject({ attempts: 1, failure: { phase: "generation", code: "model_request_invalid", diagnostic: { statusCode: 400, retryable: false } } });
+  expect(await runExperienceTick(client(), user, new Date(at.getTime() + 60000))).toBe(0);
+  expect(model.reply).toHaveBeenCalledTimes(1);
+  expect((await livingHistory(client(), user, plan)).scene.outcome_id).toBeNull();
+});
+
+it("preserves a failed interactive action and forwards the same operation reference on explicit retry", async () => {
+  const { CharacterAIError, characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  await claim();
+  const turn = id();
+  const body = "Yes, let's continue the afternoon at Juniper Commons.";
+  model.reply.mockRejectedValueOnce(new CharacterAIError("generic", characterAIDiagnostic("gpt-6-luna", 400, null, null)));
+  await expect(generateExperience(client(), user, plan, turn, "turn", body, 1, false, now)).rejects.toThrow("Provider HTTP 400");
+  const failed = await livingHistory(client(), user, plan);
+  expect(failed.pending).toMatchObject({ id: turn, body, status: "failed", attempts: 1 });
+  expect(failed.moments.map(m => m.body)).toEqual([body]);
+  expect(model.reply.mock.calls.at(-1)?.[0].operationId).toBe(turn);
+  model.reply.mockResolvedValueOnce({ messages: ["We can decide what to do next over coffee."], state_delta: { trust: 2 }, photo: null });
+  await generateExperience(client(), user, plan, turn, "turn", body, 1, false, now);
+  await generateExperience(client(), user, plan, turn, "turn", body, 1, false, now);
+  const recovered = await livingHistory(client(), user, plan);
+  expect(recovered.moments.filter(m => m.source === "user").map(m => m.body)).toEqual([body]);
+  expect(recovered.moments.filter(m => m.source === "character")).toHaveLength(1);
+  expect(model.reply).toHaveBeenCalledTimes(2);
+  expect((await db.query("SELECT trust FROM tess_state")).rows[0]).toEqual({ trust: 25 });
+});
+
+it("holds an old unclassified provider failure for diagnosis instead of consuming further automatic attempts", async () => {
+  await experienceSeed(client(), user, now);
+  model.reply.mockRejectedValueOnce(new Error("Character AI is temporarily unavailable; please try again later"));
+  const at = new Date("2026-10-25T22:00:00Z");
+  await expect(runExperienceTick(client(), user, at)).rejects.toThrow("Investigate");
+  expect(await runExperienceTick(client(), user, new Date(at.getTime() + 60000))).toBe(0);
+  expect(model.reply).toHaveBeenCalledTimes(1);
+  expect((await livingHistory(client(), user, plan)).pending?.attempts).toBe(1);
+});
+
+it("keeps a genuinely transient typed provider failure eligible for one bounded worker retry", async () => {
+  const { CharacterAIError, characterAIDiagnostic } = await import("@/lib/character-ai-error");
+  await experienceSeed(client(), user, now);
+  model.reply.mockRejectedValueOnce(new CharacterAIError("generic", characterAIDiagnostic("gpt-6-luna", 503, { error: { code: "server_error" } }, "req_safe")));
+  const at = new Date("2026-10-25T22:00:00Z");
+  await expect(runExperienceTick(client(), user, at)).rejects.toThrow("HTTP 503");
+  expect(await runExperienceTick(client(), user, new Date(at.getTime() + 60000))).toBe(1);
+  expect(model.reply).toHaveBeenCalledTimes(2);
+  expect((await livingHistory(client(), user, plan)).scene.state).toBe("completed");
+});

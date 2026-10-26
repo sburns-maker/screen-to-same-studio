@@ -302,6 +302,7 @@ export async function generateExperience(
     const venue = live.current.locationLabel;
     const liveInstructions = liveSceneInstructions(live.current);
     const args = {
+      operationId: id,
       state,
       stage: deriveStage(state),
       difficulty,
@@ -459,7 +460,7 @@ export async function runExperienceTick(db: Client, user: string, now = new Date
   for (const e of (r.data ?? []) as ExperienceRow[]) {
     const pending = await db
       .from("experience_operations")
-      .select("id,attempts,status,lease_until")
+      .select("id,attempts,status,lease_until,result")
       .eq("user_id", user)
       .eq("experience_id", e.id)
       .in("status", ["running", "failed"])
@@ -473,6 +474,8 @@ export async function runExperienceTick(db: Client, user: string, now = new Date
       (op.attempts >= 3 || (op.status === "running" && Date.parse(op.lease_until) > now.getTime()))
     )
       continue;
+    const priorFailure = readExperienceFailure((op?.result as { failure?: unknown } | null)?.failure);
+    if (op?.status === "failed" && priorFailure && (priorFailure.diagnostic?.retryable === false || (!priorFailure.diagnostic && ["model_unconfigured", "model_paused", "model_context_limit", "model_payment_required", "model_access_denied", "model_unavailable", "unknown_step"].includes(priorFailure.code)))) continue;
     const id = op?.id ?? (await photoActionId(`${user}:${e.id}:experience-auto`));
     await generateExperience(db, user, e.plan_id, id, "automatic", "", null, false, now);
     return 1;
