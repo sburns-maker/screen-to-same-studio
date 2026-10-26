@@ -60,3 +60,11 @@ export function api18Provider(apiKey: string, referenceUrls: readonly string[]):
     },
   };
 }
+
+/** Secure server-side configuration. Never expose API18_KEY to the browser or commit it. */
+export function api18ProviderFromEnvironment(referenceUrls: readonly string[]): ImageProvider {
+  if (process.env["API18_ENABLED"] !== "true") throw new Error("api18_disabled");
+  const key = process.env["API18_KEY"];
+  if (!key) throw new Error("api18_not_configured");
+  return api18Provider(key, referenceUrls);
+}
