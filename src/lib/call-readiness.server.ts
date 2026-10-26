@@ -119,6 +119,7 @@ export async function developerTestRing(
   user: string,
   conversationId: string,
   id: string,
+  force = false,
 ) {
   const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
   if (!developerPhotosAllowed(user)) throw new Error("Developer diagnostics unavailable");
@@ -133,7 +134,7 @@ export async function developerTestRing(
   if (previous) {
     if (
       previous.conversation_id !== conversationId ||
-      previous.reason !== "Developer-triggered test ring (not character-initiated)"
+      previous.reason !== (force ? "Developer-forced GPT-Live test ring (not character-initiated)" : "Developer-triggered test ring (not character-initiated)")
     )
       throw new Error("Request ID already used by another call");
     return { id, note: "This test ring was already recorded; no new call was placed." };
@@ -156,8 +157,9 @@ export async function developerTestRing(
     const voice = await (await import("./live-calls.server")).resolveCharacterVoice(db as never, key as never);
     if (!voice) throw new Error("The character needs an approved GPT-Live voice");
   }
+  if (force && !server.incomingLiveMode()) throw new Error("Force test ring requires incoming GPT-Live mode");
   const availability = callAvailability(key as Parameters<typeof callAvailability>[0], new Date());
-  if (availability.outcome !== "answer")
+  if (!force && availability.outcome !== "answer")
     throw new Error(`Contact unavailable: ${availability.reason}`);
   const { inQuietHours, parseQuietHours } = await import("./world.server");
   const quiet = await db
@@ -182,8 +184,8 @@ export async function developerTestRing(
     conversation: conv.id,
     direction: "incoming",
     outcome: "answer",
-    reason: "Developer-triggered test ring (not character-initiated)",
-    ring: 25,
+    reason: force ? "Developer-forced GPT-Live test ring (not character-initiated)" : "Developer-triggered test ring (not character-initiated)",
+    ring: 30,
   });
   return {
     id,
