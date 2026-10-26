@@ -360,6 +360,12 @@ async function runTurnUnlocked(
     const source=(msgs??[]).find(m=>m.sender==="user");
     if(source) await (await import("./residential-calendar.server")).syncResidentialUserMessage(calendarAdmin,userId,conv.id,source.id,new Date());
   }
+  const queuedReplyResult=initiation?.spontaneousPhoto
+    ? await supabase.from("messages").select("sender,body,visible_at,metadata").eq("user_id",userId).eq("conversation_id",conv.id).eq("sender","tess").gt("visible_at",nowIso).order("visible_at",{ascending:true}).limit(40)
+    : {data:[],error:null};
+  if(queuedReplyResult.error)throw new Error("Pending reply queue unavailable");
+  const spontaneousQueue=(await import("./spontaneous-photo-flow")).spontaneousPhotoQueue(queuedReplyResult.data??[],new Date(nowIso));
+  if(initiation?.spontaneousPhoto&&spontaneousQueue.blocked)return {count:0,lastVisibleAt:null,photoSent:false,imageRequested:false,reason:spontaneousQueue.reason};
   const actionAnchor = initiation
     ? (initiation.photoKey ?? `${conv.id}:${def.key}:${Math.floor(Date.now() / (PHOTO_TENDENCIES[def.key].hours * 3_600_000))}`)
     : `reply:${(msgs ?? []).find((m) => m.sender === "user")?.id ?? "initial"}`;
@@ -414,7 +420,7 @@ async function runTurnUnlocked(
           return [] as string[];
         })
     : [];
-  const worldKnowledge = [...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
+  const worldKnowledge = [...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];
@@ -681,7 +687,7 @@ async function runTurnUnlocked(
   // Calendar actions commit with a visible reply; ordinary pacing remains unchanged.
   // Practice delays stay 3s–4min; real-time delays may run longer (work, events).
   const delaySec = voice || scheduleActions.length ? 0 : realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
-  let at = Date.now() + delaySec * 1000;
+  let at = Math.max(Date.now() + delaySec * 1000,initiation?.spontaneousPhoto?spontaneousQueue.deliverAfter+1000:0);
   const notificationGroup = photoAction ?? crypto.randomUUID();
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
@@ -749,7 +755,7 @@ async function runTurnUnlocked(
       identity_reference_used: generated.identityReferenceUsed,
     } : null;
     const extractedContinuity = worldReady ? evidenceContinuity(reply.continuity, recent.find((m) => m.sender === "user")?.body ?? "", bubbles.join("\n"), now) : null;
-    return preparePhotoDelivery(photoAdmin, photoAction, userId, conv.id, {
+    const delivered=await preparePhotoDelivery(photoAdmin, photoAction, userId, conv.id, {
       expectedStateUpdatedAt: stateRow?.updated_at ?? null,
       lastUserId: recent.find((m) => m.sender === "user")?.id ?? null,
       initiation: !!initiation, pendingBefore: nowIso, rows, generated: generatedRow,
@@ -763,6 +769,7 @@ async function runTurnUnlocked(
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
     } as unknown as import("@/integrations/supabase/types").Json, voice ? {callId:voice.callId,turnId:voice.turnId} : undefined);
+    return {...delivered,...(initiation?.spontaneousPhoto&&!photo&&!generated?{photoSent:false,imageRequested:false,reason:"Character sent text only; no photo was selected or requested."}:{})};
   }
   if (scheduleActions.length) throw new Error("Calendar actions require the atomic delivery service");
   // Text-only turns retain the existing persistence path. Never delete a paid pending photo.
@@ -804,7 +811,7 @@ async function runTurnUnlocked(
       if(historyError)console.warn("[relationship-history] Evaluation could not be recorded:",historyError.message);
     }catch(error){console.warn("[relationship-history] Recording deferred:",error);}
   }
-  return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null, notificationGroup };
+  return { count: rows.length, lastVisibleAt: rows.at(-1)?.visible_at ?? null, notificationGroup,photoSent:false,imageRequested:false,...(initiation?.spontaneousPhoto?{reason:"Character sent text only; no photo was selected or requested."}:{}) };
 }
 
 export const tessRespond = createServerFn({ method: "POST" })

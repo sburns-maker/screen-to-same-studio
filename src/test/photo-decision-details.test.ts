@@ -90,3 +90,8 @@ it.each([
   expect(result.statusLabel).toBe(label);
   expect(result.generationRequested).toBe(photoSent ? "yes" : "no");
 });
+
+it("distinguishes an actual queued photo from an already delivered photo",()=>{
+ const detail=photoDecisionDetails({kind:"photo_decision",summary:"contextual photo opportunity",payload:{eligible:true,selected:true,outcome:"message_sent",photoSent:true,generationRequested:true,deliveryAt:new Date(Date.now()+60000).toISOString()}});
+ expect(detail.statusLabel).toBe("Photo scheduled for delivery");expect(detail.generationRequested).toBe("yes");
+});

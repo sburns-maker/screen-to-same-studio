@@ -176,3 +176,9 @@ describe("travel uses the same character language without a second persona", () 
     expect(model.run).toHaveBeenCalledTimes(1);
   });
 });
+
+it.each(["tess","maya"] as const)("gives %s a photo-first task for a selected spontaneous opportunity without forcing consent",async key=>{
+ const request={...args,generateTypes:["casual_selfie"],initiation:{gapHours:0,spontaneousPhoto:true as const},initiationReason:"Current quiet break"};
+ if(key==="tess")await generateTessReply(request);else await generateContactReply({...request,character:CHARACTERS[key]});
+ const [,system,input]=model.run.mock.calls[0]!;expect(input).toContain("Decide about the photo first");expect(input).toContain("photo=null is valid");expect(system).toContain("Consider the photo first for this selected opportunity");expect(model.run).toHaveBeenCalledTimes(1);
+});

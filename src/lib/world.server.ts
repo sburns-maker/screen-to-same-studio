@@ -500,6 +500,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             { data: stateRow },
             { data: recentMsgs },
             { data: checkpoint },
+            pendingResult,
           ] = await Promise.all([
             admin.from("tess_life").select("*").eq("conversation_id", conv.id).maybeSingle(),
             admin
@@ -524,7 +525,10 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
                   .eq("user_id", userId)
                   .maybeSingle()
               : Promise.resolve({ data: null }),
+            admin.from("messages").select("sender,body,visible_at,metadata").eq("user_id",userId).eq("conversation_id",conv.id).eq("sender","tess").gt("visible_at",nowIso).order("visible_at",{ascending:true}).limit(40),
           ]);
+          if(pendingResult.error)throw new Error("Pending reply queue unavailable");
+          const pendingQueue=(await import("./spontaneous-photo-flow")).spontaneousPhotoQueue(pendingResult.data??[],now);
 
           // Throttle: skip conversations checked recently (event-driven, not continuous).
           const lastCheck = worldReady
@@ -675,10 +679,11 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             state,
             schedule,
             now,
-            gapHours,
+            gapHours: pendingQueue.texts.length&&!pendingQueue.blocked?Math.max(0,gapHours):gapHours,
             lastInitiatedAt: life?.last_initiated_at ?? null,
             context: (await import("./calendar-commitment")).photoContextForSchedule(schedule,lifeEvent?.summary),
           });
+          if(pendingQueue.blocked)Object.assign(photoChance,{eligible:false,selected:false,reason:pendingQueue.reason,hint:""});
           if (schedule.availability === "busy" && !photoChance.selected) blockedBy.push("character busy");
           const photoDecisionId = worldReady
             ? await recordPhotoDecision(admin, {
@@ -697,7 +702,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           const photoOutcome = async (outcome: "message_sent" | "not_sent" | "blocked", why?: string | null, delivery?: unknown) => {
             const info = (delivery ?? {}) as Record<string,unknown>;
             if (photoDecisionId && photoChance.selected)
-              await recordPhotoDecisionOutcome(admin, { id: photoDecisionId, userId, outcome, reason: why ?? null, ...(typeof info["photoSent"] === "boolean" ? {photoSent:info["photoSent"]}:{}), ...(typeof info["imageRequested"] === "boolean" ? {generationRequested:info["imageRequested"]}:{}) }).catch(() => undefined);
+              await recordPhotoDecisionOutcome(admin, { id: photoDecisionId, userId, outcome, reason: why ?? null,...(typeof info["lastVisibleAt"]==="string"?{deliveryAt:info["lastVisibleAt"]}:{}), ...(typeof info["photoSent"] === "boolean" ? {photoSent:info["photoSent"]}:{}), ...(typeof info["imageRequested"] === "boolean" ? {generationRequested:info["imageRequested"]}:{}) }).catch(() => undefined);
           };
           const followUp =
             !!dueIntention &&
@@ -762,7 +767,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             if (aiPause.paused) probeAttempted = true;
             const { runTurn } = await import("./tess.functions");
             const result = await runTurn(admin, userId, conv.id, "America/New_York", {
-              gapHours,
+              gapHours:photoChance.selected?Math.max(0,gapHours):gapHours,
               reason,
               budgetReserved: worldReady,
               ...(followUp
@@ -809,7 +814,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
                 conversation_id: conv.id,
                 character_key: def.key,
                 kind: "initiation",
-                summary: `${def.preferredName} texted first${reason ? ` — ${reason}` : ""}`,
+                summary: photoChance.selected
+                  ? `${def.preferredName} ${"photoSent" in result&&result.photoSent?"shared a spontaneous photo":"sent text without a photo"}`
+                  : `${def.preferredName} texted first${reason ? ` — ${reason}` : ""}`,
                 payload: {
                   score: decision.score,
                   reasons: decision.reasons,

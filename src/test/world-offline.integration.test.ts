@@ -73,7 +73,7 @@ beforeEach(async () => {
   vi.stubEnv("OPENAI_API_KEY", "test-only-not-a-real-key");
   vi.stubEnv("VAPID_PRIVATE_KEY", "");
   await db.exec(
-    "TRUNCATE conversations CASCADE; TRUNCATE job_runs CASCADE; TRUNCATE world_control; TRUNCATE social_plans CASCADE; TRUNCATE npcs,social_links,shared_events,event_participants,character_knowledge;",
+    "TRUNCATE user_profile;TRUNCATE conversations CASCADE; TRUNCATE job_runs CASCADE; TRUNCATE world_control; TRUNCATE social_plans CASCADE; TRUNCATE npcs,social_links,shared_events,event_participants,character_knowledge;",
   );
   const adapter = postgresSupabase(db);
   mocks.admin = adapter.admin;
@@ -786,4 +786,28 @@ describe("offline living world through the normal character pipeline (fake paid 
     });
     expect(mocks.image).toHaveBeenCalledTimes(1);
   });
+});
+
+it("queues a spontaneous photo after a prepared text reply instead of blocking or deleting it",async()=>{
+ const pending=idForPending(),at=new Date(now.getTime()+15*60000).toISOString();
+ await db.query("insert into messages(id,user_id,conversation_id,sender,body,created_at,visible_at) values($1,$2,$3,'tess','An already prepared reply',$4,$4)",[pending,user,cid,at]);
+ const report=await runWorldTickWithAdmin(mocks.admin!,now);expect(report.errors).toEqual([]);expect(mocks.image).toHaveBeenCalledTimes(1);
+ const messages=(await db.query<{id:string;body:string;visible_at:Date;metadata:{generated_path?:string}}>("select id,body,visible_at,metadata from messages order by visible_at")).rows;
+ expect(messages.find(m=>m.id===pending)?.body).toBe("An already prepared reply");const photo=messages.find(m=>m.metadata.generated_path);expect(photo).toBeDefined();expect(new Date(photo!.visible_at).getTime()).toBeGreaterThan(Date.parse(at));expect(await count("generated_images")).toBe(1);
+ const payload=(await db.query<{payload:{generationRequested:boolean;photoSent:boolean;deliveryAt:string}}>("select payload from world_events where kind='photo_decision' order by occurs_at desc limit 1")).rows[0]!.payload;
+ expect(payload).toMatchObject({generationRequested:true,photoSent:true});expect(Date.parse(payload.deliveryAt)).toBeGreaterThan(Date.parse(at));
+ await runWorldTickWithAdmin(mocks.admin!,new Date(now.getTime()+31*60000));expect(mocks.image).toHaveBeenCalledTimes(1);
+});
+function idForPending(){return crypto.randomUUID();}
+it("keeps an existing scheduled photo protected and reports that actual queue blocker",async()=>{
+ const at=new Date(now.getTime()+15*60000).toISOString();
+ await db.query("insert into messages(user_id,conversation_id,sender,body,created_at,visible_at,metadata) values($1,$2,'tess','A photo already prepared',$3,$3,$4)",[user,cid,at,{generated_path:`${user}/existing.png`}]);
+ const report=await runWorldTickWithAdmin(mocks.admin!,now);expect(report.errors).toEqual([]);expect(mocks.image).not.toHaveBeenCalled();
+ const decision=(await db.query<{summary:string}>("select summary from world_events where kind='photo_decision' order by occurs_at desc limit 1")).rows[0]!;expect(decision.summary).toBe("A photo is already waiting for delivery");expect(await count("messages")).toBe(1);
+});
+it("labels a character's text-only choice honestly without reporting a photo sent",async()=>{
+ const reply=await mocks.text();mocks.text.mockClear().mockResolvedValue({...reply,photo:null,messages:["A quick ordinary thought."]});
+ const report=await runWorldTickWithAdmin(mocks.admin!,now);expect(report.errors).toEqual([]);expect(mocks.image).not.toHaveBeenCalled();
+ const event=(await db.query<{payload:{photoSent:boolean;generationRequested:boolean;outcomeReason:string}}>("select payload from world_events where kind='photo_decision' order by occurs_at desc limit 1")).rows[0]!;
+ expect(event.payload).toMatchObject({photoSent:false,generationRequested:false});expect(event.payload.outcomeReason).toContain("text only");
 });
