@@ -17,6 +17,22 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const pending = useRef<{ category: PhotoLabType; id: string } | null>(null);
+  const [wardrobes, setWardrobes] = useState(["", "", ""]);
+  const [chosenWardrobe, setChosenWardrobe] = useState(0);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`photo-lab-wardrobes:${conversationId}`);
+      const parsed: unknown = raw ? JSON.parse(raw) : null;
+      setWardrobes(Array.isArray(parsed) && parsed.length === 3
+        ? parsed.map((v) => typeof v === "string" ? v.slice(0, 400) : "") : ["", "", ""]);
+    } catch { setWardrobes(["", "", ""]); }
+    setChosenWardrobe(0);
+  }, [conversationId]);
+  function updateWardrobe(index: number, value: string) {
+    const next = wardrobes.map((v, i) => i === index ? value.slice(0, 400) : v);
+    setWardrobes(next);
+    try { localStorage.setItem(`photo-lab-wardrobes:${conversationId}`, JSON.stringify(next)); } catch { /* private browsing */ }
+  }
   const refresh = useCallback(async () => {
     const r = await command({ data: { action: "list", conversationId } });
     if (r.snapshot) setSnapshot(r.snapshot);
@@ -47,6 +63,8 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           conversationId,
           category,
           requestId: request.id,
+          ...(category === "mature_romantic" && wardrobes[chosenWardrobe]?.trim()
+            ? { wardrobe: wardrobes[chosenWardrobe]!.trim() } : {}),
           confirmation: "GENERATE DEVELOPER PHOTO TEST",
         },
       });
@@ -103,6 +121,32 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {error}
         </p>
       )}
+      <details className="rounded-xl border p-3">
+        <summary className="cursor-pointer font-medium">Mature romantic wardrobe test options (non-explicit)</summary>
+        <p className="my-2 text-xs text-muted-foreground">
+          Three editable descriptions, saved on this device for this contact. Leave any option blank
+          to use the original outfit prompt. Choose one before generating the Mature romantic test;
+          nothing here changes spontaneous photos or character preferences.
+        </p>
+        <div className="space-y-3">
+          {wardrobes.map((wardrobe, index) => (
+            <label key={index} className="block space-y-1">
+              <span className="flex items-center gap-2 text-sm">
+                <input type="radio" name={`wardrobe-${conversationId}`}
+                  checked={chosenWardrobe === index} onChange={() => setChosenWardrobe(index)} />
+                Wardrobe option {index + 1}
+              </span>
+              <textarea
+                aria-label={`Wardrobe option ${index + 1} description`}
+                rows={3} maxLength={400} value={wardrobe}
+                onChange={(e) => updateWardrobe(index, e.target.value)}
+                placeholder="Describe clothing, styling, and fit here..."
+                className="w-full rounded-xl border bg-background p-3 text-sm"
+              />
+            </label>
+          ))}
+        </div>
+      </details>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {snapshot?.types.map((t) => (
           <button
