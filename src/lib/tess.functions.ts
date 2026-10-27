@@ -400,6 +400,19 @@ async function runTurnUnlocked(
       return m.body;
     })(),
   }));
+  // Conversation messages include voice turns (metadata.channel="voice") and ordinary
+  // texts in chronological order. Reinforce their common chronology to the model.
+  const channelMoments = [...recent]
+    .filter((m) => {
+      const md = m.metadata as { channel?: string; call_id?: string } | null;
+      return md?.channel === "voice" && typeof m.body === "string" && m.body.trim().length > 0;
+    })
+    .slice(0, 8)
+    .reverse()
+    .map((m) => {
+      const md = m.metadata as { call_id?: string } | null;
+      return `[Phone call ${m.created_at}, call ${md?.call_id ?? "unknown"}] ${m.sender === "user" ? "Player" : def.preferredName}: ${m.body.slice(0, 300)}`;
+    });
   const recentText = [initiation?.reason ?? "", ...recent.slice(0, 6).map((m) => m.body ?? "")].join(" ");
   const memoryList = recallMemories((mems ?? []) as MemoryRow[], recentText, new Date())
     .map((m) => `${m.memory_type}: ${m.summary}`);
@@ -421,7 +434,7 @@ async function runTurnUnlocked(
         })
     : [];
   const callHistory = await (await import("./call-history-context.server")).recentCallContext(photoAdmin ?? supabase, userId, conv.id, def.key, now);
-  const worldKnowledge = [...callHistory,...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
+  const worldKnowledge = [...(channelMoments.length ? ["RECENT SPOKEN CALL DIALOGUE (your own conversation, shared continuity across calls and texts):", ...channelMoments, "You may organically reference a specific call topic later in a text, and vice versa. Never claim a call occurred unless recorded. Avoid repeating every call detail or narrating the log."] : []),...callHistory,...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];
