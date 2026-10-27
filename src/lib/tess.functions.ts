@@ -522,6 +522,8 @@ async function runTurnUnlocked(
   // Tess pilot: canonical commitments are scoped to this conversation's player and character.
   // This context never modifies Riley or another contact's attraction and score.
   if (isTess && photoAdmin) {
+    const { RELATIONSHIP_PILOT } = await import("./relationship-commitments");
+    if (RELATIONSHIP_PILOT.activeCharacter !== def.key) throw new Error("Relationship pilot character mismatch");
     const { commitmentSnapshot } = await import("./relationship-commitments.server");
     const snapshot = await commitmentSnapshot(photoAdmin, userId, "tess").catch(() => null);
     if (snapshot?.available) {
