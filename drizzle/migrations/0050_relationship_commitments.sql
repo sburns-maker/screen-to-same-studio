@@ -1,6 +1,3 @@
--- Relationship commitments: independent mutual decision journal.
--- Migration only creates dormant tables. No relationship state is inferred or seeded.
--- Housing membership and residence permissions remain solely in migration 0045.
 CREATE TABLE relationship_commitment_events (
   user_id uuid NOT NULL,
   id uuid NOT NULL,
@@ -22,10 +19,10 @@ CREATE TABLE relationship_commitment_events (
 );
 CREATE INDEX relationship_commitment_timeline ON relationship_commitment_events(user_id, character_key, occurred_at DESC);
 REVOKE ALL ON relationship_commitment_events FROM PUBLIC;
--- Dedicated service-only access and transactional RPCs belong to the activation phase.
+REVOKE ALL ON relationship_commitment_events FROM anon,authenticated;
+GRANT ALL ON relationship_commitment_events TO service_role;
+ALTER TABLE relationship_commitment_events ENABLE ROW LEVEL SECURITY;
 
--- Mutations are serialized per player's fictional world and only callable using
--- the service credential. Caller identity is bound in the server endpoint.
 CREATE FUNCTION relationship_player_command(
  p_user uuid,p_request uuid,p_character text,p_kind text,p_action text,p_event uuid DEFAULT NULL
 ) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
@@ -69,13 +66,9 @@ BEGIN
  END IF;
  RETURN p_event;
 END$$;
-REVOKE ALL ON relationship_commitment_events FROM anon,authenticated;
 REVOKE ALL ON FUNCTION relationship_player_command(uuid,uuid,text,text,text,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION relationship_player_command(uuid,uuid,text,text,text,uuid) TO service_role;
 
--- Tess pilot: ingest ONLY already-visible, durable message evidence.
--- Processing is on authenticated history read; idempotent on source message ID.
--- No game scores, model suggestions, or hidden/future messages become commitments.
 CREATE FUNCTION relationship_sync_tess(p_user uuid) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE m record; a jsonb; target relationship_commitment_events; n integer:=0;

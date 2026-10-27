@@ -8,7 +8,7 @@ import type { HousingHome, HousingSnapshot } from "@/lib/housing";
 export function HomeMoments({ home, snapshot, character }: {
   home: HousingHome;
   snapshot: HousingSnapshot;
-  character?: string;
+  character?: string | undefined;
 }) {
   const navigate = useNavigate();
   const overview = useServerFn(inboxOverview);
