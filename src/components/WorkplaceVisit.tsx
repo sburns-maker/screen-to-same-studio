@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ensureConversations, inboxOverview } from "@/lib/tess.functions";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
-import { WORKPLACES } from "@/lib/workplaces";
+import { WORKPLACES, workplaceShiftLikely } from "@/lib/workplaces";
 
 export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrived: boolean }) {
   const workplace = Object.values(WORKPLACES).find(p => p.key === placeKey);
@@ -12,9 +12,11 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const inbox = useServerFn(inboxOverview);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [choice, setChoice] = useState<"ask" | "wait" | "leave_note">("ask");
   if (!workplace) return null;
   const name = CHARACTERS[workplace.character as CharacterKey].preferredName;
   const restricted = workplace.publicAccess === "restricted";
+  const shiftLikely = workplaceShiftLikely(workplace.character, new Date());
   const prompt = restricted
     ? `Hey ${name}, I was thinking of stopping by when you have a break. Would meeting somewhere public near work suit you?`
     : `Hey ${name}, would it be okay if I stopped by ${workplace.label} when you have a minute? No pressure if you're busy.`;
@@ -27,8 +29,13 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       const rows = await inbox({});
       const thread = rows.find(row => row.characterKey === workplace.character);
       if (!thread) throw new Error("Conversation unavailable");
+      const draft = choice === "wait"
+        ? `Hey ${name}, I am in the public waiting area near ${workplace.label}. No rush or pressure—are you free for a quick hello, or should I head out?`
+        : choice === "leave_note"
+          ? `Hey ${name}, I stopped by the public area near ${workplace.label} but did not want to interrupt your shift. Hope work goes smoothly!`
+          : prompt;
       sessionStorage.setItem("home-moment-draft:" + thread.id, JSON.stringify({
-        text: prompt, homeKey: workplace.key, activity: "work_visit_request",
+        text: draft, homeKey: workplace.key, activity: "work_visit_request",
       }));
       await navigate({ to: "/chat/$conversationId", params: { conversationId: thread.id } });
     } catch {
@@ -46,9 +53,17 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     <p className="mt-2 text-sm text-muted-foreground">{arrived
       ? "You've reached the virtual public area. Contact them before expecting a visit."
       : "You can ask first, then decide whether to travel virtually."}</p>
+    <div className="mt-3 rounded-xl border bg-background p-3">
+      <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(["ask", ...(arrived ? ["wait", "leave_note"] : [])] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "ask" ? "Ask permission" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
+    </div>
     <button type="button" disabled={busy} onClick={() => void prepare()}
       className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">
-      {busy ? "Opening conversation…" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
+      {busy ? "Opening conversation…" : choice === "leave_note" ? "Write a note" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
     </button>
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
   </section>;
