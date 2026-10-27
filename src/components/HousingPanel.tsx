@@ -11,7 +11,7 @@ import { useSchedule, invalidateSchedule } from "@/lib/use-schedule";
 import { housingTypes, housingArrangements, type HousingInput } from "@/lib/housing";
 import { easternInstant } from "@/lib/plan-edit";
 import { card } from "./TownLayout";
-export function HousingPanel({ character }: { character?: string | undefined }) {
+export function HousingPanel({ character, conversationId }: { character?: string | undefined; conversationId?: string | undefined }) {
   const q = useHousing(),
     agenda = useSchedule(),
     save = useServerFn(changeHousing),
@@ -110,7 +110,7 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
       className={`${card} my-4 space-y-4`}
     >
       <h2 className="font-display text-xl">{character ? "Home" : "My home & household"}</h2>
-      {character && <ContactRelationshipStory characterKey={character} characterName={contacts.find((contact) => contact.key === character)?.name ?? character} />}
+      {character && <ContactRelationshipStory characterKey={character} characterName={contacts.find((contact) => contact.key === character)?.name ?? character} conversationId={conversationId} />}
       {home ? (
         <div>
           <Link
