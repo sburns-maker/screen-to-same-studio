@@ -90,6 +90,21 @@ function Chat() {
   const again = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // The Home Moments action prepares a one-use draft. It never sends a message
+  // on navigation and never overwrites an actively edited composer.
+  useEffect(() => {
+    const key = "home-moment-draft:" + conversationId;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return;
+    sessionStorage.removeItem(key);
+    try {
+      const draft = JSON.parse(raw) as { text?: unknown };
+      if (typeof draft.text === "string" && draft.text.trim().length > 0 && draft.text.length <= 500)
+        setText(current => current.trim() ? current : draft.text as string);
+    } catch {
+      // Discard an invalid one-time draft rather than disturbing the chat.
+    }
+  }, [conversationId]);
 
   const all = msgs.data ?? [];
   const visible = all.filter((m) => new Date(m.visible_at).getTime() <= now);
