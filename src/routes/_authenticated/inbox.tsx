@@ -74,7 +74,7 @@ function Inbox() {
   // Optional Android launcher bridge: existing authenticated server functions remain
   // the source of truth. No database credentials or contact data cross this boundary.
   useEffect(() => {
-    if (!inbox.isSuccess || !portraits.isSuccess) return;
+    if (!inbox.isSuccess) return;
     const bridge = (window as Window & {
       LivingWorldAndroid?: { receiveInbox?: (json: string) => void };
     }).LivingWorldAndroid;
