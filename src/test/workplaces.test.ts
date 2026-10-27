@@ -42,4 +42,12 @@ describe("fictional places of work", () => {
     }
   });
 
+  it("preserves plausible off-shift opportunity for every character", () => {
+    const dates=Array.from({length:7*24},(_,i)=>new Date(Date.UTC(2026,9,25)+i*3600000));
+    for(const key of Object.keys(CHARACTERS) as (keyof typeof CHARACTERS)[]) {
+      const offHours=dates.filter(d=>!workplaceShiftLikely(key,d));
+      expect(offHours.length).toBeGreaterThan(60);
+    }
+  });
+
 });
