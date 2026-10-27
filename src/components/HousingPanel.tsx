@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ContactRelationshipStory } from "./ContactRelationshipStory";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -107,6 +108,7 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
       className={`${card} my-4 space-y-4`}
     >
       <h2 className="font-display text-xl">{character ? "Home" : "My home & household"}</h2>
+      {character && <ContactRelationshipStory characterKey={character} characterName={contacts.find((contact) => contact.key === character)?.name ?? character} />}
       {home ? (
         <div>
           <Link
