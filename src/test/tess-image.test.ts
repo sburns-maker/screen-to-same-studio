@@ -132,6 +132,9 @@ describe("safe image error diagnostics", () => {
     expect(classifyImageFailure(new Error("face_structure_drift"), "visual_screen")).toBe("face_structure_drift");
     expect(classifyImageFailure(new Error("unrecognized screening exception"), "visual_screen")).toBe("visual_screen_failed");
     expect(classifyImageFailure(new Error("text provider unavailable"), "text_quality")).toBe("text_quality_check_failed");
+    expect(classifyImageFailure(new Error("spicy_quote_invalid"), "provider_generation")).toBe("spicy_quote_invalid");
+    expect(classifyImageFailure(new Error("spicy_http_402"), "provider_generation")).toBe("spicy_http_402");
+    expect(classifyImageFailure(new Error("spicy private detail"), "provider_generation")).toBe("provider_request_failed");
   });
 });
 

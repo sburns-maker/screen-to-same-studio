@@ -229,7 +229,7 @@ export function classifyImageFailure(error: unknown, stage: string): string {
   if (error instanceof ImageProviderFailure) return error.code;
   if (error instanceof Error) {
     if (["TimeoutError", "AbortError"].includes(error.name)) return "provider_timeout";
-    if (/^api18_[a-z0-9_]{1,80}$/.test(error.message)) return error.message;
+    if (/^(?:api18|spicy)_[a-z0-9_]{1,80}$/.test(error.message)) return error.message;
     if (error instanceof SyntaxError && stage === "provider_generation") return "provider_invalid_response";
     if (/^(unsupported_group_photo|canonical_character_missing|reference_conditioning_unverified|visual_screen_unavailable|face_structure_drift|appearance_drift|reference_obscured|face_not_visible|scene_mismatch|uncertain|visual_screen_uncertain|text_verification_unavailable)$/.test(error.message)) return error.message;
   }
@@ -379,6 +379,8 @@ export async function generateTessImage(args: {
     if (error instanceof ImageProviderFailure) {
       if (error.httpStatus) diagnostic.providerHttpStatus = error.httpStatus;
       if (error.providerError && Object.keys(error.providerError).length) diagnostic.providerError = error.providerError;
+    } else if (error instanceof Error && /^spicy_http_\d{3}$/.test(error.message)) {
+      diagnostic.providerHttpStatus = Number(error.message.slice(11));
     }
     throw new PhotoGenerationFailure(diagnostic);
   }
