@@ -438,6 +438,7 @@ async function runTurnUnlocked(
   const shared = await sharedPlanContext(supabase, userId, def.key, now);
   if (shared) worldKnowledge.unshift(`ACTIVE SHARED PLAN: ${shared.summary} Photos may show only you, objects or the environment; group portraits are not supported.`);
   const { altoonaContext } = await import("./altoona-places");
+  worldKnowledge.push((await import("./workplaces")).workVisitGuidance(def.key, now));
   worldKnowledge.push(...altoonaContext(def.key,now));
   const { townPopulationContext } = await import("./blair-town-npcs");
   worldKnowledge.push(...townPopulationContext(def.key,now));
