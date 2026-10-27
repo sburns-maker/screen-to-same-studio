@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { inboxOverview, ensureConversations } from "@/lib/tess.functions";
 import { homeMoments } from "@/lib/home-moments";
 import type { HousingHome, HousingSnapshot } from "@/lib/housing";
 
@@ -8,10 +10,37 @@ export function HomeMoments({ home, snapshot, character }: {
   snapshot: HousingSnapshot;
   character?: string;
 }) {
+  const navigate = useNavigate();
+  const overview = useServerFn(inboxOverview);
+  const ensure = useServerFn(ensureConversations);
+  const [opening, setOpening] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
   const moments = useMemo(() => homeMoments(home, snapshot, character), [home, snapshot, character]);
   const chosen = moments.find((moment) => moment.id === selected);
+  async function openDraft() {
+    if (!chosen || opening) return;
+    setOpening(true);
+    setCopyStatus("");
+    try {
+      await ensure();
+      const threads = await overview({});
+      const tess = threads.find((thread) => thread.characterKey === "tess");
+      if (!tess) throw new Error("Tess's conversation is unavailable.");
+      // Same-tab temporary draft, scoped to this exact existing conversation.
+      // No message is sent and the plan/calendar isn't changed.
+      sessionStorage.setItem("home-moment-draft:" + tess.id, JSON.stringify({
+        text: chosen.suggestion,
+        homeKey: home.key,
+        activity: chosen.id,
+      }));
+      await navigate({ to: "/chat/$conversationId", params: { conversationId: tess.id } });
+    } catch {
+      setCopyStatus("Could not open Tess's chat. You can copy this message instead.");
+    } finally {
+      setOpening(false);
+    }
+  }
   return (
     <section aria-label="Home moments" className="space-y-3 rounded-2xl border border-border/70 bg-gradient-to-br from-orange-50/70 via-background to-rose-50/50 p-4 dark:from-orange-950/10 dark:via-background dark:to-rose-950/10 sm:p-5">
       <div>
@@ -45,9 +74,12 @@ export function HomeMoments({ home, snapshot, character }: {
                   .then(() => setCopyStatus("Copied. Paste into your conversation when you're ready."))
                   .catch(() => setCopyStatus("Copy failed. Select the text above instead."));
               }}>
-              Copy to conversation
+              Copy text
             </button>
-            <Link to="/inbox" className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm">Open messages</Link>
+            <button type="button" disabled={opening} onClick={() => void openDraft()}
+              className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
+              {opening ? "Opening…" : "Open draft with Tess"}
+            </button>
             {(home.canVisit || !character) && <Link to="/place/$placeKey" params={{ placeKey: home.key }}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm">Explore home</Link>}
           </div>
