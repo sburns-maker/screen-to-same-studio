@@ -62,3 +62,12 @@ _Status: phased design and initial implementation branch; not a production commi
 - The UI does NOT yet expose player proposal creation because no conversational character-response pipeline is wired. A unilateral proposal would otherwise remain pending indefinitely.
 - Future batch: extract character-initiated proposals and responses from committed, visible dialogue; queue them idempotently; cross-check quoted utterances; feed canonical commitment status into text, phone and outing contexts.
 - Migration remains unapplied and feature is not verified in a running Lovable environment. Existing housing approvals remain completely separate.
+
+## Tess-first autonomous commitment pilot (current branch; untested)
+- The shared strict structured reply now includes a nullable commitment_action. All non-Tess characters return an inactive action.
+- Tess may explicitly propose exclusivity or a committed partnership in her own visible text. The action must quote the exact current message; the model must never invent the player's acceptance.
+- Primary Tess message delivery stores proposal metadata on the saved first bubble only when the quote matches it; hidden future messages cannot be acted on.
+- A service-role-only relationship_sync_tess function ingests saved, already-visible Tess proposals on commitment history read; it is not a background worker and does not process phone-only or outing-only dialogue.
+- A proposed decision remains pending until the player explicitly agrees or declines. No cohabitation or marriage is inferred.
+- Existing player decision buttons render pending proposals, backed by relationship_player_command and authenticated server function.
+- Remaining before release: schema/build tests, database migration replay, end-to-end Lovable staging with a real provider response; integrate independent character responses to player-initiated proposals, canonical commitment facts into every generation channel, call/outing proposals, and safe resolution of repeated stale unprocessed source messages.
