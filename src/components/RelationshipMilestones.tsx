@@ -5,9 +5,10 @@ import { commitmentLabel, resolveCommitmentStatus } from "@/lib/relationship-com
  * Presentation-only until the commitment event service is activated.
  * Never infer a milestone from relationship score, text sentiment or cohabitation.
  */
-export function RelationshipMilestones({ events, characterName }: {
+export function RelationshipMilestones({ events, characterName, connectionStage }: {
   events: readonly CommitmentEvent[];
   characterName: string;
+  connectionStage?: string | undefined;
 }) {
   const status = resolveCommitmentStatus(events);
   const timeline = [...events].sort((a, b) =>
@@ -19,7 +20,8 @@ export function RelationshipMilestones({ events, characterName }: {
       <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-display text-2xl">{characterName}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{commitmentLabel(status)}</p>
+          {connectionStage && <p className="mt-1 text-sm text-muted-foreground">Connection stage: {connectionStage}</p>}
+          <p className="mt-1 text-xs text-muted-foreground">Recorded commitment: {commitmentLabel(status)}</p>
         </div>
         <span aria-hidden="true" className="rounded-full bg-background/80 px-4 py-3 text-xl shadow-sm">♡</span>
       </div>

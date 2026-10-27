@@ -75,7 +75,7 @@ function Profile() {
         backParams={{ conversationId }}
       />
       <Screen>
-        <HousingPanel character={def.key}/>
+        <HousingPanel character={def.key} conversationId={conversationId}/>
         <div className="flex flex-col items-center text-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

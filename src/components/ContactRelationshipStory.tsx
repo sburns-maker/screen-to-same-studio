@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { stateQuery } from "@/lib/tess-queries";
+import { deriveStage } from "@/lib/tess-logic";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { changeRelationshipCommitment } from "@/lib/relationship-commitments.functions";
@@ -6,11 +9,14 @@ import { useRelationshipCommitments } from "@/lib/use-relationship-commitments";
 import { RelationshipMilestones } from "./RelationshipMilestones";
 import type { CommitmentEvent } from "@/lib/relationship-commitments";
 
-export function ContactRelationshipStory({ characterKey, characterName }: {
+export function ContactRelationshipStory({ characterKey, characterName, conversationId }: {
   characterKey: string;
   characterName: string;
+  conversationId?: string | undefined;
 }) {
   const query = useRelationshipCommitments(characterKey);
+  const state = useQuery(stateQuery(conversationId));
+  const connectionStage = state.data ? deriveStage(state.data) : undefined;
   const change = useServerFn(changeRelationshipCommitment);
   const cache = useQueryClient();
   const [busy, setBusy] = useState(false);
@@ -51,7 +57,7 @@ export function ContactRelationshipStory({ characterKey, characterName }: {
   }
   return (
     <div className="space-y-3">
-      <RelationshipMilestones events={query.data.events} characterName={characterName} />
+      <RelationshipMilestones events={query.data.events} characterName={characterName} connectionStage={connectionStage} />
       {characterKey === "tess" && pending.length === 0 && (
         <section aria-label="Discuss a relationship commitment" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
           <h3 className="font-semibold">Where do we stand?</h3>
