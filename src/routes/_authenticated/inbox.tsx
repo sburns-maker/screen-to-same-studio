@@ -71,6 +71,28 @@ function Inbox() {
       r.preview.toLowerCase().includes(q.toLowerCase()),
   );
 
+  // Optional Android launcher bridge: existing authenticated server functions remain
+  // the source of truth. No database credentials or contact data cross this boundary.
+  useEffect(() => {
+    if (!inbox.isSuccess || !portraits.isSuccess) return;
+    const bridge = (window as Window & {
+      LivingWorldAndroid?: { receiveInbox?: (json: string) => void };
+    }).LivingWorldAndroid;
+    if (!bridge?.receiveInbox) return;
+    const payload = (inbox.data ?? []).map((r) => {
+      const def = characterFor(r.characterKey);
+      return {
+        id: r.id,
+        key: def.key,
+        name: r.name,
+        preview: r.preview ?? "",
+        unread: r.unread,
+        photo: portraits.data?.[def.key] ?? def.avatar,
+      };
+    });
+    bridge.receiveInbox(JSON.stringify(payload));
+  }, [inbox.isSuccess, inbox.data, portraits.isSuccess, portraits.data]);
+
   return (
     <div className="flex min-h-dvh flex-col bg-background pb-20">
       <Link to="/calls" className="mx-auto flex min-h-11 max-w-xl items-center justify-end px-5 text-sm text-primary">Calls & recents</Link>
