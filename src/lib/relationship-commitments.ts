@@ -84,3 +84,25 @@ export const RELATIONSHIP_PILOT = {
 export function canShareCommitmentWithCharacter(source: string, recipient: string): boolean {
   return source === recipient; // Own relationship continuity only during pilot.
 }
+
+/** Canonical facts for the character's own private prompt only. */
+export function commitmentContextForCharacter(
+  sourceCharacter: string,
+  receivingCharacter: string,
+  events: readonly CommitmentEvent[],
+): string[] {
+  if (!canShareCommitmentWithCharacter(sourceCharacter, receivingCharacter)) return [];
+  const own = events.filter((event) => event.characterKey === sourceCharacter);
+  const status = resolveCommitmentStatus(own);
+  const pending = own.find((event) => event.status === "pending");
+  return [
+    `CANONICAL PRIVATE COMMITMENT WITH PLAYER: ${commitmentLabel(status)}. Commitment requires explicit mutual agreement, not high attraction, flirting, kissing or a shared address.`,
+    ...(pending ? [`PENDING PRIVATE RELATIONSHIP DECISION: ${JSON.stringify({
+      id: pending.id,
+      kind: pending.kind,
+      proposedBy: pending.proposedBy,
+      userResponse: pending.userResponse,
+      characterResponse: pending.characterResponse,
+    })}. Do not claim a pending proposal has been accepted.`] : []),
+  ];
+}
