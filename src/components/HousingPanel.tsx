@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { ContactRelationshipStory } from "./ContactRelationshipStory";
 import { HomeMoments } from "./HomeMoments";
+import { HomePhotoGallery } from "./HomePhotoGallery";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -133,6 +134,7 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
         </p>
       )}
       {home && (!character || home.canVisit) && <HomeMoments home={home} snapshot={q.data} character={character} />}
+      {home && home.canVisit && home.primaryFor.includes("tess") && <HomePhotoGallery homeKey={home.key} />}
       {!character && home && (
         <div aria-label="Household overview" className="overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-rose-50/80 via-background to-amber-50/70 p-4 shadow-sm dark:from-rose-950/20 dark:via-background dark:to-amber-950/10 sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
