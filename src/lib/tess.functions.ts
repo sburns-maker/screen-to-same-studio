@@ -519,6 +519,22 @@ async function runTurnUnlocked(
     photos=[];generateTypes=[];
     worldKnowledge.unshift(`CHANNEL: Live in-app telephone conversation, not texting. Keep one natural spoken reply under 500 characters; no emojis, photographs or text-only actions. ${ (await import("./phone-calls")).CALL_VOICES[def.key].style } Do not award progress for answering. Use existing memories and boundaries. Only if you actually choose to end this call, end your spoken reply with <end_call>; an ordinary completed reply does NOT end the call.`);
   }
+  // Tess pilot: canonical commitments are scoped to this conversation's player and character.
+  // This context never modifies Riley or another contact's attraction and score.
+  if (isTess && photoAdmin) {
+    const { commitmentSnapshot } = await import("./relationship-commitments.server");
+    const snapshot = await commitmentSnapshot(photoAdmin, userId, "tess").catch(() => null);
+    if (snapshot?.available) {
+      const { resolveCommitmentStatus, commitmentLabel } = await import("./relationship-commitments");
+      const status = resolveCommitmentStatus(snapshot.events);
+      worldKnowledge.push("CANONICAL RELATIONSHIP COMMITMENT WITH PLAYER: " + commitmentLabel(status) + ". A high attraction score, flirting with someone else, or living together is not proof of exclusivity. Preserve confirmed commitments.");
+      const pending = snapshot.events.find(event => event.status === "pending");
+      if (pending) worldKnowledge.push("AUTHORITATIVE PENDING RELATIONSHIP PROPOSAL: " + JSON.stringify({
+        id: pending.id, kind: pending.kind, proposedBy: pending.proposedBy,
+        userResponse: pending.userResponse, characterResponse: pending.characterResponse
+      }) + ". If this is the player's proposal, decide independently whether to accept, decline or defer in visible dialogue; never treat it as accepted before both agree.");
+    }
+  }
   let reply: import("./tess.server").TessReply;
   if (isTess) {
     reply = await generateTessReply({
@@ -708,7 +724,7 @@ async function runTurnUnlocked(
         initiated: !!initiation,
         notification_group: notificationGroup,
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
-        ...(i === 0 && def.key === "tess" && reply.commitment_action?.action === "propose" && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
+        ...(i === 0 && def.key === "tess" && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
