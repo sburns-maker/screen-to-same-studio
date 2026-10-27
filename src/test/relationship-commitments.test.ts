@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canFinalizeCommitment, commitmentEventSchema, commitmentLabel, resolveCommitmentStatus,
-  type CommitmentEvent,
+  type CommitmentEvent, canShareCommitmentWithCharacter, RELATIONSHIP_PILOT,
 } from "@/lib/relationship-commitments";
 
 const example: CommitmentEvent = {
@@ -41,4 +41,12 @@ describe("durable relationship commitment rules", () => {
   it("rejects malformed provenance", () => {
     expect(commitmentEventSchema.safeParse({ ...example, sourceId: "" }).success).toBe(false);
   });
+});
+
+it("keeps Tess pilot commitment knowledge out of Riley and other contacts", () => {
+  expect(RELATIONSHIP_PILOT.crossCharacterDisclosure).toBe(false);
+  expect(RELATIONSHIP_PILOT.propagateCommitmentScores).toBe(false);
+  expect(canShareCommitmentWithCharacter("tess", "tess")).toBe(true);
+  for (const contact of ["riley", "maya", "claire", "jordan", "ben"])
+    expect(canShareCommitmentWithCharacter("tess", contact)).toBe(false);
 });
