@@ -16,6 +16,18 @@ const BY_ACTIVITY: Record<string, ExperienceStarter[]> = {
     { label: "Enjoy the quiet", draft: "I sit quietly next to you, taking in the park. " },
     { label: "Walk again", draft: "I stand up from the bench and continue walking beside you. " },
   ],
+  waiting: [
+    { label: "Check in", draft: 'I look over at you. "Everything okay?"' },
+    { label: "Give some space", draft: "I wait nearby without interrupting you. " },
+  ],
+  at_front_door: [
+    { label: "Say goodnight", draft: 'I smile. "I had a good time tonight."' },
+    { label: "Ask about next time", draft: 'I ask, "Would you like to do this again sometime?"' },
+  ],
+  talking: [
+    { label: "Ask about today", draft: 'I ask, "How has your day been?"' },
+    { label: "Listen", draft: "I listen, giving you time to finish what you were saying. " },
+  ],
   driving: [
     { label: "Talk on the way", draft: "I continue our conversation as we travel together. " },
     { label: "Check the destination", draft: 'I ask, "Still feeling good about where we are headed?"' },
@@ -23,6 +35,10 @@ const BY_ACTIVITY: Record<string, ExperienceStarter[]> = {
   arriving: [
     { label: "Look around", draft: "I take in the surroundings as we arrive together. " },
     { label: "Go inside?", draft: 'I look over at you. "Ready to go in?"' },
+  ],
+  household_chore: [
+    { label: "Help out", draft: "I offer to help with what needs doing. " },
+    { label: "Take a break?", draft: 'I ask, "Want to take a little break?"' },
   ],
   ordering: [
     { label: "Choose a drink", draft: "I look at the drink options and ask what sounds good to you. " },
