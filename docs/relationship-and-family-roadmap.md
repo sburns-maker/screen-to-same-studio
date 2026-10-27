@@ -101,3 +101,8 @@ _Status: phased design and initial implementation branch; not a production commi
 - The original chat send/offline queue/reply generation remain responsible for message delivery. Calendar and housing decisions still require mutual agreement.
 - Your home and Tess's permitted home both support this flow; Tess-only commitment privacy remains in place.
 - Validate in Lovable: new user with no seeded Tess thread, your home, Tess home, back navigation, existing unsent message, offline mode and request-a-photo voluntary refusal.
+
+## Three-item stabilization pass
+1. Verified home gallery now rejects absolute storage paths, traversal, and query strings before URL signing.
+2. Sent home-activity draft text stores a scoped home_moment_prompt metadata hint only when unchanged; neither sending nor opening a draft creates an outing or awards relationship progress. Edited messages are treated as regular chat.
+3. Regression tests cover unsafe photo storage references. Remaining: run all tests and a Lovable build, verify draft navigation/offline paths, and review current main's two commits before any later merge.
