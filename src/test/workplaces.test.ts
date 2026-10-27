@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WORKPLACES, workplaceFor, workVisitGuidance } from "@/lib/workplaces";
+import { WORKPLACES, workplaceFor, workVisitGuidance, workplaceShiftLikely } from "@/lib/workplaces";
 import { CHARACTERS } from "@/lib/characters";
 import { TOWN_PLACES } from "@/lib/town";
 describe("fictional places of work", () => {
@@ -21,4 +21,9 @@ describe("fictional places of work", () => {
     expect(guidance).toContain("does not guarantee");
     expect(guidance).toContain("never imply workplace access");
   });
+  it("recognizes cross-midnight shifts by the day on which they started", () => {
+    expect(workplaceShiftLikely("riley", new Date("2026-10-27T06:00:00Z"))).toBe(true);
+    expect(workplaceShiftLikely("riley", new Date("2026-10-27T17:00:00Z"))).toBe(false);
+  });
+
 });
