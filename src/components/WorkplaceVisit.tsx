@@ -4,14 +4,18 @@ import { useServerFn } from "@tanstack/react-start";
 import { ensureConversations, inboxOverview } from "@/lib/tess.functions";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
 import { WORKPLACES, workplaceShiftLikely } from "@/lib/workplaces";
+import { workplaceEncounterTurn } from "@/lib/workplace-encounter.functions";
 
 export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrived: boolean }) {
   const workplace = Object.values(WORKPLACES).find(p => p.key === placeKey);
   const navigate = useNavigate();
   const ensure = useServerFn(ensureConversations);
   const inbox = useServerFn(inboxOverview);
+  const encounter = useServerFn(workplaceEncounterTurn);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [spoken, setSpoken] = useState("");
+  const [encounterStatus, setEncounterStatus] = useState("");
   const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak">("ask");
   if (!workplace) return null;
   const name = CHARACTERS[workplace.character as CharacterKey].preferredName;
@@ -21,6 +25,25 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     ? `Hey ${name}, I was thinking of stopping by when you have a break. Would meeting somewhere public near work suit you?`
     : `Hey ${name}, would it be okay if I stopped by ${workplace.label} when you have a minute? No pressure if you're busy.`;
 
+  async function speakOnSite() {
+    if (!arrived || busy || !spoken.trim()) return;
+    setBusy(true);setError("");setEncounterStatus("");
+    try {
+      await ensure();
+      const rows=await inbox({});
+      const thread=rows.find(row=>row.characterKey===workplace.character);
+      if (!thread) throw new Error("Conversation unavailable");
+      await encounter({ data: {
+        conversationId: thread.id, character: workplace.character,
+        text: spoken.trim(), requestId: crypto.randomUUID(),
+      }});
+      setSpoken("");
+      setEncounterStatus("Your conversation was recorded. Open the thread to continue and read the reply.");
+      await navigate({ to: "/chat/$conversationId", params: { conversationId: thread.id } });
+    } catch(e) {
+      setError(e instanceof Error ? e.message : "On-site conversation unavailable");
+    } finally { setBusy(false); }
+  }
   async function prepare() {
     if (busy) return;
     setBusy(true);setError("");
@@ -63,6 +86,18 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>
+    {arrived && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
+      <label htmlFor="workplace-dialogue" className="block text-sm font-medium">Speak from the public visitor area</label>
+      <textarea id="workplace-dialogue" value={spoken} maxLength={900} onChange={e=>setSpoken(e.target.value)}
+        placeholder={restricted ? "Ask whether they can meet you outside the restricted area…" : "Say hello, ask if they have a moment…"}
+        className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm"/>
+      <button type="button" disabled={busy || !spoken.trim()} onClick={() => void speakOnSite()}
+        className="min-h-11 rounded-lg border border-primary px-4 text-sm font-medium disabled:opacity-50">
+        {busy ? "Talking…" : "Speak here"}
+      </button>
+      <p className="text-xs text-muted-foreground">Uses the game's actual AI conversation history. They may be unavailable; a message does not grant access to treatment rooms or staff areas.</p>
+    </div>}
+    {encounterStatus && <p role="status" className="mt-2 text-sm">{encounterStatus}</p>}
     <button type="button" disabled={busy} onClick={() => void prepare()}
       className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">
       {busy ? "Opening conversation…" : choice === "leave_note" ? "Write a note" : choice === "speak" ? "Open live conversation" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
