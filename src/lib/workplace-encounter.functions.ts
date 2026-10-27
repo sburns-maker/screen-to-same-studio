@@ -13,6 +13,8 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
     conversationId: z.string().uuid(), character: z.enum(["tess","maya","claire","jordan","ben","riley"]),
     text: z.string().trim().min(1).max(900), requestId: z.string().uuid(),
     activity: z.enum(["conversation", "lunch_dropoff", "item_dropoff"]).default("conversation"),
+    receptionTurns: z.array(z.object({ speaker: z.enum(["player", "reception"]), body: z.string().max(600) })).max(20).optional(),
+    deliveryOutcome: z.enum(["unresolved", "message_left", "waiting", "declined"]).optional(),
   }).parse(v))
   .handler(async ({ context, data }) => {
     const work = WORKPLACES[data.character];
@@ -51,7 +53,8 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
           request_id: data.requestId, place_key: work.key, character: data.character,
           access: work.publicAccess === "restricted" ? "public_reception_only" : "public_visitor_area",
           event: data.activity !== "conversation" ? "player_attempted_item_dropoff" : "player_requested_conversation", occurred_at: now.toISOString(),
-          ...(data.activity !== "conversation" ? { delivery_status: "attempted", recipient_notified: false } : {}),
+          ...(data.activity !== "conversation" ? { delivery_status: "attempted", recipient_notified: false,
+            reception_turns: data.receptionTurns ?? [], delivery_outcome: data.deliveryOutcome ?? "unresolved" } : {}),
         },
       },
     });
