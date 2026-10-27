@@ -16,7 +16,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [error, setError] = useState("");
   const [spoken, setSpoken] = useState("");
   const [lunch, setLunch] = useState("A packed lunch and a drink");
-  const [dropoffNote, setDropoffNote] = useState("I stop at the public reception desk and ask if staff are able to pass along lunch to Riley when she has time. I can leave a note if permitted.");
+  const [dropoffNote, setDropoffNote] = useState('I walk up to reception with the lunch. "Hi, I brought some food for Riley. Is there somewhere I can leave it for her, or should I wait here?"');
   const [encounterStatus, setEncounterStatus] = useState("");
   const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak" | "drop_lunch">("ask");
   if (!workplace) return null;
@@ -39,7 +39,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       await encounter({ data: {
         conversationId: thread.id, character: place.character,
         activity: dropoff ? "lunch_dropoff" : "conversation",
-        text: dropoff ? `LUNCH DROP-OFF ATTEMPT (NOT YET RECEIVED): I brought ${lunch.trim()}. ${dropoffNote.trim()} The front desk may decline; no handoff or meeting is confirmed.` : spoken.trim(), requestId: crypto.randomUUID(),
+        text: dropoff ? `I brought ${lunch.trim()}. ${dropoffNote.trim()}` : spoken.trim(), requestId: crypto.randomUUID(),
       }});
       if (!dropoff) setSpoken("");
       setEncounterStatus("Your conversation was recorded. Open the thread to continue and read the reply.");
