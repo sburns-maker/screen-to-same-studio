@@ -219,8 +219,9 @@ function Chat() {
     }
     const { data: u } = await supabase.auth.getUser();
     // Provenance is an activity *suggestion*, never evidence that an outing occurred.
-    const origin = homeDraft.current?.text.trim() === body
-      ? { home_moment_prompt: { home_key: homeDraft.current.homeKey, activity: homeDraft.current.activity } }
+    const draftSource = homeDraft.current;
+    const origin = draftSource && draftSource.text.trim() === body
+      ? { home_moment_prompt: { home_key: draftSource.homeKey, activity: draftSource.activity } }
       : undefined;
     const { error } = await supabase.from("messages").insert({
       conversation_id: convId, user_id: u.user!.id, sender: "user", body,
