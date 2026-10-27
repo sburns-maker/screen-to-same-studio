@@ -6,7 +6,7 @@ import { ensureConversations, inboxOverview } from "@/lib/tess.functions";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
 import { WORKPLACES, workplaceShiftLikely } from "@/lib/workplaces";
 import { workplaceEncounterTurn } from "@/lib/workplace-encounter.functions";
-import { giftHandoffHistory, changeGiftHandoff } from "@/lib/gift-handoffs.functions";
+import { giftHandoffHistory, changeGiftHandoff, verifyGiftReceipt } from "@/lib/gift-handoffs.functions";
 import { nextReceptionTurn, dropoffSummary, type ReceptionSession } from "@/lib/workplace-reception";
 
 export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrived: boolean }) {
@@ -17,6 +17,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const encounter = useServerFn(workplaceEncounterTurn);
   const getGifts = useServerFn(giftHandoffHistory);
   const updateGift = useServerFn(changeGiftHandoff);
+  const verifyGift = useServerFn(verifyGiftReceipt);
   const queryClient = useQueryClient();
   const gifts = useQuery({ queryKey: ["gift-handoffs", placeKey], queryFn: () => getGifts({ data: { character: workplace!.character } }), enabled: Boolean(workplace) });
   const [busy, setBusy] = useState(false);
@@ -143,8 +144,17 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       {gifts.data?.length === 0 && <p className="text-sm text-muted-foreground">No recorded item drop-offs yet.</p>}
       {gifts.data?.map(gift => <div key={gift.id} className="rounded-lg border p-3 text-sm">
         <p className="font-medium">{gift.item}</p>
-        <p className="text-xs text-muted-foreground">Status: {gift.status.replaceAll("_", " ")} · Recipient receipt unconfirmed</p>
-        {gift.status !== "returned" && <div className="mt-2 flex flex-wrap gap-2">
+        <p className="text-xs text-muted-foreground">Status: {gift.status.replaceAll("_", " ")} · {gift.recipientReceived ? "Recipient confirmed receipt" : "Recipient receipt unconfirmed"}</p>
+        {gift.status !== "returned" && gift.status !== "received" && <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" className="min-h-10 rounded-lg border px-3" disabled={busy} onClick={async () => {
+            setBusy(true); setError("");
+            try {
+              const result = await verifyGift({ data: { id: gift.id, character: place.character } });
+              await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] });
+              setEncounterStatus(result.confirmed ? "Receipt verified from the character's conversation." : "No explicit receipt confirmation yet. The delivery remains unconfirmed.");
+            } catch { setError("Could not verify receipt. Try again."); }
+            finally { setBusy(false); }
+          }}>Check for receipt</button>
           <button type="button" className="min-h-10 rounded-lg border px-3" disabled={busy} onClick={async () => {
             setBusy(true); setError("");
             try { await updateGift({ data: { id: gift.id, character: place.character, action: "wait" } }); await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] }); }
