@@ -23,12 +23,10 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
     if (present.error || present.data?.place_key !== work.key ||
         !present.data?.arrives_at || Date.parse(present.data.arrives_at) > now.getTime())
       throw new Error("Arrive at the virtual workplace before starting an encounter.");
-    if (data.activity === "lunch_dropoff" && data.character !== "riley")
-      throw new Error("This lunch drop-off is not available at this workplace.");
     if (data.activity !== "lunch_dropoff" && !workplaceShiftLikely(data.character, now))
       throw new Error("This isn't a usual shift. Arrange another time with the character.");
     const availability = characterAvailability(CHARACTERS[data.character], now);
-    if (availability.availability === "asleep")
+    if (data.activity !== "lunch_dropoff" && availability.availability === "asleep")
       throw new Error("They're unavailable right now.");
     const conversation = await db.from("conversations")
       .select("id,character:characters(key)")
@@ -53,6 +51,7 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
           request_id: data.requestId, place_key: work.key, character: data.character,
           access: work.publicAccess === "restricted" ? "public_reception_only" : "public_visitor_area",
           event: data.activity === "lunch_dropoff" ? "player_attempted_lunch_dropoff" : "player_requested_conversation", occurred_at: now.toISOString(),
+          ...(data.activity === "lunch_dropoff" ? { delivery_status: "attempted", recipient_notified: false } : {}),
         },
       },
     });
