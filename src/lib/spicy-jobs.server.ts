@@ -9,6 +9,7 @@ import {
   spicyConfiguration,
   buildSpicyRequest,
   spicyRequest,
+  quoteSpicyRequest,
   downloadSpicyOutput,
   PendingPhotoTask,
   SpicyHttpFailure,
@@ -58,6 +59,20 @@ export const submitSpicyPhoto = createServerOnlyFn(async function submitSpicyPho
       JSON.stringify({ model: config.model, prompt, canonicalSha256, context }),
     ),
   );
+  // Free quote first: a rejected quote (schema, balance, spend cap, model
+  // permission) costs nothing and creates no reservation.
+  let quote;
+  try {
+    quote = await quoteSpicyRequest(body);
+  } catch (e) {
+    throw new Error(
+      e instanceof SpicyHttpFailure
+        ? `SpicyAPI price check was refused (HTTP ${e.status}); nothing was charged.`
+        : "SpicyAPI price check was invalid; nothing was submitted.",
+    );
+  }
+  if (quote.cents > config.jobCents)
+    throw new Error("SpicyAPI quote exceeds the per-image spending limit; nothing was submitted.");
   const reserved = await db.rpc(
     "spicy_photo_reserve" as never,
     {
@@ -67,8 +82,12 @@ export const submitSpicyPhoto = createServerOnlyFn(async function submitSpicyPho
       p_character: character,
       p_hash: hash,
       p_model: config.model,
-      p_payload: { ...context, canonicalSha256 },
-      p_cents: config.jobCents,
+      p_payload: {
+        ...context,
+        canonicalSha256,
+        quote: { quoteId: quote.quoteId, expectedCost: quote.expectedCost },
+      },
+      p_cents: quote.cents,
       p_daily: config.dailyCents,
       p_monthly: config.monthlyCents,
     } as never,
@@ -85,7 +104,12 @@ export const submitSpicyPhoto = createServerOnlyFn(async function submitSpicyPho
     throw new Error("spicy_action_already_reserved");
   }
   try {
-    const task = await spicyRequest("/jobs/createTask", body, claim.record.idempotency_key);
+    // Price-locked submission with the persisted idempotency key.
+    const task = await spicyRequest(
+      "/jobs/createTask",
+      { ...body, quoteId: quote.quoteId, expectedCost: quote.expectedCost },
+      claim.record.idempotency_key,
+    );
     const stored = await db
       .from("spicy_photo_jobs")
       .update({
