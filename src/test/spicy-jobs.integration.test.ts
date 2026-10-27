@@ -90,7 +90,7 @@ beforeEach(async () => {
       quotes.push(JSON.parse(String(init?.body)));
       return Promise.resolve(Response.json({ code: 200, data: quoteData() }));
     }
-    return fetcher(url, init);
+    return (fetcher as unknown as typeof fetch)(url, init);
   });
   files.clear();
 });
@@ -309,7 +309,7 @@ it("rechecks revoked consent atomically and never delivers the image", async () 
     p_action: action,
     p_token: job.lease_token,
     p_metadata: {},
-    p_failure: null,
+    p_failure: null as never,
   });
   expect(result.error).toBeNull();
   expect(result.data).toBe(true);
