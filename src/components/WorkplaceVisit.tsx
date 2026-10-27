@@ -16,7 +16,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [error, setError] = useState("");
   const [spoken, setSpoken] = useState("");
   const [lunch, setLunch] = useState("A packed lunch and a drink");
-  const [dropoffNote, setDropoffNote] = useState('I walk up to reception with the lunch. "Hi, I brought some food for Riley. Is there somewhere I can leave it for her, or should I wait here?"');
+  const [dropoffNote, setDropoffNote] = useState('I walk up to reception with the lunch. "Hi, I brought this for someone who works here. Is there a permitted way to leave it for them?"');
   const [encounterStatus, setEncounterStatus] = useState("");
   const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak" | "drop_lunch">("ask");
   if (!workplace) return null;
@@ -39,7 +39,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       await encounter({ data: {
         conversationId: thread.id, character: place.character,
         activity: dropoff ? "lunch_dropoff" : "conversation",
-        text: dropoff ? `I brought ${lunch.trim()}. ${dropoffNote.trim()}` : spoken.trim(), requestId: crypto.randomUUID(),
+        text: dropoff ? `I brought ${lunch.trim()} for ${name}. ${dropoffNote.trim()}` : spoken.trim(), requestId: crypto.randomUUID(),
       }});
       if (!dropoff) setSpoken("");
       setEncounterStatus("Your conversation was recorded. Open the thread to continue and read the reply.");
@@ -88,13 +88,13 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {(arrived ? (place.character === "riley" ? ["ask", "speak", "wait", "leave_note", "drop_lunch"] as const : ["ask", "speak", "wait", "leave_note"] as const) : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "drop_lunch" ? "Drop off lunch" : item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
+        {(arrived ? (["ask", "speak", "wait", "leave_note", "drop_lunch"] as const) : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "drop_lunch" ? "Drop off lunch" : item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>
-    {arrived && place.character === "riley" && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play lunch drop-off">
+    {arrived && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play lunch drop-off">
       <h3 className="font-semibold">Lunch drop-off · public reception</h3>
-      <p className="text-sm text-muted-foreground">You're at the hospital entrance. Describe what you brought and what you say to reception. Staff may decline the delivery, and Riley may not be free. Nothing is automatically handed over.</p>
+      <p className="text-sm text-muted-foreground">You're at the hospital entrance. Describe what you brought and what you say to reception. Staff may decline the delivery, and the character may not be free. Nothing is automatically handed over.</p>
       <label htmlFor="lunch-items" className="block text-sm font-medium">What did you bring?</label>
       <input id="lunch-items" value={lunch} maxLength={160} onChange={e => setLunch(e.target.value)} className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm" />
       <label htmlFor="lunch-dialogue" className="block text-sm font-medium">What do you say or do?</label>
