@@ -393,13 +393,20 @@ async function runTurnUnlocked(
   const messageList = [...recent].reverse().map((m) => ({
     ...m,
     body: (() => {
-      const md = m.metadata as { photo?: string; generated_path?: string; game_chat?: string } | null;
+      const md = m.metadata as { photo?: string; generated_path?: string; game_chat?: string; channel?: string; workplace_encounter?: { place_key?: string; access?: string; event?: string } } | null;
+      if (md?.workplace_encounter?.event === "player_requested_conversation")
+        return `[Player speaking from fictional public visitor area at ${md.workplace_encounter.place_key}; no mutual meeting or private access confirmed] ${m.body}`;
+      if (md?.channel === "voice") return `[spoken during a phone call] ${m.body}`;
       if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
       if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
       if (md?.game_chat && ["trivia", "four", "words", "pool"].includes(md.game_chat)) return `[sent while playing ${md.game_chat === "four" ? "Four in a Row" : md.game_chat === "words" ? "Word Hunt" : md.game_chat === "pool" ? "8 Ball" : "Trivia"} together] ${m.body}`;
       return m.body;
     })(),
   }));
+  // Conversation messages include voice turns (metadata.channel="voice") and ordinary
+  // texts in chronological order. Reinforce their common chronology to the model.
+  const { recentSpokenMoments } = await import("./cross-channel-continuity");
+  const channelMoments = recentSpokenMoments(recent, def.preferredName);
   const recentText = [initiation?.reason ?? "", ...recent.slice(0, 6).map((m) => m.body ?? "")].join(" ");
   const memoryList = recallMemories((mems ?? []) as MemoryRow[], recentText, new Date())
     .map((m) => `${m.memory_type}: ${m.summary}`);
@@ -421,7 +428,7 @@ async function runTurnUnlocked(
         })
     : [];
   const callHistory = await (await import("./call-history-context.server")).recentCallContext(photoAdmin ?? supabase, userId, conv.id, def.key, now);
-  const worldKnowledge = [...callHistory,...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
+  const worldKnowledge = [...(channelMoments.length ? ["RECENT SPOKEN CALL DIALOGUE (your own conversation, shared continuity across calls and texts):", ...channelMoments, "You may organically reference a specific call topic later in a text, and vice versa. Never claim a call occurred unless recorded. Avoid repeating every call detail or narrating the log."] : []),...callHistory,...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
   )];
@@ -433,6 +440,7 @@ async function runTurnUnlocked(
   const shared = await sharedPlanContext(supabase, userId, def.key, now);
   if (shared) worldKnowledge.unshift(`ACTIVE SHARED PLAN: ${shared.summary} Photos may show only you, objects or the environment; group portraits are not supported.`);
   const { altoonaContext } = await import("./altoona-places");
+  worldKnowledge.push((await import("./workplaces")).workVisitGuidance(def.key, now));
   worldKnowledge.push(...altoonaContext(def.key,now));
   const { townPopulationContext } = await import("./blair-town-npcs");
   worldKnowledge.push(...townPopulationContext(def.key,now));
@@ -518,6 +526,18 @@ async function runTurnUnlocked(
   if (voice) {
     photos=[];generateTypes=[];
     worldKnowledge.unshift(`CHANNEL: Live in-app telephone conversation, not texting. Keep one natural spoken reply under 500 characters; no emojis, photographs or text-only actions. ${ (await import("./phone-calls")).CALL_VOICES[def.key].style } Do not award progress for answering. Use existing memories and boundaries. Only if you actually choose to end this call, end your spoken reply with <end_call>; an ordinary completed reply does NOT end the call.`);
+  }
+  // Tess pilot: canonical commitments are scoped to this conversation's player and character.
+  // This context never modifies Riley or another contact's attraction and score.
+  if (isTess && photoAdmin) {
+    const { RELATIONSHIP_PILOT } = await import("./relationship-commitments");
+    if (RELATIONSHIP_PILOT.activeCharacter !== def.key) throw new Error("Relationship pilot character mismatch");
+    const { commitmentSnapshot } = await import("./relationship-commitments.server");
+    const snapshot = await commitmentSnapshot(photoAdmin, userId, "tess").catch(() => null);
+    if (snapshot?.available) {
+      const { commitmentContextForCharacter } = await import("./relationship-commitments");
+      worldKnowledge.push(...commitmentContextForCharacter("tess", def.key, snapshot.events));
+    }
   }
   let reply: import("./tess.server").TessReply;
   if (isTess) {
@@ -708,6 +728,7 @@ async function runTurnUnlocked(
         initiated: !!initiation,
         notification_group: notificationGroup,
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
+        ...(i === 0 && def.key === "tess" && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,

@@ -71,7 +71,7 @@ const POOLS: Record<string, { work: Omit<Disruption, "block">[]; off: Omit<Disru
   },
 };
 
-/** ~35% of 3-hour blocks get a disruption; varies daily per character. */
+/** Roughly 27% of work blocks and 14% of off-duty blocks vary; never automatically consume an entire free evening. */
 export function disruptionFor(character: string, now: Date, atWork: boolean): Disruption | null {
   const pool = POOLS[character];
   if (!pool) return null;
@@ -80,10 +80,13 @@ export function disruptionFor(character: string, now: Date, atWork: boolean): Di
   const blockIdx = Math.floor(local.getHours() / 3);
   const block = atWork ? "work" : "off";
   const rng = mulberry32(hashSeed(`disrupt:${character}:${day}:${blockIdx}`));
-  if (rng() > 0.35) return null;
+  if (rng() > (atWork ? 0.27 : 0.14)) return null;
   const list = pool[block];
   const d = list[Math.floor(rng() * list.length)];
-  return d ? { ...d, block } : null;
+  if (!d) return null;
+  // Free time remains meaningful: errands may postpone a reply, but ordinary
+  // off-duty disruptions should not consume a whole three-hour block.
+  return { ...d, block, availability: !atWork && d.availability === "busy" ? "limited" : d.availability };
 }
 
 /** Applies a disruption to a base availability; never wakes anyone up. */
