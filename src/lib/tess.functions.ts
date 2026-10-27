@@ -454,6 +454,18 @@ async function runTurnUnlocked(
   const sceneContext=await resolvePhotoScene(photoAdmin??supabase,userId,conv.id,residentialSchedule,now,!!photoAdmin&&initiation?.developerPhoto!=="preview");
   const schedule=sceneContext.schedule;
   worldKnowledge.unshift(`CURRENT PHYSICAL CONTEXT (${sceneContext.source}): ${schedule.detail}. This takes priority over older storylines, old photographs and the original calendar venue. Do not invent travel to make a photograph fit an old topic.`);
+  // Reuse the established autonomous messaging system: invitations are suggestions,
+  // never direct writes to plans, calendars or experience state.
+  if (initiation && !voice && !initiation.spontaneousPhoto && !initiation.developerPhoto) {
+    const { invitationGuidance } = await import("./experience-invitations");
+    worldKnowledge.push(invitationGuidance({
+      key: def.key,
+      availability: schedule.availability,
+      detail: schedule.detail,
+      hasSharedPlan: !!shared,
+      hasActiveExperience: continuity.lines.some(line => /active (?:living )?experience|outing in progress/i.test(line)),
+    }));
+  }
   const realTime = !!conv.real_time_mode;
   // Never charge for an image or mutate relationship state before the sleep boundary.
   if (schedule.availability === "asleep" && (realTime || initiation)) {
