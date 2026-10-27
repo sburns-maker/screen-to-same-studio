@@ -94,3 +94,10 @@ _Status: phased design and initial implementation branch; not a production commi
 - No external stock imagery or fabricated household photographs are presented as game canon.
 - UI and consent regression tests are written; not executed yet.
 - Future: existing generated photo records + server-side authenticated home-scoped photo gallery; photo location validation and lasting event-linked memory; photo-creation action with permission and cost checks. No live generation/storage is claimed by this batch.
+
+## Direct home-to-chat composer batch
+- Home Moments now opens Tess's existing chat with an editable draft for the selected activity, using the authenticated conversation lookup; this doesn't create a second messaging system.
+- The draft is stored only in same-tab session state under the specific conversation ID, consumed once on opening, and never sent automatically. Existing composer text is not overwritten.
+- The original chat send/offline queue/reply generation remain responsible for message delivery. Calendar and housing decisions still require mutual agreement.
+- Your home and Tess's permitted home both support this flow; Tess-only commitment privacy remains in place.
+- Validate in Lovable: new user with no seeded Tess thread, your home, Tess home, back navigation, existing unsent message, offline mode and request-a-photo voluntary refusal.
