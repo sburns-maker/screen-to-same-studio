@@ -24,7 +24,7 @@ export function HomeMoments({ home, snapshot, character }: {
           <button key={moment.id} type="button" aria-pressed={selected === moment.id}
             onClick={() => { setSelected(moment.id); setCopyStatus(""); }}
             className={`min-h-28 rounded-xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${selected === moment.id ? "border-primary bg-primary/10" : "border-border/70 bg-background/85 hover:bg-accent"}`}>
-            <span aria-hidden="true" className="text-xl">{({ coffee: "☕", movie: "🎬", cook: "🍳", mabel: "🐾", photo: "📸" } as const)[moment.id]}</span>
+            <span aria-hidden="true" className="text-xl">{({ coffee: "☕", movie: "🎬", cook: "🍳", mabel: "🐾", photo: "📸", invite: "💌", myphoto: "🪴" } as const)[moment.id]}</span>
             <span className="mt-2 block text-sm font-semibold">{moment.title}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{moment.description}</span>
           </button>
@@ -47,7 +47,8 @@ export function HomeMoments({ home, snapshot, character }: {
               }}>
               Copy to conversation
             </button>
-            {home.canVisit && <Link to="/place/$placeKey" params={{ placeKey: home.key }}
+            <Link to="/inbox" className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm">Open messages</Link>
+            {(home.canVisit || !character) && <Link to="/place/$placeKey" params={{ placeKey: home.key }}
               className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm">Explore home</Link>}
           </div>
           {copyStatus && <p role="status" className="text-xs text-muted-foreground">{copyStatus}</p>}
