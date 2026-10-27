@@ -13,6 +13,7 @@ import {
   downloadSpicyOutput,
   PendingPhotoTask,
   SpicyHttpFailure,
+  SpicyQuoteFailure,
 } from "./spicy-image.server";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
