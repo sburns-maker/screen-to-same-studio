@@ -22,4 +22,19 @@ describe("private generated home photo provenance", () => {
       { ...base, metadata: { generated_path: "../elsewhere", photo_visual: { character: "tess", location: "home" } } },
     ], "tess")).toEqual([]);
   });
+  it("rejects absolute and query-like storage paths", () => {
+    const make = (path: string) => ({
+      ...base, metadata: {
+        generated_path: path,
+        photo_visual: { character: "tess", location: "home" },
+      },
+    });
+    expect(verifiedHomePhotoCandidates([
+      make("/player/photo.png"),
+      make("player/photo.png?token=abc"),
+      make("player/../photo.png"),
+      make("player/photo.png"),
+    ], "tess")).toHaveLength(1);
+  });
+
 });
