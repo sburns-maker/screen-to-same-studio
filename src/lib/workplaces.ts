@@ -13,10 +13,20 @@ export const WORKPLACES: Record<CharacterKey, {
   riley: { key:"work:riley",label:"UPMC Altoona",kind:"workplace",community:"Altoona",latitude:40.5107,longitude:-78.3928,description:"Real hospital used for a fictional storyline. Restricted clinical area; only permitted public reception is visitable.",opens:0,closes:24,character:"riley",publicAccess:"restricted" },
 };
 export function workplaceFor(key: CharacterKey) { return WORKPLACES[key]; }
+export function workplaceShiftLikely(key: CharacterKey, date: Date): boolean {
+  const s = CHARACTERS[key].schedule;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", hour: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  const weekday = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(parts.find(p=>p.type==="weekday")?.value ?? "");
+  const hour = Number(parts.find(p=>p.type==="hour")?.value ?? -1);
+  if (weekday < 0 || hour < 0) return false;
+  if (s.workStart < s.workEnd) return s.workDays.includes(weekday) && hour >= s.workStart && hour < s.workEnd;
+  if (hour >= s.workStart) return s.workDays.includes(weekday);
+  return s.workDays.includes((weekday + 6) % 7) && hour < s.workEnd;
+}
 export function workVisitGuidance(key: CharacterKey, date: Date): string {
   const work=WORKPLACES[key],s=CHARACTERS[key].schedule;
-  const hour=Number(new Intl.DateTimeFormat("en-US",{timeZone:"America/New_York",hour:"numeric",hourCycle:"h23"}).format(date));
-  const day=new Date(date.toLocaleString("en-US",{timeZone:"America/New_York"})).getDay();
-  const onShift=s.workDays.includes(day) && (s.workStart<s.workEnd ? hour>=s.workStart && hour<s.workEnd : hour>=s.workStart||hour<s.workEnd);
-  return `${CHARACTERS[key].preferredName} works at ${work.label} (${work.key}), a real Altoona-area venue used for fictional gameplay. None of these characters are real employees. Usual shift ${s.notes}. ${onShift?"Usual schedule suggests a shift, but this does not guarantee they are present or free.":"Not a typical work hour; do not assume they are present."} Access: ${work.publicAccess}. User may ask or wait only in permitted visitor spaces. Characters decide whether to step away; never imply workplace access, patient/student/customer details, or instant availability.`;
+  const onShift=workplaceShiftLikely(key, date);
+  return `${CHARACTERS[key].preferredName} works at ${work.label} (${work.key}), a real Altoona-area venue used for fictional gameplay. None of these characters are real employees. Usual shift ${s.notes}. ${onShift?"Usual schedule suggests a shift, but this does not guarantee they are present or free.":"Not a typical work hour; do not assume they are present."} Access: ${work.publicAccess}. User may ask or wait only in permitted visitor spaces. Characters decide whether to step away; never imply workplace access, private medical or library patron records, or instant availability.`;
 }
