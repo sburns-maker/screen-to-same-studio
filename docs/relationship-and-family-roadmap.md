@@ -53,3 +53,12 @@ _Status: phased design and initial implementation branch; not a production commi
 3. Run unit, schema/migration, integration and UI tests; verify Android branch remains unchanged.
 4. Verify staging with representative date/conversation, housing consent and memory persistence scenarios.
 5. Merge/release only after reviewed checks and explicit owner choice.
+
+## Implementation batch: player-side commitment decisions (October 26)
+- Migration 0046 now includes a service-role-only serialized relationship_player_command RPC.
+- Propose, accept, decline and cancel are owner-scoped; a player response never fabricates a character's acceptance.
+- Authenticated endpoint validates eligible established adult fictional contacts.
+- Pending proposals render in the contact home/relationship timeline with accessible explicit decision buttons.
+- The UI does NOT yet expose player proposal creation because no conversational character-response pipeline is wired. A unilateral proposal would otherwise remain pending indefinitely.
+- Future batch: extract character-initiated proposals and responses from committed, visible dialogue; queue them idempotently; cross-check quoted utterances; feed canonical commitment status into text, phone and outing contexts.
+- Migration remains unapplied and feature is not verified in a running Lovable environment. Existing housing approvals remain completely separate.
