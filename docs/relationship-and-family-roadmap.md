@@ -87,3 +87,10 @@ _Status: phased design and initial implementation branch; not a production commi
 - Do not infer call content from call status or fabricate an unheard conversation.
 - Required release proof: voice call -> topic disclosure -> subsequent text callback; text -> voice callback; date -> follow-up text; canceled/failed call must not supply a topic; independent Riley/Tess isolation; replayed provider call cannot duplicate milestones.
 - Full marriage/family schema, world scheduler, UI integration, PostgreSQL migration replay, static build, and browser tests remain pending. Never mark the branch as merge-ready until these pass.
+
+## Interactive housing batch
+- Added an interactive Home Moments selector to the existing housing panel with contextual coffee, cooking, movie, Mabel and photo-request ideas. It reuses existing known homes and never creates another residence or alters household consent.
+- Requests are explicit, copyable conversation starters; they do not send messages or silently cause photos/events. The character's existing photo engine retains willingness, identity, budget and eligibility rules.
+- No external stock imagery or fabricated household photographs are presented as game canon.
+- UI and consent regression tests are written; not executed yet.
+- Future: existing generated photo records + server-side authenticated home-scoped photo gallery; photo location validation and lasting event-linked memory; photo-creation action with permission and cost checks. No live generation/storage is claimed by this batch.
