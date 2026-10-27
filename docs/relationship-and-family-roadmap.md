@@ -106,3 +106,9 @@ _Status: phased design and initial implementation branch; not a production commi
 1. Verified home gallery now rejects absolute storage paths, traversal, and query strings before URL signing.
 2. Sent home-activity draft text stores a scoped home_moment_prompt metadata hint only when unchanged; neither sending nor opening a draft creates an outing or awards relationship progress. Edited messages are treated as regular chat.
 3. Regression tests cover unsafe photo storage references. Remaining: run all tests and a Lovable build, verify draft navigation/offline paths, and review current main's two commits before any later merge.
+
+## Fictional workplace visits
+- Every existing contact (Tess, Maya, Claire, Jordan, Ben, Riley) has a unique fictional employer name, map key and approximate illustrative coordinate. Pins are fictional and not real employer locations.
+- Added workplaces to existing TOWN_PLACES and public-safe venue interactions. Restricted school/hospital access cannot be inferred from an interactive pin.
+- Contact message generation receives the character's own job and usual-hours/access guidance; real presence and availability are never assumed just because the work schedule suggests a shift.
+- Follow-up integration required: gate live venue experiences and visit requests on access policy and NPC presence; do not initiate or mark a visit as completed from map navigation alone. Review overnight shift schedules for cross-midnight accuracy; verify world place seeding, TypeScript compilation and map rendering in staging.
