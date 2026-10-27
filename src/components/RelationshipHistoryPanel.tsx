@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import {useServerFn} from "@tanstack/react-start";
-import {relationshipHistory,type Evaluation} from "@/lib/relationship-history.functions";
+import {relationshipHistory,type Evaluation,type MindCall} from "@/lib/relationship-history.functions";
 import {isPhotoEvent,photoDecisionDetails} from "@/lib/photo-decision-details";
 import {STATE_KEYS,type TessState} from "@/lib/tess-logic";
 type Plan={id:string;title:string;status:string;date_local:string|null;starts_at:string|null;ends_at:string|null;place_key:string|null};
@@ -29,19 +29,20 @@ function perspective(e:Evaluation):string {
 }
 export function RelationshipHistoryPanel({conversationId,state,stage}:{conversationId:string;state?:TessState;stage?:string}){
  const get=useServerFn(relationshipHistory);
- const [data,setData]=useState<{evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean}|null>(null);
+ const [data,setData]=useState<{evaluations:Evaluation[];events:Event[];plans:Plan[];calls:MindCall[];historyUnavailable:boolean}|null>(null);
  const [error,setError]=useState<string|null>(null);
  const [selected,setSelected]=useState(()=>localDay(new Date().toISOString()));
  const [showPerspective,setShowPerspective]=useState(false);
  useEffect(()=>{let alive=true;void get({data:{conversationId}}).then(r=>{if(alive){setData(r as {evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean});setError(null);}}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"History unavailable");});return()=>{alive=false;};},[get,conversationId]);
  const dates=useMemo(()=>{
   if(!data)return [];
-  const all=[...data.evaluations.map(e=>localDay(e.evaluated_at)),...data.events.map(e=>localDay(e.occurs_at)),...data.plans.map(p=>p.date_local??(p.starts_at?localDay(p.starts_at):""))].filter(Boolean);
+  const all=[...data.evaluations.map(e=>localDay(e.evaluated_at)),...data.events.map(e=>localDay(e.occurs_at)),...data.calls.map(c=>localDay(c.offered_at)),...data.plans.map(p=>p.date_local??(p.starts_at?localDay(p.starts_at):""))].filter(Boolean);
   return [...new Set(all)].sort().reverse().slice(0,45);
  },[data]);
  const day=selected || localDay(new Date().toISOString());
  const evaluations=(data?.evaluations??[]).filter(e=>localDay(e.evaluated_at)===day);
  const events=(data?.events??[]).filter(e=>localDay(e.occurs_at)===day);
+ const calls=(data?.calls??[]).filter(c=>localDay(c.offered_at)===day);
  const plans=(data?.plans??[]).filter(p=>(p.date_local??(p.starts_at?localDay(p.starts_at):""))===day);
  const totals=Object.fromEntries(STATE_KEYS.map(k=>[k,evaluations.reduce((sum,e)=>sum+Number(e.delta?.[k]??0),0)]));
  const changes=STATE_KEYS.filter(k=>totals[k]!==0).sort((a,b)=>Math.abs(totals[b]??0)-Math.abs(totals[a]??0));
@@ -62,6 +63,18 @@ export function RelationshipHistoryPanel({conversationId,state,stage}:{conversat
    </div>
    {changes.length>0?<div className="mt-3"><h4 className="text-sm font-semibold">Recorded relationship changes</h4><div className="mt-2 flex flex-wrap gap-2">{changes.map(k=><span key={k} className="rounded-lg border bg-background px-2 py-1 text-xs">{k.replace(/_/g," ")} <strong>{(totals[k]??0)>0?"+":""}{totals[k]}</strong></span>)}</div></div>:<p className="mt-3 text-sm text-muted-foreground">No numerical relationship changes recorded for this date.</p>}
    {!!plans.length&&<div className="mt-4"><h4 className="font-semibold text-sm">Outings and plans</h4>{plans.map(p=><div key={p.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><strong>{p.title}</strong><p className="text-xs text-muted-foreground">Status: {p.status} · {p.place_key??"Place not recorded"}</p><p className="mt-1 text-xs text-muted-foreground">An invitation is not automatically a completed date; completion must be recorded.</p>{p.starts_at&&<p className="mt-1 text-xs text-muted-foreground">Evaluations recorded during this planned outing window: {evaluations.filter(e=>Date.parse(e.evaluated_at)>=Date.parse(p.starts_at!)&&Date.parse(e.evaluated_at)<=Date.parse(p.ends_at??new Date(Date.parse(p.starts_at!)+2*3600000).toISOString())).length}. Temporal overlap is not proof that the outing caused the change.</p>}</div>)}</div>}
+   {!!calls.length&&<div className="mt-4">
+    <h4 className="font-semibold text-sm">Phone activity</h4>
+    <p className="mt-1 text-xs text-muted-foreground">From the actual call log. Unanswered calls are attempts, not conversations; no relationship score is inferred.</p>
+    {calls.map(c=><article key={c.id} className="mt-2 rounded-lg border bg-background p-3 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <strong>{c.direction==="incoming"?"Character called you":"You called character"}</strong>
+        <time dateTime={c.offered_at} className="text-xs text-muted-foreground">{new Date(c.offered_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})}</time>
+      </div>
+      <p className="text-xs text-muted-foreground">Result: {c.answered_at ? "Answered" : c.state==="missed" || c.outcome==="missed" ? "Missed / no answer" : c.state==="declined" ? "Declined" : c.state==="failed" ? "Failed to connect" : c.state==="ringing" || c.state==="calling" ? "Ringing / pending" : c.state==="busy"?"Busy":c.state==="unavailable"?"Unavailable":"Not connected"}</p>
+      {c.answered_at&&c.duration_seconds>0&&<p className="text-xs text-muted-foreground">Duration: {Math.floor(c.duration_seconds/60)}m {c.duration_seconds%60}s</p>}
+    </article>)}
+   </div>}
    {!!events.length&&<div className="mt-4"><h4 className="font-semibold text-sm">World events</h4>{events.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><strong>{e.kind.replace(/_/g," ")}</strong><p className="break-words">{e.summary}</p><p className="text-xs text-muted-foreground">{new Date(e.occurs_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})} · {e.processed_at?"Recorded as processed":"Recorded, not marked processed"}</p>{isPhotoEvent(e.kind)&&<PhotoEventDetails e={e}/>}</div>)}</div>}
    {!!evaluations.length&&<div className="mt-4"><h4 className="font-semibold text-sm">Evaluated interactions</h4>{evaluations.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><div className="flex justify-between gap-2 text-xs text-muted-foreground"><span>{e.source_kind.replace(/_/g," ")}</span><time dateTime={e.evaluated_at}>{new Date(e.evaluated_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})}</time></div><p className="mt-1">{e.context_summary??"Conversation evaluation"}</p><p className="mt-1 text-xs text-muted-foreground">{e.stage_before} → {e.stage_after} · {e.observed_tone??"tone unrecorded"}</p><div className="mt-1 flex flex-wrap gap-1">{Object.entries(e.delta??{}).filter(([,v])=>Number(v)!==0).map(([k,v])=><span key={k} className="text-xs">{k.replace(/_/g," ")} {Number(v)>0?"+":""}{v};</span>)}</div>{showPerspective&&<blockquote className="mt-2 rounded-lg bg-muted p-2 italic">{e.character_perspective?.trim() || perspective(e)}<p className="mt-2 text-xs not-italic text-muted-foreground">{e.character_perspective ? "Generated in-character perspective saved with this interaction" : "Fallback interpretation from recorded score changes"}</p></blockquote>}</div>)}</div>}
    <label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={showPerspective} onChange={e=>setShowPerspective(e.target.checked)}/><span>Show fictional inner perspective <span className="block text-xs text-muted-foreground">An in-character interpretation generated from saved score changes, not the model's hidden thoughts or proof of actual intentions.</span></span></label>
