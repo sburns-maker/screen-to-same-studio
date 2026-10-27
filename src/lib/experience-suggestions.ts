@@ -9,6 +9,12 @@ const BY_ACTIVITY: Record<string, ExperienceStarter[]> = {
     { label: "Keep walking", draft: "I walk beside you, enjoying the path and our conversation. " },
     { label: "Find a bench", draft: "I gesture toward a nearby bench. \"Want to sit for a little while?\"" },
     { label: "Hold hands", draft: "I reach for your hand as we walk. " },
+    { label: "Suggest coffee", draft: "I look over at you. \\"Would you like to stop for coffee after our walk?\\"" },
+  ],
+  sitting: [
+    { label: "Stay and talk", draft: "I sit beside you for a while and enjoy the conversation. " },
+    { label: "Enjoy the quiet", draft: "I sit quietly next to you, taking in the park. " },
+    { label: "Walk again", draft: "I stand up from the bench and continue walking beside you. " },
   ],
   dining: [
     { label: "Keep chatting", draft: "I smile across the table and continue our conversation. " },
