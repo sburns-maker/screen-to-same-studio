@@ -127,7 +127,7 @@ export function buildImagePrompt(
   }
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
-    !merged.selfie_type && type === "casual_selfie" ? SELFIE_LINES["selfie"] : "";
+    !merged.selfie_type && type === "casual_selfie" ? "Use a plausible self-taken phone photo consistent with the selected framing; do not default to a centered arm’s-length portrait." : "";
   return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}\n\n${WARDROBE_AND_COMPOSITION}\n\n${PHONE_CAPTURE}\n\n${PORTRAIT_PHYSICS}${personality}`;
 }
 

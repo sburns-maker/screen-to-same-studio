@@ -1,3 +1,4 @@
+import { repeatsCapture } from "./photo-composition";
 import type { TessState } from "./tess-logic";
 
 export type PhotoDef = {
@@ -98,13 +99,7 @@ export function tooSimilarToRecent(style: PhotoStyle, recent: PhotoStyle[]): boo
 
 /** Reject a repeated ensemble rather than forcing a new pose or location that contradicts the moment. */
 export function repeatsPhotoComposition(style: PhotoStyle, recent: PhotoStyle[]): boolean {
-  const keys: (keyof PhotoStyle)[] = ["pose_type", "camera_angle", "crop_type", "hairstyle", "expression", "clothing_category", "setting", "selfie_type"];
-  const normalize = (v: string) => v.toLowerCase().replaceAll("_", " ").replace(/\s+/g, " ").trim();
-  return recent.some((old) => {
-    const comparable = keys.filter((k) => style[k] && old[k]);
-    const matching = comparable.filter((k) => normalize(style[k]!) === normalize(old[k]!));
-    return comparable.length >= 5 && matching.length / comparable.length >= 0.8;
-  });
+  return repeatsCapture(style, recent);
 }
 
 const VARIATIONS: Record<(typeof STYLE_KEYS)[number], string[]> = {

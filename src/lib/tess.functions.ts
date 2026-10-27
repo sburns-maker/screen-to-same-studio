@@ -1,8 +1,9 @@
+import { selectPhotoComposition } from "./photo-composition";
 import { photoActivityBlock } from "./photo-activity";
 import {photoContextForSchedule} from "./calendar-commitment";
 import {resolvePhotoScene} from "./photo-scene.server";
 import {photoSceneCheck} from "./photo-scene";
-import { continuityPhotoStyle, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
+import { continuityPhotoStyle, deliveredPhotoHistory, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
 import { photoPacing } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
@@ -331,7 +332,7 @@ async function runTurnUnlocked(
     if (recovered) return recovered;
   }
 
-  const [{ data: stateRow }, { data: msgs }, { data: mems }, { data: recentGen }] = await Promise.all([
+  const [{ data: stateRow }, { data: msgs }, { data: mems }, { data: photoHistoryRows, error: photoHistoryError }] = await Promise.all([
     supabase.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
     supabase
       .from("messages")
@@ -348,13 +349,13 @@ async function runTurnUnlocked(
       .order("created_at", { ascending: false })
       .limit(2000),
     def.photosEnabled
-      ? supabase
-          .from("generated_images")
-          .select("scene, pose_type, camera_angle, crop_type, hairstyle, expression, clothing_category, setting, selfie_type")
-          .eq("conversation_id", conv.id)
-          .order("created_at", { ascending: false })
-          .limit(5)
-      : Promise.resolve({ data: null }),
+      ? supabase.from("messages")
+          .select("sender,created_at,visible_at,metadata")
+          .eq("user_id", userId).eq("conversation_id", conv.id)
+          .eq("sender", "tess").lte("visible_at", nowIso)
+          .not("metadata->>generated_path", "is", null)
+          .order("created_at", { ascending: false }).limit(60)
+      : Promise.resolve({ data: null, error: null }),
   ]);
   if(calendarAdmin && !initiation && !voice) {
     const source=(msgs??[]).find(m=>m.sender==="user");
@@ -374,7 +375,9 @@ async function runTurnUnlocked(
     const { existingPhotoAction } = await import("./photo-delivery.server");
     if (await existingPhotoAction(photoAdmin, actionKey)) return { count: 0, lastVisibleAt: null, replayed: true, reason: "This opportunity was already processed; no image was regenerated." };
   }
-  const recentStyles = (recentGen ?? []) as PhotoStyle[];
+  // Missing history disables photography for this turn, never ordinary conversation.
+  const photoHistory = deliveredPhotoHistory(photoHistoryRows ?? [], def.key, new Date(nowIso));
+  const recentStyles = photoHistory.map(photo => photo.style);
 
   const state = pickState(stateRow ?? {}, def.seedState);
   const photoContext: PhotoContext = {
@@ -473,9 +476,9 @@ async function runTurnUnlocked(
   // wait for an arbitrary message-count or minute-based cooldown.
   const cooldown = false;
   const photoCompatible = !photoActivityBlock(schedule);
-  let generateTypes = cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
+  let generateTypes = photoHistoryError || cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
   const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
-  let photos = isTess && !cooldown && photoCompatible
+  let photos = isTess && !photoHistoryError && !cooldown && photoCompatible
     ? eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object")) : [];
   const imageBudget = worldReady && photoAdmin ? await imageBudgetStatus(photoAdmin, userId, conv.id, now) : null;
   if (imageBudget && !imageBudget.allowed) generateTypes = [];
@@ -483,7 +486,7 @@ async function runTurnUnlocked(
   const lifeEvent = story.event ?? (isTess ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined) : null);
   const photography = planPhotography({character:def.key,key:actionKey,now,schedule,
     userText:initiation?'':recent.find(m=>m.sender==='user')?.body??'',
-    weather:weather?.condition??null,previous:previousDeliveredPhoto(recent,def.key,now)});
+    weather:weather?.condition??null,previous:photoHistory[0]??null,recentStyles});
   const opportunity = photoOpportunity({
     character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,
@@ -494,7 +497,7 @@ async function runTurnUnlocked(
   // The worker already selected this moment. Revalidate eligibility here, not a second lottery.
   if (initiation?.spontaneousPhoto && opportunity.eligible) opportunity.selected = true;
   if (!opportunity.eligible && opportunity.reason.startsWith("no permitted photo categories")) {
-    opportunity.reason = imageBudget && !imageBudget.allowed ? "Image daily/monthly attempt limit reached. No image will be generated." : !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
+    opportunity.reason = photoHistoryError ? "Delivered photo history unavailable; no image will be generated." : imageBudget && !imageBudget.allowed ? "Image daily/monthly attempt limit reached. No image will be generated." : !photoAdmin ? "Photo delivery is not configured or the migration is missing. No image will be generated."
       : cooldown ? pacing.reason
       : "No photo type is currently allowed by her photo boundaries and relationship eligibility.";
   }
@@ -619,15 +622,18 @@ async function runTurnUnlocked(
         // Context first, variety second: only nudge an exact repeat of a recent photo.
         const { fictionalGroupScene } = await import("./tess-image.server");
         const isGroupScene = fictionalGroupScene(p.scene);
-        const matchingScene = (recentGen ?? []).some((old) => old.scene.trim().toLowerCase() === p.scene!.trim().toLowerCase());
-        // A first group portrait is meaningfully different from an earlier solo selfie even
-        // when the character's outfit, crop and lighting happen to match.
-        const comparableRecentStyles = (recentGen ?? []).filter((old) =>
-          fictionalGroupScene(old.scene) === isGroupScene) as PhotoStyle[];
-        if (matchingScene || repeatsPhotoComposition(rawStyle, comparableRecentStyles)) {
+        const currentStyle = continuityPhotoStyle(photography,rawStyle,p.scene);
+        const capture = p.type === "object" || isGroupScene
+          ? {style: currentStyle, decision: "preserved" as const}
+          : selectPhotoComposition(currentStyle, recentStyles, p.scene,
+          initiation ? "" : recent.find(m => m.sender === "user")?.body ?? "");
+        const style = capture.style;
+        photography.captureDecision = capture.decision;
+        // Evaluate the final applied capture. Uniform/hair continuity alone is not repetition.
+        const explicitRepeat = /\bsame (?:pose|angle|photo)\b/i.test(p.scene);
+        if (p.type !== "object" && !isGroupScene && !explicitRepeat && repeatsPhotoComposition(style, recentStyles.slice(0, 3))) {
           throw new Error("repeated photo composition");
         }
-        const style = continuityPhotoStyle(photography,rawStyle,p.scene);
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
         imageRequested = true;
         generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);
