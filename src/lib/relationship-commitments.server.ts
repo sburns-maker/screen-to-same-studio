@@ -16,7 +16,9 @@ export async function commitmentSnapshot(db: Client, userId: string, characterKe
   if (!(await commitmentReady(db))) return { available: false, events: [] };
   if (characterKey === "tess") {
     const synced = await db.rpc("relationship_sync_tess" as never, { p_user: userId } as never);
-    if (synced.error) throw new Error("Relationship synchronization unavailable");
+    // Existing commitment history remains readable if the optional Tess backfill fails.
+    // Do not turn one failed synchronization into a broken contact page.
+    if (synced.error) console.error("Tess commitment sync failed", synced.error.code, synced.error.message);
   }
   const { data, error } = await db.from("relationship_commitment_events" as never)
     .select("*")
