@@ -78,12 +78,12 @@ GRANT EXECUTE ON FUNCTION relationship_player_command(uuid,uuid,text,text,text,u
 -- No game scores, model suggestions, or hidden/future messages become commitments.
 CREATE FUNCTION relationship_sync_tess(p_user uuid) RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
-DECLARE m record; a jsonb; inserted_count integer:=0;
+DECLARE m record; a jsonb; target relationship_commitment_events; n integer:=0;
 BEGIN
  IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION 'service role required';END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('relationship:'||p_user::text||':tess',0));
  FOR m IN
- SELECT m.id,m.body,m.metadata FROM messages m
+ SELECT m.id,m.body,m.metadata,m.visible_at FROM messages m
  JOIN conversations c ON c.user_id=m.user_id AND c.id=m.conversation_id
  JOIN characters ch ON ch.id=c.character_id
  WHERE m.user_id=p_user AND m.sender='tess' AND ch.key='tess'
@@ -91,21 +91,45 @@ BEGIN
  ORDER BY m.visible_at,m.id LIMIT 200
  LOOP
   a:=m.metadata->'commitment_action';
-  IF a->>'action' <> 'propose'
+  IF a->>'action' NOT IN ('propose','accept','decline')
      OR a->>'kind' NOT IN ('exclusive','partnership')
      OR length(coalesce(a->>'quote','')) < 12
      OR position(a->>'quote' IN m.body)=0 THEN CONTINUE; END IF;
-  IF EXISTS(SELECT 1 FROM relationship_commitment_events
-    WHERE user_id=p_user AND character_key='tess' AND status='pending') THEN CONTINUE; END IF;
-  INSERT INTO relationship_commitment_events(
-    user_id,id,character_key,kind,proposed_by,status,user_response,character_response,
-    occurred_at,source_type,source_id,note
-  ) VALUES(p_user,m.id,'tess',a->>'kind','character','pending','pending','accepted',
-    now(),'message',m.id::text,left(a->>'quote',500))
-  ON CONFLICT DO NOTHING;
-  GET DIAGNOSTICS inserted_count = ROW_COUNT;
+  IF a->>'action'='propose' THEN
+   IF EXISTS(SELECT 1 FROM relationship_commitment_events
+     WHERE user_id=p_user AND character_key='tess'
+       AND source_type='message' AND source_id=m.id::text) THEN CONTINUE; END IF;
+   IF EXISTS(SELECT 1 FROM relationship_commitment_events
+     WHERE user_id=p_user AND character_key='tess' AND status='pending') THEN CONTINUE; END IF;
+   INSERT INTO relationship_commitment_events(
+     user_id,id,character_key,kind,proposed_by,status,user_response,character_response,
+     occurred_at,source_type,source_id,note
+   ) VALUES(p_user,m.id,'tess',a->>'kind','character','pending','pending','accepted',
+     m.visible_at,'message',m.id::text,left(a->>'quote',500))
+   ON CONFLICT DO NOTHING;
+   n:=n+1;
+  ELSE
+   IF coalesce(a->>'proposalId','') !~* '^[0-9a-f-]{36}$' THEN CONTINUE; END IF;
+   SELECT * INTO target FROM relationship_commitment_events
+     WHERE user_id=p_user AND id=(a->>'proposalId')::uuid AND character_key='tess'
+       AND kind=a->>'kind' FOR UPDATE;
+   IF NOT FOUND OR target.status<>'pending' OR target.proposed_by<>'user'
+      OR target.character_response<>'pending' OR target.occurred_at>m.visible_at
+      THEN CONTINUE; END IF;
+   IF a->>'action'='accept' AND a->>'quote' ~* '(yes|i agree|i accept|i want (that|us)|let.s be|i.d like to)'
+       AND a->>'quote' !~* '(not ready|don.t want|do not want|maybe|might|not sure)' THEN
+     UPDATE relationship_commitment_events SET character_response='accepted',
+       status=CASE WHEN user_response='accepted' THEN 'accepted' ELSE 'pending' END
+       WHERE user_id=p_user AND id=target.id;
+     n:=n+1;
+   ELSIF a->>'action'='decline' AND a->>'quote' ~* '(no|not ready|don.t want|do not want|rather not)' THEN
+     UPDATE relationship_commitment_events SET character_response='declined',status='declined'
+       WHERE user_id=p_user AND id=target.id;
+     n:=n+1;
+   END IF;
+  END IF;
  END LOOP;
- RETURN inserted_count;
+ RETURN n;
 END$$;
 REVOKE ALL ON FUNCTION relationship_sync_tess(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION relationship_sync_tess(uuid) TO service_role;
