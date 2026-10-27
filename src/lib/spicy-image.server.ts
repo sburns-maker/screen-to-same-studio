@@ -186,10 +186,21 @@ export type SpicyQuote = { quoteId: string; expectedCost: string; cents: number;
 export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyRequest(
   body: ReturnType<typeof buildSpicyRequest>,
 ): Promise<SpicyQuote> {
-  const envelope = (await spicyCall("/jobs/quote", body)) as {
+  let envelope: {
     code?: number;
     data?: { quoteId?: unknown; model?: unknown; estimatedCost?: unknown; maxCharge?: unknown; currency?: unknown; expiresAt?: unknown };
   };
+  try {
+    envelope = (await spicyCall("/jobs/quote", body)) as typeof envelope;
+  } catch (e) {
+    if (e instanceof SpicyHttpFailure) {
+      e.stage = "quote";
+      throw e;
+    }
+    if (e instanceof Error && /^spicy_response_(?:invalid|too_large)$/.test(e.message))
+      throw new SpicyQuoteFailure("spicy_quote_response_invalid");
+    throw e;
+  }
   const q = envelope?.data;
   const cost = typeof q?.estimatedCost === "string" ? q.estimatedCost : "";
   const max = typeof q?.maxCharge === "string" ? q.maxCharge : cost;
