@@ -71,3 +71,16 @@ export const commitmentActionSchema = z.object({
 });
 export type CommitmentAction = z.infer<typeof commitmentActionSchema>;
 export const COMMITMENT_ACTION_RULES = `RELATIONSHIP DECISIONS: commitment_action defaults to {action:null,kind:null,quote:null,proposalId:null}. Tess may independently propose exclusivity or partnership only when sincerely desired and her recent established relationship context supports it; never as a score reward or scheduled obligation. Only put action=propose when her own current visible words make a clear, specific request for a mutually chosen relationship commitment. Do not mistake romantic language, jokes, kisses or a hypothetical future for a proposal. quote must be an exact contiguous passage from her message. If an authoritative pending player proposal is provided, you may explicitly accept or decline in your own visible words, using that exact proposal ID and the same commitment kind; you can also defer without an action. You must express acceptance or refusal unmistakably in your current message, and quote the exact words. Without a pending proposal never emit accept/decline. Never imply the player has already accepted. Housing, marriage, separation and family changes have separate approval workflows and may never be inferred from this proposal. Never manufacture consent.`;
+
+// Pilot isolation: commitment facts remain private to their own conversation.
+// Do not publish them through shared-world knowledge, other characters' prompts,
+// social events, notifications or relationship-score changes until full rollout.
+export const RELATIONSHIP_PILOT = {
+  activeCharacter: "tess",
+  crossCharacterDisclosure: false,
+  propagateCommitmentScores: false,
+} as const;
+
+export function canShareCommitmentWithCharacter(source: string, recipient: string): boolean {
+  return source === recipient; // Own relationship continuity only during pilot.
+}
