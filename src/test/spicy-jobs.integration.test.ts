@@ -468,7 +468,7 @@ it("a quote above the per-image limit submits nothing and reserves nothing", asy
   const original = quoteData;
   quoteData = () => ({ ...original(), estimatedCost: "0.31", maxCharge: "0.31" });
   try {
-    await expect(submit()).rejects.toThrow("per-image spending limit");
+    await expect(submit()).rejects.toThrow("spicy_quote_budget_exceeded");
   } finally {
     quoteData = original;
   }
