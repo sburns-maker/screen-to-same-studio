@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { ensureConversations, inboxOverview } from "@/lib/tess.functions";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
 import { WORKPLACES, workplaceShiftLikely } from "@/lib/workplaces";
 import { workplaceEncounterTurn } from "@/lib/workplace-encounter.functions";
+import { giftHandoffHistory, changeGiftHandoff, verifyGiftReceipt } from "@/lib/gift-handoffs.functions";
 import { nextReceptionTurn, dropoffSummary, type ReceptionSession } from "@/lib/workplace-reception";
 
 export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrived: boolean }) {
@@ -13,6 +15,11 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const ensure = useServerFn(ensureConversations);
   const inbox = useServerFn(inboxOverview);
   const encounter = useServerFn(workplaceEncounterTurn);
+  const getGifts = useServerFn(giftHandoffHistory);
+  const updateGift = useServerFn(changeGiftHandoff);
+  const verifyGift = useServerFn(verifyGiftReceipt);
+  const queryClient = useQueryClient();
+  const gifts = useQuery({ queryKey: ["gift-handoffs", placeKey], queryFn: () => getGifts({ data: { character: workplace!.character } }), enabled: Boolean(workplace) });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [spoken, setSpoken] = useState("");
@@ -41,9 +48,11 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       await encounter({ data: {
         conversationId: thread.id, character: place.character,
         activity: dropoff ? "item_dropoff" : "conversation",
+        ...(dropoff ? { item: lunch.trim() } : {}),
         ...(dropoff && receptionSession ? { receptionTurns: receptionSession.turns, deliveryOutcome: receptionSession.outcome } : {}),
         text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : spoken.trim(), requestId: crypto.randomUUID(),
       }});
+      if (dropoff) await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] });
       if (!dropoff) setSpoken("");
       setEncounterStatus("Your conversation was recorded. Open the thread to continue and read the reply.");
       await navigate({ to: "/chat/$conversationId", params: { conversationId: thread.id } });
@@ -127,6 +136,40 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </button>
       <p className="text-xs text-muted-foreground">Uses the game's actual AI conversation history. They may be unavailable; a message does not grant access to treatment rooms or staff areas.</p>
     </div>}
+    {arrived && <section aria-label="Gift handoff history" className="mt-4 space-y-2 rounded-xl border bg-background p-3">
+      <h3 className="font-semibold">Items and deliveries</h3>
+      <p className="text-xs text-muted-foreground">An attempted delivery is not proof the character received an item.</p>
+      {gifts.isLoading && <p className="text-sm">Loading handoffs…</p>}
+      {gifts.error && <button type="button" className="text-sm underline" onClick={() => void gifts.refetch()}>Couldn't load handoffs · retry</button>}
+      {gifts.data?.length === 0 && <p className="text-sm text-muted-foreground">No recorded item drop-offs yet.</p>}
+      {gifts.data?.map(gift => <div key={gift.id} className="rounded-lg border p-3 text-sm">
+        <p className="font-medium">{gift.item}</p>
+        <p className="text-xs text-muted-foreground">Status: {gift.status.replaceAll("_", " ")} · {gift.recipientReceived ? "Recipient confirmed receipt" : "Recipient receipt unconfirmed"}</p>
+        {gift.status !== "returned" && gift.status !== "received" && <div className="mt-2 flex flex-wrap gap-2">
+          <button type="button" className="min-h-10 rounded-lg border px-3" disabled={busy} onClick={async () => {
+            setBusy(true); setError("");
+            try {
+              const result = await verifyGift({ data: { id: gift.id, character: place.character } });
+              await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] });
+              setEncounterStatus(result.confirmed ? "Receipt verified from the character's conversation." : "No explicit receipt confirmation yet. The delivery remains unconfirmed.");
+            } catch { setError("Could not verify receipt. Try again."); }
+            finally { setBusy(false); }
+          }}>Check for receipt</button>
+          <button type="button" className="min-h-10 rounded-lg border px-3" disabled={busy} onClick={async () => {
+            setBusy(true); setError("");
+            try { await updateGift({ data: { id: gift.id, character: place.character, action: "wait" } }); await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] }); }
+            catch { setError("Unable to update the item. Try again."); }
+            finally { setBusy(false); }
+          }}>Still waiting</button>
+          <button type="button" className="min-h-10 rounded-lg border px-3" disabled={busy} onClick={async () => {
+            setBusy(true); setError("");
+            try { await updateGift({ data: { id: gift.id, character: place.character, action: "take_back" } }); await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] }); }
+            catch { setError("Unable to update the item. Try again."); }
+            finally { setBusy(false); }
+          }}>Take it back</button>
+        </div>}
+      </div>)}
+    </section>}
     {encounterStatus && <p role="status" className="mt-2 text-sm">{encounterStatus}</p>}
     {choice !== "drop_lunch" && <button type="button" disabled={busy} onClick={() => void prepare()}
       className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">

@@ -445,6 +445,21 @@ async function runTurnUnlocked(
   if (shared) worldKnowledge.unshift(`ACTIVE SHARED PLAN: ${shared.summary} Photos may show only you, objects or the environment; group portraits are not supported.`);
   const { altoonaContext } = await import("./altoona-places");
   worldKnowledge.push((await import("./workplaces")).workVisitGuidance(def.key, now));
+  // A drop-off is only a request until a separate, trusted handoff is recorded.
+  // Never turn an attempted gesture into a fabricated gift or relationship reward.
+  if (photoAdmin) {
+    const { data: handoffs, error: handoffError } = await photoAdmin.from("world_events")
+      .select("created_at,payload")
+      .eq("user_id", userId).eq("character_key", def.key)
+      .eq("kind", "gift_handoff").order("created_at", { ascending: false }).limit(5);
+    if (!handoffError) for (const event of handoffs ?? []) {
+      const payload = event.payload as { item?: unknown; status?: unknown } | null;
+      const item = typeof payload?.item === "string" ? payload.item.slice(0, 160) : "an item";
+      const status = payload?.status === "returned" ? "returned to player" : payload?.status === "waiting" ? "player waiting at reception" : "delivery attempted";
+      worldKnowledge.push(`RECORDED GIFT HANDOFF (${event.created_at}): ${item}; ${status}. Recipient receipt has NOT been confirmed. Do not thank the user for receiving it, invent a staff acceptance, or grant relationship progress based solely on this event.`);
+    }
+  }
+
   worldKnowledge.push(...altoonaContext(def.key,now));
   const { townPopulationContext } = await import("./blair-town-npcs");
   worldKnowledge.push(...townPopulationContext(def.key,now));
@@ -835,6 +850,12 @@ async function runTurnUnlocked(
   if (rows.length) {
     const { error } = await supabase.from("messages").insert(rows);
     if (error) throw new Error("Could not save reply");
+    try {
+      const { reconcileGiftReceipts } = await import("./gift-handoff-reconcile.server");
+      await reconcileGiftReceipts(userId, conv.id, def.key, rows
+        .filter(row => Date.parse(row.visible_at) <= Date.now())
+        .map(row => ({ id: row.id, body: row.body, created_at: row.created_at })));
+    } catch (error) { console.error("[gift-handoff] reconciliation deferred", error); }
   }
   if (memRows.length) {
     const { error } = await supabase.from("memories").insert(memRows);
