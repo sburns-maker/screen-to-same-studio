@@ -135,8 +135,26 @@ async function spicyCall(path: string, body?: unknown, idempotency?: string): Pr
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) {
-    await response.body?.cancel();
-    throw new SpicyHttpFailure(response.status, response.headers.get("retry-after"));
+    // Keep only a bounded, sanitized provider code and request id; never the body.
+    let providerCode: string | undefined;
+    try {
+      const raw = (await response.text()).slice(0, 20000);
+      const parsed = JSON.parse(raw) as { code?: unknown; error?: { code?: unknown; type?: unknown } | unknown };
+      const err = parsed && typeof parsed.error === "object" ? (parsed.error as { code?: unknown; type?: unknown }) : null;
+      const candidate = [err?.code, err?.type, parsed?.code, typeof parsed?.error === "string" ? parsed.error : undefined]
+        .map((v) => (typeof v === "number" ? String(v) : v))
+        .find((v) => typeof v === "string" && SAFE_TOKEN.test(v));
+      providerCode = candidate as string | undefined;
+    } catch {
+      providerCode = undefined;
+    }
+    const rid = response.headers.get("x-request-id") ?? response.headers.get("request-id");
+    throw new SpicyHttpFailure(
+      response.status,
+      response.headers.get("retry-after"),
+      rid && SAFE_TOKEN.test(rid) ? rid : undefined,
+      providerCode,
+    );
   }
   const text = await response.text();
   if (text.length > 1000000) throw new Error("spicy_response_too_large");
