@@ -71,3 +71,11 @@ _Status: phased design and initial implementation branch; not a production commi
 - A proposed decision remains pending until the player explicitly agrees or declines. No cohabitation or marriage is inferred.
 - Existing player decision buttons render pending proposals, backed by relationship_player_command and authenticated server function.
 - Remaining before release: schema/build tests, database migration replay, end-to-end Lovable staging with a real provider response; integrate independent character responses to player-initiated proposals, canonical commitment facts into every generation channel, call/outing proposals, and safe resolution of repeated stale unprocessed source messages.
+
+## Tess-first two-way proposals: implementation status
+- The player can explicitly initiate exclusive/partnership discussion from Tess's contact relationship view. The character response remains independent.
+- Tess generation gets canonical accepted/pending commitment context; the reply schema supports a quoted accept/decline of an existing player proposal ID. Committed visible text is the source for synchronization.
+- Visible-message reconciliation applies Tess's response to the exact pending, player-initiated proposal. Other characters remain out of this pilot.
+- These are code changes only: migration 0046 is not applied, and neither static tests nor a live integration run has been completed.
+- Cross-character policy: commitment event records are character-scoped. Riley's high attraction or dates do not change Tess's score, and vice versa. An exclusive commitment may have real narrative meaning, but no automatic breakup, stat reset, or background penalty is implemented. A future world-level relationship agreement policy must explicitly define exclusivity and potential conflicts, with clear player decisions.
+- Release blockers: idempotent source acknowledgments for all channels, stage/state consistency, tests for visible delivery and repeated sync, production-safe migration replay, and full Lovable build/staging validation.
