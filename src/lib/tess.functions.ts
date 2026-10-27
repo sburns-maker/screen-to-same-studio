@@ -393,7 +393,9 @@ async function runTurnUnlocked(
   const messageList = [...recent].reverse().map((m) => ({
     ...m,
     body: (() => {
-      const md = m.metadata as { photo?: string; generated_path?: string; game_chat?: string; channel?: string } | null;
+      const md = m.metadata as { photo?: string; generated_path?: string; game_chat?: string; channel?: string; workplace_encounter?: { place_key?: string; access?: string; event?: string } } | null;
+      if (md?.workplace_encounter?.event === "player_requested_conversation")
+        return `[Player speaking from fictional public visitor area at ${md.workplace_encounter.place_key}; no mutual meeting or private access confirmed] ${m.body}`;
       if (md?.channel === "voice") return `[spoken during a phone call] ${m.body}`;
       if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
       if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
