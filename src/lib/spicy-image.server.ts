@@ -194,29 +194,61 @@ export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyReq
   const cost = typeof q?.estimatedCost === "string" ? q.estimatedCost : "";
   const max = typeof q?.maxCharge === "string" ? q.maxCharge : cost;
   const expires = Date.parse(String(q?.expiresAt ?? ""));
-  if (
-    envelope?.code !== 200 ||
-    !q ||
-    typeof q.quoteId !== "string" ||
-    // Provider-issued opaque tokens may be signed and dot-delimited. Preserve
-    // them verbatim; bound size and reject whitespace/control/non-ASCII bytes.
-    !/^[\x21-\x7E]{1,4096}$/.test(q.quoteId) ||
-    q.model !== body.model ||
-    (q.currency ?? "USD") !== "USD" ||
-    !/^\d{1,6}(?:\.\d{1,10})?$/.test(cost) ||
-    !/^\d{1,6}(?:\.\d{1,10})?$/.test(max) ||
-    !Number.isFinite(expires) ||
-    expires <= Date.now()
-  )
-    throw new Error("spicy_quote_invalid");
+  const rule = spicyQuoteRule(envelope, body.model, cost, max, expires);
+  if (rule) throw new SpicyQuoteFailure(rule);
   const cents = Math.max(1, Math.ceil(Math.max(Number(cost), Number(max)) * 100 - 1e-9));
-  return { quoteId: q.quoteId, expectedCost: cost, cents, expiresAt: new Date(expires).toISOString() };
+  return { quoteId: q!.quoteId as string, expectedCost: cost, cents, expiresAt: new Date(expires).toISOString() };
 });
+const SAFE_TOKEN = /^[A-Za-z0-9_.:-]{1,128}$/;
+const MONEY = /^\d{1,6}(?:\.\d{1,10})?$/;
+/** Stable code naming the first local quote validation rule that failed. */
+export type SpicyQuoteRule =
+  | "spicy_quote_envelope_code"
+  | "spicy_quote_payload_missing"
+  | "spicy_quote_id_invalid"
+  | "spicy_quote_model_mismatch"
+  | "spicy_quote_currency_unsupported"
+  | "spicy_quote_cost_invalid"
+  | "spicy_quote_max_charge_invalid"
+  | "spicy_quote_expiry_invalid"
+  | "spicy_quote_expired";
+function spicyQuoteRule(
+  envelope: { code?: unknown; data?: Record<string, unknown> } | null | undefined,
+  model: string,
+  cost: string,
+  max: string,
+  expires: number,
+): SpicyQuoteRule | null {
+  if (envelope?.code !== 200) return "spicy_quote_envelope_code";
+  const q = envelope.data;
+  if (!q || typeof q !== "object") return "spicy_quote_payload_missing";
+  // Provider-issued opaque tokens may be signed and dot-delimited. Preserve
+  // them verbatim; bound size and reject whitespace/control/non-ASCII bytes.
+  if (typeof q["quoteId"] !== "string" || !/^[\x21-\x7E]{1,4096}$/.test(q["quoteId"]))
+    return "spicy_quote_id_invalid";
+  if (q["model"] !== model) return "spicy_quote_model_mismatch";
+  if ((q["currency"] ?? "USD") !== "USD") return "spicy_quote_currency_unsupported";
+  if (!MONEY.test(cost)) return "spicy_quote_cost_invalid";
+  if (!MONEY.test(max)) return "spicy_quote_max_charge_invalid";
+  if (!Number.isFinite(expires)) return "spicy_quote_expiry_invalid";
+  if (expires <= Date.now()) return "spicy_quote_expired";
+  return null;
+}
+/** Local quote rejection; carries only the stable rule code. */
+export class SpicyQuoteFailure extends Error {
+  readonly stage = "quote";
+  constructor(readonly rule: SpicyQuoteRule | "spicy_quote_budget_exceeded" | "spicy_quote_response_invalid") {
+    super(rule);
+  }
+}
 export class SpicyHttpFailure extends Error {
   readonly retrySeconds: number;
+  stage?: string;
   constructor(
     readonly status: number,
     retryAfter: string | null,
+    readonly requestId?: string,
+    readonly providerCode?: string,
   ) {
     super(`spicy_http_${status}`);
     const numeric = Number(retryAfter);
