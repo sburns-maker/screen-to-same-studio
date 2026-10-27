@@ -69,7 +69,11 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
           reception_outcome: data.deliveryOutcome ?? "unresolved",
           recipient_received: false },
       });
-      if (giftError) console.error("[gift-handoff] event persistence failed", giftError.code);
+      if (giftError) {
+        const { error: rollbackError } = await db.from("messages").delete().eq("id", inserted.id).eq("user_id", context.userId);
+        if (rollbackError) console.error("[gift-handoff] rollback failed", rollbackError.code);
+        throw new Error("Unable to save gift history; please retry.");
+      }
     }
     // The reply is delivered by the same message pipeline used for ordinary chat.
     // The character may choose to be busy, decline, or speak briefly.
