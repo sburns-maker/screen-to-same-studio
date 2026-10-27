@@ -21,14 +21,14 @@ export function visualScreenAccepted(value: unknown, hasCharacter: boolean) {
   const result = verdictSchema.safeParse(value);
   return (
     result.success &&
-    result.data.scene_consistent &&
+    // Scene plausibility is advisory only; a scene mismatch never withholds a photo.
     !result.data.unexpected_people &&
     (hasCharacter
       ? result.data.reference_usable &&
         result.data.visual_design === "consistent" &&
-        result.data.reason === "features_consistent"
+        ["features_consistent", "scene_mismatch", "scene_consistent"].includes(result.data.reason)
       : result.data.visual_design === "not_applicable" &&
-        ["features_consistent", "scene_consistent"].includes(result.data.reason))
+        ["features_consistent", "scene_consistent", "scene_mismatch"].includes(result.data.reason))
   );
 }
 export function requireVisualScreen() {
@@ -123,7 +123,7 @@ export async function screenPhotoVisuals(reference: Blob | null, image: Blob, sc
     const json = (await response.json()) as { choices?: { message?: { content?: string } }[] };
     const verdict = verdictSchema.parse(JSON.parse(json.choices?.[0]?.message?.content ?? "null"));
     const accepted = options?.allowBackgroundAdults && reference
-      ? verdict.reference_usable && verdict.visual_design === "consistent" && verdict.reason === "features_consistent" && verdict.scene_consistent
+      ? verdict.reference_usable && verdict.visual_design === "consistent" && ["features_consistent", "scene_mismatch", "scene_consistent"].includes(verdict.reason)
       : visualScreenAccepted(verdict, !!reference);
     if (!accepted)
       throw new Error(verdict.reference_usable ? verdict.reason : "reference_obscured");

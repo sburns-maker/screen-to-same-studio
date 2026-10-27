@@ -53,7 +53,6 @@ describe("bounded visual-design and scene screening", () => {
     { visual_design: "mismatch", reason: "face_structure_drift" },
     { visual_design: "uncertain", reason: "uncertain" },
     { reference_usable: false, reason: "reference_obscured" },
-    { scene_consistent: false, reason: "scene_mismatch" },
     { visual_design: "uncertain", reason: "face_not_visible" },
   ])("withholds failed/uncertain designs without retry: %j", async (change) => {
     const fetch = vision({ ...good, ...change });
@@ -61,6 +60,12 @@ describe("bounded visual-design and scene screening", () => {
       screenPhotoVisuals(new Blob(["reference"]), candidate, "clinic selfie"),
     ).rejects.toThrow();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("never withholds a photo for a scene mismatch alone", async () => {
+    vision({ ...good, scene_consistent: false, reason: "scene_mismatch" });
+    await expect(
+      screenPhotoVisuals(new Blob(["reference"]), candidate, "clinic selfie"),
+    ).resolves.toMatchObject({ status: "screen_passed" });
   });
   it("checks object scenes rather than requiring a face", async () => {
     const fetch = vision({ ...good, visual_design: "not_applicable" });
