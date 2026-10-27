@@ -15,7 +15,7 @@ vi.mock("@/lib/photo-reference-library.functions", () => ({
   previewReference: mocks.preview,
   changeReference: mocks.change,
   setReferenceProviderPreference: mocks.preference,
-  checkApi18Job: mocks.job,
+  checkSpicyJob: mocks.job,
 }));
 import { ReferenceLibrary } from "@/components/ReferenceLibrary";
 const hash = "a".repeat(64),
@@ -26,7 +26,7 @@ const fixture = () => ({
     enabled: false,
     keyPresent: false,
     contractVerified: false,
-    reason: "Api18 disabled",
+    reason: "SpicyAPI disabled",
   },
   page: {
     available: true,
@@ -45,7 +45,7 @@ const fixture = () => ({
     approved: 0,
     status: "Awaiting visual review",
     matureEnabled: false,
-    api18Enabled: false,
+    spicyEnabled: false,
     adultConfirmed: false,
     romanticCapable: true,
   },
@@ -76,7 +76,7 @@ describe("mobile reference review interface", () => {
     expect(screen.queryByLabelText(/api.*key/i)).not.toBeInTheDocument();
     expect(mocks.change).not.toHaveBeenCalled();
     expect(mocks.preview).not.toHaveBeenCalled();
-    expect(screen.getByLabelText(/Use Api18/)).toBeDisabled();
+    expect(screen.getByLabelText(/Use SpicyAPI/)).toBeDisabled();
   });
   it("requires preview and explicit visual confirmation before approval", async () => {
     mount();
@@ -137,7 +137,7 @@ it("can check a known provider job without generating or changing reviews", asyn
   });
   mocks.job.mockResolvedValue({ status: "completed", costUsd: 0.1 });
   mount();
-  await screen.findByText("Recent Api18 jobs");
+  await screen.findByText("Recent SpicyAPI jobs");
   fireEvent.click(screen.getByText("Refresh status — no generation"));
   await waitFor(() => expect(mocks.job).toHaveBeenCalledWith({ data: { actionId: mid } }));
   expect(mocks.change).not.toHaveBeenCalled();

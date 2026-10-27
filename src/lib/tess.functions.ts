@@ -1,3 +1,4 @@
+import { PendingPhotoTask } from "./photo-task";
 import { selectPhotoComposition } from "./photo-composition";
 import { photoActivityBlock } from "./photo-activity";
 import {photoContextForSchedule} from "./calendar-commitment";
@@ -199,7 +200,7 @@ export async function createGeneratedPhoto(
     const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
     mabelReference = data ?? null;
   }
-  const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(supabaseAdmin,userId,characterKey,type,lovableGatewayProvider(apiKey),actionId);
+  const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(supabaseAdmin,userId,characterKey,type,lovableGatewayProvider(apiKey),actionId,undefined,{scene,expression,style:style??null,...(photography?{photography}:{})});
   const identity = def
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
@@ -632,6 +633,7 @@ async function runTurnUnlocked(
   // --- Photo: Tess curated first, then optional generation; other contacts generate only. Failures stay invisible.
   let photo: string | null = null;
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
+  let pendingPhoto: string | null = null;
   let generationFailure: string | null = null;
   let imageRequested = false;
   const p = reply.photo;
@@ -676,6 +678,7 @@ async function runTurnUnlocked(
           if (error) console.warn("[character-photo] usage status pending; reserved attempt remains counted");
         }
       } catch (e) {
+        if(e instanceof PendingPhotoTask){pendingPhoto=e.actionId;}else{
         const { PhotoGenerationFailure } = await import("./tess-image.server");
         // Do not expose raw provider errors, prompts or secrets in client-facing diagnostics.
         const safeLocalReasons = ["repeated photo composition", "photo scene contradicts current location", "Image attempt budget exhausted",
@@ -696,17 +699,18 @@ async function runTurnUnlocked(
         }
         if (worldReady && photoAction) await photoAdmin!.from("media_attempts").update({ status: "failed" }).eq("action_id", photoAction).eq("status", "reserved");
         console.warn("[character-photo] generation withheld:", generationFailure);
+        }
       }
     }
   }
-  if (photoAction && reply.photo && !photo && !generated) {
+  if (photoAction && reply.photo && !photo && !generated && !pendingPhoto) {
     const { failPhotoAction } = await import("./photo-delivery.server");
     await failPhotoAction(photoAdmin!, photoAction);
     return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry", ...(initiation?.developerPhoto?{photoValidation:{...photoSceneCheck(photography,p?.scene??"",sceneContext.source),stage:"generated_scene",imageRequested}}:{}) };
   }
   const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
-  if ((photo || generated) && !bubbles.length) bubbles.push("");
+  if ((photo || generated || pendingPhoto) && !bubbles.length) bubbles.push("");
   const voiceEnd = !!voice && bubbles.join(" ").trim().endsWith("<end_call>");
   if (voice) bubbles.splice(0,bubbles.length,bubbles.join(" ").replace(/<end_call>/g,"").trim().slice(0,1000));
 
@@ -752,10 +756,11 @@ async function runTurnUnlocked(
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
-          decision:photo || generated ? 'chosen' : 'not_selected',
-          reason:photo || generated ? 'character_selected_eligible_photo' : photoRejectionReason ?? (opportunity.eligible ? 'character_did_not_select_photo' : opportunity.reason) } } : {}),
+          decision:pendingPhoto ? 'queued' : photo || generated ? 'chosen' : 'not_selected',
+          reason:pendingPhoto ? 'character_selected_photo_pending' : photo || generated ? 'character_selected_eligible_photo' : photoRejectionReason ?? (opportunity.eligible ? 'character_did_not_select_photo' : opportunity.reason) } } : {}),
         latency: latency.reason,
         ...(photo && i === 0 ? { photo } : {}),
+        ...(pendingPhoto && i === 0 ? {generated_path:null,photo_pending:{actionId:pendingPhoto,status:"processing"}} : {}),
         ...(generated && i === 0 ? { generated_path: generated.path, generated_image_id: generatedId!, photo_type: generated.type, text_quality: generated.textQuality.status, photo_identity: generated.diagnostics,
           photo_visual: { version:1, character:def.key, location:photography.location, style:{...generated.style}, objects:photography.continuity.objects }, photo_source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation" } : {}),
       },
@@ -813,13 +818,14 @@ async function runTurnUnlocked(
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
     } as unknown as import("@/integrations/supabase/types").Json, voice ? {callId:voice.callId,turnId:voice.turnId} : undefined);
-    return {...delivered,...(initiation?.spontaneousPhoto&&!photo&&!generated?{photoSent:false,imageRequested:false,reason:"Character sent text only; no photo was selected or requested."}:{})};
+    if(pendingPhoto && delivered.count>0)(await import("./spicy-jobs.server")).startSpicyPhotoRecovery(photoAdmin,{user:userId,action:pendingPhoto});
+    return {...delivered,...(pendingPhoto?{photoPending:true,imageRequested:true}:{}),...(initiation?.spontaneousPhoto&&!photo&&!generated&&!pendingPhoto?{photoSent:false,imageRequested:false,reason:"Character sent text only; no photo was selected or requested."}:{})};
   }
   if (scheduleActions.length) throw new Error("Calendar actions require the atomic delivery service");
   // Text-only turns retain the existing persistence path. Never delete a paid pending photo.
   if (!initiation) {
     const { error } = await supabase.from("messages").delete().eq("conversation_id", conv.id).eq("sender", "tess").gt("visible_at", nowIso)
-      .is("metadata->>generated_path", null).is("metadata->>photo", null);
+      .is("metadata->>generated_path", null).is("metadata->>photo", null).is("metadata->>photo_pending",null);
     if (error) throw new Error("Could not replace pending text replies");
   }
   const { error: stateError } = await supabase.from("tess_state").update({ ...next, last_delta: { ...delta, tags: reply.event_tags }, last_tone: reply.tone, updated_at: nowIso }).eq("conversation_id", conv.id);

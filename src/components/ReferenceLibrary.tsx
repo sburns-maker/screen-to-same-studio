@@ -7,10 +7,10 @@ import {
   previewReference,
   changeReference,
   setReferenceProviderPreference,
-  checkApi18Job,
+  checkSpicyJob,
 } from "@/lib/photo-reference-library.functions";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
-import { REFERENCE_ROLES, type ReferenceRole } from "@/lib/api18-reference-library";
+import { REFERENCE_ROLES, type ReferenceRole } from "@/lib/photo-reference-library";
 const labels: Record<ReferenceRole, string> = {
   canonical: "Canonical identity",
   half_body: "Half-body",
@@ -22,7 +22,7 @@ export function ReferenceLibrary() {
     change = useServerFn(changeReference),
     preference = useServerFn(setReferenceProviderPreference),
     settings = useServerFn(updateSettings),
-    jobStatus = useServerFn(checkApi18Job);
+    jobStatus = useServerFn(checkSpicyJob);
   const [key, setKey] = useState<CharacterKey>("tess"),
     [offset, setOffset] = useState(0),
     [selected, setSelected] = useState<{
@@ -131,7 +131,7 @@ export function ReferenceLibrary() {
       </label>
       <p className="text-sm">{q.data?.provider.reason ?? "Checking provider configuration…"}</p>
       <p className="text-xs text-muted-foreground">
-        Everyday photos keep their current provider. Api18 requires verified account credits,
+        Everyday photos keep their current provider. SpicyAPI requires verified account credits,
         spending limits and approved references. Keys are configured only in Lovable Secrets.
       </p>
       {q.data?.provider.budgetsConfigured && (
@@ -172,18 +172,18 @@ export function ReferenceLibrary() {
           <label className="flex min-h-11 items-center gap-3 text-sm">
             <input
               type="checkbox"
-              checked={page.api18Enabled}
+              checked={page.spicyEnabled}
               disabled={
                 busy ||
                 !page.available ||
                 !page.romanticCapable ||
-                (!page.api18Enabled && !q.data?.provider.ready)
+                (!page.spicyEnabled && !q.data?.provider.ready)
               }
               onChange={(e) => {
                 const enabled = e.target.checked;
                 const adult = enabled
                   ? window.confirm(
-                      "I confirm I am 18 or older and opt into non-nude romantic photos using Api18. Existing character boundaries still apply.",
+                      "I confirm I am 18 or older and opt into non-nude romantic photos using SpicyAPI. Existing character boundaries still apply.",
                     )
                   : page.adultConfirmed;
                 if (enabled && !adult) return;
@@ -194,7 +194,7 @@ export function ReferenceLibrary() {
                   .finally(() => setBusy(false));
               }}
             />
-            Use Api18 for non-nude romantic photos
+            Use SpicyAPI for non-nude romantic photos
           </label>
           <p className="text-xs">
             Canonical approval here selects the existing approved identity for provider use; it does
@@ -353,7 +353,7 @@ export function ReferenceLibrary() {
       )}
       {!!q.data?.jobs?.length && (
         <details className="rounded-xl border p-3">
-          <summary>Recent Api18 jobs</summary>
+          <summary>Recent SpicyAPI jobs</summary>
           {q.data.jobs.map((j) => (
             <div key={j.action_id} className="my-3 text-sm">
               <p>

@@ -262,6 +262,10 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
     // probe lifts the pause, a failed one keeps it (background-jobs rules).
     const aiBudget = aiPause.paused ? 1 : MAX_AI_CALLS_PER_RUN;
 
+    // GET-only mature-photo recovery, independent of dialogue AI budget.
+    try { (await import("./spicy-jobs.server")).startSpicyPhotoRecovery(admin); }
+    catch { report.errors.push("A pending mature photo awaits recovery"); }
+
     // Resume prepared photo deliveries without another text/image call, even if a new initiation is not selected.
     const { data: photoJobs, error: photoJobError } = await admin
       .from("job_runs")

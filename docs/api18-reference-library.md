@@ -1,3 +1,5 @@
+> Historical implementation. API18 runtime code is retired. Current setup: [SpicyAPI replacement](spicyapi-provider.md). Do not configure old API18 secrets for the current application.
+
 # Reference Library and Api18 Hera integration — PR #97
 
 ## Implemented scope

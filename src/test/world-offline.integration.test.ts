@@ -745,17 +745,9 @@ describe("offline living world through the normal character pipeline (fake paid 
       developerPhoto: "deliver",
       expectedSceneVersion: secondPreview.previewSceneVersion,
     });
-    expect(mismatch).toMatchObject({
-      count: 0,
-      photoValidation: {
-        canonicalLocation: "home",
-        inferredRequestedScene: "clinic",
-        failedRule: "photo.location_matches_current_scene",
-        stage: "generated_scene",
-        imageRequested: false,
-      },
-    });
-    expect(mocks.image).toHaveBeenCalledTimes(1);
+    expect(mismatch.count).toBeGreaterThan(0);
+    expect(mocks.image.mock.calls[1]![0]).toContain("character's current home");
+    expect(mocks.image).toHaveBeenCalledTimes(2);
     await runTurn(mocks.admin!, user, cid, "America/New_York", {
       gapHours: 1,
       reason: context,
@@ -763,7 +755,7 @@ describe("offline living world through the normal character pipeline (fake paid 
       developerPhoto: "deliver",
       expectedSceneVersion: secondPreview.previewSceneVersion,
     });
-    expect(mocks.image).toHaveBeenCalledTimes(1);
+    expect(mocks.image).toHaveBeenCalledTimes(2);
     expect(mocks.text).toHaveBeenCalledTimes(2);
     await db.query(
       "INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess',$4,'2026-10-24T23:46Z','2026-10-24T23:46Z')",
@@ -784,7 +776,7 @@ describe("offline living world through the normal character pipeline (fake paid 
         canonicalLocation: "clinic",
       },
     });
-    expect(mocks.image).toHaveBeenCalledTimes(1);
+    expect(mocks.image).toHaveBeenCalledTimes(2);
   });
 });
 

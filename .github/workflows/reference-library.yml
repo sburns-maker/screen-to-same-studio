@@ -4,15 +4,20 @@ on:
     paths:
       - 'drizzle/migrations/**'
       - 'src/lib/*reference-library*'
-      - 'src/lib/api18*'
+      - 'src/lib/spicy*'
       - 'src/lib/photo-provider-router.server.ts'
       - 'src/components/ReferenceLibrary.tsx'
+      - 'src/components/PhotoAttachmentStatus.tsx'
+      - 'src/lib/photo-task.ts'
+      - 'src/test/photo-attachment-status.test.tsx'
+      - 'src/routes/_authenticated/chat.$conversationId.tsx'
       - 'src/routes/_authenticated/settings.tsx'
       - 'src/lib/tess.functions.ts'
       - 'src/integrations/supabase/types.ts'
       - 'src/test/*reference*'
-      - 'src/test/api18*'
+      - 'src/test/spicy*'
       - '.github/workflows/reference-library.yml'
+      - 'scripts/check-spicy-client.mjs'
   workflow_dispatch:
 jobs:
   verify:
@@ -23,8 +28,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Mocked provider and SQL-backed private reference tests
-        run: bunx vitest run src/test/api18-reference-library.test.ts src/test/api18-provider.test.ts src/test/photo-reference-library.integration.test.ts src/test/reference-library-ui.test.tsx
+        run: bunx vitest run src/test/photo-reference-library.test.ts src/test/spicy-provider.test.ts src/test/spicy-routing.test.ts src/test/spicy-jobs.integration.test.ts src/test/photo-attachment-status.test.tsx src/test/photo-reference-library.integration.test.ts src/test/reference-library-ui.test.tsx
       - name: Existing photo and identity regressions
         run: bunx vitest run src/test/photo-policy.test.ts src/test/photo-identity.test.ts src/test/tess-image.test.ts src/test/profile-media.integration.test.ts src/test/photo-personality.test.ts
       - run: bunx tsc --noEmit
       - run: bun run build
+      - run: node scripts/check-spicy-client.mjs

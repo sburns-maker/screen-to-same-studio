@@ -130,7 +130,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     {encounterStatus && <p role="status" className="mt-2 text-sm">{encounterStatus}</p>}
     {choice !== "drop_lunch" && <button type="button" disabled={busy} onClick={() => void prepare()}
       className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">
-      {busy ? "Opening conversation…" : choice === "drop_lunch" ? "Write lunch drop-off message" : choice === "leave_note" ? "Write a note" : choice === "speak" ? "Open live conversation" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
+      {busy ? "Opening conversation…" : choice === "leave_note" ? "Write a note" : choice === "speak" ? "Open live conversation" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
     </button>}
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
   </section>;

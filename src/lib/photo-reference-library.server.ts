@@ -5,7 +5,7 @@ import {
   REFERENCE_ROLES,
   pickReferenceCandidates,
   type ReferenceRole,
-} from "./api18-reference-library";
+} from "./photo-reference-library";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { registerPrimaryIdentity } from "./visual-profiles.server";
 type Client = SupabaseClient<Database>;
@@ -76,7 +76,7 @@ export async function referenceLibraryPage(
     db.from("photo_reference_slots").select("*").eq("user_id", user).eq("character_key", key),
     db
       .from("photo_reference_state")
-      .select("version,last_action,api18_enabled,adult_confirmed")
+      .select("version,last_action,spicy_enabled,adult_confirmed")
       .eq("user_id", user)
       .eq("character_key", key)
       .maybeSingle(),
@@ -137,7 +137,7 @@ export async function referenceLibraryPage(
           ? `${count} reference${count === 1 ? "" : "s"} approved; partial readiness`
           : "Awaiting visual review",
     matureEnabled: !!conv.mature_photography,
-    api18Enabled: state.data?.api18_enabled ?? false,
+    spicyEnabled: state.data?.spicy_enabled ?? false,
     adultConfirmed: state.data?.adult_confirmed ?? false,
     romanticCapable: CHARACTERS[key].romanticCapable,
   };
@@ -336,12 +336,11 @@ export async function referenceProviderPreference(
   await ownedCharacter(db, user, key);
   if (CHARACTERS[key].age < 18 || !CHARACTERS[key].romanticCapable)
     throw new Error("Non-nude romantic photography unavailable for this character");
-  if (enabled && !(await import("./api18-image.server")).api18Configuration().ready)
-    throw new Error("Api18 account configuration is incomplete; keep it disabled");
+  if (enabled && !(await import("./spicy-image.server")).spicyConfiguration().ready)
+    throw new Error("SpicyAPI account configuration is incomplete; keep it disabled");
   if (enabled) {
-    const status = await db.rpc("api18_status" as never, {} as never);
-    if (status.error || Number(status.data) !== 48)
-      throw new Error("Api18 migration 0048 required");
+    const status = await db.from("spicy_photo_jobs").select("action_id").limit(1);
+    if(status.error)throw new Error("SpicyAPI migration 0051 required");
     const canonical = await currentCanonical(db, user, key);
     const slot = await db
       .from("photo_reference_slots")
@@ -353,13 +352,13 @@ export async function referenceProviderPreference(
       .maybeSingle();
     if (slot.error || !slot.data) throw new Error("Approve the current canonical reference first");
   }
-  const r = await db.rpc("photo_reference_preferences", {
+  const r = await db.rpc("spicy_photo_preferences" as never, {
     p_user: user,
     p_character: key,
     p_enabled: enabled,
     p_adult: adult,
     p_version: version,
-  });
+  } as never);
   if (r.error) throw new Error("Reference preferences changed; refresh before retrying");
   return { saved: true };
 }
