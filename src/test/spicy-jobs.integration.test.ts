@@ -387,3 +387,46 @@ it("keeps developer tests isolated when an asynchronous task completes", async (
       .rows[0]!["n"],
   ).toBe(0);
 });
+it("recovers privately stored screened bytes without fetching an expired provider URL again", async () => {
+  await expect(submit()).rejects.toBeInstanceOf(PendingPhotoTask);
+  await pending();
+  fetcher.mockReset().mockImplementation(async (url: string) =>
+    url.includes("recordInfo")
+      ? Response.json({
+          code: 200,
+          data: {
+            taskId: "job_one",
+            state: "succeeded",
+            output: { assets: [{ url: "https://cdn.example.com/a.png" }] },
+          },
+        })
+      : new Response(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), {
+          headers: { "content-type": "image/png" },
+        }),
+  );
+  const original = admin.rpc.bind(admin);
+  const interrupted = {
+    ...admin,
+    rpc: async (name: string, args: unknown) =>
+      name === "spicy_photo_finish"
+        ? { data: null, error: { message: "test-only interrupted commit" } }
+        : original(name as never, args as never),
+  } as unknown as typeof admin;
+  await processSpicyPhotos(interrupted);
+  expect(
+    (await db.query<Record<string, unknown>>("select stored_sha256 from spicy_photo_jobs"))
+      .rows[0]!["stored_sha256"],
+  ).toMatch(/^[a-f0-9]{64}$/);
+  await db.query(
+    "update spicy_photo_jobs set next_poll_at=now()-interval '1 second' where action_id=$1",
+    [action],
+  );
+  fetcher.mockReset().mockRejectedValue(new Error("temporary provider URL expired"));
+  await processSpicyPhotos(admin);
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(
+    (await db.query<Record<string, unknown>>("select status from spicy_photo_jobs")).rows[0]![
+      "status"
+    ],
+  ).toBe("completed");
+});

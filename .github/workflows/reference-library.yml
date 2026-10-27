@@ -17,6 +17,7 @@ on:
       - 'src/test/*reference*'
       - 'src/test/spicy*'
       - '.github/workflows/reference-library.yml'
+      - 'scripts/check-spicy-client.mjs'
   workflow_dispatch:
 jobs:
   verify:
@@ -32,3 +33,4 @@ jobs:
         run: bunx vitest run src/test/photo-policy.test.ts src/test/photo-identity.test.ts src/test/tess-image.test.ts src/test/profile-media.integration.test.ts src/test/photo-personality.test.ts
       - run: bunx tsc --noEmit
       - run: bun run build
+      - run: node scripts/check-spicy-client.mjs

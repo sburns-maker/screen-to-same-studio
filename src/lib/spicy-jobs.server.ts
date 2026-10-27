@@ -1,3 +1,4 @@
+import { createServerOnlyFn } from "@tanstack/react-start";
 import { keepAlive } from "./request-context.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -28,6 +29,7 @@ type Job = {
   conversation_id: string;
   character_key: CharacterKey;
   task_id: string | null;
+  stored_sha256: string | null;
   model: string;
   status: string;
   lease_token: string;
@@ -35,7 +37,7 @@ type Job = {
   created_at: string;
   payload: SpicyContext & { canonicalSha256: string };
 };
-export async function submitSpicyPhoto(
+export const submitSpicyPhoto = createServerOnlyFn(async function submitSpicyPhoto(
   db: Client,
   user: string,
   conversation: string,
@@ -120,6 +122,30 @@ export async function submitSpicyPhoto(
     );
   }
   throw new PendingPhotoTask(action);
+});
+function completedMetadata(job: Job, canonical: { asset: string; sha256: string }, path: string) {
+  const identity = {
+    canonicalAsset: canonical.asset,
+    canonicalSha256: canonical.sha256,
+    referenceConditioning: true,
+    provider: "spicyapi",
+    model: job.model,
+    validationStatus: "screen_passed",
+    retryCount: 0,
+  };
+  return {
+    generated_path: path,
+    generated_image_id: job.action_id,
+    photo_type: "mature_romantic",
+    photo_identity: identity,
+    photo_visual: {
+      version: 1,
+      character: job.character_key,
+      location: job.payload.photography?.location ?? null,
+      style: job.payload.style ?? {},
+      objects: job.payload.photography?.continuity.objects ?? [],
+    },
+  };
 }
 async function finish(db: Client, job: Job, metadata: unknown, failure: string | null) {
   const r = await db.rpc(
@@ -135,7 +161,7 @@ async function finish(db: Client, job: Job, metadata: unknown, failure: string |
   return r.data === true;
 }
 /** Worker-owned leases; GET-only recovery. Never creates another provider job. */
-export async function processSpicyPhotos(
+export const processSpicyPhotos = createServerOnlyFn(async function processSpicyPhotos(
   db: Client,
   only?: { user: string; action?: string; conversation?: string },
 ) {
@@ -218,6 +244,26 @@ export async function processSpicyPhotos(
         await finish(db, job, null, "spicy_wait_expired_no_retry");
         continue;
       }
+      const canonical = await currentCanonical(db, job.user_id, job.character_key);
+      if (canonical.sha256 !== job.payload.canonicalSha256) {
+        await finish(db, job, null, "spicy_identity_changed");
+        continue;
+      }
+      const path = isLab
+        ? `${job.user_id}/developer-photo-tests/${job.action_id}.png`
+        : `${job.user_id}/${job.action_id}.png`;
+      if (job.stored_sha256) {
+        const existing = await db.storage.from("tess-photos").download(path);
+        if (
+          existing.error ||
+          !existing.data ||
+          (await portraitHash(new Uint8Array(await existing.data.arrayBuffer()))) !==
+            job.stored_sha256
+        )
+          throw new Error("spicy_stored_image_integrity_failed");
+        await finish(db, job, completedMetadata(job, canonical, path), null);
+        continue;
+      }
       const task = await spicyRequest(`/jobs/recordInfo?taskId=${encodeURIComponent(job.task_id)}`);
       if (task.taskId !== job.task_id) throw new Error("spicy_task_identity_mismatch");
       const cost = Number(task.cost);
@@ -246,11 +292,6 @@ export async function processSpicyPhotos(
       }
       const url = task.output?.assets?.[0]?.url;
       if (typeof url !== "string") throw new Error("spicy_output_missing");
-      const canonical = await currentCanonical(db, job.user_id, job.character_key);
-      if (canonical.sha256 !== job.payload.canonicalSha256) {
-        await finish(db, job, null, "spicy_identity_changed");
-        continue;
-      }
       const image = await downloadSpicyOutput(url, job.model);
       try {
         await screenPhotoVisuals(
@@ -262,9 +303,6 @@ export async function processSpicyPhotos(
         await finish(db, job, null, "spicy_visual_screen_failed");
         continue;
       }
-      const path = isLab
-        ? `${job.user_id}/developer-photo-tests/${job.action_id}.png`
-        : `${job.user_id}/${job.action_id}.png`;
       const upload = await db.storage
         .from("tess-photos")
         .upload(path, image.bytes, { contentType: image.mime, upsert: false });
@@ -280,33 +318,13 @@ export async function processSpicyPhotos(
         )
           throw new Error("spicy_storage_failed");
       }
-      const identity = {
-        canonicalAsset: canonical.asset,
-        canonicalSha256: canonical.sha256,
-        referenceConditioning: true,
-        provider: "spicyapi",
-        model: job.model,
-        validationStatus: "screen_passed",
-        retryCount: 0,
-      };
-      await finish(
-        db,
-        job,
-        {
-          generated_path: path,
-          generated_image_id: job.action_id,
-          photo_type: "mature_romantic",
-          photo_identity: identity,
-          photo_visual: {
-            version: 1,
-            character: job.character_key,
-            location: job.payload.photography?.location ?? null,
-            style: job.payload.style ?? {},
-            objects: job.payload.photography?.continuity.objects ?? [],
-          },
-        },
-        null,
-      );
+      const stored = await db
+        .from("spicy_photo_jobs")
+        .update({ stored_sha256: await portraitHash(image.bytes) })
+        .eq("action_id", job.action_id)
+        .eq("lease_token", job.lease_token);
+      if (stored.error) throw new Error("spicy_storage_receipt_failed");
+      await finish(db, job, completedMetadata(job, canonical, path), null);
     } catch (e) {
       if (e instanceof SpicyHttpFailure) {
         retry = e.retrySeconds;
@@ -333,8 +351,12 @@ export async function processSpicyPhotos(
         .eq("lease_token", job.lease_token);
     }
   }
-}
-export async function spicyJobHistory(db: Client, user: string, character: string) {
+});
+export const spicyJobHistory = createServerOnlyFn(async function spicyJobHistory(
+  db: Client,
+  user: string,
+  character: string,
+) {
   const r = await db
     .from("spicy_photo_jobs")
     .select("action_id,status,task_id,model,cost_usd,failure_code,created_at,updated_at")
@@ -354,12 +376,12 @@ export async function spicyJobHistory(db: Client, user: string, character: strin
       model: string;
     }[]
   ).map((r) => ({ ...r, job_id: r.task_id, refund_expected: false }));
-}
+});
 
 /** Short post-response continuation; persisted tasks also resume in the world worker
  * or an authenticated chat refresh. This never submits or re-submits generation.
  */
-export function startSpicyPhotoRecovery(
+export const startSpicyPhotoRecovery = createServerOnlyFn(function startSpicyPhotoRecovery(
   db: Client,
   only?: { user: string; action?: string; conversation?: string },
 ) {
@@ -372,4 +394,4 @@ export function startSpicyPhotoRecovery(
       console.warn("[spicy-photo] Pending task retained for recovery");
     }),
   );
-}
+});

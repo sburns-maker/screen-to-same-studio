@@ -4,6 +4,7 @@ CREATE TABLE public.spicy_photo_jobs(
  action_id uuid PRIMARY KEY,user_id uuid NOT NULL,conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL,
  character_key text NOT NULL CHECK(character_key IN('tess','maya','riley','claire','jordan')),
  request_hash text NOT NULL CHECK(request_hash ~ '^[a-f0-9]{64}$'),idempotency_key text NOT NULL UNIQUE,
+ stored_sha256 text CHECK(stored_sha256 ~ '^[a-f0-9]{64}$'),
  task_id text UNIQUE,model text NOT NULL CHECK(model IN('bytedance/seedream-5.0-flash/edit','bytedance/seedream-5.0-pro/edit')),
  status text NOT NULL CHECK(status IN('submitting','processing','completed','failed','unknown')),
  payload jsonb NOT NULL,reserved_cents integer NOT NULL CHECK(reserved_cents>0),cost_usd numeric CHECK(cost_usd>=0 AND cost_usd<1000000),

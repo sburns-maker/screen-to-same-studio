@@ -1,3 +1,4 @@
+import { createServerOnlyFn } from "@tanstack/react-start";
 import type { GeneratedImage } from "./tess-image.server";
 export const SPICY_BASE = "https://api.spicyapi.ai/api/v1";
 export const SPICY_MODELS = [
@@ -10,7 +11,9 @@ const positive = (key: string, max: number) => {
   const value = Number(process.env[key]);
   return Number.isInteger(value) && value > 0 && value <= max ? value : 0;
 };
-export function spicyConfiguration(character?: string) {
+export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration(
+  character?: string,
+) {
   const enabled = process.env["SPICY_ENABLED"] === "true";
   const keyPresent = !!process.env["SPICY_API_KEY"]?.trim();
   const override =
@@ -66,7 +69,7 @@ export function spicyConfiguration(character?: string) {
                 ? "Verify usable SpicyAPI account credit before enabling live calls"
                 : "SpicyAPI configured; live visual testing remains required",
   };
-}
+});
 function publicHost(host: string) {
   return (
     /^[a-z][a-z0-9.-]*\.[a-z]{2,}$/.test(host) &&
@@ -116,7 +119,7 @@ export type SpicyTask = {
   settled?: boolean;
   output?: { assets: { url: string }[] };
 };
-export async function spicyRequest(
+export const spicyRequest = createServerOnlyFn(async function spicyRequest(
   path: string,
   body?: unknown,
   idempotency?: string,
@@ -155,7 +158,7 @@ export async function spicyRequest(
   )
     throw new Error("spicy_response_invalid");
   return envelope.data;
-}
+});
 export class SpicyHttpFailure extends Error {
   readonly retrySeconds: number;
   constructor(
@@ -169,7 +172,10 @@ export class SpicyHttpFailure extends Error {
     this.retrySeconds = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 3600) : 15;
   }
 }
-export async function downloadSpicyOutput(raw: string, model: string): Promise<GeneratedImage> {
+export const downloadSpicyOutput = createServerOnlyFn(async function downloadSpicyOutput(
+  raw: string,
+  model: string,
+): Promise<GeneratedImage> {
   const hosts = new Set(
     (process.env["SPICY_OUTPUT_HOSTS"] ?? "").split(",").map((h) => h.trim().toLowerCase()),
   );
@@ -213,7 +219,7 @@ export async function downloadSpicyOutput(raw: string, model: string): Promise<G
     return { bytes, mime: "image/png", provider: "spicyapi", model };
   }
   throw new Error("spicy_output_redirect_limit");
-}
+});
 
 export function buildSpicyPrompt(
   name: string,

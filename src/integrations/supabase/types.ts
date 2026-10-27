@@ -23,6 +23,7 @@ export type Database = {
           request_hash: string
           idempotency_key: string
           task_id: string | null
+          stored_sha256: string | null
           model: string
           status: string
           payload: Json
@@ -44,6 +45,7 @@ export type Database = {
           request_hash: string
           idempotency_key: string
           task_id?: string | null
+          stored_sha256?: string | null
           model: string
           status: string
           payload: Json
@@ -65,6 +67,7 @@ export type Database = {
           request_hash?: string
           idempotency_key?: string
           task_id?: string | null
+          stored_sha256?: string | null
           model?: string
           status?: string
           payload?: Json

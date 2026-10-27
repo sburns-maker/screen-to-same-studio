@@ -71,7 +71,7 @@ URLs are signed server-side and never logged or stored in task payloads. Result 
 fetched only from configured exact HTTPS CDN hosts (including each redirect); output
 requests never carry the API key. PNG MIME/magic and a 20MB cap are checked before private
 storage and existing visual screening. A canonical change or revoked preference/boundary
-while waiting prevents delivery. Stored-byte recovery verifies hashes before reusing a path.
+while waiting prevents delivery. A server-only hash receipt records successfully screened, privately stored bytes. Completion recovery verifies that receipt and reuses the bytes without another provider download or paid visual screen; it does not depend on an expired provider URL.
 
 ## Lovable configuration after code review
 
@@ -106,3 +106,5 @@ persistence, one submission on concurrent/repeated actions, unknown acceptance, 
 caps, private RLS, successful/failed completion, polling errors and output validation.
 Manual staging must verify genuine provider permissions, account billing, CDN hosts,
 Android pending-photo updates, closed-app worker recovery and actual image identity/quality.
+
+The production build is also checked by `node scripts/check-spicy-client.mjs`: the new provider entry points use TanStack server-only functions, and API credentials, provider endpoints and job mutations must be absent from public JavaScript/source maps.
