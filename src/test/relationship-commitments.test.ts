@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canFinalizeCommitment, commitmentEventSchema, commitmentLabel, resolveCommitmentStatus,
-  type CommitmentEvent, canShareCommitmentWithCharacter, RELATIONSHIP_PILOT,
+  type CommitmentEvent, canShareCommitmentWithCharacter, RELATIONSHIP_PILOT, commitmentContextForCharacter,
 } from "@/lib/relationship-commitments";
 
 const example: CommitmentEvent = {
@@ -49,4 +49,26 @@ it("keeps Tess pilot commitment knowledge out of Riley and other contacts", () =
   expect(canShareCommitmentWithCharacter("tess", "tess")).toBe(true);
   for (const contact of ["riley", "maya", "claire", "jordan", "ben"])
     expect(canShareCommitmentWithCharacter("tess", contact)).toBe(false);
+});
+
+it("only provides Tess commitment facts to Tess across every conversation channel", () => {
+  const event: CommitmentEvent = {
+    ...example, status: "accepted", userResponse: "accepted", characterResponse: "accepted",
+  };
+  const own = commitmentContextForCharacter("tess", "tess", [event]);
+  expect(own.join(" ")).toContain("Exclusive");
+  for (const other of ["riley", "maya", "claire", "jordan", "ben"]) {
+    expect(commitmentContextForCharacter("tess", other, [event])).toEqual([]);
+  }
+});
+it("does not claim a pending commitment is accepted", () => {
+  const context = commitmentContextForCharacter("tess", "tess", [example]);
+  expect(context.join(" ")).toContain("pending");
+  expect(context.join(" ")).toContain(example.id);
+  expect(context.join(" ")).not.toContain("CANONICAL PRIVATE COMMITMENT WITH PLAYER: Exclusive");
+});
+it("does not import another contact's relationship events into Tess", () => {
+  expect(commitmentContextForCharacter("tess", "tess", [
+    { ...example, characterKey: "riley", status: "accepted", userResponse: "accepted" },
+  ]).join(" ")).not.toContain("Exclusive");
 });
