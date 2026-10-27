@@ -72,3 +72,40 @@ END$$;
 REVOKE ALL ON relationship_commitment_events FROM anon,authenticated;
 REVOKE ALL ON FUNCTION relationship_player_command(uuid,uuid,text,text,text,uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION relationship_player_command(uuid,uuid,text,text,text,uuid) TO service_role;
+
+-- Tess pilot: ingest ONLY already-visible, durable message evidence.
+-- Processing is on authenticated history read; idempotent on source message ID.
+-- No game scores, model suggestions, or hidden/future messages become commitments.
+CREATE FUNCTION relationship_sync_tess(p_user uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE m record; a jsonb; inserted_count integer:=0;
+BEGIN
+ IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION 'service role required';END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('relationship:'||p_user::text||':tess',0));
+ FOR m IN
+ SELECT m.id,m.body,m.metadata FROM messages m
+ JOIN conversations c ON c.user_id=m.user_id AND c.id=m.conversation_id
+ JOIN characters ch ON ch.id=c.character_id
+ WHERE m.user_id=p_user AND m.sender='tess' AND ch.key='tess'
+   AND m.visible_at<=now() AND m.metadata ? 'commitment_action'
+ ORDER BY m.visible_at,m.id LIMIT 200
+ LOOP
+  a:=m.metadata->'commitment_action';
+  IF a->>'action' <> 'propose'
+     OR a->>'kind' NOT IN ('exclusive','partnership')
+     OR length(coalesce(a->>'quote','')) < 12
+     OR position(a->>'quote' IN m.body)=0 THEN CONTINUE; END IF;
+  IF EXISTS(SELECT 1 FROM relationship_commitment_events
+    WHERE user_id=p_user AND character_key='tess' AND status='pending') THEN CONTINUE; END IF;
+  INSERT INTO relationship_commitment_events(
+    user_id,id,character_key,kind,proposed_by,status,user_response,character_response,
+    occurred_at,source_type,source_id,note
+  ) VALUES(p_user,m.id,'tess',a->>'kind','character','pending','pending','accepted',
+    now(),'message',m.id::text,left(a->>'quote',500))
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS inserted_count = ROW_COUNT;
+ END LOOP;
+ RETURN inserted_count;
+END$$;
+REVOKE ALL ON FUNCTION relationship_sync_tess(uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION relationship_sync_tess(uuid) TO service_role;
