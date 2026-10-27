@@ -14,75 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      spicy_photo_jobs: {
-        Row: {
-          action_id: string
-          user_id: string
-          conversation_id: string | null
-          character_key: string
-          request_hash: string
-          idempotency_key: string
-          task_id: string | null
-          stored_sha256: string | null
-          model: string
-          status: string
-          payload: Json
-          reserved_cents: number
-          cost_usd: number | null
-          failure_code: string | null
-          lease_token: string | null
-          lease_until: string | null
-          next_poll_at: string
-          poll_count: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          action_id: string
-          user_id: string
-          conversation_id?: string | null
-          character_key: string
-          request_hash: string
-          idempotency_key: string
-          task_id?: string | null
-          stored_sha256?: string | null
-          model: string
-          status: string
-          payload: Json
-          reserved_cents: number
-          cost_usd?: number | null
-          failure_code?: string | null
-          lease_token?: string | null
-          lease_until?: string | null
-          next_poll_at?: string
-          poll_count?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          action_id?: string
-          user_id?: string
-          conversation_id?: string | null
-          character_key?: string
-          request_hash?: string
-          idempotency_key?: string
-          task_id?: string | null
-          stored_sha256?: string | null
-          model?: string
-          status?: string
-          payload?: Json
-          reserved_cents?: number
-          cost_usd?: number | null
-          failure_code?: string | null
-          lease_token?: string | null
-          lease_until?: string | null
-          next_poll_at?: string
-          poll_count?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       api18_jobs: {
         Row: {
           action_id: string
@@ -2041,8 +1972,6 @@ export type Database = {
         Row: {
           adult_confirmed: boolean
           api18_enabled: boolean
-
-          spicy_enabled: boolean
           character_key: string
           last_action: string | null
           user_id: string
@@ -2051,8 +1980,6 @@ export type Database = {
         Insert: {
           adult_confirmed?: boolean
           api18_enabled?: boolean
-
-          spicy_enabled?: boolean
           character_key: string
           last_action?: string | null
           user_id: string
@@ -2061,8 +1988,6 @@ export type Database = {
         Update: {
           adult_confirmed?: boolean
           api18_enabled?: boolean
-
-          spicy_enabled?: boolean
           character_key?: string
           last_action?: string | null
           user_id?: string
@@ -3480,10 +3405,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      spicy_photo_claim: { Args: { p_action: string }; Returns: Json }
-      spicy_photo_finish: { Args: { p_action: string; p_token: string; p_metadata: Json; p_failure: string | null }; Returns: boolean }
-      spicy_photo_preferences: { Args: { p_user: string; p_character: string; p_enabled: boolean; p_adult: boolean; p_version: number }; Returns: boolean }
-      spicy_photo_reserve: { Args: { p_user: string; p_action: string; p_conversation: string; p_character: string; p_hash: string; p_model: string; p_payload: Json; p_cents: number; p_daily: number; p_monthly: number }; Returns: Json }
       api18_job_reserve: {
         Args: {
           p_action: string
