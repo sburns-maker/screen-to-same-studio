@@ -779,6 +779,7 @@ async function runTurnUnlocked(
         tags: reply.event_tags,
         initiated: !!initiation,
         notification_group: notificationGroup,
+        ...(!initiation && !voice && recent.find(m => m.sender === "user")?.id ? { in_reply_to: recent.find(m => m.sender === "user")!.id } : {}),
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         ...(i === 0 && def.key === "tess" && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         push_primary: !voice && i === 0,

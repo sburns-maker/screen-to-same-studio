@@ -56,7 +56,7 @@ function Calls() {
   }
   return (
     <TownLayout title="Calls" kicker="Your phone" loading={q.isLoading} error={q.error}>
-      <details open={!q.data?.configured} className={`${card} mb-5`}>
+      <details open={!q.data?.available || (!q.data?.configured && !q.data?.incomingLive)} className={`${card} mb-5`}>
         <summary className="min-h-11 cursor-pointer font-medium">Call settings</summary>
         <p className="my-3 text-sm text-muted-foreground">
           This is a fictional in-app phone service. Contact numbers are display-only identifiers and
@@ -68,7 +68,9 @@ function Calls() {
         ) : (
           <>
             <p role="status" className="mb-3 text-sm">
-              {q.data.configured
+              {q.data.incomingLive
+                ? "Live voice is enabled. Each contact needs their saved voice."
+                : q.data.configured
                 ? "Voice service configured. Live audio quality still needs device testing."
                 : "Voice connection is not configured and validated. Calls cannot connect until setup is completed."}
             </p>
@@ -92,11 +94,8 @@ function Calls() {
               </label>
             ))}
             <p className="mt-3 text-xs text-muted-foreground">
-              This first version requires transcript consent to use the existing character memory
-              engine. You can delete a call’s transcript below; retained memories and plans remain
-              separate. Incoming ringing is available while this app is open. Closing the call
-              screen ends microphone capture. Full-duplex WebRTC and native background ringing are
-              not included.
+              Transcript consent lets characters remember the conversations you actually had. You can delete a call’s transcript below; retained memories and plans remain
+              separate. Closing the call screen ends microphone capture. Background notification delivery depends on this device’s permissions; native background ringing needs Android integration.
             </p>
           </>
         )}

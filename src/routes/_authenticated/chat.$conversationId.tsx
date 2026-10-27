@@ -1,3 +1,7 @@
+import { persistQueuedMessage } from "@/lib/chat-outbox";
+import { messageReceipt, nearConversationEnd, parseOutbox, type QueuedMessage } from "@/lib/chat-presentation";
+import { useChatViewport } from "@/lib/use-chat-viewport";
+import { ConversationCalls } from "@/components/ConversationCalls";
 import { PhotoAttachmentStatus } from "@/components/PhotoAttachmentStatus";
 import { refreshPendingPhotos } from "@/lib/photo-reference-library.functions";
 import { ReactionBubble } from "@/components/ReactionBubble";
@@ -16,7 +20,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Camera, ChevronLeft, MoreVertical } from "lucide-react";
+import { ArrowUp, ArrowDown, Camera, ChevronLeft, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { markRead, tessRespond } from "@/lib/tess.functions";
@@ -43,15 +47,15 @@ export const Route = createFileRoute("/_authenticated/chat/$conversationId")({
       { property: "og:description", content: "Conversation." },
     ],
   }),
-  component: Chat,
+  component: ChatRoute,
 });
 
 // ---- Offline outbox: messages sent without connectivity wait here. ----
-type QueuedMsg = { id: string; body: string; at: number };
+type QueuedMsg = QueuedMessage;
 const queueKey = (convId: string) => `tess:outbox:${convId}`;
 function readQueue(convId: string): QueuedMsg[] {
   try {
-    return JSON.parse(localStorage.getItem(queueKey(convId)) ?? "[]") as QueuedMsg[];
+    return parseOutbox(localStorage.getItem(queueKey(convId)));
   } catch {
     return [];
   }
@@ -70,9 +74,14 @@ function fmtDivider(d: Date) {
   return d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) + ` ${fmtTime(d)}`;
 }
 
-function Chat() {
-  const portraits=usePortraits();
+function ChatRoute() {
   const { conversationId } = Route.useParams();
+  return <Chat key={conversationId} conversationId={conversationId} />;
+}
+
+function Chat({ conversationId }: { conversationId: string }) {
+  const portraits=usePortraits();
+  const viewport = useChatViewport();
   const qc = useQueryClient();
   const respond = useServerFn(tessRespond);
   const read = useServerFn(markRead);
@@ -97,11 +106,16 @@ function Chat() {
 
   const [now, setNow] = useState(() => Date.now());
   const [text, setText] = useState("");
-  const [thinking, setThinking] = useState(false);
   const [queue, setQueue] = useState<QueuedMsg[]>(() => readQueue(conversationId));
+  const [queueRetry, setQueueRetry] = useState(0);
   const [online, setOnline] = useState(() => navigator.onLine);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef(false);
+  const sendingRef = useRef(false);
+  const flushingRef = useRef(false);
+  const [sending, setSending] = useState(false);
+  const keepAtEnd = useRef(true);
+  const [awayFromEnd, setAwayFromEnd] = useState(false);
   const again = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
   const olderScrollHeight = useRef<number | null>(null);
@@ -155,7 +169,6 @@ function Chat() {
       return;
     }
     inFlight.current = true;
-    setThinking(true);
     try {
       await respond({ data: { conversationId, tz: userTz() } });
       await refetch();
@@ -165,7 +178,6 @@ function Chat() {
       toast.error(e instanceof Error ? e.message : "Couldn't reply right now");
     } finally {
       inFlight.current = false;
-      setThinking(false);
       if (again.current) {
         again.current = false;
         void runRespond();
@@ -207,9 +219,10 @@ function Chat() {
       const up = await supabase.storage.from("tess-photos").upload(path, file, { contentType: file.type });
       if (up.error) throw up.error;
       const body = text.trim();
-      setText("");
       const { error } = await supabase.from("messages").insert({ conversation_id: convId, user_id: u.user!.id, sender: "user", body, metadata: { user_photo: path } });
       if (error) throw error;
+      setText(current => current.trim() === body ? "" : current);
+      keepAtEnd.current = true;
       setNow(Date.now());
       await refetch();
       if (debounce.current) clearTimeout(debounce.current);
@@ -223,37 +236,58 @@ function Chat() {
 
   async function send() {
     const body = text.trim();
-    if (!body || !convId) return;
+    if (!body || !convId || sendingRef.current) return;
+    keepAtEnd.current = true;
+    const outgoing = { id: crypto.randomUUID(), body, at: Date.now() };
     setText("");
     if (!navigator.onLine) {
       // Offline: queue locally, send when connectivity returns. No fake reply.
-      const q = [...readQueue(conversationId), { id: crypto.randomUUID(), body, at: Date.now() }];
-      writeQueue(conversationId, q);
-      setQueue(q);
+      try {
+        const q = [...readQueue(conversationId), outgoing];
+        writeQueue(conversationId, q);
+        setQueue(q);
+      } catch {
+        setText(current => current ? `${body}\n\n${current}` : body);
+        toast.error("Offline storage is unavailable. Keep this draft open until you reconnect.");
+      }
       taRef.current?.focus();
       return;
     }
+    sendingRef.current = true;
+    setSending(true);
+    try {
     const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw new Error("Please sign in again to send your message.");
     // Provenance is an activity *suggestion*, never evidence that an outing occurred.
     const draftSource = homeDraft.current;
     const origin = draftSource && draftSource.text.trim() === body
       ? { home_moment_prompt: { home_key: draftSource.homeKey, activity: draftSource.activity } }
       : undefined;
     const { error } = await supabase.from("messages").insert({
-      conversation_id: convId, user_id: u.user!.id, sender: "user", body,
+      id: outgoing.id, conversation_id: convId, user_id: u.user!.id, sender: "user", body,
       ...(origin ? { metadata: origin } : {}),
     });
-    if (error) {
-      toast.error("Message didn't send");
-      setText(body);
-      return;
-    }
+    if (error) throw error;
     homeDraft.current = null;
     setNow(Date.now());
     await refetch();
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(() => { debounce.current = null; void runRespond(); }, 2500);
     taRef.current?.focus();
+    } catch {
+      // Preserve the exact request ID after an uncertain acknowledgment. A retry
+      // verifies the stored row instead of creating another user message.
+      try {
+        const queued = readQueue(conversationId);
+        const next = queued.some(m => m.id === outgoing.id) ? queued : [...queued, outgoing];
+        writeQueue(conversationId, next);
+        setQueue(next);
+        toast.error("Sending wasn't confirmed. Your text is saved on this device.");
+      } catch {
+        setText(current => current ? `${body}\n\n${current}` : body);
+        toast.error("Message wasn't confirmed. Your text is back in the composer.");
+      }
+    } finally { sendingRef.current = false; setSending(false); }
   }
 
   // Connectivity: flush the outbox when we're back online, then let the contact respond.
@@ -269,24 +303,24 @@ function Chat() {
   }, []);
 
   useEffect(() => {
-    if (!online || !convId || !queue.length) return;
+    if (!online || !convId || !queue.length || flushingRef.current) return;
+    flushingRef.current = true;
     void (async () => {
+      try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       const pendingOut = readQueue(conversationId);
       for (const m of pendingOut) {
-        const { error } = await supabase
-          .from("messages")
-          .insert({ conversation_id: convId, user_id: u.user.id, sender: "user", body: m.body });
-        if (error) return; // still failing — keep the queue intact
+        await persistQueuedMessage(supabase, u.user.id, convId, m);
         writeQueue(conversationId, readQueue(conversationId).filter((x) => x.id !== m.id));
       }
       setQueue(readQueue(conversationId));
       await refetch();
       debounce.current = setTimeout(() => { debounce.current = null; void runRespond(); }, 1500);
-    })();
+      } finally { flushingRef.current = false; }
+    })().catch(() => toast.error("Queued messages are still on this device. Reconnect to send them."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [online, convId]);
+  }, [online, convId, queueRetry]);
 
   // Notifications: only real message events, only when explicitly enabled.
   const lastSeenContact = useRef<string | null>(null);
@@ -325,14 +359,16 @@ function Chat() {
       }
       return;
     }
-    element.scrollTo({ top: element.scrollHeight });
-  }, [visible.length, pending.length, msgs.isFetching]);
+    if (keepAtEnd.current) element.scrollTo({ top: element.scrollHeight });
+  }, [visible.length, pending.length, msgs.isFetching, queue.length]);
 
   useLayoutEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = "auto";
-    ta.style.height = Math.min(ta.scrollHeight, 140) + "px";
+    const needed = ta.scrollHeight + 2; // Include borders so one-line text does not gain a scrollbar.
+    ta.style.height = Math.min(144, Math.max(46, needed)) + "px";
+    ta.style.overflowY = needed > 144 ? "auto" : "hidden";
   }, [text]);
 
   const nextPending = pending[0];
@@ -343,18 +379,23 @@ function Chat() {
   }, [conv.data?.typing_indicator, nextPending, now]);
 
   const lastUserIdx = visible.map((m) => m.sender).lastIndexOf("user");
-  const readReceipt = (() => {
-    if (!conv.data?.read_receipts || lastUserIdx < 0 || lastUserIdx !== visible.length - 1) return null;
-    return thinking || pending.length ? "Read" : "Delivered";
-  })();
+  const readReceipt = lastUserIdx < 0 ? null : messageReceipt(visible[lastUserIdx]!.id, all, !!conv.data?.read_receipts);
+  function jumpToLatest() {
+    const element = scroller.current;
+    if (!element) return;
+    keepAtEnd.current = true;
+    setAwayFromEnd(false);
+    element.scrollTo({ top: element.scrollHeight, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  }
+
 
   if (!characterKey) return <ContactPending conversationId={conversationId} failed={!!conv.error || !conv.isPending} retry={() => void conv.refetch()} />;
 
   return (
-    <ConversationMedia messages={visible} character={def.key}><div className="flex h-dvh flex-col bg-background">
+    <ConversationMedia messages={visible} character={def.key}><div ref={viewport} data-character={def.key} className="conversation-screen flex flex-col bg-background">
       <header className="pt-safe z-10 border-b bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-xl items-center gap-1 px-2">
-          <Link to="/inbox" aria-label="Back to Chats" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted">
+          <Link to="/inbox" aria-label="Back to Chats" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
             <ChevronLeft className="h-6 w-6" />
           </Link>
           <Link
@@ -363,16 +404,16 @@ function Chat() {
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-full py-1 pr-2"
             aria-label={`${def.preferredName}'s profile`}
           >
-            <img src={portraits.data?.[def.key]??def.avatar} alt="" width={1024} height={1024} className="h-9 w-9 shrink-0 rounded-full object-cover" />
+            <img src={portraits.data?.[def.key]??def.avatar} alt="" width={1024} height={1024} className="h-11 w-11 shrink-0 rounded-full object-cover" />
             <div className="min-w-0 leading-tight">
               <div className="truncate text-[15px] font-semibold">{def.preferredName}</div>
-              <div className="text-xs text-muted-foreground">{showTyping ? "typing…" : "Tap for contact info"}</div>
+              <div className="truncate text-xs text-muted-foreground">{showTyping ? "typing…" : "Tap for contact info"}</div>
             </div>
           </Link>
           <CallButton conversationId={conversationId} name={def.preferredName}/>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label="Conversation options" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted">
+              <button type="button" aria-label="Conversation options" className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
                 <MoreVertical className="h-5 w-5" />
               </button>
             </DropdownMenuTrigger>
@@ -410,8 +451,13 @@ function Chat() {
       </header>
 
       <ConversationPlans conversationId={conversationId}/>
-      <div ref={scroller} className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-xl flex-col px-3 py-4">
+      <ConversationCalls conversationId={conversationId} name={def.preferredName}/>
+      <div ref={scroller} role="region" aria-label={`Messages with ${def.preferredName}`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" onScroll={() => {
+        if (!scroller.current) return;
+        keepAtEnd.current = nearConversationEnd(scroller.current);
+        setAwayFromEnd(!keepAtEnd.current);
+      }}>
+        <div className="mx-auto flex min-h-full max-w-xl flex-col justify-end px-4 py-5">
           {msgs.isLoading ? <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p> : null}
           {all.length >= historyLimit && <button type="button" disabled={msgs.isFetching} className="mx-auto mb-4 min-h-11 rounded-full border px-4 text-sm text-primary disabled:opacity-50" onClick={() => { olderScrollHeight.current = scroller.current?.scrollHeight ?? null; setHistoryLimit(n => n + 200); }}>{msgs.isFetching ? "Loading earlier messages…" : "Load older messages"}</button>}
           {visible.map((m, i) => {
@@ -425,7 +471,7 @@ function Chat() {
               <div key={m.id}>
                 {gap && <div className="my-3 text-center text-[11px] font-medium text-muted-foreground">{fmtDivider(t)}</div>}
                 <div className={cn("flex", mine ? "justify-end" : "justify-start", groupedNext ? "mb-0.5" : "mb-2")}>
-                  <div className={cn("flex max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
+                  <div className={cn("flex max-w-[85%] sm:max-w-[78%] flex-col gap-0.5", mine ? "items-end" : "items-start")}>
                   {(() => {
                     const video = userVideoMetadata(m.metadata);
                     if (video) return <VideoAttachment video={video} mediaId={m.id} />;
@@ -454,16 +500,17 @@ function Chat() {
               </div>
             );
           })}
-          {queue.map((q) => (
+          {queue.filter(q => !visible.some(m => m.id === q.id)).map((q) => (
             <div key={q.id} className="mb-2 flex justify-end">
-              <div className="flex max-w-[78%] flex-col items-end gap-0.5">
+              <div className="flex max-w-[85%] sm:max-w-[78%] flex-col items-end gap-0.5">
                 <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-bubble-me px-3.5 py-2 text-[15px] leading-snug text-bubble-me-foreground opacity-70">
                   {q.body}
                 </div>
-                <div className="pr-1 text-[11px] text-muted-foreground">Queued — sends when you're back online</div>
+                <div className="pr-1 text-[11px] text-muted-foreground">{online ? "Not confirmed · Saved on this device" : "Queued · Sends when you’re back online"}</div>
               </div>
             </div>
           ))}
+          {online && queue.length > 0 && <button type="button" className="mx-auto my-2 min-h-11 rounded-full border bg-card px-4 text-sm" onClick={() => setQueueRetry(n => n + 1)}>Send queued messages</button>}
           {showTyping && (
             <div className="mb-2 flex">
               <div className="flex gap-1 rounded-2xl rounded-bl-md bg-bubble-them px-4 py-3" aria-label={`${def.preferredName} is typing`}>
@@ -476,16 +523,24 @@ function Chat() {
         </div>
       </div>
 
+      {awayFromEnd && <div className="pointer-events-none relative mx-auto h-0 w-full max-w-xl">
+        <button type="button" onClick={jumpToLatest} className="pointer-events-auto absolute right-4 bottom-3 flex min-h-11 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-md">
+          <ArrowDown size={16} aria-hidden="true" /> Latest messages
+        </button>
+      </div>}
+      {!online && <p role="status" className="border-t bg-surface px-4 py-2 text-center text-xs text-muted-foreground">Offline · New texts stay on this device until you reconnect.</p>}
+      {msgs.isError && <p role="alert" className="border-t px-4 py-2 text-center text-sm">Messages couldn’t refresh. <button type="button" className="min-h-11 underline" onClick={() => void msgs.refetch()}>Try again</button></p>}
       <form
+        aria-label={`Message ${def.preferredName}`}
         onSubmit={(e) => {
           e.preventDefault();
           void send();
         }}
-        className="pb-safe border-t bg-background"
+        className="pb-safe shrink-0 border-t border-border/70 bg-background/95"
       >
-        <div className="mx-auto flex max-w-xl items-end gap-2 px-3 pt-2">
+        <div className="mx-auto flex max-w-xl items-end gap-1.5 px-3 pt-2">
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void sendPhoto(f); }} />
-          <button type="button" aria-label="Send a photo" disabled={uploading || !online} onClick={() => fileRef.current?.click()} className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-opacity disabled:opacity-30">
+          <button type="button" aria-label="Send a photo" disabled={uploading || !online} onClick={() => fileRef.current?.click()} className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-opacity disabled:opacity-30">
             <Camera className={cn("h-5 w-5", uploading && "animate-pulse")} />
           </button>
           {convId&&<VideoUploadButton conversationId={convId} caption={text.trim()} disabled={uploading||!online} onSent={async(caption,newlySent)=>{
@@ -495,22 +550,24 @@ function Chat() {
           <textarea
             ref={taRef}
             rows={1}
+            aria-label={`Message ${def.preferredName}`}
+            enterKeyHint="send"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && window.matchMedia("(pointer: fine)").matches) {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && window.matchMedia("(pointer: fine)").matches) {
                 e.preventDefault();
                 void send();
               }
             }}
             placeholder={`Message ${def.preferredName}…`}
-            className="max-h-36 min-h-10 min-w-0 flex-1 resize-none rounded-3xl border bg-surface px-4 py-2.5 text-[15px] outline-none placeholder:text-muted-foreground focus:border-ring"
+            className="max-h-36 min-h-10 min-w-0 flex-1 resize-none rounded-3xl border bg-surface px-4 py-2.5 text-base outline-none placeholder:text-muted-foreground focus:border-ring"
           />
           <button
             type="submit"
-            disabled={!text.trim()}
-            aria-label="Send"
-            className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-30"
+            disabled={!text.trim() || sending}
+            aria-label={sending ? "Sending message" : "Send"}
+            className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-30"
           >
             <ArrowUp className="h-5 w-5" />
           </button>

@@ -20,15 +20,15 @@ export function WorldNavigation() {
           const active = path === item.to || path.startsWith(item.to + "/");
           return (
             <Link key={item.to} to={item.to} aria-current={active ? "page" : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${active ? "font-semibold text-primary" : "text-muted-foreground hover:bg-muted/50"}`}>
-              <item.icon size={20} strokeWidth={active ? 2.5 : 1.8} aria-hidden="true" /><span>{item.label}</span>
+              className={`flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${active ? "font-semibold text-primary" : "text-muted-foreground hover:bg-muted/50"}`}>
+              <span className={`grid h-7 w-14 place-items-center rounded-full transition-colors ${active ? "bg-primary/10" : ""}`}><item.icon size={20} strokeWidth={active ? 2.5 : 1.8} aria-hidden="true" /></span><span>{item.label}</span>
             </Link>
           );
         })}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="More apps and simulation tools" aria-current={inMenu ? "page" : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${inMenu ? "font-semibold text-primary" : "text-muted-foreground hover:bg-muted/50"}`}>
+              className={`flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1 text-[11px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${inMenu ? "font-semibold text-primary" : "text-muted-foreground hover:bg-muted/50"}`}>
               <Menu size={20} aria-hidden="true" /><span>More</span>
             </button>
           </DropdownMenuTrigger>

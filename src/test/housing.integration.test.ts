@@ -124,7 +124,9 @@ describe("private homes and durable households", () => {
     ).not.toContain("Example address");
   });
   it("never changes the player's household without explicit player agreement", async () => {
-    await command("user", "disclose", { place: "home:user", viewer: "tess", permission: "visit" });
+    // Permanent disclosure keeps the known-home prerequisite independent of the
+    // database wall clock; a one-day visit issued at fixture time may have expired.
+    await command("user", "disclose", { place: "home:user", viewer: "tess", permission: "address" });
     const p = await command("tess", "propose_move", {
       place: "home:user",
       movers: ["tess", "user"],
@@ -708,6 +710,8 @@ it("encourages ordinary home initiative without a score threshold or automatic c
   const context = await housingContext(client(), user, "tess", now);
   expect(context).toContain("do not need to wait for the player");
   expect(context).toContain("friends can host too");
+  expect(context).toContain("playerAtSharedHome describes only the player");
+  expect(context).toContain("CURRENT PHYSICAL CONTEXT");
   expect(context).toContain("do not repeat an unanswered offer");
   expect(context).toContain("all necessary consent");
   expect(context).toContain("never an invented street address");

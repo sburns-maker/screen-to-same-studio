@@ -43,6 +43,18 @@ export function calendarStatus(event: { status: string; experience?: { state: st
   );
 }
 
+/** Active outing first, then the nearest confirmed plan, then incomplete invitations. */
+export function nextConversationPlan<T extends {
+  conversation_id: string | null; status: string; starts_at: string | null;
+  experience?: { state: string } | null;
+}>(events: readonly T[], conversationId: string): T | undefined {
+  const priority = (p: T) => ["interactive", "paused"].includes(p.experience?.state ?? "") || p.status === "in_progress" ? 0 : p.status === "accepted" ? 1 : 2;
+  return events.filter(p => p.conversation_id === conversationId &&
+    !["completed", "missed", "cancelled", "declined"].includes(p.status))
+    .sort((a, b) => priority(a) - priority(b) ||
+      (a.starts_at ? Date.parse(a.starts_at) : Infinity) - (b.starts_at ? Date.parse(b.starts_at) : Infinity))[0];
+}
+
 /** Same bounded fictional continuation window enforced by calendar_followup_ready. */
 export function followupCanStart(
   child: { status: string; starts_at: string | null },

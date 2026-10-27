@@ -130,3 +130,45 @@
 @utility bubble-in {
   animation: bubble-in 0.22s ease-out;
 }
+
+/* Phone surfaces share the same rhythm; contact accents never change identity. */
+.conversation-screen {
+  --contact-hue: 185;
+  --primary: oklch(0.43 0.085 var(--contact-hue));
+  --ring: var(--primary);
+  --bubble-me: var(--primary);
+  --bubble-me-foreground: oklch(0.99 0 0);
+  position: fixed;
+  inset-inline: 0;
+  top: var(--chat-top, 0px);
+  height: var(--chat-height, 100dvh);
+  overflow: hidden;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+[data-character="maya"] { --contact-hue: 25; }
+[data-character="riley"] { --contact-hue: 245; }
+[data-character="claire"] { --contact-hue: 145; }
+[data-character="jordan"] { --contact-hue: 305; }
+[data-character="ben"] { --contact-hue: 75; }
+@media (prefers-color-scheme: dark) {
+  .conversation-screen {
+    --primary: oklch(0.72 0.085 var(--contact-hue));
+    --primary-foreground: oklch(0.16 0.01 var(--contact-hue));
+    --bubble-me: oklch(0.39 0.07 var(--contact-hue));
+    --bubble-me-foreground: oklch(0.98 0.005 var(--contact-hue));
+  }
+}
+@layer base {
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+  button, a, input, select, textarea { touch-action: manipulation; }
+  button:disabled { cursor: default; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
