@@ -39,7 +39,16 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
     } finally { setBusy(false); }
   }
   if (query.isLoading) return null;
-  if (query.error) return <p role="alert" className="text-sm text-muted-foreground">Relationship history is temporarily unavailable.</p>;
+  if (query.error) return (
+    <section aria-label={`Relationship with ${characterName}`} className="rounded-2xl border bg-background p-4">
+      <h3 className="font-semibold">Your story together</h3>
+      <p className="mt-2 text-sm">{connectionStage ? `Connection stage: ${connectionStage}` : "Connection stage unavailable"}</p>
+      <p role="alert" className="mt-2 text-sm text-muted-foreground">
+        Recorded milestones could not be loaded right now. No milestone history has been changed.
+      </p>
+      <button type="button" onClick={() => void query.refetch()} className="mt-2 min-h-11 rounded-xl border px-4 text-sm">Retry milestones</button>
+    </section>
+  );
   if (!query.data?.available) return null;
   const pending = query.data.events.filter((e) => e.status === "pending");
   async function propose(kind: "exclusive" | "partnership") {
