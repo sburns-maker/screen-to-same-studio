@@ -490,14 +490,14 @@ function Experiences() {
                           </button>
                         )}
                       <div className="space-y-2" aria-label="Optional scene actions">
-                        <p className="text-xs text-muted-foreground">Ideas for this moment · tap to edit, not to send</p>
+                        <p className="text-xs text-muted-foreground">Optional ideas · tap to draft, not send · plans are never scheduled here</p>
                         <div className="flex flex-wrap gap-2">
                           {experienceStarters(history.data?.scene?.live_scene?.activity).map((starter) => (
                             <button
                               key={starter.label}
                               type="button"
                               disabled={busy}
-                              onClick={() => setText((current) => current.trim() ? current : starter.draft)}
+                              onClick={() => setText((current) => current.trim() ? `${current.trimEnd()} ${starter.draft}` : starter.draft)}
                               className="min-h-10 rounded-full border px-3 text-sm"
                             >
                               {starter.label}
