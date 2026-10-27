@@ -90,12 +90,12 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {(arrived ? (["ask", "speak", "wait", "leave_note", "drop_lunch"] as const) : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "drop_lunch" ? "Drop off lunch" : item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
+        {(arrived ? (["ask", "speak", "wait", "leave_note", "drop_lunch"] as const) : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "drop_lunch" ? "Drop off item" : item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>
-    {arrived && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play lunch drop-off">
-      <h3 className="font-semibold">Lunch drop-off · public reception</h3>
+    {arrived && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play item drop-off">
+      <h3 className="font-semibold">Item drop-off · public reception</h3>
       <p className="text-sm text-muted-foreground">You're in the permitted public visitor area. Ask reception about a delivery; no access to staff-only spaces or guaranteed handoff.</p>
       <label htmlFor="lunch-items" className="block text-sm font-medium">What did you bring?</label>
       <input id="lunch-items" value={lunch} maxLength={160} onChange={e => setLunch(e.target.value)} className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm" />
@@ -113,7 +113,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
           {busy ? "Saving…" : "Finish visit"}
         </button>}
       </div>
-      <p className="text-xs text-muted-foreground">Reception is a fictional on-site interaction. Continuing records your attempted delivery, not a completed handoff. No scheduling or restricted access.</p>
+      <p className="text-xs text-muted-foreground">This is a fictional, rule-based receptionist—not an AI employee. Finish only when ready to record the visit in your character conversation. No delivery is automatically confirmed, and no plan is scheduled.</p>
     </div>}
     {arrived && choice !== "drop_lunch" && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
       <label htmlFor="workplace-dialogue" className="block text-sm font-medium">Speak from the public visitor area</label>
