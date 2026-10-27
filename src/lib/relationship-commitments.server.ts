@@ -14,6 +14,10 @@ export async function commitmentReady(db: Client): Promise<boolean> {
 export async function commitmentSnapshot(db: Client, userId: string, characterKey: string):
   Promise<{ available: boolean; events: CommitmentEvent[] }> {
   if (!(await commitmentReady(db))) return { available: false, events: [] };
+  if (characterKey === "tess") {
+    const synced = await db.rpc("relationship_sync_tess" as never, { p_user: userId } as never);
+    if (synced.error) throw new Error("Relationship synchronization unavailable");
+  }
   const { data, error } = await db.from("relationship_commitment_events" as never)
     .select("*")
     .eq("user_id", userId)
