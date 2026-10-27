@@ -79,3 +79,11 @@ _Status: phased design and initial implementation branch; not a production commi
 - These are code changes only: migration 0046 is not applied, and neither static tests nor a live integration run has been completed.
 - Cross-character policy: commitment event records are character-scoped. Riley's high attraction or dates do not change Tess's score, and vice versa. An exclusive commitment may have real narrative meaning, but no automatic breakup, stat reset, or background penalty is implemented. A future world-level relationship agreement policy must explicitly define exclusivity and potential conflicts, with clear player decisions.
 - Release blockers: idempotent source acknowledgments for all channels, stage/state consistency, tests for visible delivery and repeated sync, production-safe migration replay, and full Lovable build/staging validation.
+
+## Unified interaction continuity batch
+- Text-generation input now labels recorded voice turns explicitly and separately exposes up to eight recent spoken character/user turns from this conversation, encouraging natural callbacks in subsequent texts.
+- Outing generation now receives Tess's accepted/pending canonical commitment status; it never gains other characters' private relationships.
+- Live voice and text already share the canonical message table; this batch leverages it and does not invent a parallel transcript.
+- Do not infer call content from call status or fabricate an unheard conversation.
+- Required release proof: voice call -> topic disclosure -> subsequent text callback; text -> voice callback; date -> follow-up text; canceled/failed call must not supply a topic; independent Riley/Tess isolation; replayed provider call cannot duplicate milestones.
+- Full marriage/family schema, world scheduler, UI integration, PostgreSQL migration replay, static build, and browser tests remain pending. Never mark the branch as merge-ready until these pass.
