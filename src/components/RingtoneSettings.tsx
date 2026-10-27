@@ -22,7 +22,7 @@ export function RingtoneSettings() {
             await enableRingtone();
             setEnabled(true);
             setError("");
-            await startRingtone(new Date(Date.now() + 900).toISOString());
+            await startRingtone(new Date(Date.now() + 4000).toISOString());
           } catch {
             setError(
               "Sound is blocked. Check browser permissions and device volume, then try again.",

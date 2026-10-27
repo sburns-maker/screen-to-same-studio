@@ -322,7 +322,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
           direction: "incoming",
           outcome: "answer",
           reason: r.summary.slice(0, 200),
-          ring: 25,
+          ring: 45,
           source: r.id,
         },
         now,
@@ -361,7 +361,7 @@ export async function offerSpontaneousCall(db: Client, user: string, now: Date) 
     const reason=`I had a free moment and wanted to catch up. ${activity.detail}`.slice(0,200);
     try{
       await phoneCommand(db,user,crypto.randomUUID(),"start",{
-        conversation:conv.id,direction:"incoming",outcome:"answer",reason,ring:incomingLiveMode() ? 30 : 25
+        conversation:conv.id,direction:"incoming",outcome:"answer",reason,ring:45
       },now);
       return true;
     }catch{throw new Error("Incoming call offer could not be confirmed");}
