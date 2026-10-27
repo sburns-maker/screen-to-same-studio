@@ -112,7 +112,7 @@ export function VideoUploadButton({
           disabled={disabled || busy}
           aria-label="Send a video"
           onClick={() => setOpen(!open)}
-          className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground disabled:opacity-30"
+          className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground disabled:opacity-30"
         >
           <Video className={busy ? "h-5 w-5 animate-pulse" : "h-5 w-5"} />
         </button>

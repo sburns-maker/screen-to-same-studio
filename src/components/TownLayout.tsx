@@ -27,13 +27,13 @@ export function TownLayout({
     () => true,
   );
   return (
-    <div className="mx-auto min-h-dvh max-w-xl px-4 pb-24 sm:px-5">
-      <header className="flex items-start justify-between gap-3 py-4">
+    <div className="mx-auto min-h-[calc(100dvh-5rem)] max-w-xl px-4 pb-8 sm:px-5">
+      <header className="flex items-start justify-between gap-3 pt-safe pb-5">
         <div>
           <p className="mb-1 text-[11px] font-medium text-muted-foreground">
             {kicker ?? "Your fictional Blair County"}
           </p>
-          <h1 className="font-display text-3xl">{title}</h1>
+          <h1 className="font-display text-4xl tracking-tight">{title}</h1>
         </div>
         <Link to="/settings" className="min-h-11 rounded-full border px-4 py-2.5 text-sm">
           Settings
@@ -63,4 +63,4 @@ export function TownLayout({
     </div>
   );
 }
-export const card = "rounded-2xl border bg-surface p-4 sm:p-5";
+export const card = "rounded-3xl border border-border/70 bg-card p-4 shadow-[0_2px_12px_-8px_rgb(0_0_0_/_0.16)] sm:p-5";

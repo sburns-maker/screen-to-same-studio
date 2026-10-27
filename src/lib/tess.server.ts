@@ -232,7 +232,7 @@ export async function generateTessReply(args: {
   const schedule = scheduleFor(now, args.difficulty === "chaos" ? 2 : 1);
   const latestUserForFocus = args.initiation ? "" : [...args.messages].reverse().find(m => m.sender === "user")?.body ?? "";
   const focus = !args.experience && args.deliveryChannel !== "voice" ? conversationFocus({
-    threads: args.conversationThreads ?? [], history: args.topicHistory ?? args.messages, now,
+    character: "tess", threads: args.conversationThreads ?? [], history: args.topicHistory ?? args.messages, now,
     latestUser: latestUserForFocus, autonomous: !!args.initiation, reason: args.initiationReason, requiredFollowThrough: !!args.initiation?.intentionId,
   }) : null;
   const suggestedReason = focus ? focus.reason : args.initiationReason;
@@ -386,7 +386,7 @@ export async function generateContactReply(args: {
   const charLocal = new Date(now.toLocaleString("en-US", { timeZone: TESS_TZ }));
   const latestUserForFocus = args.initiation ? "" : [...args.messages].reverse().find(m => m.sender === "user")?.body ?? "";
   const focus = !args.experience && args.deliveryChannel !== "voice" ? conversationFocus({
-    threads: args.conversationThreads ?? [], history: args.topicHistory ?? args.messages, now,
+    character: c.key, threads: args.conversationThreads ?? [], history: args.topicHistory ?? args.messages, now,
     latestUser: latestUserForFocus, autonomous: !!args.initiation, reason: args.initiationReason, requiredFollowThrough: !!args.initiation?.intentionId,
   }) : null;
   const suggestedReason = focus ? focus.reason : args.initiationReason;

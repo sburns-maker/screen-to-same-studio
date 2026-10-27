@@ -71,6 +71,10 @@ function Inbox() {
       r.preview.toLowerCase().includes(q.toLowerCase()),
   );
 
+  const townContacts = (town.data?.people ?? []).filter(p => p.connection?.contact &&
+    (!q || p.name.toLowerCase().includes(q.toLowerCase()) ||
+      town.data?.messages.some(m => m.npc_key === p.key && m.text.toLowerCase().includes(q.toLowerCase()))));
+
   // Optional Android launcher bridge: existing authenticated server functions remain
   // the source of truth. No database credentials or contact data cross this boundary.
   useEffect(() => {
@@ -94,16 +98,18 @@ function Inbox() {
   }, [inbox.isSuccess, inbox.data, portraits.isSuccess, portraits.data]);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background pb-20">
-      <Link to="/calls" className="mx-auto flex min-h-11 max-w-xl items-center justify-end px-5 text-sm text-primary">Calls & recents</Link>
+    <div className="flex min-h-[calc(100dvh-5rem)] flex-col bg-background pb-6">
       <header className="pt-safe sticky top-0 z-10 border-b bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-xl items-center gap-1 px-3">
           <h1 className="flex-1 px-1 text-xl font-semibold">Chats</h1>
+          <Link to="/calls" aria-label="Calls and recents" className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"><Phone className="h-5 w-5" /></Link>
           <button
             type="button"
             aria-label="Search"
+            aria-expanded={searchOpen}
+            aria-controls="chat-search"
             onClick={() => setSearchOpen((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-muted"
+            className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted"
           >
             <Search className="h-5 w-5" />
           </button>
@@ -112,23 +118,29 @@ function Inbox() {
           <div className="mx-auto max-w-xl px-3 pb-2">
             <input
               autoFocus
+              id="chat-search"
+              aria-label="Search conversations"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search conversations"
-              className="h-10 w-full rounded-xl border bg-surface px-3 text-[15px] outline-none placeholder:text-muted-foreground focus:border-ring"
+              className="h-11 w-full rounded-2xl border bg-surface px-3 text-base outline-none placeholder:text-muted-foreground focus:border-ring"
             />
           </div>
         )}
       </header>
 
       <main className="mx-auto w-full max-w-xl flex-1">
-        {inbox.isLoading && (
-          <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
-        )}
-        <ul className="divide-y">
-          {(town.data?.people ?? [])
-            .filter((p) => p.connection?.contact)
-            .map((p) => {
+        {(ensured.isPending || inbox.isLoading) && <div role="status" aria-label="Loading conversations" className="space-y-5 px-4 py-5">
+          {[0,1,2,3].map(i => <div key={i} className="flex items-center gap-3 motion-safe:animate-pulse" aria-hidden="true"><div className="size-13 shrink-0 rounded-full bg-muted"/><div className="flex-1 space-y-2"><div className="h-3 w-24 rounded-full bg-muted"/><div className="h-3 w-4/5 rounded-full bg-muted"/></div></div>)}
+          <span className="sr-only">Opening your conversations…</span>
+        </div>}
+        {(ensured.isError || inbox.isError) && <div role="alert" className="m-4 rounded-2xl border bg-card p-4 text-sm">
+          Conversations couldn’t refresh. Your saved messages are unchanged.
+          <button type="button" className="mt-2 block min-h-11 text-primary underline" onClick={() => void (ensured.isError ? ensured.refetch() : inbox.refetch())}>Try again</button>
+        </div>}
+        {q && !rows.length && !townContacts.length && <p role="status" className="px-4 py-10 text-center text-sm text-muted-foreground">No matching conversations. Try another name or phrase.</p>}
+        <ul className="divide-y divide-border/50">
+          {townContacts.map((p) => {
               const latest = town.data?.messages.find((m) => m.npc_key === p.key);
               const unread = (town.data?.messages ?? []).filter(
                 (m) =>

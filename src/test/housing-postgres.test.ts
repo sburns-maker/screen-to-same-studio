@@ -144,10 +144,12 @@ suite("PostgreSQL housing locks, consent and default ACLs", () => {
     ).rejects.toThrow("permission denied");
   });
   it("cannot advance a player-pending cohabitation proposal despite retries", async () => {
+    // This test needs a known home, not time-limited entry. A one-day visit
+    // at the fixed fixture timestamp can expire against PostgreSQL's clock.
     await command(sql, "user", "disclose", {
       place: "home:user",
       viewer: "tess",
-      permission: "visit",
+      permission: "address",
     });
     await command(sql, "tess", "propose_move", {
       place: "home:user",

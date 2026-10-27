@@ -171,3 +171,90 @@ describe("grounded conversational autonomy", () => {
     expect(JSON.stringify(diagnostic)).not.toMatch(/Becca|maya-visit|calendars/);
   });
 });
+
+describe("everyday topics across text and photo captions", () => {
+  const first = {
+    ...own("Quick espresso before work.", "2026-10-27T13:00:00Z"),
+    metadata: { notification_group: "morning-photo" },
+  };
+  const second = {
+    ...own("One more latte break.", "2026-10-27T17:00:00Z"),
+    metadata: { notification_group: "afternoon-photo" },
+  };
+  const coffeeFocus = (extra: Partial<Parameters<typeof conversationFocus>[0]> = {}) =>
+    conversationFocus({
+      character: "maya",
+      threads: [],
+      history: [first, second],
+      now,
+      latestUser: "",
+      autonomous: true,
+      reason: "An espresso break before heading out",
+      ...extra,
+    });
+  it("groups espresso and latte as the same repeated subject even with no active storyline", () => {
+    const result = coffeeFocus();
+    expect(result.mutedTopics).toEqual(["coffee"]);
+    expect(result.reason).toBeNull();
+    expect(result.prompt).toContain("including photo subjects and captions");
+    expect(result.prompt).toContain("Choose another genuinely present visual subject or no photo");
+  });
+  it("does not count two bubbles from one delivered photo as two separate opportunities", () => {
+    const history = [first, { ...second, metadata: first.metadata }];
+    expect(coffeeFocus({ history }).mutedTopics).toEqual([]);
+  });
+  it.each(["tess", "maya", "riley", "claire", "jordan", "ben"])(
+    "uses the same drink aliases for %s without leaking character-specific motifs",
+    (character) => {
+      expect(coffeeFocus({ character }).mutedTopics).toEqual(["coffee"]);
+    },
+  );
+  it("retains actual answers and agreed-plan logistics instead of banning coffee", () => {
+    expect(
+      coffeeFocus({ autonomous: false, latestUser: "How do you make your espresso?" }).mutedTopics,
+    ).toEqual([]);
+    expect(
+      coffeeFocus({ autonomous: false, latestUser: "What time is our coffee date?" }).mutedTopics,
+    ).toEqual([]);
+    expect(coffeeFocus({ autonomous: false, latestUser: "Which one?" }).mutedTopics).toEqual([]);
+    expect(coffeeFocus({ requiredFollowThrough: true }).mutedTopics).toEqual([]);
+  });
+  it("keeps the old subject in the background when the player is talking about a walk", () => {
+    const result = coffeeFocus({
+      autonomous: false,
+      latestUser: "Enjoy your solo walk, no pressure.",
+    });
+    expect(result.mutedTopics).toContain("coffee");
+    expect(result.prompt).toContain("Answer the player's actual message first");
+  });
+  it("ignores hidden, player-authored and previous-day mentions", () => {
+    for (const invalid of [
+      { ...second, visible_at: "2026-10-27T21:00:00Z" },
+      { ...second, sender: "user" },
+      { ...second, created_at: "2026-10-26T12:00:00Z" },
+    ])
+      expect(coffeeFocus({ history: [first, invalid] }).mutedTopics).toEqual([]);
+  });
+  it("allows a recorded new development but does not invent one just to escape a topic", () => {
+    const thread = {
+      ...becca,
+      id: "cafe-repair",
+      title: "Cafe equipment repair",
+      summary: "The cafe espresso machine was repaired",
+      changedAt: "2026-10-27T19:00:00Z",
+    };
+    expect(coffeeFocus({ threads: [thread] }).mutedTopics).toEqual([]);
+  });
+  it("does not forget the morning photo when unrelated messages fill the short transcript", () => {
+    const history = [
+      first,
+      second,
+      ...Array.from({ length: 80 }, () => own("Talk later.", "2026-10-27T18:00:00Z")),
+    ];
+    expect(coffeeFocus({ history }).mutedTopics).toEqual(["coffee"]);
+    expect(focusDiagnostic(coffeeFocus({ history }), ["One more espresso."])).toMatchObject({
+      mutedTopicCount: 1,
+      repeatedEverydayTopics: 1,
+    });
+  });
+});

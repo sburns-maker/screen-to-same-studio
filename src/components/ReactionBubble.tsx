@@ -89,7 +89,7 @@ export function ReactionBubble({
               setOpen(true);
             }}
             className={cn(
-              "bubble-in block max-w-full whitespace-pre-wrap break-words px-3.5 py-2 text-left text-[15px] leading-snug",
+              "bubble-in block max-w-full whitespace-pre-wrap break-words px-3.5 py-2 text-left text-[15px] leading-[1.45]",
               mine
                 ? "rounded-2xl rounded-br-md bg-bubble-me text-bubble-me-foreground"
                 : "rounded-2xl rounded-bl-md bg-bubble-them text-bubble-them-foreground",

@@ -60,7 +60,7 @@ export function IncomingCall() {
     <aside
       role="status"
       aria-label="Incoming call"
-      className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-md items-center gap-3 rounded-3xl border bg-background p-4 shadow-xl"
+      className="fixed inset-x-3 top-[max(.75rem,env(safe-area-inset-top))] z-50 mx-auto flex max-w-md items-center gap-3 rounded-3xl border bg-background p-4 shadow-xl"
     >
       <img
         src={portraits.data?.[def.key] ?? def.avatar}

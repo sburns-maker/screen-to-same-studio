@@ -35,10 +35,10 @@ function AuthenticatedShell() {
     };
   }, [cache, user.id]);
   const path = useLocation().pathname;
-  const thread = /^\/(chat|encounter)\//.test(path);
+  const thread = /^\/(chat|encounter|call|live-call)\//.test(path);
   return (
     <>
-      <div className={thread ? "" : "pb-20"}>
+      <div className={thread ? "" : "pb-[calc(4.5rem+env(safe-area-inset-bottom))]"}>
         <Outlet />
       </div>
       <WorldNavigation />

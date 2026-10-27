@@ -190,6 +190,7 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(preview).toMatchObject({photography:{profile:'tess',location:'clinic'}});
     expect(fetchMock).not.toHaveBeenCalled();
     await runTurn(client,uid,cid,'America/New_York');
+    expect(mocks.prepare.mock.calls[0]![4].rows[0].metadata.in_reply_to).toBe("user-anchor");
     expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('PHOTOGRAPHY PERSONALITY');
     expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('Captions are separate messages');
   });
@@ -324,6 +325,7 @@ describe("normal spontaneous photo turn pipeline", () => {
     });
     const plan = mocks.prepare.mock.calls[0]![4];
     expect(plan.rows[0].body).toBe(caption);
+    expect(plan.rows[0].metadata.in_reply_to).toBeUndefined(); // An autonomous photo is not a read receipt.
     expect(plan.rows[0].metadata.photo_identity.photography).toMatchObject({profile:'tess',location:'clinic',style:{hairstyle:'clipped_up'}});
     expect(plan.rows[0].metadata.photo_visual).toMatchObject({version:1,character:'tess',location:'clinic',style:{clothing_category:'ordinary work cardigan'}});
     expect(plan.rows[0].metadata.photo_decision.decision).toBe('chosen');

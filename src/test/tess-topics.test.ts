@@ -48,3 +48,9 @@ describe("topic guard for other characters", () => {
     expect(saturatedMotifs(["sock", "socks again"], 8, 2, "maya")).toEqual([]);
   });
 });
+
+it.each(["espresso", "latte", "cappuccino", "americano", "macchiato", "cold brew"])("recognizes repeated %s as coffee across the whole cast", drink => {
+  for (const key of ["tess", "maya", "riley", "claire", "jordan", "ben"]) {
+    expect(saturatedMotifs([`Another ${drink}.`, "A coffee break."], 8, 2, key)).toContain("coffee");
+  }
+});
