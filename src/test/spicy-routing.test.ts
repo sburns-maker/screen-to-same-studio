@@ -27,7 +27,6 @@ beforeEach(() => {
     SPICY_ENABLED: "true",
     SPICY_API_KEY: "test",
     SPICY_ACCOUNT_CREDITS_VERIFIED_AT: new Date().toISOString(),
-    SPICY_OUTPUT_HOSTS: "cdn.example.com",
     SPICY_JOB_RESERVATION_CENTS: "10",
     SPICY_DAILY_BUDGET_CENTS: "100",
     SPICY_MONTHLY_BUDGET_CENTS: "1000",

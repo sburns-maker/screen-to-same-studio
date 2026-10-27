@@ -13,3 +13,5 @@
 - [ ] Install missing database migrations 0039 then 0040. Blocked: owner-level ledger reconciliation for already-installed 0035–0038 is unavailable. Preserve historical migrations and data; do not bypass the runner.
 - [ ] Apply migration 0041 (unregistered venue message recovery) after 0039/0040. Blocked by the same ledger issue; 0041 is on GitHub main but not yet synced into this workspace.
 - [x] Repair Tess and Riley's replies and prevent registered venue label failures. Both delivery jobs verified completed; Riley's stale job retained without replay, and unsupported time-led user confirmation omitted without forcing calendar acceptance. Signed-in checks and 34 focused tests passed; no photos regenerated, historical migrations edited or publishing performed.
+- [x] SpicyAPI: drop SPICY_OUTPUT_HOSTS, harden output downloads, free quote before paid submission
+- [ ] SpicyAPI: user enters rotated SPICY_API_KEY, budgets, credit-verified time (waiting on user)

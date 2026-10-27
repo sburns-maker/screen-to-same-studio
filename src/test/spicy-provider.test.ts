@@ -6,6 +6,7 @@ import {
   buildSpicyRequest,
   spicyRequest,
   downloadSpicyOutput,
+  quoteSpicyRequest,
   buildSpicyPrompt,
   SpicyHttpFailure,
 } from "@/lib/spicy-image.server";
@@ -98,8 +99,7 @@ it("polls with GET and rejects malformed/business-error responses", async () => 
     "spicy_response_invalid",
   );
 });
-it("output redirects use allowlisted HTTPS hosts and never carry credentials", async () => {
-  vi.stubEnv("SPICY_OUTPUT_HOSTS", "cdn.example.com,files.example.com");
+it("output redirects revalidate each public HTTPS hop and never carry credentials", async () => {
   const f = vi
     .fn()
     .mockResolvedValueOnce(
@@ -114,13 +114,92 @@ it("output redirects use allowlisted HTTPS hosts and never carry credentials", a
   expect((await downloadSpicyOutput("https://cdn.example.com/a", SPICY_MODELS[0])).provider).toBe(
     "spicyapi",
   );
-  expect(f.mock.calls.every((c) => !c[1].headers)).toBe(true);
-  await expect(
-    downloadSpicyOutput("https://unknown.example.com/a", SPICY_MODELS[0]),
-  ).rejects.toThrow("untrusted");
+  expect(
+    f.mock.calls.every(
+      (c) => !JSON.stringify(c[1].headers ?? {}).toLowerCase().includes("authorization"),
+    ),
+  ).toBe(true);
+});
+it.each([
+  "http://cdn.example.com/a",
+  "https://127.0.0.1/a",
+  "https://10.0.0.5/a",
+  "https://169.254.169.254/latest",
+  "https://[::1]/a",
+  "https://2130706433/a",
+  "https://0x7f000001/a",
+  "https://localhost/a",
+  "https://db.internal/a",
+  "https://user:pw@cdn.example.com/a",
+  "https://cdn.example.com:8443/a",
+])("blocks unsafe output URL %s without fetching", async (raw) => {
+  const f = vi.fn();
+  vi.stubGlobal("fetch", f);
+  await expect(downloadSpicyOutput(raw, SPICY_MODELS[0])).rejects.toThrow();
+  expect(f).not.toHaveBeenCalled();
+});
+it("blocks redirects into private networks", async () => {
+  const f = vi
+    .fn()
+    .mockResolvedValue(
+      new Response(null, { status: 302, headers: { location: "https://192.168.1.1/x.png" } }),
+    );
+  vi.stubGlobal("fetch", f);
+  await expect(downloadSpicyOutput("https://cdn.example.com/a", SPICY_MODELS[0])).rejects.toThrow(
+    "untrusted",
+  );
+  expect(f).toHaveBeenCalledTimes(1);
+});
+it("rejects oversized output by declared length", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([137, 80, 78, 71]), {
+        headers: { "content-type": "image/png", "content-length": "20000001" },
+      }),
+    ),
+  );
+  await expect(downloadSpicyOutput("https://cdn.example.com/a", SPICY_MODELS[0])).rejects.toThrow(
+    "output_invalid",
+  );
+});
+it("parses a free quote and rounds its cost up to whole cents", async () => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  const f = vi.fn().mockResolvedValue(
+    Response.json({
+      code: 200,
+      data: {
+        quoteId: "q_1",
+        model: SPICY_MODELS[0],
+        estimatedCost: "0.035",
+        maxCharge: "0.035",
+        currency: "USD",
+        expiresAt: new Date(Date.now() + 300000).toISOString(),
+      },
+    }),
+  );
+  vi.stubGlobal("fetch", f);
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+  expect(await quoteSpicyRequest(body)).toMatchObject({
+    quoteId: "q_1",
+    expectedCost: "0.035",
+    cents: 4,
+  });
+  expect(f.mock.calls[0]![0]).toMatch(/\/jobs\/quote$/);
+  expect(f.mock.calls[0]![1].headers["Idempotency-Key"]).toBeUndefined();
+});
+it("rejects expired or mismatched quotes", async () => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+  for (const data of [
+    { quoteId: "q", model: SPICY_MODELS[0], estimatedCost: "0.1", expiresAt: "2000-01-01T00:00:00Z" },
+    { quoteId: "q", model: SPICY_MODELS[1], estimatedCost: "0.1", expiresAt: new Date(Date.now() + 1e5).toISOString() },
+  ]) {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ code: 200, data })));
+    await expect(quoteSpicyRequest(body)).rejects.toThrow("spicy_quote_invalid");
+  }
 });
 it.each(["text/html", "image/jpeg"])("rejects output MIME %s", async (mime) => {
-  vi.stubEnv("SPICY_OUTPUT_HOSTS", "cdn.example.com");
   vi.stubGlobal(
     "fetch",
     vi.fn().mockResolvedValue(new Response("not png", { headers: { "content-type": mime } })),

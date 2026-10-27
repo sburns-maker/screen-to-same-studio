@@ -85,8 +85,15 @@ while waiting prevents delivery. A server-only hash receipt records successfully
    `SPICY_JOB_RESERVATION_CENTS`, `SPICY_DAILY_BUDGET_CENTS`, and
    `SPICY_MONTHLY_BUDGET_CENTS` (job <= daily <= monthly). Configure an adequate estimate
    for the most expensive enabled model; documentation sample prices are not estimates.
-5. Set `SPICY_OUTPUT_HOSTS` to verified exact CDN hosts from provider documentation/account
-   support. Set `SPICY_ACCOUNT_CREDITS_VERIFIED_AT` only after checking usable API credit.
+5. No output-host setting is needed. Output URLs are accepted only from authenticated
+   `recordInfo` responses; every hop (max 4 redirects) must be HTTPS on port 443 with a public
+   DNS name (IP literals, internal suffixes and embedded credentials are rejected), and asset
+   downloads never carry the API key. PNG MIME/magic and a 20MB cap still apply.
+   Each submission first calls the free `POST /jobs/quote`; a quote above
+   `SPICY_JOB_RESERVATION_CENTS` submits nothing, otherwise the quoted cents are reserved
+   against daily/monthly caps and `createTask` sends `quoteId` + `expectedCost` with the
+   persisted idempotency key (both stored in the job payload).
+   Set `SPICY_ACCOUNT_CREDITS_VERIFIED_AT` only after checking usable API credit.
    Verification expires after 24 hours. No invented balance or quote endpoint is called.
 6. Keep normal OpenAI, storage, world worker, call settings and visual-screen credentials
    unchanged. Enable `SPICY_ENABLED=true` only in authorized staging after these checks.

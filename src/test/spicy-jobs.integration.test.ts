@@ -54,7 +54,6 @@ beforeEach(async () => {
     SPICY_ENABLED: "true",
     SPICY_API_KEY: "unit-test-only",
     SPICY_ACCOUNT_CREDITS_VERIFIED_AT: new Date().toISOString(),
-    SPICY_OUTPUT_HOSTS: "cdn.example.com",
     SPICY_JOB_RESERVATION_CENTS: "30",
     SPICY_DAILY_BUDGET_CENTS: "60",
     SPICY_MONTHLY_BUDGET_CENTS: "90",
@@ -84,8 +83,25 @@ beforeEach(async () => {
     .mockResolvedValue(
       Response.json({ code: 200, data: { taskId: "job_one", state: "queued" } }, { status: 202 }),
     );
-  vi.stubGlobal("fetch", fetcher);
+  quotes = [];
+  // Free quotes are intercepted so `fetcher` counts only billable/poll/output calls.
+  vi.stubGlobal("fetch", (url: string, init?: RequestInit) => {
+    if (String(url).endsWith("/jobs/quote")) {
+      quotes.push(JSON.parse(String(init?.body)));
+      return Promise.resolve(Response.json({ code: 200, data: quoteData() }));
+    }
+    return (fetcher as unknown as typeof fetch)(url, init);
+  });
   files.clear();
+});
+let quotes: Record<string, unknown>[] = [];
+let quoteData = (): Record<string, unknown> => ({
+  quoteId: "quote_1",
+  model: SPICY_MODELS[0],
+  estimatedCost: "0.3",
+  maxCharge: "0.3",
+  currency: "USD",
+  expiresAt: new Date(Date.now() + 300000).toISOString(),
 });
 async function reserve(id: string) {
   await db.query<Record<string, unknown>>(
@@ -293,7 +309,7 @@ it("rechecks revoked consent atomically and never delivers the image", async () 
     p_action: action,
     p_token: job.lease_token,
     p_metadata: {},
-    p_failure: null,
+    p_failure: null as never,
   });
   expect(result.error).toBeNull();
   expect(result.data).toBe(true);
@@ -429,4 +445,34 @@ it("recovers privately stored screened bytes without fetching an expired provide
       "status"
     ],
   ).toBe("completed");
+});
+
+it("quotes before paying, submits quoteId and expectedCost, and reserves the quoted amount", async () => {
+  await expect(submit()).rejects.toBeInstanceOf(PendingPhotoTask);
+  expect(quotes).toHaveLength(1);
+  const post = JSON.parse(String(fetcher.mock.calls[0]![1].body));
+  expect(post).toMatchObject({ quoteId: "quote_1", expectedCost: "0.3", model: SPICY_MODELS[0] });
+  expect(post.input).toEqual((quotes[0] as { input: unknown }).input);
+  const row = (
+    await db.query<Record<string, unknown>>("select reserved_cents,payload from spicy_photo_jobs")
+  ).rows[0]!;
+  expect(row["reserved_cents"]).toBe(30);
+  expect((row["payload"] as { quote: unknown }).quote).toEqual({
+    quoteId: "quote_1",
+    expectedCost: "0.3",
+  });
+});
+it("a quote above the per-image limit submits nothing and reserves nothing", async () => {
+  const original = quoteData;
+  quoteData = () => ({ ...original(), estimatedCost: "0.31", maxCharge: "0.31" });
+  try {
+    await expect(submit()).rejects.toThrow("per-image spending limit");
+  } finally {
+    quoteData = original;
+  }
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(
+    (await db.query<Record<string, unknown>>("select count(*)::int n from spicy_photo_jobs"))
+      .rows[0]!["n"],
+  ).toBe(0);
 });

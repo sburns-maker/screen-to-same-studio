@@ -26,11 +26,6 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
   const dailyCents = positive("SPICY_DAILY_BUDGET_CENTS", 100000);
   const monthlyCents = positive("SPICY_MONTHLY_BUDGET_CENTS", 1000000);
   const budgetsConfigured = jobCents > 0 && dailyCents >= jobCents && monthlyCents >= dailyCents;
-  const hosts = (process.env["SPICY_OUTPUT_HOSTS"] ?? "")
-    .split(",")
-    .map((h) => h.trim().toLowerCase())
-    .filter(Boolean);
-  const outputHostsConfigured = hosts.length > 0 && hosts.length <= 10 && hosts.every(publicHost);
   const verified = Date.parse(process.env["SPICY_ACCOUNT_CREDITS_VERIFIED_AT"] ?? "");
   const creditsVerified =
     Number.isFinite(verified) &&
@@ -41,7 +36,6 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
     keyPresent &&
     modelValid &&
     budgetsConfigured &&
-    outputHostsConfigured &&
     creditsVerified;
   return {
     enabled,
@@ -52,7 +46,6 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
     dailyCents,
     monthlyCents,
     budgetsConfigured,
-    outputHostsConfigured,
     creditsVerified,
     ready,
     reason: !enabled
@@ -63,17 +56,25 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
           ? "Unsupported SpicyAPI model"
           : !budgetsConfigured
             ? "Configure SpicyAPI spending reservations"
-            : !outputHostsConfigured
-              ? "Configure verified SpicyAPI output hosts"
-              : !creditsVerified
-                ? "Verify usable SpicyAPI account credit before enabling live calls"
-                : "SpicyAPI configured; live visual testing remains required",
+            : !creditsVerified
+              ? "Verify usable SpicyAPI account credit before enabling live calls"
+              : "SpicyAPI configured; live visual testing remains required",
   };
 });
-function publicHost(host: string) {
-  return (
-    /^[a-z][a-z0-9.-]*\.[a-z]{2,}$/.test(host) &&
-    !/(?:^|\.)(?:localhost|local|internal|test|invalid|onion)$/.test(host)
+/**
+ * Public DNS names only. IP literals (v4, v6, decimal/hex/octal forms) and
+ * internal/reserved suffixes are rejected so provider-supplied URLs cannot
+ * target private networks or cloud metadata endpoints.
+ */
+export function publicHost(host: string) {
+  const h = host.toLowerCase().replace(/\.$/, "");
+  if (h.length > 253 || h.includes("[") || h.includes(":")) return false;
+  const labels = h.split(".");
+  if (labels.length < 2 || labels.some((l) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(l)))
+    return false;
+  if (!/^[a-z]{2,63}$/.test(labels[labels.length - 1]!)) return false; // rejects numeric/IP forms
+  return !/(?:^|\.)(?:localhost|local|localdomain|internal|intranet|lan|home|corp|private|test|invalid|example|onion|arpa|home\.arpa)$/.test(
+    h,
   );
 }
 export function providerHttps(raw: string) {
@@ -119,11 +120,7 @@ export type SpicyTask = {
   settled?: boolean;
   output?: { assets: { url: string }[] };
 };
-export const spicyRequest = createServerOnlyFn(async function spicyRequest(
-  path: string,
-  body?: unknown,
-  idempotency?: string,
-): Promise<SpicyTask> {
+async function spicyCall(path: string, body?: unknown, idempotency?: string): Promise<unknown> {
   const key = process.env["SPICY_API_KEY"];
   if (!key) throw new Error("spicy_secret_missing");
   const response = await fetch(`${SPICY_BASE}${path}`, {
@@ -149,7 +146,14 @@ export const spicyRequest = createServerOnlyFn(async function spicyRequest(
   } catch {
     throw new Error("spicy_response_invalid");
   }
-  const envelope = data as { code?: number; data?: SpicyTask };
+  return data;
+}
+export const spicyRequest = createServerOnlyFn(async function spicyRequest(
+  path: string,
+  body?: unknown,
+  idempotency?: string,
+): Promise<SpicyTask> {
+  const envelope = (await spicyCall(path, body, idempotency)) as { code?: number; data?: SpicyTask };
   if (
     envelope.code !== 200 ||
     !envelope.data ||
@@ -158,6 +162,35 @@ export const spicyRequest = createServerOnlyFn(async function spicyRequest(
   )
     throw new Error("spicy_response_invalid");
   return envelope.data;
+});
+export type SpicyQuote = { quoteId: string; expectedCost: string; cents: number; expiresAt: string };
+/** Free price check: creates no task and reserves no provider funds. */
+export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyRequest(
+  body: ReturnType<typeof buildSpicyRequest>,
+): Promise<SpicyQuote> {
+  const envelope = (await spicyCall("/jobs/quote", body)) as {
+    code?: number;
+    data?: { quoteId?: unknown; model?: unknown; estimatedCost?: unknown; maxCharge?: unknown; currency?: unknown; expiresAt?: unknown };
+  };
+  const q = envelope?.data;
+  const cost = typeof q?.estimatedCost === "string" ? q.estimatedCost : "";
+  const max = typeof q?.maxCharge === "string" ? q.maxCharge : cost;
+  const expires = Date.parse(String(q?.expiresAt ?? ""));
+  if (
+    envelope?.code !== 200 ||
+    !q ||
+    typeof q.quoteId !== "string" ||
+    !/^[A-Za-z0-9_-]{1,200}$/.test(q.quoteId) ||
+    q.model !== body.model ||
+    (q.currency ?? "USD") !== "USD" ||
+    !/^\d{1,6}(?:\.\d{1,10})?$/.test(cost) ||
+    !/^\d{1,6}(?:\.\d{1,10})?$/.test(max) ||
+    !Number.isFinite(expires) ||
+    expires <= Date.now()
+  )
+    throw new Error("spicy_quote_invalid");
+  const cents = Math.max(1, Math.ceil(Math.max(Number(cost), Number(max)) * 100 - 1e-9));
+  return { quoteId: q.quoteId, expectedCost: cost, cents, expiresAt: new Date(expires).toISOString() };
 });
 export class SpicyHttpFailure extends Error {
   readonly retrySeconds: number;
@@ -176,14 +209,17 @@ export const downloadSpicyOutput = createServerOnlyFn(async function downloadSpi
   raw: string,
   model: string,
 ): Promise<GeneratedImage> {
-  const hosts = new Set(
-    (process.env["SPICY_OUTPUT_HOSTS"] ?? "").split(",").map((h) => h.trim().toLowerCase()),
-  );
+  // The URL comes only from an authenticated recordInfo response. Every hop is
+  // revalidated (HTTPS, public DNS name, no credentials/IP literals) and no
+  // request ever carries the API key or cookies.
   let url = providerHttps(raw);
   for (let redirects = 0; redirects < 4; redirects++) {
-    if (!hosts.has(url.hostname)) throw new Error("spicy_output_host_untrusted");
-    // Output hosts never receive the API credential, including redirects.
-    const r = await fetch(url.href, { redirect: "manual", signal: AbortSignal.timeout(30000) });
+    const r = await fetch(url.href, {
+      redirect: "manual",
+      credentials: "omit",
+      headers: { Accept: "image/png" },
+      signal: AbortSignal.timeout(30000),
+    });
     if ([301, 302, 303, 307, 308].includes(r.status)) {
       const next = r.headers.get("location");
       await r.body?.cancel();
