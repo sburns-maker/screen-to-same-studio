@@ -39,7 +39,10 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
       .select("id").eq("user_id",context.userId).eq("conversation_id",data.conversationId)
       .contains("metadata",{ workplace_encounter: { request_id: data.requestId } }).limit(1);
     if (existingError) throw new Error("Unable to verify this encounter.");
-    if (existing?.length) return { accepted: true, alreadyRecorded: true };
+    if (existing?.length) {
+      await (await import("./tess.functions")).runTurn(context.supabase, context.userId, data.conversationId, "America/New_York");
+      return { accepted: true, alreadyRecorded: true };
+    }
     const { error } = await db.from("messages").insert({
       user_id: context.userId, conversation_id: data.conversationId, sender: "user",
       body, metadata: {
