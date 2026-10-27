@@ -12,6 +12,7 @@ import {
 } from "@/lib/living-experiences.functions";
 import { useExperiences } from "@/lib/use-experiences";
 import { characterFor } from "@/lib/characters";
+import { experienceStarters } from "@/lib/experience-suggestions";
 import { placeByKey } from "@/lib/place-registry";
 import { usePortraits } from "@/lib/use-portrait";
 import { canTransition } from "@/lib/experience-lifecycle";
@@ -488,6 +489,22 @@ function Experiences() {
                             Begin scene / retry opening
                           </button>
                         )}
+                      <div className="space-y-2" aria-label="Optional scene actions">
+                        <p className="text-xs text-muted-foreground">Ideas for this moment · tap to edit, not to send</p>
+                        <div className="flex flex-wrap gap-2">
+                          {experienceStarters(history.data?.scene?.live_scene?.activity).map((starter) => (
+                            <button
+                              key={starter.label}
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setText((current) => current.trim() ? current : starter.draft)}
+                              className="min-h-10 rounded-full border px-3 text-sm"
+                            >
+                              {starter.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <form
                         onSubmit={(ev) => {
                           ev.preventDefault();
