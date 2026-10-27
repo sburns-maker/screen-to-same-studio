@@ -393,7 +393,8 @@ async function runTurnUnlocked(
   const messageList = [...recent].reverse().map((m) => ({
     ...m,
     body: (() => {
-      const md = m.metadata as { photo?: string; generated_path?: string; game_chat?: string } | null;
+      const md = m.metadata as { photo?: string; generated_path?: string; game_chat?: string; channel?: string } | null;
+      if (md?.channel === "voice") return `[spoken during a phone call] ${m.body}`;
       if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
       if (md?.generated_path) return `[sent a photo she just took] ${m.body}`;
       if (md?.game_chat && ["trivia", "four", "words", "pool"].includes(md.game_chat)) return `[sent while playing ${md.game_chat === "four" ? "Four in a Row" : md.game_chat === "words" ? "Word Hunt" : md.game_chat === "pool" ? "8 Ball" : "Trivia"} together] ${m.body}`;
