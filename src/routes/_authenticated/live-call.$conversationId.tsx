@@ -4,7 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Volume2 } from "lucide-react";
 import { characterFor } from "@/lib/characters";
 import { usePortraits } from "@/lib/use-portrait";
 import { endLiveCall, liveCallHeartbeat, liveCallStatus, startLiveCall } from "@/lib/live-calls.functions";
@@ -51,7 +51,7 @@ function LiveCallScreen() {
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [muted, setMuted] = useState(false);
-  const [speakerOn, setSpeakerOn] = useState(true);
+  const [showAudioOptions, setShowAudioOptions] = useState(false);
   const [audioRouteMessage, setAudioRouteMessage] = useState("");
   const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
   const [selectedOutput, setSelectedOutput] = useState("");
@@ -245,11 +245,11 @@ function LiveCallScreen() {
           </button>
         )}
         {(state === "connected" || state === "blocked") && (
-          <button type="button" aria-label="Audio output options" aria-pressed={speakerOn} onClick={() => {
-            setSpeakerOn(v => !v);
-            setAudioRouteMessage("Browser audio routing may not follow a speaker toggle. Choose an available output below if supported.");
+          <button type="button" aria-label="Choose speaker or audio output" aria-expanded={showAudioOptions} onClick={() => {
+            setShowAudioOptions(v => !v);
+            if (outputs.length < 2) setAudioRouteMessage("A separate speaker and earpiece cannot be selected in this browser. Android controls the audio route.");
           }} className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60">
-            {speakerOn ? <Volume2 /> : <VolumeX />}
+            <Volume2 />
           </button>
         )}
         {active && (
@@ -264,7 +264,7 @@ function LiveCallScreen() {
       </div>
 
       {(state === "connected" || state === "blocked") && <div className="mt-4 w-full max-w-xs text-sm">
-        {outputs.length > 1 && <label className="block">Audio output
+        {showAudioOptions && outputs.length > 1 && <label className="block">Audio output
           <select className="mt-2 w-full rounded-lg bg-slate-700 p-3 text-white" value={selectedOutput} onChange={e => void changeAudioOutput(e.target.value)}>
             <option value="">Device default</option>
             {outputs.filter(d => d.deviceId).map((device,i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Audio output ${i+1}`}</option>)}
