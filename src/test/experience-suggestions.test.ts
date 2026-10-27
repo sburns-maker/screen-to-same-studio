@@ -14,6 +14,12 @@ describe("live experience action starters", () => {
     expect(experienceStarters("ordering").some((x) => x.label === "Choose a drink")).toBe(true);
     expect(experienceStarters("finished_meal").some((x) => x.label === "Suggest next stop")).toBe(true);
   });
+  it("keeps end-of-date and waiting options conversational, not scheduled", () => {
+    expect(experienceStarters("at_front_door").some(x => x.label === "Ask about next time")).toBe(true);
+    expect(experienceStarters("waiting").some(x => x.label === "Give some space")).toBe(true);
+    expect(experienceStarters("household_chore").some(x => x.label === "Help out")).toBe(true);
+    expect(experienceStarters("talking").some(x => x.label === "Listen")).toBe(true);
+  });
   it("falls back to conversation without inventing scene context", () => {
     expect(experienceStarters(undefined).map((x) => x.label)).toContain("Keep talking");
     expect(experienceStarters("unknown").map((x) => x.label)).toContain("Keep talking");
