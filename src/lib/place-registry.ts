@@ -28,6 +28,7 @@ const actions: Record<string, readonly VenueAction[]> = {
   library: ["look", "browse", "seat", "join", "discuss", "wait"],
   community: ["look", "browse", "seat", "join", "discuss"],
   shop: ["look", "browse"],
+  workplace: ["look", "wait", "discuss", "leave"],
 };
 export const ACTION_LABELS: Record<VenueAction, string> = {
   cook: "Prepare a meal",
