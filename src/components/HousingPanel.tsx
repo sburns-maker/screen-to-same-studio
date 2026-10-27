@@ -136,6 +136,13 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
       {home && (!character || home.canVisit) && <HomeMoments home={home} snapshot={q.data} character={character} />}
       {home && home.canVisit && home.primaryFor.includes("tess") && <HomePhotoGallery homeKey={home.key} />}
       {!character && home && (
+        <section aria-label="My home photo memories" className="rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+          <h3 className="font-display text-xl">Your home memories</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Your place deserves its own photos and moments too. Only pictures explicitly tied to this residence will appear here—Tess's townhouse photos won't be relabeled as yours.</p>
+          <p className="mt-3 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">Home-photo uploads and verified room snapshots are coming next. For now, explore your place or invite someone over using Home Moments above.</p>
+        </section>
+      )}
+      {!character && home && (
         <div aria-label="Household overview" className="overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-rose-50/80 via-background to-amber-50/70 p-4 shadow-sm dark:from-rose-950/20 dark:via-background dark:to-amber-950/10 sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div>
