@@ -425,6 +425,15 @@ async function runTurnUnlocked(
   const { knowledgeForCharacter } = await import("./social.server");
   const { storylineContext } = await import("./storyline.server");
   const story = await storylineContext(supabase, userId, def.key, now);
+  // A bounded, visible, owner/conversation-scoped history lets topic salience
+  // survive a busy conversation pushing this morning's update out of the transcript.
+  const topicHistoryResult = story.topics?.length && !voice && !initiation?.developerPhoto
+    ? await supabase.from("messages").select("sender,body,created_at,visible_at")
+        .eq("user_id", userId).eq("conversation_id", conv.id).eq("sender", "tess")
+        .gte("visible_at", new Date(now.getTime() - 24 * 3600000).toISOString())
+        .lte("visible_at", nowIso).order("visible_at", { ascending: false }).limit(120)
+    : { data: null, error: null };
+  const topicHistory = topicHistoryResult.error ? undefined : topicHistoryResult.data ?? undefined;
   const { knowledgePromptLines } = await import("./social-logic");
   const continuity = worldReady && photoAdmin ? await continuityContext(photoAdmin, userId, conv.id, now) : { lines: [] };
   const calendarLines = photoAdmin
@@ -582,7 +591,7 @@ async function runTurnUnlocked(
       photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
       tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
       initiationReason: initiation?.reason ?? null, photoBoundary: photoContext.boundary,
-      photoHint, worldKnowledge, availabilityDetail: schedule.detail,
+      photoHint, worldKnowledge, availabilityDetail: schedule.detail, conversationThreads: story.topics, topicHistory,
     });
   } else {
     reply = await generateContactReply({
@@ -590,7 +599,7 @@ async function runTurnUnlocked(
       character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
       memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
       availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
-      photoBoundary: photoContext.boundary, photoHint, worldKnowledge,
+      photoBoundary: photoContext.boundary, photoHint, worldKnowledge, conversationThreads: story.topics, topicHistory,
     });
     if (!def.photosEnabled || (reply.photo && reply.photo.action !== "generate")) reply.photo = null;
   }

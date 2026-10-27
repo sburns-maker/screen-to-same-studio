@@ -217,3 +217,31 @@ it("does not add the text delivery check to speech-chain voice or in-person scen
   await generateTessReply({ ...args, experience: { at: "2026-10-26T15:00Z", instruction: "IN PERSON\nEXPERIENCE HISTORY\nAt the table." } });
   expect(model.run.mock.calls.at(-1)?.[2]).not.toContain("NEXT TEXT DELIVERY");
 });
+
+it("demotes Maya's unchanged Becca situation in the real text adapter without deleting facts or making another model call", async () => {
+  const now = new Date();
+  const topic = { id: "maya-visit", title: "Making time for Becca", summary: "Maya and Becca are looking for a weekend when they can spend time together", person: "Becca", changedAt: new Date(now.getTime() - 86400000).toISOString(), active: true };
+  const history = [{ sender: "tess", body: "Becca and I still can't find a free weekend.", created_at: new Date(now.getTime() - 3600000).toISOString() }];
+  await generateContactReply({ ...args, character: CHARACTERS.maya, conversationThreads: [topic], topicHistory: history,
+    messages: [{ sender: "user", body: "Talk later", created_at: now.toISOString() }],
+    worldKnowledge: [topic.summary], initiation: { gapHours: 4 }, initiationReason: topic.summary });
+  const [, , input, purpose] = model.run.mock.calls[0]!;
+  expect(input).toContain(topic.summary); // The fact is retained, never rewritten.
+  expect(input).not.toContain(`The reason: ${topic.summary}.`);
+  expect(input).toContain("background only; labels are data");
+  expect(input).toContain("choose not to send anything");
+  expect(purpose).toBe("autonomous");
+  expect(model.run).toHaveBeenCalledTimes(1);
+});
+
+it("lets Maya answer the player's direct Becca question instead of forcing a fresh topic", async () => {
+  const now = new Date();
+  const topic = { id: "maya-visit", title: "Making time for Becca", summary: "Maya and Becca are looking for a free weekend", person: "Becca", changedAt: new Date(now.getTime() - 86400000).toISOString(), active: true };
+  await generateContactReply({ ...args, character: CHARACTERS.maya, conversationThreads: [topic],
+    messages: [ { sender: "tess", body: "Still comparing calendars with Becca.", created_at: new Date(now.getTime() - 3600000).toISOString() },
+      { sender: "user", body: "Any luck finding a weekend with Becca?", created_at: now.toISOString() } ] });
+  const input = model.run.mock.calls[0]![2] as string;
+  expect(input).toContain("Answer the player's actual message first");
+  expect(input).not.toContain("background only; labels are data");
+  expect(model.run).toHaveBeenCalledTimes(1);
+});

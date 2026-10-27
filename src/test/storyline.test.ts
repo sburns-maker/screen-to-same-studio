@@ -162,3 +162,20 @@ describe("procedural storyline variety", () => {
     expect(new Set(ALL_TEMPLATES.map(t => t.key)).size).toBe(ALL_TEMPLATES.length);
   });
 });
+
+it("exposes topic milestones only to the owning user's involved character without advancing stories", async () => {
+  const db = database();
+  const base = beginStories("alice", START, [], links).find(r => r.state.owner === "maya")!;
+  const state = { ...base.state, template: "maya_visit", npc: "Becca", characters: ["maya"], summary: "Maya and Becca are looking for a free weekend" };
+  db.tables["shared_events"] = [
+    { id: "alice-maya-visit", user_id: "alice", kind: "life_storyline", facts: state },
+    { id: "bob-maya-visit", user_id: "bob", kind: "life_storyline", facts: { ...state, summary: "Bob's private story" } },
+    { id: "alice-claire-visit", user_id: "alice", kind: "life_storyline", facts: { ...state, owner: "claire", characters: ["claire"], npc: "Natalie" } },
+  ];
+  const before = structuredClone(db.tables);
+  const context = await storylineContext(db.client, "alice", "maya", START);
+  expect(context.topics).toEqual([{ id: "alice-maya-visit", title: "Making time for Becca", summary: state.summary, person: "Becca", changedAt: state.updatedAt, active: true }]);
+  expect(JSON.stringify(context)).not.toContain("Bob's private");
+  expect(JSON.stringify(context)).not.toContain("Natalie");
+  expect(db.tables).toEqual(before);
+});
