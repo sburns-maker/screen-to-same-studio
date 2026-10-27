@@ -25,7 +25,7 @@ export async function commitmentSnapshot(db: Client, userId: string, characterKe
     .order("occurred_at", { ascending: false })
     .limit(100);
   if (error) throw new Error("Relationship history unavailable");
-  const rows = (data ?? []) as Record<string, unknown>[];
+  const rows = (data ?? []) as Array<{ [k: string]: unknown; user_id: unknown; character_key: unknown; id: unknown; kind: unknown; proposed_by: unknown; status: unknown; user_response: unknown; character_response: unknown; occurred_at: unknown; source_id: unknown; source_type: unknown; note: unknown }>;
   // The pilot must never expose a commitment belonging to another character,
   // even if upstream query construction or a future refactor changes.
   if (rows.some((row) => row["user_id"] !== userId || row["character_key"] !== characterKey))

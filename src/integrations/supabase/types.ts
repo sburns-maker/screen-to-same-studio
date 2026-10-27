@@ -2066,6 +2066,54 @@ export type Database = {
         }
         Relationships: []
       }
+      relationship_commitment_events: {
+        Row: {
+          character_key: string
+          character_response: string
+          created_at: string
+          id: string
+          kind: string
+          note: string | null
+          occurred_at: string
+          proposed_by: string
+          source_id: string
+          source_type: string
+          status: string
+          user_id: string
+          user_response: string
+        }
+        Insert: {
+          character_key: string
+          character_response?: string
+          created_at?: string
+          id: string
+          kind: string
+          note?: string | null
+          occurred_at?: string
+          proposed_by: string
+          source_id: string
+          source_type: string
+          status?: string
+          user_id: string
+          user_response?: string
+        }
+        Update: {
+          character_key?: string
+          character_response?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          occurred_at?: string
+          proposed_by?: string
+          source_id?: string
+          source_type?: string
+          status?: string
+          user_id?: string
+          user_response?: string
+        }
+        Relationships: []
+      }
       relationship_evaluations: {
         Row: {
           character_perspective: string | null
@@ -3693,6 +3741,18 @@ export type Database = {
         Args: { p_operation: string; p_plan: string; p_user: string }
         Returns: Json
       }
+      relationship_player_command: {
+        Args: {
+          p_action: string
+          p_character: string
+          p_event?: string
+          p_kind: string
+          p_request: string
+          p_user: string
+        }
+        Returns: string
+      }
+      relationship_sync_tess: { Args: { p_user: string }; Returns: number }
       reserve_image_attempt: {
         Args: {
           p_action_id: string
