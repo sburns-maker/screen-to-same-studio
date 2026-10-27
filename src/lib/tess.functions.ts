@@ -5,7 +5,7 @@ import { photoActivityBlock } from "./photo-activity";
 import {photoContextForSchedule} from "./calendar-commitment";
 import {resolvePhotoScene} from "./photo-scene.server";
 import {photoSceneCheck, correctedPhotoScene} from "./photo-scene";
-import { continuityPhotoStyle, deliveredPhotoHistory, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
+import { continuityPhotoStyle, deliveredPhotoSubjects, deliveredPhotoHistory, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
 import { photoPacing } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
@@ -535,7 +535,8 @@ async function runTurnUnlocked(
   const lifeEvent = story.event ?? (isTess ? activeLifeEvent(now, weather ? { snowing: weather.snowing, rain: weather.rain, alert: !!weather.weather_alert } : undefined) : null);
   const photography = planPhotography({character:def.key,key:actionKey,now,schedule,
     userText:initiation?'':recent.find(m=>m.sender==='user')?.body??'',
-    weather:weather?.condition??null,previous:photoHistory[0]??null,recentStyles});
+    weather:weather?.condition??null,previous:photoHistory[0]??null,recentStyles,
+    recentSubjects:deliveredPhotoSubjects(photoHistoryRows??[],def.key,now)});
   const opportunity = photoOpportunity({
     character: def.key, conversationId: conv.id, now, schedule, state, frequency: freq,
     eligibleTypes: generateTypes, lastPhotoAt: lastPhoto?.created_at ?? null,

@@ -258,6 +258,7 @@ it("keeps repeated espresso photo captions out of Maya's next default topic usin
   expect(input).toContain("coffee and espresso");
   expect(input).toContain("including photo subjects and captions");
   expect(input).toContain("another genuinely present visual subject or no photo");
+  expect(input).toContain("avoiding this topic does not mean avoiding your face");
   expect(input).toContain("photo=null is valid");
   expect(model.run).toHaveBeenCalledTimes(1); // No paid rewriter or image-repair request.
 });
