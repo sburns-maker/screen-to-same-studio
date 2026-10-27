@@ -532,14 +532,8 @@ async function runTurnUnlocked(
     const { commitmentSnapshot } = await import("./relationship-commitments.server");
     const snapshot = await commitmentSnapshot(photoAdmin, userId, "tess").catch(() => null);
     if (snapshot?.available) {
-      const { resolveCommitmentStatus, commitmentLabel } = await import("./relationship-commitments");
-      const status = resolveCommitmentStatus(snapshot.events);
-      worldKnowledge.push("CANONICAL RELATIONSHIP COMMITMENT WITH PLAYER: " + commitmentLabel(status) + ". A high attraction score, flirting with someone else, or living together is not proof of exclusivity. Preserve confirmed commitments.");
-      const pending = snapshot.events.find(event => event.status === "pending");
-      if (pending) worldKnowledge.push("AUTHORITATIVE PENDING RELATIONSHIP PROPOSAL: " + JSON.stringify({
-        id: pending.id, kind: pending.kind, proposedBy: pending.proposedBy,
-        userResponse: pending.userResponse, characterResponse: pending.characterResponse
-      }) + ". If this is the player's proposal, decide independently whether to accept, decline or defer in visible dialogue; never treat it as accepted before both agree.");
+      const { commitmentContextForCharacter } = await import("./relationship-commitments");
+      worldKnowledge.push(...commitmentContextForCharacter("tess", def.key, snapshot.events));
     }
   }
   let reply: import("./tess.server").TessReply;
