@@ -1,3 +1,4 @@
+import { ordinaryPhotoStyle } from "./photo-wardrobe";
 import { PendingPhotoTask } from "./photo-task";
 import { selectPhotoComposition } from "./photo-composition";
 import { photoActivityBlock } from "./photo-activity";
@@ -186,6 +187,9 @@ export async function createGeneratedPhoto(
   text?: import("./photo-text").PhotoText | null,
   photography?: PhotographyPlan,
 ) {
+  // Persist the same concrete wardrobe sent to GPT so later photos can retain it.
+  if (type !== "object" && type !== "mature_romantic")
+    style = ordinaryPhotoStyle(style, scene, photography) ?? null;
   // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
   const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
   if (!safePhotoScene([scene, expression, text?.exact, text?.surface, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
