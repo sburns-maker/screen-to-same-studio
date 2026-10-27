@@ -245,3 +245,19 @@ it("lets Maya answer the player's direct Becca question instead of forcing a fre
   expect(input).not.toContain("background only; labels are data");
   expect(model.run).toHaveBeenCalledTimes(1);
 });
+
+it("keeps repeated espresso photo captions out of Maya's next default topic using the real adapter", async () => {
+  const now = Date.now();
+  const history = [
+    { sender: "tess", body: "Quick espresso before work.", created_at: new Date(now - 4 * 3600000).toISOString(), metadata: { notification_group: "first-photo" } },
+    { sender: "tess", body: "Another latte break.", created_at: new Date(now - 3600000).toISOString(), metadata: { notification_group: "second-photo" } },
+  ];
+  await generateContactReply({ ...args, character: CHARACTERS.maya, conversationThreads: [], topicHistory: history,
+    initiation: { gapHours: 2, spontaneousPhoto: true }, initiationReason: "A quick espresso break", generateTypes: ["object", "casual_selfie"] });
+  const input = model.run.mock.calls[0]![2] as string;
+  expect(input).toContain("coffee and espresso");
+  expect(input).toContain("including photo subjects and captions");
+  expect(input).toContain("another genuinely present visual subject or no photo");
+  expect(input).toContain("photo=null is valid");
+  expect(model.run).toHaveBeenCalledTimes(1); // No paid rewriter or image-repair request.
+});

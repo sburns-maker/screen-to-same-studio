@@ -427,8 +427,8 @@ async function runTurnUnlocked(
   const story = await storylineContext(supabase, userId, def.key, now);
   // A bounded, visible, owner/conversation-scoped history lets topic salience
   // survive a busy conversation pushing this morning's update out of the transcript.
-  const topicHistoryResult = story.topics?.length && !voice && !initiation?.developerPhoto
-    ? await supabase.from("messages").select("sender,body,created_at,visible_at")
+  const topicHistoryResult = !voice && !initiation?.developerPhoto
+    ? await supabase.from("messages").select("sender,body,created_at,visible_at,metadata")
         .eq("user_id", userId).eq("conversation_id", conv.id).eq("sender", "tess")
         .gte("visible_at", new Date(now.getTime() - 24 * 3600000).toISOString())
         .lte("visible_at", nowIso).order("visible_at", { ascending: false }).limit(120)

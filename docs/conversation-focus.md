@@ -7,7 +7,11 @@ the player. Maya's Becca visit was one such loop.
 The shared text pipeline now supplies participant-scoped storyline milestones
 and up to 120 visible character messages from that owned conversation in the
 past 24 hours. A pure focus planner detects prior discussion of the current
-milestone, including common planning paraphrases. It demotes that topic to
+milestone, including common planning paraphrases. Shared everyday motifs also
+group coffee, espresso and related drink names across all six characters.
+These use distinct reply/photo notification groups, so two bubbles from one
+photo do not count as two separate opportunities. Text captions and photos
+participate in the same topic guidance, even without an active storyline. It demotes that topic to
 background and removes it as the suggested initiation reason. The history is
 not added wholesale to the model prompt.
 
@@ -18,7 +22,8 @@ message; they do not have to invent an incident or rotate through canned topics.
 Existing story progression, messages, memories, scores, budgets, photo decisions
 and call rules are preserved. No migration or new secrets are needed.
 
-`[conversation-focus]` logs only revision and repetition counts. It never logs
+`[conversation-focus]` revision `2026-10-27-topic-salience-2` logs only revision
+and repetition counts, including continued everyday-topic recurrence. It never logs
 names, topic IDs or conversation text. Matching is conservative and lexical;
 it is not a semantic guarantee that the model will never repeat itself. A missing
 history lookup falls back to the existing visible transcript.

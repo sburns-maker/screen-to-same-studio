@@ -6,6 +6,13 @@ import { isConversationClosing } from "./dialogue-personality";
 // bans a topic outright and never invents life events.
 
 type MotifSet = Record<string, { re: RegExp; label: string }>;
+const COFFEE_MOTIF = {
+  re: /\b(?:coffees?|espressos?|lattes?|cappuccinos?|americanos?|macchiatos?|cold[ -]?brew|caffeine|green bean)\b/i,
+  label: "coffee and espresso",
+};
+// Shared subjects must not evade saturation just because another contact uses
+// a different drink name. Character-specific motifs stay independent.
+const EVERYDAY_MOTIFS: MotifSet = { coffee: COFFEE_MOTIF };
 
 export const CHARACTER_MOTIFS: Record<string, MotifSet> = {
   tess: {
@@ -29,7 +36,7 @@ export const CHARACTER_MOTIFS: Record<string, MotifSet> = {
       label: "the 'catch me' chase line",
     },
     paintball: { re: /\bpaintball|\baim\b/i, label: "paintball" },
-    coffee: { re: /\b(coffee|green bean|latte)\b/i, label: "coffee" },
+    coffee: COFFEE_MOTIF,
     charm: { re: /\bcharm(ing)?\b/i, label: "teasing about his charm" },
   },
   claire: {
@@ -93,7 +100,8 @@ export const LIFE_BREADTH: Record<string, string> = {
   ben: "Your life is wide: Sarah and the kids, the current renovation, job-site stories, buddies, money, plans. HVAC, grilling and fantasy football are only parts of it — not your default material.",
 };
 
-const motifsFor = (key: string): MotifSet => CHARACTER_MOTIFS[key] ?? {};
+export const conversationMotifs = (key: string): MotifSet => ({ ...EVERYDAY_MOTIFS, ...(CHARACTER_MOTIFS[key] ?? {}) });
+const motifsFor = conversationMotifs;
 
 /** Motifs used in at least `threshold` of the character's last `window` lines. */
 export function saturatedMotifs(
