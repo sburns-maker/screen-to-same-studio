@@ -138,6 +138,23 @@ describe("safe image error diagnostics", () => {
   });
 });
 
+describe("spicy structured diagnostics", () => {
+  it("carries quote stage, HTTP status, provider code and request id", () => {
+    const e = Object.assign(new Error("spicy_http_402"), { stage: "quote", status: 402, requestId: "req_1", providerCode: "insufficient_credit" });
+    expect(spicyFailureDiagnostics(e)).toEqual({ providerStage: "quote", providerHttpStatus: 402, providerRequestId: "req_1", providerError: { code: "insufficient_credit" } });
+  });
+  it("records the exact local validation rule", () => {
+    const e = Object.assign(new Error("spicy_quote_model_mismatch"), { stage: "quote" });
+    expect(spicyFailureDiagnostics(e)).toEqual({ providerStage: "quote", localValidationRule: "spicy_quote_model_mismatch" });
+    expect(classifyImageFailure(e, "provider_generation")).toBe("spicy_quote_model_mismatch");
+  });
+  it("ignores unsafe fields and non-spicy errors", () => {
+    const e = Object.assign(new Error("spicy_http_400"), { requestId: "bad id https://x", providerCode: "a b" });
+    expect(spicyFailureDiagnostics(e)).toEqual({ providerHttpStatus: 400 });
+    expect(spicyFailureDiagnostics(new Error("other"))).toEqual({});
+  });
+});
+
 describe("provider error field privacy", () => {
   it("keeps only safe structured identifiers from HTTP errors", () => {
     expect(safeProviderErrorFields({error:{code:"content_policy_violation",type:"invalid_request_error",param:"prompt",message:"private prompt and sk-secret"}}))
