@@ -9,6 +9,7 @@ import {
   quoteSpicyRequest,
   buildSpicyPrompt,
   SpicyHttpFailure,
+  SpicyQuoteFailure,
 } from "@/lib/spicy-image.server";
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -210,7 +211,7 @@ it.each(["", "a".repeat(4097), " token", "token ", "to\nken", "to\rken", "to\tke
     } }));
     vi.stubGlobal("fetch", f);
     const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
-    await expect(quoteSpicyRequest(body)).rejects.toThrow("spicy_quote_invalid");
+    await expect(quoteSpicyRequest(body)).rejects.toThrow("spicy_quote_id_invalid");
     expect(f).toHaveBeenCalledTimes(1);
   },
 );
@@ -222,8 +223,69 @@ it("rejects expired or mismatched quotes", async () => {
     { quoteId: "q", model: SPICY_MODELS[1], estimatedCost: "0.1", expiresAt: new Date(Date.now() + 1e5).toISOString() },
   ]) {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ code: 200, data })));
-    await expect(quoteSpicyRequest(body)).rejects.toThrow("spicy_quote_invalid");
+    await expect(quoteSpicyRequest(body)).rejects.toThrow(/spicy_quote_(expired|model_mismatch)/);
   }
+});
+// Mirrors the structure of a real successful SpicyAPI quote (352-char signed token).
+const SIGNED = `eyJ2IjoxLCJzdWIiOi${"A".repeat(296)}.V5mwRCbLE9wK-YJOzqbFe2Rxo1DFhrPmWyTRrrGTK9Q`;
+const okQuote = () => ({ code: 200, data: {
+  quoteId: SIGNED, model: SPICY_MODELS[0], estimatedCost: "0.029", maxCharge: "0.029",
+  currency: "USD", expiresAt: new Date(Date.now() + 300000).toISOString(),
+} });
+it("accepts the real successful quote structure with a long signed token", async () => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  expect(SIGNED.length).toBeGreaterThan(300);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(okQuote())));
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+  expect(await quoteSpicyRequest(body)).toMatchObject({ quoteId: SIGNED, expectedCost: "0.029", cents: 3 });
+});
+it.each([
+  ["spicy_quote_envelope_code", (q: any) => ({ ...q, code: 500 })],
+  ["spicy_quote_payload_missing", (q: any) => ({ code: 200 })],
+  ["spicy_quote_id_invalid", (q: any) => ({ ...q, data: { ...q.data, quoteId: 42 } })],
+  ["spicy_quote_model_mismatch", (q: any) => ({ ...q, data: { ...q.data, model: "other/model" } })],
+  ["spicy_quote_currency_unsupported", (q: any) => ({ ...q, data: { ...q.data, currency: "EUR" } })],
+  ["spicy_quote_cost_invalid", (q: any) => ({ ...q, data: { ...q.data, estimatedCost: "-1" } })],
+  ["spicy_quote_max_charge_invalid", (q: any) => ({ ...q, data: { ...q.data, maxCharge: "1e3" } })],
+  ["spicy_quote_expiry_invalid", (q: any) => ({ ...q, data: { ...q.data, expiresAt: "soon" } })],
+  ["spicy_quote_expired", (q: any) => ({ ...q, data: { ...q.data, expiresAt: "2000-01-01T00:00:00Z" } })],
+])("reports the exact failing validation rule %s", async (rule, mutate) => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(mutate(okQuote()))));
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+  const err = await quoteSpicyRequest(body).catch((e) => e);
+  expect(err).toBeInstanceOf(SpicyQuoteFailure);
+  expect(err.message).toBe(rule);
+  expect(err.stage).toBe("quote");
+  expect(err.message).not.toContain(SIGNED);
+});
+it("reports malformed quote bodies separately from HTTP failures", async () => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html>not json", { status: 200 })));
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+  await expect(quoteSpicyRequest(body)).rejects.toThrow("spicy_quote_response_invalid");
+});
+it.each([400, 401, 402, 429])("keeps HTTP %s status, sanitized code and request id at the quote stage", async (status) => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+    { error: { code: "insufficient_credit", message: "see https://signed.example.com/x?token=secret" } },
+    { status, headers: { "x-request-id": "req_abc123" } },
+  )));
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a?token=private"]);
+  const err = await quoteSpicyRequest(body).catch((e) => e);
+  expect(err).toBeInstanceOf(SpicyHttpFailure);
+  expect(err).toMatchObject({ status, stage: "quote", requestId: "req_abc123", providerCode: "insufficient_credit" });
+  expect(err.message).toBe(`spicy_http_${status}`);
+  expect(JSON.stringify({ ...err, m: err.message })).not.toMatch(/token|signed\.example/);
+});
+it("drops unsafe provider codes and request ids", async () => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json(
+    { error: { code: "has spaces https://x" } }, { status: 400, headers: { "x-request-id": "bad id/../" } },
+  )));
+  const err = await quoteSpicyRequest(buildSpicyRequest(SPICY_MODELS[0], "s", ["https://r.example.com/a"])).catch((e) => e);
+  expect(err.providerCode).toBeUndefined();
+  expect(err.requestId).toBeUndefined();
 });
 it.each(["text/html", "image/jpeg"])("rejects output MIME %s", async (mime) => {
   vi.stubGlobal(

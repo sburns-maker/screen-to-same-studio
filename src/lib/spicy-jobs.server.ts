@@ -13,6 +13,7 @@ import {
   downloadSpicyOutput,
   PendingPhotoTask,
   SpicyHttpFailure,
+  SpicyQuoteFailure,
 } from "./spicy-image.server";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
@@ -61,18 +62,10 @@ export const submitSpicyPhoto = createServerOnlyFn(async function submitSpicyPho
   );
   // Free quote first: a rejected quote (schema, balance, spend cap, model
   // permission) costs nothing and creates no reservation.
-  let quote;
-  try {
-    quote = await quoteSpicyRequest(body);
-  } catch (e) {
-    throw new Error(
-      e instanceof SpicyHttpFailure
-        ? `SpicyAPI price check was refused (HTTP ${e.status}); nothing was charged.`
-        : "SpicyAPI price check was invalid; nothing was submitted.",
-    );
-  }
-  if (quote.cents > config.jobCents)
-    throw new Error("SpicyAPI quote exceeds the per-image spending limit; nothing was submitted.");
+  // Structured quote failures (SpicyHttpFailure / SpicyQuoteFailure) propagate
+  // unchanged so diagnostics keep stage, status, provider code and request id.
+  const quote = await quoteSpicyRequest(body);
+  if (quote.cents > config.jobCents) throw new SpicyQuoteFailure("spicy_quote_budget_exceeded");
   const reserved = await db.rpc(
     "spicy_photo_reserve" as never,
     {

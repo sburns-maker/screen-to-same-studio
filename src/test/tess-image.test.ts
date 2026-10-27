@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure, safeProviderErrorFields } from "@/lib/tess-image.server";
+import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure, safeProviderErrorFields, spicyFailureDiagnostics } from "@/lib/tess-image.server";
 
 describe("image prompt builder", () => {
   it("treats the canonical reference as identity only, not pose", () => {
@@ -135,6 +135,23 @@ describe("safe image error diagnostics", () => {
     expect(classifyImageFailure(new Error("spicy_quote_invalid"), "provider_generation")).toBe("spicy_quote_invalid");
     expect(classifyImageFailure(new Error("spicy_http_402"), "provider_generation")).toBe("spicy_http_402");
     expect(classifyImageFailure(new Error("spicy private detail"), "provider_generation")).toBe("provider_request_failed");
+  });
+});
+
+describe("spicy structured diagnostics", () => {
+  it("carries quote stage, HTTP status, provider code and request id", () => {
+    const e = Object.assign(new Error("spicy_http_402"), { stage: "quote", status: 402, requestId: "req_1", providerCode: "insufficient_credit" });
+    expect(spicyFailureDiagnostics(e)).toEqual({ providerStage: "quote", providerHttpStatus: 402, providerRequestId: "req_1", providerError: { code: "insufficient_credit" } });
+  });
+  it("records the exact local validation rule", () => {
+    const e = Object.assign(new Error("spicy_quote_model_mismatch"), { stage: "quote" });
+    expect(spicyFailureDiagnostics(e)).toEqual({ providerStage: "quote", localValidationRule: "spicy_quote_model_mismatch" });
+    expect(classifyImageFailure(e, "provider_generation")).toBe("spicy_quote_model_mismatch");
+  });
+  it("ignores unsafe fields and non-spicy errors", () => {
+    const e = Object.assign(new Error("spicy_http_400"), { requestId: "bad id https://x", providerCode: "a b" });
+    expect(spicyFailureDiagnostics(e)).toEqual({ providerHttpStatus: 400 });
+    expect(spicyFailureDiagnostics(new Error("other"))).toEqual({});
   });
 });
 

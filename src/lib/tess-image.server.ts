@@ -225,6 +225,20 @@ export class ImageProviderFailure extends Error {
     super(code);
   }
 }
+const SAFE_DIAG = /^[A-Za-z0-9_.:-]{1,128}$/;
+/** Duck-typed (avoids importing the spicy module): only sanitized tokens survive. */
+export function spicyFailureDiagnostics(error: unknown): Partial<PhotoDiagnostics> {
+  if (!(error instanceof Error) || !/^spicy_[a-z0-9_]{1,80}$/.test(error.message)) return {};
+  const e = error as Error & { stage?: unknown; status?: unknown; requestId?: unknown; providerCode?: unknown };
+  const out: Partial<PhotoDiagnostics> = {};
+  if (typeof e.stage === "string" && SAFE_DIAG.test(e.stage)) out.providerStage = e.stage;
+  const http = /^spicy_http_(\d{3})$/.exec(error.message);
+  if (http) out.providerHttpStatus = Number(http[1]);
+  if (typeof e.requestId === "string" && SAFE_DIAG.test(e.requestId)) out.providerRequestId = e.requestId;
+  if (typeof e.providerCode === "string" && SAFE_DIAG.test(e.providerCode)) out.providerError = { code: e.providerCode };
+  if (/^spicy_quote_[a-z_]+$/.test(error.message)) out.localValidationRule = error.message;
+  return out;
+}
 export function classifyImageFailure(error: unknown, stage: string): string {
   if (error instanceof ImageProviderFailure) return error.code;
   if (error instanceof Error) {
@@ -251,6 +265,9 @@ export type PhotoDiagnostics = {
   retryCount: number;
   failureStage?: string;
   providerHttpStatus?: number;
+  providerStage?: string;
+  providerRequestId?: string;
+  localValidationRule?: string;
   providerError?: { code?: string; type?: string; param?: string };
   retryReasons?: string[];
   photography?: ReturnType<typeof photographyDiagnostics>;
@@ -379,8 +396,8 @@ export async function generateTessImage(args: {
     if (error instanceof ImageProviderFailure) {
       if (error.httpStatus) diagnostic.providerHttpStatus = error.httpStatus;
       if (error.providerError && Object.keys(error.providerError).length) diagnostic.providerError = error.providerError;
-    } else if (error instanceof Error && /^spicy_http_\d{3}$/.test(error.message)) {
-      diagnostic.providerHttpStatus = Number(error.message.slice(11));
+    } else {
+      Object.assign(diagnostic, spicyFailureDiagnostics(error));
     }
     throw new PhotoGenerationFailure(diagnostic);
   }
