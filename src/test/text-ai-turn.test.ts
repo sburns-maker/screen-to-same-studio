@@ -37,6 +37,7 @@ describe("turn safety on provider failure", () => {
           "or",
           "eq",
           "lte",
+          "not",
           "gt",
           "gte",
           "order",

@@ -53,6 +53,8 @@ const cid = "20000000-0000-4000-a000-000000000001";
 const caption = "The schedule is putting up more of a fight than the coffee.";
 let download: ReturnType<typeof vi.fn>;
 let upload: ReturnType<typeof vi.fn>;
+let historyError = false;
+let historyRows: Record<string, unknown>[] = [];
 let mutations = vi.fn<(table: string, method: string) => void>();
 let client: Parameters<typeof import("@/lib/tess.functions").runTurn>[0];
 
@@ -102,6 +104,8 @@ beforeEach(() => {
     event_tags: [],
     photo_boundary_decision: "unchanged",
   }));
+  historyRows = [];
+  historyError = false;
   download = vi
     .fn()
     .mockResolvedValue({ data: new Blob(["canonical"], { type: "image/jpeg" }), error: null });
@@ -110,14 +114,16 @@ beforeEach(() => {
   const from = (table: string) => {
     let single = false;
     let photoOnly = false;
+    let historyQuery = false;
     const query: Record<string, unknown> = {};
-    for (const name of ["select", "eq", "lte", "gt", "gte", "in", "order", "limit", "is"])
+    for (const name of ["select", "eq", "lte", "gt", "gte", "in", "order", "limit", "is", "not"])
       query[name] = () => query;
     for (const name of ["single", "maybeSingle"])
       query[name] = () => {
         single = true;
         return query;
       };
+    query["not"] = () => { photoOnly = true; historyQuery = true; return query; };
     query["or"] = () => {
       photoOnly = true;
       return query;
@@ -152,10 +158,12 @@ beforeEach(() => {
                     created_at: new Date(Date.now() - 3_600_000).toISOString(),
                   },
                 ]
+              : table === "messages" && photoOnly && !single
+                ? historyRows
               : single
                 ? null
                 : [];
-      return Promise.resolve({ data, error: null }).then(resolve);
+      return Promise.resolve({ data, error: historyError && historyQuery ? {code:"unavailable"} : null }).then(resolve);
     };
     return query;
   };
@@ -183,6 +191,37 @@ describe("normal spontaneous photo turn pipeline", () => {
     await runTurn(client,uid,cid,'America/New_York');
     expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('PHOTOGRAPHY PERSONALITY');
     expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('Captions are separate messages');
+  });
+
+  it("uses delivered styles outside the chat window, varies the final capture and persists it once", async () => {
+    const reply = await mocks.generate();
+    historyRows = [{ sender:"tess", created_at:new Date(Date.now()-600000).toISOString(),
+      metadata:{generated_path:`${uid}/old.png`,photo_type:"casual_selfie",
+        photo_identity:{validationStatus:"screen_passed"},
+        photo_visual:{version:1,character:"tess",location:"clinic",style:{...reply.photo},objects:[]}} }];
+    mocks.generate.mockClear();
+    const fetchMock=vi.fn().mockResolvedValue(Response.json({data:[{b64_json:btoa("png")}]}));
+    vi.stubGlobal("fetch",fetchMock);
+    const {runTurn}=await import("@/lib/tess.functions");
+    await runTurn(client,uid,cid,"America/New_York",{gapHours:3});
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const sent=mocks.prepare.mock.calls[0]![4].rows[0].metadata;
+    expect(sent.photo_visual.style.crop_type).not.toBe(reply.photo.crop_type);
+    expect(sent.photo_identity.photography).toMatchObject({recentDeliveredCount:1,captureDecision:"avoided_recent_capture"});
+    expect(mocks.prepare).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables photo generation when delivered history fails, without blocking text", async () => {
+    historyError=true;
+    const reply=await mocks.generate();
+    mocks.generate.mockResolvedValue({...reply,photo:null});
+    const fetchMock=vi.fn();vi.stubGlobal("fetch",fetchMock);
+    const {runTurn}=await import("@/lib/tess.functions");
+    const result=await runTurn(client,uid,cid,"America/New_York");
+    expect(result.count).toBe(1);
+    expect(mocks.generate.mock.calls.at(-1)![0].generateTypes).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("keeps ordinary text working before the migration without allowing image charges", async () => {

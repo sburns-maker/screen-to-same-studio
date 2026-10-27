@@ -35,12 +35,12 @@ export type PhotographyProfile = {
 export const PHOTOGRAPHY_PROFILES = {
   riley: {
     key: "riley",
-    styles: ["realistic late-night snapshots", "candid friendly front camera"],
-    expressions: ["wry grin", "soft sleepy smile", "amused raised eyebrow"],
+    styles: ["ordinary shift-break details", "unposed everyday phone snapshots"],
+    expressions: ["focused when occupied", "neutral or tired after a shift", "genuine amusement when warranted", "warm unforced expression"],
     settings: ["hospital staff break room without patient details", "apartment kitchen at noon", "local cafe", "Altoona night streets"],
-    wardrobe: ["navy medical scrubs with a black unzipped hoodie", "casual cardigan and jeans", "soft oversized sweater", "simple fitted casual blouse"],
-    hairstyles: ["long blonde curly hair fully down", "loose blonde curls worn over both shoulders"],
-    selfies: ["front camera selfie", "break-room candid", "casual mirror photo"],
+    wardrobe: ["established shift scrubs; an outer layer only if already worn", "casual cardigan and jeans", "soft oversized sweater", "simple fitted casual blouse"],
+    hairstyles: ["reference-compatible blonde curls", "practical tied-back curls when established for work", "loose curls when established"],
+    selfies: ["occasional break-time selfie", "activity detail first", "mirror only when actually present"],
     captionVoice: "Playfully sarcastic, warm, naturally funny, independent; never imply attraction that has not developed.",
     spontaneity: 0.44, hours: 9, messages: 5,
     subjects: "night-shift observations, coffee, odd dreams, music, ordinary local life, a rare sleepy selfie",
@@ -50,7 +50,7 @@ export const PHOTOGRAPHY_PROFILES = {
   tess: {
     key: "tess",
     styles: ["deadpan visual humor", "restrained, casual phone framing"],
-    expressions: ["deadpan", "subtle smirk", "restrained smile"],
+    expressions: ["deadpan", "subtle smirk when amused", "restrained smile", "neutral or absorbed in the current activity"],
     settings: ["home", "veterinary clinic break", "coffee shop", "Mabel walk", "outdoor errands"],
     wardrobe: [
       "denim-blue blouse or relaxed button-down",
@@ -82,7 +82,8 @@ export const PHOTOGRAPHY_PROFILES = {
     styles: ["expressive casual snapshots", "candid everyday moments"],
     expressions: [
       "warm smile when warranted",
-      "playful expression",
+      "playful expression when warranted",
+      "focused during a task",
       "tired or unguarded expression when warranted",
     ],
     settings: [
@@ -113,7 +114,7 @@ export const PHOTOGRAPHY_PROFILES = {
   claire: {
     key: "claire",
     styles: ["quiet details", "thoughtful everyday framing"],
-    expressions: ["soft natural expression", "reflective", "small unforced smile"],
+    expressions: ["soft natural expression", "reflective", "absorbed in a discovery", "small unforced smile"],
     settings: ["garden", "nature walk", "home", "library or teaching context when established"],
     wardrobe: ["practical understated layers", "comfortable everyday clothes"],
     hairstyles: [
@@ -132,7 +133,7 @@ export const PHOTOGRAPHY_PROFILES = {
   jordan: {
     key: "jordan",
     styles: ["understated intentional framing", "a specific detail with dry humor"],
-    expressions: ["composed", "wry", "natural small smile when it fits"],
+    expressions: ["composed", "neutral concentration", "wry when amused", "natural small smile when it fits"],
     settings: ["current everyday surroundings", "coffee break", "quiet outdoors"],
     wardrobe: ["understated practical casual clothing"],
     hairstyles: ["reference-compatible everyday variation"],
@@ -148,7 +149,7 @@ export const PHOTOGRAPHY_PROFILES = {
   ben: {
     key: "ben",
     styles: ["practical snapshots", "ordinary oddities and projects"],
-    expressions: ["wry amusement", "relaxed", "matter-of-fact"],
+    expressions: ["wry amusement when warranted", "relaxed", "matter-of-fact", "focused on a task"],
     settings: ["current work break", "home", "outdoors"],
     wardrobe: ["practical everyday clothing appropriate to the activity"],
     hairstyles: ["reference-compatible everyday hair"],
@@ -233,6 +234,8 @@ export type PhotographyPlan = {
   continuity: VisualContinuity;
   continuitySource: "recent_delivered_photo" | "current_context_only";
   continuityReason: string;
+  recentStyles?: PhotoStyle[];
+  captureDecision?: string;
   outfitEpisode: "same_day" | "new_day" | "context_transition" | "unestablished";
 };
 export type DeliveredPhoto = {
@@ -250,6 +253,7 @@ export function planPhotography(args: {
   userText?: string;
   weather?: string | null;
   previous?: DeliveredPhoto | null;
+  recentStyles?: PhotoStyle[];
 }): PhotographyPlan {
   const profile = photographyProfile(args.character),
     text = physicalPhotoContext(`${args.schedule.activity} ${args.schedule.detail}`),
@@ -291,19 +295,18 @@ export function planPhotography(args: {
   const sameDay = !!previous && age >= 0 &&
     new Intl.DateTimeFormat("en-CA", {timeZone: "America/New_York", year:"numeric",month:"2-digit",day:"2-digit"}).format(args.now) ===
     new Intl.DateTimeFormat("en-CA", {timeZone: "America/New_York", year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(previous.at));
-  // A venue/activity transition allows a new outfit; staying in the same visual episode
-  // preserves garments throughout the local day, not merely a twenty-minute window.
-  const changedSetting = !!(previous?.location && location && previous.location !== location);
-  const socialTransition = !!location && location === "social" && previous?.location !== "social";
-  const explicitChange = /\\b(?:changed (?:clothes|outfit)|got dressed|getting dressed|put on (?:my|a)|showered|pajamas|pyjamas|getting ready|dressed up)\\b/i.test(text);
-  const newEpisode = changedSetting || socialTransition || explicitChange;
+  // Travel alone is not a wardrobe change. Retain known garments across locations.
+  const explicitChange = /\b(?:changed (?:clothes|outfit)|got dressed|getting dressed|put on (?:my|a)|showered|pajamas|pyjamas|getting ready|dressed up)\b/i.test(text);
+  const newEpisode = explicitChange;
+  const continuousShift = age >= 0 && age <= 8 * 3600000 &&
+    location === previous?.location && ["work", "clinic", "venue"].includes(location ?? "");
+  const sameEpisode = sameDay || continuousShift;
   const retain =
-    sameDay &&
+    sameEpisode &&
     !newEpisode &&
     !!previous &&
-    previous.character === args.character &&
-    (location === previous.location || !location);
-  const outfitEpisode: PhotographyPlan["outfitEpisode"] = !previous ? "unestablished" : !sameDay ? "new_day" : newEpisode ? "context_transition" : "same_day";
+    previous.character === args.character;
+  const outfitEpisode: PhotographyPlan["outfitEpisode"] = !previous ? "unestablished" : newEpisode ? "context_transition" : !sameEpisode ? "new_day" : "same_day";
   const objects = [
     ...(/\bMabel\b/i.test(text) && location === "outdoors" ? ["Mabel"] : []),
     ...(/\bcoffee\b/i.test(text) ? ["coffee"] : []),
@@ -317,6 +320,7 @@ export function planPhotography(args: {
     location,
     availability: args.schedule.availability,
     outfitEpisode,
+    recentStyles: (args.recentStyles ?? []).slice(0, 20),
     continuity: {
       hairstyle: retain ? (previous.style.hairstyle ?? null) : null,
       clothing: retain ? (previous.style.clothing_category ?? null) : null,
@@ -325,8 +329,8 @@ export function planPhotography(args: {
     },
     continuitySource: retain ? "recent_delivered_photo" : "current_context_only",
     continuityReason: retain
-      ? "Same local day and no established outfit change; reuse visible clothes and hair unless new scene explicitly changes them."
-      : outfitEpisode === "context_transition" ? "A setting or clothing transition justifies a fresh visual episode." : "No established same-day outfit continuity; do not invent continuity.",
+      ? "Same local day or continuous overnight shift, with no established outfit change; retain visible clothes and hair through travel."
+      : outfitEpisode === "context_transition" ? "An established clothing change starts a fresh visual episode." : "No established same-day outfit continuity; do not invent continuity.",
   };
 }
 export function photographyGuidance(plan: PhotographyPlan): string {
@@ -352,6 +356,8 @@ export function photographyDiagnostics(
     location: plan.location,
     availability: plan.availability,
     continuitySource: plan.continuitySource,
+    recentDeliveredCount: plan.recentStyles?.length ?? 0,
+    captureDecision: plan.captureDecision ?? "not_selected",
     continuityReason: plan.continuityReason,
     continuity: {
       hairstyle: safe(plan.continuity.hairstyle),
@@ -371,13 +377,15 @@ export function photographyDiagnostics(
     ],
   };
 }
-export function previousDeliveredPhoto(
+export function deliveredPhotoHistory(
   messages: { sender: string; created_at: string; visible_at?: string; metadata: unknown }[],
   character: string,
   now: Date,
-): DeliveredPhoto | null {
+): DeliveredPhoto[] {
+  const result: DeliveredPhoto[] = [];
   for (const m of [...messages].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
-    if (m.sender !== "tess" || Date.parse(m.visible_at ?? m.created_at) > now.getTime()) continue;
+    const visibleAt = Date.parse(m.visible_at ?? m.created_at);
+    if (m.sender !== "tess" || !Number.isFinite(visibleAt) || !Number.isFinite(Date.parse(m.created_at)) || visibleAt > now.getTime()) continue;
     const md = m.metadata as {
       generated_path?: string;
       photo_type?: string;
@@ -400,7 +408,7 @@ export function previousDeliveredPhoto(
       v.style &&
       typeof v.style === "object"
     )
-      return {
+      result.push({
         ...v,
         at: m.created_at,
         style: Object.fromEntries(
@@ -423,9 +431,14 @@ export function previousDeliveredPhoto(
         objects: Array.isArray(v.objects)
           ? v.objects.filter((x) => typeof x === "string").slice(0, 8)
           : [],
-      };
+      });
   }
-  return null;
+  return result.slice(0, 20);
+}
+export function previousDeliveredPhoto(
+  messages: Parameters<typeof deliveredPhotoHistory>[0], character: string, now: Date,
+): DeliveredPhoto | null {
+  return deliveredPhotoHistory(messages, character, now)[0] ?? null;
 }
 /** Location contradictions are rejected, not repaired by inventing travel. Unknown context stays permissive. */
 export function photoSceneCompatible(plan: PhotographyPlan, scene: string): boolean {
@@ -445,7 +458,7 @@ export function photoPersonalityPrompt(
   const p = photographyProfile(plan.character);
   if (!human)
     return `Current location category: ${plan.location ?? "unspecified"}. Scenario: ${plan.scenario ?? "unspecified"}. Photographic habits: ${p.styles.join("; ")}. Objects must come from the requested scene and current activity. Current relevant weather: ${plan.continuity.weather ?? "unknown; do not invent"}. Do not add a human to an object-only photo. Captions belong to the separate chat message, never an image overlay.`;
-  return `Priority: canonical facial identity first, factual current context second, explicit scene third, soft tendencies last. Current location category: ${plan.location ?? "unspecified; do not infer from preferred settings"}. Scenario tag: ${plan.scenario ?? "none; do not invent an activity"}.\nContinuity hints, only if still true and not explicitly changed: ${JSON.stringify(plan.continuity)}.\nSoft photographic tendencies: ${p.styles.join("; ")}. Expression options only when the requested expression/mood is unspecified: ${p.expressions.join("; ")}. Clothing possibilities only if the scene and established continuity do not specify clothing: ${p.wardrobe.join("; ")}. Hairstyle possibilities only if none is established/requested: ${p.hairstyles.join("; ")}. These do not change the reference's hair-color family, facial features, age or identity.\nRequested style remains authoritative over tendencies: ${JSON.stringify(style ?? {})}. Do not add a human to an object-only photo. Avoid repeating compositions while retaining current facts. Captions belong to the separate chat message; no caption text or overlays in this photo.`;
+  return `Priority: canonical facial identity first, factual current context second, explicit scene third, soft tendencies last. Current location category: ${plan.location ?? "unspecified; do not infer from preferred settings"}. Scenario tag: ${plan.scenario ?? "none; do not invent an activity"}.\nContinuity hints, only if still true and not explicitly changed: ${JSON.stringify(plan.continuity)}.\nSoft photographic tendencies: ${p.styles.join("; ")}. Expression options only when the requested expression/mood is unspecified: ${p.expressions.join("; ")}. Clothing possibilities only if the scene and established continuity do not specify clothing: ${p.wardrobe.join("; ")}. Hairstyle possibilities only if none is established/requested: ${p.hairstyles.join("; ")}. These do not change the reference's hair-color family, facial features, age or identity.\nRequested style remains authoritative over tendencies: ${JSON.stringify(style ?? {})}. Do not add a human to an object-only photo. Avoid repeating compositions while retaining current facts. Work uniforms may repeat without repeating the pose, camera angle, expression or background crop. Expressions follow actual mood; never rotate emotions for variety. Captions belong to the separate chat message; no caption text or overlays in this photo.`;
 }
 /** Carry missing same-moment details, without overriding an explicitly chosen scene/style. */
 export function continuityPhotoStyle(

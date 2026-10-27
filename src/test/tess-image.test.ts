@@ -48,9 +48,9 @@ describe("image prompt builder", () => {
     expect(buildImagePrompt("object", "a latte on a table", null)).not.toContain("Mabel");
   });
 
-  it("selfie types fall back to arm's-length front camera", () => {
+  it("selfie categories no longer mandate arm's-length framing", () => {
     expect(buildImagePrompt("casual_selfie", "Tess in the snow", null)).toContain(
-      "front-camera selfie",
+      "do not default to a centered arm’s-length portrait",
     );
     expect(buildImagePrompt("tess_candid", "Tess laughing at trivia", null)).toContain(
       "rather than reflexively making a centered chest-up front-camera selfie",

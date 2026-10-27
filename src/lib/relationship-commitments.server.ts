@@ -28,23 +28,23 @@ export async function commitmentSnapshot(db: Client, userId: string, characterKe
   const rows = (data ?? []) as Array<{ [k: string]: unknown; user_id: unknown; character_key: unknown; id: unknown; kind: unknown; proposed_by: unknown; status: unknown; user_response: unknown; character_response: unknown; occurred_at: unknown; source_id: unknown; source_type: unknown; note: unknown }>;
   // The pilot must never expose a commitment belonging to another character,
   // even if upstream query construction or a future refactor changes.
-  if (rows.some((row) => row.user_id !== userId || row.character_key !== characterKey))
+  if (rows.some((row) => row["user_id"] !== userId || row["character_key"] !== characterKey))
     throw new Error("Relationship scope mismatch");
   return {
     available: true,
     events: rows.map((row) => commitmentEventSchema.parse({
-      id: row.id,
-      userId: row.user_id,
-      characterKey: row.character_key,
-      kind: row.kind,
-      proposedBy: row.proposed_by,
-      status: row.status,
-      userResponse: row.user_response,
-      characterResponse: row.character_response,
-      occurredAt: row.occurred_at,
-      sourceId: row.source_id,
-      sourceType: row.source_type,
-      note: row.note,
+      id: row["id"],
+      userId: row["user_id"],
+      characterKey: row["character_key"],
+      kind: row["kind"],
+      proposedBy: row["proposed_by"],
+      status: row["status"],
+      userResponse: row["user_response"],
+      characterResponse: row["character_response"],
+      occurredAt: row["occurred_at"],
+      sourceId: row["source_id"],
+      sourceType: row["source_type"],
+      note: row["note"],
     })),
   };
 }

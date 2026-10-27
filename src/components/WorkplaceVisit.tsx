@@ -27,7 +27,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     : `Hey ${name}, would it be okay if I stopped by ${workplace.label} when you have a minute? No pressure if you're busy.`;
 
   async function speakOnSite() {
-    if (!arrived || busy || !spoken.trim()) return;
+    if (!workplace || !arrived || busy || !spoken.trim()) return;
     setBusy(true);setError("");setEncounterStatus("");
     try {
       await ensure();
@@ -46,7 +46,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     } finally { setBusy(false); }
   }
   async function prepare() {
-    if (busy) return;
+    if (!workplace || busy) return;
     setBusy(true);setError("");
     try {
       await ensure();
@@ -83,7 +83,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {(["ask", ...(arrived ? ["speak", "wait", "leave_note"] : [])] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item as typeof choice)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
+        {(arrived ? ["ask", "speak", "wait", "leave_note"] as const : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>

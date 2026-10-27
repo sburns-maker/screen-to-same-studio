@@ -133,7 +133,7 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
             : "No primary virtual home selected."}
         </p>
       )}
-      {home && (!character || home.canVisit) && <HomeMoments home={home} snapshot={q.data} character={character} />}
+      {home && (!character || home.canVisit) && <HomeMoments home={home} snapshot={q.data} {...(character ? {character} : {})} />}
       {home && home.canVisit && home.primaryFor.includes("tess") && <HomePhotoGallery homeKey={home.key} />}
       {!character && home && (
         <section aria-label="My home photo memories" className="rounded-2xl border border-border/70 bg-background p-4 sm:p-5">

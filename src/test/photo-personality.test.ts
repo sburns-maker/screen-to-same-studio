@@ -150,7 +150,7 @@ describe("typed character photography", () => {
       continuityPhotoStyle(p, { hairstyle: "messy bun" }, "wearing a blue hoodie at home"),
     ).toMatchObject({ hairstyle: "messy bun", clothing_category: null });
   });
-  it("expires styling hints and never brings Maya back to a previous venue", () => {
+  it("carries garments through travel without bringing Maya back to a previous venue", () => {
     const previous = {
       character: "maya",
       at: new Date(now.getTime() - 5 * 60_000).toISOString(),
@@ -158,7 +158,8 @@ describe("typed character photography", () => {
       style: { hairstyle: "ponytail", clothing_category: "work jacket" },
       objects: [],
     };
-    expect(plan("maya", { previous }).continuitySource).toBe("current_context_only");
+    expect(plan("maya", { previous }).continuitySource).toBe("recent_delivered_photo");
+    expect(plan("maya", { previous }).location).toBe("home");
     expect(
       plan("maya", {
         previous: {
@@ -172,7 +173,7 @@ describe("typed character photography", () => {
       plan("tess", { previous: { ...previous, location: "home" } }).continuity.hairstyle,
     ).toBeNull();
   });
-  it("keeps a look across the local day but permits a transition to trivia", () => {
+  it("keeps a look across travel until an actual outfit change", () => {
     const previous = {
       character: "tess",
       at: new Date(now.getTime() - 4 * 3600_000).toISOString(),
@@ -186,8 +187,8 @@ describe("typed character photography", () => {
     const trivia = plan("tess", { previous, schedule: {
       activity: "at bar trivia", detail: "at the bar with her trivia team", availability: "free",
     } });
-    expect(trivia.outfitEpisode).toBe("context_transition");
-    expect(trivia.continuity.clothing).toBeNull();
+    expect(trivia.outfitEpisode).toBe("same_day");
+    expect(trivia.continuity.clothing).toBe("charcoal_sweater");
   });
   it("uses only delivered screened photos from this character, not pending or user images", () => {
     const metadata = {

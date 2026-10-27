@@ -12,7 +12,7 @@ const home: HousingHome = {
 };
 const snapshot = { members: [
   { person_key: "tess", label: "Tess", homeLabel: home.label, residence_id: home.id, kind: "primary", relation: "individual", expires_at: null },
-] } as HousingSnapshot;
+] } satisfies Pick<HousingSnapshot, "members">;
 
 describe("home moment suggestions respect housing permissions", () => {
   it("does not offer photo requests for an uninvited private residence", () => {
@@ -29,14 +29,14 @@ describe("home moment suggestions respect housing permissions", () => {
   });
   it("offers direct invitation and decorating actions in the player's own home", () => {
     const mine = { ...home, key: "home:user", primaryFor: ["user"], canVisit: true };
-    const ideas = homeMoments(mine, { members: [] } as unknown as HousingSnapshot, undefined);
+    const ideas = homeMoments(mine, { members: [] } satisfies Pick<HousingSnapshot, "members">, undefined);
     expect(ideas.some(m => m.id === "invite")).toBe(true);
     expect(ideas.some(m => m.id === "myphoto")).toBe(true);
     expect(ideas.some(m => m.id === "cook")).toBe(true);
   });
   it("does not treat a photo of Tess's home as a photo of the player's home", () => {
     const mine = { ...home, key: "home:user", primaryFor: ["user"], canVisit: true };
-    expect(homeMoments(mine, { members: [] } as unknown as HousingSnapshot, undefined)
+    expect(homeMoments(mine, { members: [] } satisfies Pick<HousingSnapshot, "members">, undefined)
       .some(m => m.id === "photo")).toBe(false);
   });
 
