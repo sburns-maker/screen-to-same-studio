@@ -12,8 +12,8 @@ export async function reconcileGiftReceipts(userId: string, conversationId: stri
   if(error) throw error;
   for(const gift of gifts??[]) {
     const payload=gift.payload as Record<string,unknown>|null;
-    if(!payload || !["attempted","waiting"].includes(String(payload.status))) continue;
-    const item=typeof payload.item==="string"?payload.item:"";
+    if(!payload || !["attempted","waiting"].includes(String(payload['status']))) continue;
+    const item=typeof payload['item']==="string"?payload['item']:"";
     const evidence=messages.find(m=>Date.parse(m.created_at)>=Date.parse(gift.created_at)
       && explicitReceiptEvidence(m.body,item));
     if(!evidence) continue;
