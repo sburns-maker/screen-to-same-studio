@@ -60,16 +60,16 @@ export function IncomingCall() {
     <aside
       role="status"
       aria-label="Incoming call"
-      className="fixed inset-x-3 top-3 z-50 mx-auto flex max-w-md items-center gap-3 rounded-3xl border bg-background p-4 shadow-xl"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-gradient-to-b from-slate-950 via-slate-900 to-slate-700 px-6 pb-16 pt-20 text-center text-white"
     >
       <img
         src={portraits.data?.[def.key] ?? def.avatar}
         alt=""
-        className="h-12 w-12 animate-pulse rounded-full object-cover"
+        className="h-32 w-32 animate-pulse rounded-full object-cover"
       />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium">{def.preferredName}</p>
-        <p className="text-xs text-muted-foreground">
+      <div className="min-w-0">
+        <p className="mt-4 text-3xl font-semibold">{def.preferredName}</p>
+        <p className="mt-2 text-sm text-slate-200">
           Incoming call · {contactPhoneNumber(def.key)}
         </p>
         {soundBlocked && (
@@ -81,17 +81,18 @@ export function IncomingCall() {
           </button>
         )}
       </div>
+      <div className="flex w-full justify-around gap-6">
       <Link
         onClick={() => setSilencedCall(c.id)}
         to={q.data?.incomingLive ? "/live-call/$conversationId" : "/call/$callId"}
         params={q.data?.incomingLive ? { conversationId: c.conversation_id } : { callId: c.id }}
         search={q.data?.incomingLive ? { incomingCallId: c.id } : {}}
-        className="rounded-full bg-primary px-3 py-3 text-sm text-primary-foreground"
+        className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500 text-lg font-medium text-white"
       >
         Answer
       </Link>
       <button
-        className="min-h-11 text-sm"
+        className="flex h-20 w-20 items-center justify-center rounded-full bg-red-600 text-lg font-medium"
         onClick={() => {
           setSilencedCall(c.id);
           void act({ data: { id: c.id, command: "decline" } })
@@ -104,6 +105,7 @@ export function IncomingCall() {
       >
         Decline
       </button>
+      </div>
     </aside>
   );
 }
