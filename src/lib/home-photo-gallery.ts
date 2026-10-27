@@ -16,8 +16,8 @@ export function verifiedHomePhotoCandidates(rows: readonly HomePhotoCandidate[],
     if (!m || typeof m.generated_path !== "string" ||
       m.photo_visual?.character !== character ||
       m.photo_visual?.location !== "home" ||
-      !m.generated_path.startsWith("/") && !m.generated_path.includes("/")) return [];
-    if (m.generated_path.includes("..")) return [];
+      !m.generated_path.includes("/") || m.generated_path.startsWith("/")) return [];
+    if (m.generated_path.includes("..") || m.generated_path.includes("\\") || /[?#]/.test(m.generated_path)) return [];
     return [{
       id: row.id,
       path: m.generated_path,
