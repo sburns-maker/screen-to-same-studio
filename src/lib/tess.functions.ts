@@ -850,6 +850,12 @@ async function runTurnUnlocked(
   if (rows.length) {
     const { error } = await supabase.from("messages").insert(rows);
     if (error) throw new Error("Could not save reply");
+    try {
+      const { reconcileGiftReceipts } = await import("./gift-handoff-reconcile.server");
+      await reconcileGiftReceipts(userId, conv.id, def.key, rows
+        .filter(row => Date.parse(row.visible_at) <= Date.now())
+        .map(row => ({ id: row.id, body: row.body, created_at: row.created_at })));
+    } catch (error) { console.error("[gift-handoff] reconciliation deferred", error); }
   }
   if (memRows.length) {
     const { error } = await supabase.from("memories").insert(memRows);
