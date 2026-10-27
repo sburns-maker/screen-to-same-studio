@@ -170,7 +170,7 @@ export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyReq
 ): Promise<SpicyQuote> {
   const envelope = (await spicyCall("/jobs/quote", body)) as {
     code?: number;
-    data?: Record<string, unknown>;
+    data?: { quoteId?: unknown; model?: unknown; estimatedCost?: unknown; maxCharge?: unknown; currency?: unknown; expiresAt?: unknown };
   };
   const q = envelope?.data;
   const cost = typeof q?.estimatedCost === "string" ? q.estimatedCost : "";
