@@ -3,7 +3,7 @@ import { selectPhotoComposition } from "./photo-composition";
 import { photoActivityBlock } from "./photo-activity";
 import {photoContextForSchedule} from "./calendar-commitment";
 import {resolvePhotoScene} from "./photo-scene.server";
-import {photoSceneCheck} from "./photo-scene";
+import {photoSceneCheck, correctedPhotoScene} from "./photo-scene";
 import { continuityPhotoStyle, deliveredPhotoHistory, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
 import { photoPacing } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
@@ -455,6 +455,18 @@ async function runTurnUnlocked(
   const sceneContext=await resolvePhotoScene(photoAdmin??supabase,userId,conv.id,residentialSchedule,now,!!photoAdmin&&initiation?.developerPhoto!=="preview");
   const schedule=sceneContext.schedule;
   worldKnowledge.unshift(`CURRENT PHYSICAL CONTEXT (${sceneContext.source}): ${schedule.detail}. This takes priority over older storylines, old photographs and the original calendar venue. Do not invent travel to make a photograph fit an old topic.`);
+  // Reuse the established autonomous messaging system: invitations are suggestions,
+  // never direct writes to plans, calendars or experience state.
+  if (initiation && !voice && !initiation.spontaneousPhoto && !initiation.developerPhoto) {
+    const { invitationGuidance } = await import("./experience-invitations");
+    worldKnowledge.push(invitationGuidance({
+      key: def.key,
+      availability: schedule.availability,
+      detail: schedule.detail,
+      hasSharedPlan: !!shared,
+      hasActiveExperience: continuity.lines.some(line => /active (?:living )?experience|outing in progress/i.test(line)),
+    }));
+  }
   const realTime = !!conv.real_time_mode;
   // Never charge for an image or mutate relationship state before the sleep boundary.
   if (schedule.availability === "asleep" && (realTime || initiation)) {
@@ -630,7 +642,9 @@ async function runTurnUnlocked(
   } else if (p?.action === "generate" && p.type && p.scene && generateTypes.includes(p.type)) {
     {
       try {
-        if (!photoSceneCheck(photography,p.scene,sceneContext.source).allowed) throw new Error('photo scene contradicts current location');
+        // The model can request yesterday's scene; repair only the image request.
+        // Never rewrite the authoritative schedule, event, or conversation.
+        const photoScene = correctedPhotoScene(photography, p.scene);
         const rawStyle: PhotoStyle = {
           pose_type: p.pose_type,
           camera_angle: p.camera_angle,
@@ -638,16 +652,16 @@ async function runTurnUnlocked(
           hairstyle: p.hairstyle,
           expression: p.expression,
           clothing_category: p.clothing_category,
-          setting: p.setting,
+          setting: photoScene === p.scene ? p.setting : "current confirmed location",
           selfie_type: p.selfie_type,
         };
         // Context first, variety second: only nudge an exact repeat of a recent photo.
         const { fictionalGroupScene } = await import("./tess-image.server");
-        const isGroupScene = fictionalGroupScene(p.scene);
-        const currentStyle = continuityPhotoStyle(photography,rawStyle,p.scene);
+        const isGroupScene = fictionalGroupScene(photoScene);
+        const currentStyle = continuityPhotoStyle(photography,rawStyle,photoScene);
         const capture = p.type === "object" || isGroupScene
           ? {style: currentStyle, decision: "preserved" as const}
-          : selectPhotoComposition(currentStyle, recentStyles, p.scene,
+          : selectPhotoComposition(currentStyle, recentStyles, photoScene,
           initiation ? "" : recent.find(m => m.sender === "user")?.body ?? "");
         const style = capture.style;
         photography.captureDecision = capture.decision;
@@ -658,7 +672,7 @@ async function runTurnUnlocked(
         }
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
         imageRequested = true;
-        generated = await createGeneratedPhoto(supabase, userId, p.type, p.scene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);
+        generated = await createGeneratedPhoto(supabase, userId, p.type, photoScene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);
         if (worldReady) {
           const { error } = await photoAdmin!.from("media_attempts").update({ status: "generated", storage_path: generated.path }).eq("action_id", photoAction!);
           if (error) console.warn("[character-photo] usage status pending; reserved attempt remains counted");

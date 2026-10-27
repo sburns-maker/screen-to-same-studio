@@ -2,6 +2,7 @@ import { placeByKey, venueFromText } from "./place-registry";
 export const SCENE_ACTIVITIES = [
   "talking",
   "walking",
+  "sitting",
   "driving",
   "arriving",
   "ordering",
@@ -128,6 +129,17 @@ function transitionClause(
       activity: "at_front_door",
       destinationKey: null,
     };
+  }
+  // Movement within a public park is an activity transition, not a new venue.
+  // Questions, invitations, and hypothetical actions already return above.
+  if (next.locationKind === "park") {
+    if (/\b(?:sit|sitting|sat|settle|settled)\b.{0,35}\b(?:bench|grass|picnic blanket)\b|\b(?:bench|grass)\b.{0,35}\b(?:sit|sitting|sat)\b/i.test(s)) {
+      next.activity = "sitting";
+      next.area = /\bbench\b/i.test(s) ? "park bench" : "grass";
+    } else if (/\b(?:stand|stood|standing|get up|got up|rise|rose)\b.{0,30}\b(?:bench|grass|walking|path)\b|\b(?:resume|continue|start|began|begin)\b.{0,20}\b(?:walk|walking|stroll|strolling)\b/i.test(s)) {
+      next.activity = "walking";
+      next.area = "";
+    }
   }
   if (next.locationKind === "restaurant" || next.locationKind === "cafe") {
     if (

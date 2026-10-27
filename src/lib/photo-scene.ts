@@ -75,3 +75,23 @@ export function sceneVersion(scene: ConversationScene | null, schedule: TessActi
     ? `conversation:${scene.location}:${scene.activity}`
     : `activity:${photoLocation(physicalPhotoContext(schedule.detail)) ?? "unknown"}:${schedule.activity.slice(0, 100)}`;
 }
+
+/** Repair an AI-suggested photo setting to the confirmed physical context, not vice versa.
+ * Deliberately drops incompatible scenery; never invents travel or private access. */
+export function correctedPhotoScene(plan: PhotographyPlan, proposed: string): string {
+  if (photoSceneCompatible(plan, proposed) || !plan.location) return proposed;
+  const locations: Record<NonNullable<PhotoLocation>, string> = {
+    home: "A casual photo at the character's current home, in an ordinary shared living space",
+    work: "A casual photo during the character's current work shift, in a permitted staff break area or public-facing non-sensitive space, without customers, patients, records or screens",
+    clinic: "A casual photo in a permitted non-clinical veterinary clinic staff area, without patients, records or private screens",
+    venue: "A casual photo in a permitted public-facing event-venue area, without private visitor information",
+    library: "A casual photo in a public library visitor area, with no identifiable patrons or records",
+    grocery: "A casual photo while shopping in a grocery store, without identifiable shoppers",
+    vehicle: "A safely parked vehicle photo, with no driving or road movement",
+    social: "A casual photo at the current public social venue, without identifiable bystanders",
+    coffee_shop: "A casual photo at the current coffee shop, without identifiable bystanders",
+    garden: "A casual photo in the garden",
+    outdoors: "A casual photo outdoors at the current walking location",
+  };
+  return locations[plan.location] + ". Preserve the character's established appearance and appropriate clothing; no invented change of location.";
+}
