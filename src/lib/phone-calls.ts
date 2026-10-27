@@ -79,7 +79,7 @@ export function callAvailability(key: CharacterKey, now: Date) {
   return { outcome: "answer", reason: "available" };
 }
 export function ringSeconds(id: string) {
-  return 5 + ([...id].reduce((n, c) => n + c.charCodeAt(0), 0) % 7);
+  return 45;
 }
 export function callDuration(c: Pick<CallRow, "answered_at" | "ended_at">, now = new Date()) {
   return c.answered_at
