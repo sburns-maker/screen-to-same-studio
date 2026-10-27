@@ -18,6 +18,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [encounterStatus, setEncounterStatus] = useState("");
   const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak">("ask");
   if (!workplace) return null;
+  const place = workplace;
   const name = CHARACTERS[workplace.character as CharacterKey].preferredName;
   const restricted = workplace.publicAccess === "restricted";
   const shiftLikely = workplaceShiftLikely(workplace.character, new Date());
@@ -31,10 +32,10 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     try {
       await ensure();
       const rows=await inbox({});
-      const thread=rows.find(row=>row.characterKey===workplace.character);
+      const thread=rows.find(row=>row.characterKey===place.character);
       if (!thread) throw new Error("Conversation unavailable");
       await encounter({ data: {
-        conversationId: thread.id, character: workplace.character,
+        conversationId: thread.id, character: place.character,
         text: spoken.trim(), requestId: crypto.randomUUID(),
       }});
       setSpoken("");
@@ -50,17 +51,17 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     try {
       await ensure();
       const rows = await inbox({});
-      const thread = rows.find(row => row.characterKey === workplace.character);
+      const thread = rows.find(row => row.characterKey === place.character);
       if (!thread) throw new Error("Conversation unavailable");
       const draft = choice === "speak"
-        ? `Hey ${name}, I’m in the public visitor area at ${workplace.label}. If you’re actually here and have time, could we catch up for a minute? Totally fine if not.`
+        ? `Hey ${name}, I’m in the public visitor area at ${place.label}. If you’re actually here and have time, could we catch up for a minute? Totally fine if not.`
         : choice === "wait"
-        ? `Hey ${name}, I am in the public waiting area near ${workplace.label}. No rush or pressure—are you free for a quick hello, or should I head out?`
+        ? `Hey ${name}, I am in the public waiting area near ${place.label}. No rush or pressure—are you free for a quick hello, or should I head out?`
         : choice === "leave_note"
-          ? `Hey ${name}, I stopped by the public area near ${workplace.label} but did not want to interrupt your shift. Hope work goes smoothly!`
+          ? `Hey ${name}, I stopped by the public area near ${place.label} but did not want to interrupt your shift. Hope work goes smoothly!`
           : prompt;
       sessionStorage.setItem("home-moment-draft:" + thread.id, JSON.stringify({
-        text: draft, homeKey: workplace.key, activity: "work_visit_request",
+        text: draft, homeKey: place.key, activity: "work_visit_request",
       }));
       await navigate({ to: "/chat/$conversationId", params: { conversationId: thread.id } });
     } catch {
@@ -82,7 +83,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {(["ask", ...(arrived ? ["speak", "wait", "leave_note"] : [])] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
+        {(["ask", ...(arrived ? ["speak", "wait", "leave_note"] : [])] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item as typeof choice)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>
