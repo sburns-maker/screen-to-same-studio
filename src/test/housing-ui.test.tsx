@@ -55,6 +55,7 @@ vi.mock("@/lib/use-schedule", () => ({
 }));
 vi.mock("@/lib/housing.functions", () => ({ changeHousing: mock.change }));
 vi.mock("@/components/ContactRelationshipStory", () => ({ ContactRelationshipStory: () => null }));
+vi.mock("@/components/HomePhotoGallery", () => ({ HomePhotoGallery: () => null }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a href="#place">{children}</a>,
