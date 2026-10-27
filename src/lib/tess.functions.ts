@@ -638,7 +638,7 @@ async function runTurnUnlocked(
           hairstyle: p.hairstyle,
           expression: p.expression,
           clothing_category: p.clothing_category,
-          setting: p.setting,
+          setting: photoScene === p.scene ? p.setting : "current confirmed location",
           selfie_type: p.selfie_type,
         };
         // Context first, variety second: only nudge an exact repeat of a recent photo.
