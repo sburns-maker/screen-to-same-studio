@@ -301,6 +301,21 @@ export async function generateExperience(
     );
     const venue = live.current.locationLabel;
     const liveInstructions = liveSceneInstructions(live.current);
+    const relationshipFacts: string[] = [];
+    if (def.key === "tess") {
+      const { commitmentSnapshot } = await import("./relationship-commitments.server");
+      const { resolveCommitmentStatus, commitmentLabel } = await import("./relationship-commitments");
+      const commitment = await commitmentSnapshot(db, user, "tess").catch(() => null);
+      if (commitment?.available) {
+        relationshipFacts.push("CANONICAL COMMITMENT WITH PLAYER: " + commitmentLabel(resolveCommitmentStatus(commitment.events)) +
+          ". Interpret exclusivity only from a mutual accepted commitment; do not infer it from affection or cohabitation.");
+        const pending = commitment.events.find(event => event.status === "pending");
+        if (pending) relationshipFacts.push("PENDING COMMITMENT: " + JSON.stringify({
+          id: pending.id, kind: pending.kind, proposedBy: pending.proposedBy,
+          userResponse: pending.userResponse, characterResponse: pending.characterResponse,
+        }) + ". Respond as Tess would, without inventing player consent.");
+      }
+    }
     const args = {
       operationId: id,
       state,
