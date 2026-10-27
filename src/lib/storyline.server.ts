@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { knowledgeFromEvent, type LinkRow } from "./social-logic";
-import { storyMayAdvance, advanceStory, beginStories, readStory, storyActive, storyEvent, storyLifeEvent, storyMemoryId, storyPrompt, STORY_STEPS_PER_TICK, type StoryState } from "./storyline-logic";
+import { storyMayAdvance, advanceStory, beginStories, readStory, storyActive, storyEvent, storyLifeEvent, storyMemoryId, storyPrompt, STORY_TEMPLATES, STORY_STEPS_PER_TICK, type StoryState } from "./storyline-logic";
 
 type Client = SupabaseClient<Database>;
 type Root = { id: string; state: StoryState };
@@ -68,5 +68,8 @@ export async function runStorylineTick(db: Client, userId: string, now: Date, li
 export async function storylineContext(db: Client, userId: string, characterKey: string, now: Date) {
   const roots = (await loadStories(db, userId)).filter(r => r.state.characters.includes(characterKey));
   const current = roots.filter(r => storyActive(r.state)).sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt))[0];
-  return { event: current ? storyLifeEvent(current.state, now) : null, lines: roots.sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt)).slice(0, 8).map(r => storyPrompt(r.state)) };
+  return { topics: roots.slice().sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt)).slice(0,8).map(r => ({
+    id: r.id, title: STORY_TEMPLATES.find(t => t.key === r.state.template)?.title ?? r.state.template,
+    summary: r.state.summary, person: r.state.npc, changedAt: r.state.updatedAt, active: storyActive(r.state),
+  })), event: current ? storyLifeEvent(current.state, now) : null, lines: roots.sort((a,b) => b.state.updatedAt.localeCompare(a.state.updatedAt)).slice(0, 8).map(r => storyPrompt(r.state)) };
 }

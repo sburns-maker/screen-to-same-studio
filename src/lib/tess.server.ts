@@ -1,3 +1,4 @@
+import { conversationFocus, focusDiagnostic, type ConversationThread, type TopicMessage } from "./conversation-focus";
 import { nextTextDelivery, deliveryDiagnostic } from "./dialogue-turn";
 import {spontaneousPhotoTask} from "./spontaneous-photo-flow";
 import { dialogueRules, dialogueContext } from "./dialogue-personality";
@@ -206,7 +207,7 @@ export async function generateTessReply(args: {
   messages: Msg[];
   memories: string[];
   tz: string;
-  initiation?: { gapHours: number;spontaneousPhoto?:true } | undefined;
+  initiation?: { gapHours: number;spontaneousPhoto?:true;intentionId?:string } | undefined;
   photos: { id: string; about: string; selfie: boolean }[];
   generateTypes: string[];
   photoFrequency: string;
@@ -221,12 +222,20 @@ export async function generateTessReply(args: {
   deliveryChannel?: "text" | "voice";
   operationId?: string;
   worldKnowledge?: string[];
+  conversationThreads?: ConversationThread[] | undefined;
+  topicHistory?: TopicMessage[] | undefined;
   availabilityDetail?: string;
 }): Promise<TessReply> {
   const now = args.experience ? new Date(args.experience.at) : new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
   const tessLocal = new Date(now.toLocaleString("en-US", { timeZone: TESS_TZ }));
   const schedule = scheduleFor(now, args.difficulty === "chaos" ? 2 : 1);
+  const latestUserForFocus = args.initiation ? "" : [...args.messages].reverse().find(m => m.sender === "user")?.body ?? "";
+  const focus = !args.experience && args.deliveryChannel !== "voice" ? conversationFocus({
+    threads: args.conversationThreads ?? [], history: args.topicHistory ?? args.messages, now,
+    latestUser: latestUserForFocus, autonomous: !!args.initiation, reason: args.initiationReason, requiredFollowThrough: !!args.initiation?.intentionId,
+  }) : null;
+  const suggestedReason = focus ? focus.reason : args.initiationReason;
   const context = `
 CHARACTER BIBLE
 ${CHARACTER_BIBLE}
@@ -256,7 +265,7 @@ ${transcript(args.messages, args.tz)}
   const task = args.initiation?.spontaneousPhoto
     ? `${spontaneousPhotoTask("Tess")} Current context: ${args.initiationReason??args.availabilityDetail??"use established current context"}`
     : args.initiation
-    ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and Tess has decided to text first. ${args.initiationReason ? `Her reason: ${args.initiationReason}.` : "Her reason should come from her life, the weather, a callback, Mabel, work, trivia, a random question, or a plan she mentioned."} Write the text she'd send. It should come from your current life or a wish to share an ordinary moment, never a timer obligation: NO generic openers like "Hey stranger", "I missed you", "Why haven't you texted?" or "Are you ignoring me?" — those only fit if the relationship history genuinely supports that tone (established flirty rapport). A mild flirt is fine only if her state supports it.`
+    ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and Tess has decided to text first. ${suggestedReason ? `Her reason: ${suggestedReason}.` : "Her reason should come from her life, the weather, a callback, Mabel, work, trivia, a random question, or a plan she mentioned."} Write the text she'd send. It should come from your current life or a wish to share an ordinary moment, never a timer obligation: NO generic openers like "Hey stranger", "I missed you", "Why haven't you texted?" or "Are you ignoring me?" — those only fit if the relationship history genuinely supports that tone (established flirty rapport). A mild flirt is fine only if her state supports it.`
     : `TASK: Write Tess's next text(s) responding to him. Usually ONE bubble; two only when the second adds a genuinely new beat (a separate thought or practical detail). Never three unless he asked several distinct things. Never stretch one idea across bubbles, never add a wrap-up/summary bubble restating the point. Return an empty messages array if Tess would plausibly leave this on read for now (rare; e.g. pressure, double-texting, or she's busy).
 TESS VOICE CHECK (apply before answering): deadpan, understated, specific. When there is a real story to tell, choose a concrete detail and let it stand without a mandatory punchline. Humor is optional, including on ordinary turns; a direct answer or sincere reaction may be all that is needed. NEVER use presenter/cheerleader phrasing: no "Oh boy", "get ready for this one", "nature at its finest", "Absolute chaos", "So, ...!" wrap-ups, exclamation-heavy enthusiasm, or explaining the joke. At most one exclamation mark, and usually none. Emoji: most texts have none; at most one, only from her allowed set.`;
 
@@ -285,13 +294,14 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(tessLines, args.initiation ? "" : lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
   reply.messages = cleaned.length || !reply.messages.length
     ? cleaned
     : [(reply.messages[0] ?? "").replace(/\p{Extended_Pictographic}/gu, "").replace(/!+/g, ".").trim()].filter(Boolean);
+  if (focus) console.info("[conversation-focus]", focusDiagnostic(focus, reply.messages));
   if (!args.experience && args.deliveryChannel !== "voice") console.info("[dialogue-delivery]", deliveryDiagnostic("tess", tessLines, reply.messages));
   return reply;
 }
@@ -355,7 +365,7 @@ export async function generateContactReply(args: {
   messages: Msg[];
   memories: string[];
   tz: string;
-  initiation?: { gapHours: number;spontaneousPhoto?:true } | undefined;
+  initiation?: { gapHours: number;spontaneousPhoto?:true;intentionId?:string } | undefined;
   initiationReason?: string | null;
   availabilityDetail: string;
   weather?: WeatherContext | null;
@@ -367,11 +377,19 @@ export async function generateContactReply(args: {
   deliveryChannel?: "text" | "voice";
   operationId?: string;
   worldKnowledge?: string[];
+  conversationThreads?: ConversationThread[] | undefined;
+  topicHistory?: TopicMessage[] | undefined;
 }): Promise<TessReply> {
   const c = args.character;
   const now = args.experience ? new Date(args.experience.at) : new Date();
   const local = new Date(now.toLocaleString("en-US", { timeZone: args.tz }));
   const charLocal = new Date(now.toLocaleString("en-US", { timeZone: TESS_TZ }));
+  const latestUserForFocus = args.initiation ? "" : [...args.messages].reverse().find(m => m.sender === "user")?.body ?? "";
+  const focus = !args.experience && args.deliveryChannel !== "voice" ? conversationFocus({
+    threads: args.conversationThreads ?? [], history: args.topicHistory ?? args.messages, now,
+    latestUser: latestUserForFocus, autonomous: !!args.initiation, reason: args.initiationReason, requiredFollowThrough: !!args.initiation?.intentionId,
+  }) : null;
+  const suggestedReason = focus ? focus.reason : args.initiationReason;
   const context = `
 CHARACTER BIBLE
 ${c.bible}
@@ -397,7 +415,7 @@ ${transcript(args.messages, args.tz, c.preferredName)}
   const task = args.initiation?.spontaneousPhoto
     ? `${spontaneousPhotoTask(c.preferredName)} Current context: ${args.initiationReason??args.availabilityDetail??"use established current context"}`
     : args.initiation
-    ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and ${c.preferredName} has decided to text first. ${args.initiationReason ? `The reason: ${args.initiationReason}.` : `The reason should fit ${c.preferredName}'s style: ${c.initiation.style}.`} Write the text. It should come from your current life or a wish to share an ordinary moment, never a timer obligation — no generic "hey stranger" openers unless the established rapport genuinely supports that tone.`
+    ? `TASK: It's been about ${Math.round(args.initiation.gapHours)} hours since the last message, and ${c.preferredName} has decided to text first. ${suggestedReason ? `The reason: ${suggestedReason}.` : `The reason should fit ${c.preferredName}'s style: ${c.initiation.style}.`} Write the text. It should come from your current life or a wish to share an ordinary moment, never a timer obligation — no generic "hey stranger" openers unless the established rapport genuinely supports that tone.`
     : `TASK: Write ${c.preferredName}'s next text(s) responding to him, in ${c.preferredName}'s own voice and texting style. Usually one or two bubbles; never repeat or summarize the same idea across bubbles. Return an empty messages array if ${c.preferredName} would plausibly leave this on read for now.`;
 
   const rules = `
@@ -443,12 +461,13 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${system}\n${HOUSING_ACTION_RULES}\n- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this contact while the pilot is Tess-only.\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const reply = await runStructured(replySchema, `${system}\n${HOUSING_ACTION_RULES}\n- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this contact while the pilot is Tess-only.\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
   reply.commitment_action = { action: null, kind: null, quote: null, proposalId: null };
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });
   reply.messages = cleaned.length || !reply.messages.length ? cleaned : reply.messages.slice(0, 1);
+  if (focus) console.info("[conversation-focus]", focusDiagnostic(focus, reply.messages));
   if (!args.experience && args.deliveryChannel !== "voice") console.info("[dialogue-delivery]", deliveryDiagnostic(c.key, ownLines, reply.messages));
   return reply;
 }
