@@ -1,3 +1,4 @@
+import { nextGiftStatus } from "./gift-handoff-state";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -47,7 +48,7 @@ export const changeGiftHandoff = createServerFn({ method: "POST" })
     const parsed = payloadSchema.safeParse(row.payload);
     if (!parsed.success) throw new Error("Invalid handoff record");
     if (parsed.data.status === "returned") return { status: "returned" as const };
-    const status = data.action === "take_back" ? "returned" : "waiting";
+    const status = nextGiftStatus(parsed.data.status, data.action);
     const { error: saveError } = await db.from("world_events")
       .update({ payload: { ...parsed.data, status, recipient_received: false } })
       .eq("id", data.id).eq("user_id", context.userId)
