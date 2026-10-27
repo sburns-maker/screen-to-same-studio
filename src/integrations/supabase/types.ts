@@ -1974,6 +1974,7 @@ export type Database = {
           api18_enabled: boolean
           character_key: string
           last_action: string | null
+          spicy_enabled: boolean
           user_id: string
           version: number
         }
@@ -1982,6 +1983,7 @@ export type Database = {
           api18_enabled?: boolean
           character_key: string
           last_action?: string | null
+          spicy_enabled?: boolean
           user_id: string
           version?: number
         }
@@ -1990,6 +1992,7 @@ export type Database = {
           api18_enabled?: boolean
           character_key?: string
           last_action?: string | null
+          spicy_enabled?: boolean
           user_id?: string
           version?: number
         }
@@ -2512,6 +2515,83 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "social_plans"
             referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
+      spicy_photo_jobs: {
+        Row: {
+          action_id: string
+          character_key: string
+          conversation_id: string | null
+          cost_usd: number | null
+          created_at: string
+          failure_code: string | null
+          idempotency_key: string
+          lease_token: string | null
+          lease_until: string | null
+          model: string
+          next_poll_at: string
+          payload: Json
+          poll_count: number
+          request_hash: string
+          reserved_cents: number
+          status: string
+          stored_sha256: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_id: string
+          character_key: string
+          conversation_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          failure_code?: string | null
+          idempotency_key: string
+          lease_token?: string | null
+          lease_until?: string | null
+          model: string
+          next_poll_at?: string
+          payload: Json
+          poll_count?: number
+          request_hash: string
+          reserved_cents: number
+          status: string
+          stored_sha256?: string | null
+          task_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string
+          character_key?: string
+          conversation_id?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          failure_code?: string | null
+          idempotency_key?: string
+          lease_token?: string | null
+          lease_until?: string | null
+          model?: string
+          next_poll_at?: string
+          payload?: Json
+          poll_count?: number
+          request_hash?: string
+          reserved_cents?: number
+          status?: string
+          stored_sha256?: string | null
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spicy_photo_jobs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -3852,6 +3932,41 @@ export type Database = {
         Returns: Json
       }
       shared_world_status: { Args: never; Returns: Json }
+      spicy_photo_claim: { Args: { p_action: string }; Returns: Json }
+      spicy_photo_finish: {
+        Args: {
+          p_action: string
+          p_failure: string
+          p_metadata: Json
+          p_token: string
+        }
+        Returns: boolean
+      }
+      spicy_photo_preferences: {
+        Args: {
+          p_adult: boolean
+          p_character: string
+          p_enabled: boolean
+          p_user: string
+          p_version: number
+        }
+        Returns: boolean
+      }
+      spicy_photo_reserve: {
+        Args: {
+          p_action: string
+          p_cents: number
+          p_character: string
+          p_conversation: string
+          p_daily: number
+          p_hash: string
+          p_model: string
+          p_monthly: number
+          p_payload: Json
+          p_user: string
+        }
+        Returns: Json
+      }
       town_command: {
         Args: {
           p_command: string
