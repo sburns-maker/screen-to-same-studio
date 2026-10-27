@@ -15,6 +15,7 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
     activity: z.enum(["conversation", "lunch_dropoff", "item_dropoff"]).default("conversation"),
     receptionTurns: z.array(z.object({ speaker: z.enum(["player", "reception"]), body: z.string().max(600) })).max(20).optional(),
     deliveryOutcome: z.enum(["unresolved", "message_left", "waiting", "declined"]).optional(),
+    item: z.string().trim().min(1).max(160).optional(),
   }).parse(v))
   .handler(async ({ context, data }) => {
     const work = WORKPLACES[data.character];
@@ -46,7 +47,7 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
       await (await import("./tess.functions")).runTurn(context.supabase, context.userId, data.conversationId, "America/New_York");
       return { accepted: true, alreadyRecorded: true };
     }
-    const { error } = await db.from("messages").insert({
+    const { data: inserted, error } = await db.from("messages").insert({
       user_id: context.userId, conversation_id: data.conversationId, sender: "user",
       body, metadata: {
         workplace_encounter: {
@@ -57,8 +58,19 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
             reception_turns: data.receptionTurns ?? [], delivery_outcome: data.deliveryOutcome ?? "unresolved" } : {}),
         },
       },
-    });
+    }).select("id").single();
     if (error) throw new Error("Unable to record encounter; please retry.");
+    if (data.activity !== "conversation" && inserted) {
+      const { error: giftError } = await db.from("world_events").insert({
+        user_id: context.userId, conversation_id: data.conversationId, character_key: data.character,
+        kind: "gift_handoff", summary: `An item drop-off was attempted for ${data.character}.`,
+        payload: { item: data.item ?? "unspecified item", status: data.deliveryOutcome === "declined" ? "returned" : "attempted",
+          source_message_id: inserted.id, request_id: data.requestId, place_key: work.key,
+          reception_outcome: data.deliveryOutcome ?? "unresolved",
+          recipient_received: false },
+      });
+      if (giftError) console.error("[gift-handoff] event persistence failed", giftError.code);
+    }
     // The reply is delivered by the same message pipeline used for ordinary chat.
     // The character may choose to be busy, decline, or speak briefly.
     await (await import("./tess.functions")).runTurn(
