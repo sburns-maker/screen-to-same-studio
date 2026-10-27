@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure, safeProviderErrorFields } from "@/lib/tess-image.server";
+import { buildImagePrompt, includesTess, sceneHasMabel, classifyImageFailure, ImageProviderFailure, safeProviderErrorFields, spicyFailureDiagnostics } from "@/lib/tess-image.server";
 
 describe("image prompt builder", () => {
   it("treats the canonical reference as identity only, not pose", () => {
