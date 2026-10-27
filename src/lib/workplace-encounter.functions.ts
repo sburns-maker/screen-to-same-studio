@@ -12,6 +12,7 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) => z.object({
     conversationId: z.string().uuid(), character: z.enum(["tess","maya","claire","jordan","ben","riley"]),
     text: z.string().trim().min(1).max(900), requestId: z.string().uuid(),
+    activity: z.enum(["conversation", "lunch_dropoff"]).default("conversation"),
   }).parse(v))
   .handler(async ({ context, data }) => {
     const work = WORKPLACES[data.character];
@@ -22,7 +23,9 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
     if (present.error || present.data?.place_key !== work.key ||
         !present.data?.arrives_at || Date.parse(present.data.arrives_at) > now.getTime())
       throw new Error("Arrive at the virtual workplace before starting an encounter.");
-    if (!workplaceShiftLikely(data.character, now))
+    if (data.activity === "lunch_dropoff" && data.character !== "riley")
+      throw new Error("This lunch drop-off is not available at this workplace.");
+    if (data.activity !== "lunch_dropoff" && !workplaceShiftLikely(data.character, now))
       throw new Error("This isn't a usual shift. Arrange another time with the character.");
     const availability = characterAvailability(CHARACTERS[data.character], now);
     if (availability.availability === "asleep")
@@ -49,7 +52,7 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
         workplace_encounter: {
           request_id: data.requestId, place_key: work.key, character: data.character,
           access: work.publicAccess === "restricted" ? "public_reception_only" : "public_visitor_area",
-          event: "player_requested_conversation", occurred_at: now.toISOString(),
+          event: data.activity === "lunch_dropoff" ? "player_attempted_lunch_dropoff" : "player_requested_conversation", occurred_at: now.toISOString(),
         },
       },
     });
