@@ -403,17 +403,8 @@ async function runTurnUnlocked(
   }));
   // Conversation messages include voice turns (metadata.channel="voice") and ordinary
   // texts in chronological order. Reinforce their common chronology to the model.
-  const channelMoments = [...recent]
-    .filter((m) => {
-      const md = m.metadata as { channel?: string; call_id?: string } | null;
-      return md?.channel === "voice" && typeof m.body === "string" && m.body.trim().length > 0;
-    })
-    .slice(0, 8)
-    .reverse()
-    .map((m) => {
-      const md = m.metadata as { call_id?: string } | null;
-      return `[Phone call ${m.created_at}, call ${md?.call_id ?? "unknown"}] ${m.sender === "user" ? "Player" : def.preferredName}: ${m.body.slice(0, 300)}`;
-    });
+  const { recentSpokenMoments } = await import("./cross-channel-continuity");
+  const channelMoments = recentSpokenMoments(recent, def.preferredName);
   const recentText = [initiation?.reason ?? "", ...recent.slice(0, 6).map((m) => m.body ?? "")].join(" ");
   const memoryList = recallMemories((mems ?? []) as MemoryRow[], recentText, new Date())
     .map((m) => `${m.memory_type}: ${m.summary}`);
