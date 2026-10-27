@@ -76,7 +76,7 @@ it("does not render Tess or mount her housing while another profile loads", () =
   mocks.query.isPending = false;
   view.rerender(<Profile />);
   expect(screen.getByRole("heading", { name: /Maya/ })).toBeInTheDocument();
-  expect(mocks.housing).toHaveBeenCalledWith({ character: "maya" });
+  expect(mocks.housing).toHaveBeenCalledWith({ character: "maya", conversationId: "selected" });
 });
 it("keeps the live call neutral until the correct character is resolved and shows history", () => {
   const view = render(<Live />);

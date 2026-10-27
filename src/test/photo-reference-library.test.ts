@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickReferenceCandidates, referenceLibrarySummary } from "@/lib/api18-reference-library";
+import { pickReferenceCandidates, referenceLibrarySummary } from "@/lib/photo-reference-library";
 const owner = "11111111-1111-4111-8111-111111111111";
 const canonical = {asset:"src/assets/tess.jpg",sha256:"a".repeat(64)};
 const message=(path:string, crop:string, overrides:Record<string,unknown>={})=>({

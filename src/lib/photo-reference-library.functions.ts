@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { REFERENCE_ROLES } from "./api18-reference-library";
+import { REFERENCE_ROLES } from "./photo-reference-library";
 const character = z.enum(["tess", "maya", "claire", "riley", "jordan", "ben"]);
 export const loadReferenceLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -16,10 +16,10 @@ export const loadReferenceLibrary = createServerFn({ method: "POST" })
     const service = await import("./photo-reference-library.server");
     return {
       page: await service.referenceLibraryPage(db, context.userId, data.character, data.offset),
-      provider: (await import("./api18-image.server")).api18Configuration(),
+      provider: (await import("./spicy-image.server")).spicyConfiguration(data.character),
       jobs: await (
-        await import("./api18-jobs.server")
-      ).api18JobHistory(db, context.userId, data.character),
+        await import("./spicy-jobs.server")
+      ).spicyJobHistory(db, context.userId, data.character),
     };
   });
 export const previewReference = createServerFn({ method: "POST" })
@@ -92,10 +92,22 @@ export const setReferenceProviderPreference = createServerFn({ method: "POST" })
     );
   });
 
-export const checkApi18Job = createServerFn({ method: "POST" })
+export const checkSpicyJob = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({ actionId: z.string().uuid() }).strict().parse(v))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
-    return (await import("./api18-jobs.server")).refreshApi18Job(db, context.userId, data.actionId);
+    await (await import("./spicy-jobs.server")).processSpicyPhotos(db, {user:context.userId,action:data.actionId});
+    return {status:"Status refreshed; pending tasks are never resubmitted"};
   });
+
+export const refreshPendingPhotos = createServerFn({method:"POST"})
+ .middleware([requireSupabaseAuth])
+ .inputValidator((v:unknown)=>z.object({conversationId:z.string().uuid()}).strict().parse(v))
+ .handler(async({data,context})=>{
+  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
+  const owned=await db.from("conversations").select("id").eq("user_id",context.userId).eq("id",data.conversationId).maybeSingle();
+  if(owned.error || !owned.data)throw new Error("Owned conversation required");
+  await (await import("./spicy-jobs.server")).processSpicyPhotos(db,{user:context.userId,conversation:data.conversationId});
+  return {checked:true};
+ });

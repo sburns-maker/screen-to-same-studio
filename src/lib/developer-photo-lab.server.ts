@@ -1,3 +1,4 @@
+import { PendingPhotoTask } from "./spicy-image.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { CHARACTERS, characterFor, type CharacterKey } from "./characters";
@@ -95,6 +96,7 @@ async function present(
 }
 export async function photoLabHistory(db: Client, user: string, conversation: string) {
   const def = await authorize(db, user, conversation);
+  await (await import("./spicy-jobs.server")).processSpicyPhotos(db,{user,conversation});
   const r = await db
     .from("job_runs")
     .select("*")
@@ -171,7 +173,7 @@ export async function generatePhotoLabTest(
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
-      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation),
+      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation,{scene,expression:null,delivery:"lab"}),
       canonical,
       type: generationType,
       scene,
@@ -214,6 +216,12 @@ export async function generatePhotoLabTest(
       .eq("user_id", user);
     return present(db, result.data, user, conversation);
   } catch (error) {
+    if(error instanceof PendingPhotoTask){
+      const pending=await db.from("job_runs").update({detail:{...detail,phase:"spicy_pending"}}).eq("id",id).eq("status","running").select("*").single();
+      if(pending.error)throw new Error("Photo test remains queued; check history before retrying");
+      (await import("./spicy-jobs.server")).startSpicyPhotoRecovery(db,{user,action:id});
+      return present(db,pending.data,user,conversation);
+    }
     const known = [
       "visual_screen_unavailable",
       "Identity registry unavailable",

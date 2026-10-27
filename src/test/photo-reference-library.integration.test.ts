@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { worldDatabase, postgresSupabase } from "./pglite-supabase";
-import { api18Journal, api18JobHistory, refreshApi18Job } from "@/lib/api18-jobs.server";
 import { portraitHash } from "@/lib/profile-media.server";
 import { canonicalProfile } from "@/lib/canonical-profile.server";
 import { registerPrimaryIdentity } from "@/lib/visual-profiles.server";
@@ -35,6 +34,7 @@ beforeAll(async () => {
   );
   await db.exec(readFileSync("drizzle/migrations/0047_photo_reference_library.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0048_api18_generation_jobs.sql", "utf8"));
+  await db.exec(readFileSync("drizzle/migrations/0051_spicy_photo_tasks.sql", "utf8"));
   const base = postgresSupabase(db).admin;
   admin = {
     ...base,
@@ -261,7 +261,7 @@ it("does not enable an unverified provider through a client preference", async (
   await expect(referenceProviderPreference(admin, user, "tess", true, true, 0)).rejects.toThrow(
     "incomplete",
   );
-  expect((await referenceLibraryPage(admin, user, "tess")).api18Enabled).toBe(false);
+  expect((await referenceLibraryPage(admin, user, "tess")).spicyEnabled).toBe(false);
 });
 
 it("rejects the same approved bytes under a different storage path", async () => {
@@ -271,151 +271,5 @@ it("rejects the same approved bytes under a different storage path", async () =>
   await review("approve", first.mid, "half_body");
   await expect(review("approve", second.mid, "alternate_angle")).rejects.toThrow(
     "Review could not",
-  );
-});
-
-async function providerAction() {
-  const action = id();
-  await db.query("insert into job_runs(id,job,status,detail) values($1,$2,'running',$3)", [
-    action,
-    `api18-test:${action}`,
-    { userId: user, conversationId: cid },
-  ]);
-  await db.query("insert into media_attempts(action_id,user_id,conversation_id) values($1,$2,$3)", [
-    action,
-    user,
-    cid,
-  ]);
-  return action;
-}
-function providerLimits() {
-  vi.stubEnv("API18_JOB_RESERVATION_CENTS", "60");
-  vi.stubEnv("API18_DAILY_BUDGET_CENTS", "100");
-  vi.stubEnv("API18_MONTHLY_BUDGET_CENTS", "1000");
-}
-it("atomically caps provider spending, reconciles known costs and retains unknown reservations", async () => {
-  providerLimits();
-  const action = await providerAction(),
-    j = api18Journal(admin, user, cid, "tess", action);
-  expect((await j.claim(hash)).fresh).toBe(true);
-  expect((await j.claim(hash)).fresh).toBe(false);
-  await j.record({ id: "job_one", status: "completed", cost: 0.2, failure: null });
-  const next = api18Journal(admin, user, cid, "tess", await providerAction());
-  expect((await next.claim(hash)).fresh).toBe(true);
-  await next.record({
-    id: null,
-    status: "failed",
-    cost: null,
-    failure: "api18_submission_uncertain",
-  });
-  const third = api18Journal(admin, user, cid, "tess", await providerAction());
-  await expect(third.claim(hash)).rejects.toThrow("budget_or_action");
-  expect((await api18JobHistory(admin, user, "tess")).length).toBe(2);
-  vi.unstubAllEnvs();
-});
-it("gives one winner to concurrent provider reservations and cannot cross users or change terminal outcomes", async () => {
-  providerLimits();
-  const actions = await Promise.all([providerAction(), providerAction()]);
-  const results = await Promise.allSettled(
-    actions.map((a) => api18Journal(admin, user, cid, "tess", a).claim(hash)),
-  );
-  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-  const row = (await api18JobHistory(admin, user, "tess"))[0]!;
-  await api18Journal(admin, user, cid, "tess", row.action_id).record({
-    id: "job_done",
-    status: "completed",
-    cost: 0.1,
-    failure: null,
-  });
-  await expect(
-    api18Journal(admin, user, cid, "tess", row.action_id).record({
-      id: "job_done",
-      status: "failed",
-      cost: 0,
-      failure: "api18_generation_failed",
-    }),
-  ).rejects.toThrow("ledger_update");
-  expect(await api18JobHistory(admin, other, "tess")).toHaveLength(0);
-  await expect(refreshApi18Job(admin, other, row.action_id)).rejects.toThrow("Owned provider job");
-  await db.exec(`SET ROLE authenticated;SET request.jwt.claim.sub='${other}'`);
-  expect((await db.query("select * from api18_jobs")).rows).toHaveLength(0);
-  await expect(db.query("delete from api18_jobs")).rejects.toThrow("permission denied");
-  await db.exec("RESET ROLE");
-  vi.unstubAllEnvs();
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
-});
-it("keeps provider billing history when the conversation is deleted", async () => {
-  providerLimits();
-  const action = await providerAction(),
-    journal = api18Journal(admin, user, cid, "tess", action);
-  await journal.claim(hash);
-  await journal.record({ id: "history_job", status: "completed", cost: 0.15, failure: null });
-  await db.query("delete from conversations where id=$1", [cid]);
-  const row = (
-    await db.query<{ conversation_id: string | null; cost_usd: string }>(
-      "select conversation_id,cost_usd from api18_jobs where action_id=$1",
-      [action],
-    )
-  ).rows[0]!;
-  expect(row.conversation_id).toBeNull();
-  expect(Number(row.cost_usd)).toBe(0.15);
-});
-it("connects approved references, explicit opt-in, the provider and durable cost records", async () => {
-  for (const [k, v] of Object.entries({
-    API18_ENABLED: "true",
-    API18_KEY: "test-only",
-    API18_ACCOUNT_CREDITS_VERIFIED_AT: new Date().toISOString(),
-    API18_OUTPUT_HOSTS: "cdn.example.com",
-    API18_JOB_RESERVATION_CENTS: "60",
-    API18_DAILY_BUDGET_CENTS: "100",
-    API18_MONTHLY_BUDGET_CENTS: "1000",
-  }))
-    vi.stubEnv(k, v);
-  await review("approve", null, "canonical");
-  const page = await referenceLibraryPage(admin, user, "tess");
-  await referenceProviderPreference(admin, user, "tess", true, true, page.version);
-  const action = await providerAction(),
-    ordinary = { name: "existing", model: "existing", generate: vi.fn() };
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockImplementation(async (url: string, o: RequestInit = {}) => {
-      if (url.startsWith("https://storage.example.com/"))
-        return new Response(null, { status: 206 });
-      if (o.method === "POST")
-        return Response.json({
-          id: "bound_job",
-          status: "completed",
-          cost_usd: 0.1,
-          data: [{ url: "https://api18.dev/v1/files/bound_file" }],
-        });
-      return new Response(new Uint8Array(bytes), { headers: { "content-type": "image/jpeg" } });
-    }),
-  );
-  const { configuredPhotoProvider } = await import("@/lib/photo-provider-router.server");
-  const provider = await configuredPhotoProvider(
-    admin,
-    user,
-    "tess",
-    "mature_romantic",
-    ordinary,
-    action,
-    cid,
-  );
-  expect(provider.name).toBe("api18");
-  const result = await provider.generate("One adult, non-nude portrait", [
-    (await canonicalProfile("tess")).blob,
-  ]);
-  expect(result.provider).toBe("api18");
-  expect(ordinary.generate).not.toHaveBeenCalled();
-  expect((await api18JobHistory(admin, user, "tess"))[0]).toMatchObject({
-    status: "completed",
-    cost_usd: 0.1,
-  });
-  expect(JSON.stringify((await db.query("select * from api18_jobs")).rows)).not.toContain(
-    "token=private",
   );
 });

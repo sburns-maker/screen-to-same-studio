@@ -40,8 +40,10 @@ export async function worldDatabase() {
 export function postgresSupabase(db: PGlite) {
   const files = new Map<string, Uint8Array>();
   const encode = (v: unknown) => (v !== null && typeof v === "object" ? JSON.stringify(v) : v);
-  const column = (s: string) =>
-    s.includes("->>") ? `"${s.split("->>")[0]}"->>'${s.split("->>")[1]}'` : `"${s}"`;
+  const column = (s: string) => {
+    const parts=s.split(/(->>|->)/);
+    return `"${parts[0]}"`+parts.slice(1).map((part,i)=>i%2===0?part:`'${part.replaceAll("'","''")}'`).join("");
+  };
   const from = (table: string) => {
     let operation = "select",
       values: Record<string, unknown>[] = [],

@@ -23,6 +23,7 @@ vi.mock("@/lib/tess.server", async (original) => ({
   generateTessReply: mocks.generate,
   generateContactReply: mocks.generate,
 }));
+vi.mock("@/lib/overnight-wake", () => ({ overnightWake: () => null }));
 vi.mock("@/lib/tess-weather.server", () => ({ getWeatherContext: async () => null }));
 vi.mock("@/lib/social.server", () => ({ knowledgeForCharacter: async () => [] }));
 vi.mock("@/lib/storyline.server", () => ({

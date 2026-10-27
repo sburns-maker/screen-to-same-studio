@@ -1,3 +1,5 @@
+import { PhotoAttachmentStatus } from "@/components/PhotoAttachmentStatus";
+import { refreshPendingPhotos } from "@/lib/photo-reference-library.functions";
 import { ReactionBubble } from "@/components/ReactionBubble";
 import { ContactPending } from "@/components/ContactPending";
 import { invalidateSchedule } from "@/lib/use-schedule";
@@ -79,6 +81,17 @@ function Chat() {
   const convId = conv.data?.id;
   const [historyLimit, setHistoryLimit] = useState(200);
   const msgs = useQuery(messagesQuery(convId, historyLimit));
+  const pollPhotos=useServerFn(refreshPendingPhotos);
+  const refetchMessages=msgs.refetch;
+  const hasPendingPhoto=msgs.data?.some(m=>!!(m.metadata as {photo_pending?:unknown}|null)?.photo_pending)??false;
+  useEffect(()=>{
+    if(!hasPendingPhoto || !convId)return;
+    let active=true;
+    const timer=setInterval(()=>{void pollPhotos({data:{conversationId:convId}}).then(()=>{
+      if(active)void refetchMessages();
+    }).catch(()=>{});},10000);
+    return ()=>{active=false;clearInterval(timer);};
+  },[hasPendingPhoto,convId,pollPhotos,refetchMessages]);
   const characterKey = (conv.data?.character as { key?: string } | null)?.key;
   const def = characterFor(characterKey);
 
@@ -416,7 +429,8 @@ function Chat() {
                   {(() => {
                     const video = userVideoMetadata(m.metadata);
                     if (video) return <VideoAttachment video={video} mediaId={m.id} />;
-                    const md = m.metadata as { photo?: string; generated_path?: string; user_photo?: string } | null;
+                    const md = m.metadata as { photo?: string; generated_path?: string; photo_pending?: {actionId:string};photo_failure?:string; user_photo?: string } | null;
+                    if (md?.photo_pending || md?.photo_failure) return <PhotoAttachmentStatus pending={md.photo_pending} failure={md.photo_failure} />;
                     if (md?.user_photo) return <GeneratedPhoto path={md.user_photo} name="you" mediaId={m.id} />;
                     const src = md?.photo ? PHOTO_SRC[md.photo] : undefined;
                     if (src)
