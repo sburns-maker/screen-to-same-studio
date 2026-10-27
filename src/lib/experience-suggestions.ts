@@ -9,12 +9,28 @@ const BY_ACTIVITY: Record<string, ExperienceStarter[]> = {
     { label: "Keep walking", draft: "I walk beside you, enjoying the path and our conversation. " },
     { label: "Find a bench", draft: "I gesture toward a nearby bench. \"Want to sit for a little while?\"" },
     { label: "Hold hands", draft: "I reach for your hand as we walk. " },
-    { label: "Suggest coffee", draft: "I look over at you. \\"Would you like to stop for coffee after our walk?\\"" },
+    { label: "Suggest coffee", draft: 'I look over at you. "Would you like to stop for coffee after our walk?"' },
   ],
   sitting: [
     { label: "Stay and talk", draft: "I sit beside you for a while and enjoy the conversation. " },
     { label: "Enjoy the quiet", draft: "I sit quietly next to you, taking in the park. " },
     { label: "Walk again", draft: "I stand up from the bench and continue walking beside you. " },
+  ],
+  driving: [
+    { label: "Talk on the way", draft: "I continue our conversation as we travel together. " },
+    { label: "Check the destination", draft: 'I ask, "Still feeling good about where we are headed?"' },
+  ],
+  arriving: [
+    { label: "Look around", draft: "I take in the surroundings as we arrive together. " },
+    { label: "Go inside?", draft: 'I look over at you. "Ready to go in?"' },
+  ],
+  ordering: [
+    { label: "Choose a drink", draft: "I look at the drink options and ask what sounds good to you. " },
+    { label: "Keep talking", draft: "I keep chatting with you while we wait for our order. " },
+  ],
+  finished_meal: [
+    { label: "Keep talking", draft: "I linger over our conversation for a little longer. " },
+    { label: "Suggest next stop", draft: 'I smile. "Want to go somewhere else, or call it a night?"' },
   ],
   dining: [
     { label: "Keep chatting", draft: "I smile across the table and continue our conversation. " },
