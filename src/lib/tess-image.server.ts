@@ -265,6 +265,9 @@ export type PhotoDiagnostics = {
   retryCount: number;
   failureStage?: string;
   providerHttpStatus?: number;
+  providerStage?: string;
+  providerRequestId?: string;
+  localValidationRule?: string;
   providerError?: { code?: string; type?: string; param?: string };
   retryReasons?: string[];
   photography?: ReturnType<typeof photographyDiagnostics>;
