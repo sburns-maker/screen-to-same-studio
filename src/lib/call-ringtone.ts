@@ -34,9 +34,10 @@ export async function startRingtone(until: string): Promise<() => void> {
     for (const offset of [0, 0.45]) {
       const oscillator = audio.createOscillator(),
         gain = audio.createGain();
-      oscillator.frequency.value = 660;
+      oscillator.type = "sine";
+      oscillator.frequency.value = offset === 0 ? 740 : 880;
       gain.gain.setValueAtTime(0, audio.currentTime + offset);
-      gain.gain.linearRampToValueAtTime(0.08, audio.currentTime + offset + 0.02);
+      gain.gain.linearRampToValueAtTime(0.33, audio.currentTime + offset + 0.02);
       gain.gain.linearRampToValueAtTime(0, audio.currentTime + offset + 0.3);
       oscillator.connect(gain);
       gain.connect(audio.destination);
@@ -63,7 +64,7 @@ export async function startRingtone(until: string): Promise<() => void> {
     }
     voices.clear();
   };
-  const interval = setInterval(pulse, 2800);
+  const interval = setInterval(pulse, 1900);
   const deadline = setTimeout(stop, Math.max(0, Date.parse(until) - Date.now()));
   pulse();
   return stop;
