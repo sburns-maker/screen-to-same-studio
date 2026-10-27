@@ -708,6 +708,7 @@ async function runTurnUnlocked(
         initiated: !!initiation,
         notification_group: notificationGroup,
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
+        ...(i === 0 && def.key === "tess" && reply.commitment_action?.action === "propose" && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
