@@ -95,8 +95,9 @@ beforeEach(async () => {
   files.clear();
 });
 let quotes: Record<string, unknown>[] = [];
+const signedQuoteId = `header.${"a".repeat(335)}.signature`;
 let quoteData = (): Record<string, unknown> => ({
-  quoteId: "quote_1",
+  quoteId: signedQuoteId,
   model: SPICY_MODELS[0],
   estimatedCost: "0.3",
   maxCharge: "0.3",
@@ -451,14 +452,15 @@ it("quotes before paying, submits quoteId and expectedCost, and reserves the quo
   await expect(submit()).rejects.toBeInstanceOf(PendingPhotoTask);
   expect(quotes).toHaveLength(1);
   const post = JSON.parse(String(fetcher.mock.calls[0]![1].body));
-  expect(post).toMatchObject({ quoteId: "quote_1", expectedCost: "0.3", model: SPICY_MODELS[0] });
+  expect(signedQuoteId).toHaveLength(352);
+  expect(post).toMatchObject({ quoteId: signedQuoteId, expectedCost: "0.3", model: SPICY_MODELS[0] });
   expect(post.input).toEqual((quotes[0] as { input: unknown }).input);
   const row = (
     await db.query<Record<string, unknown>>("select reserved_cents,payload from spicy_photo_jobs")
   ).rows[0]!;
   expect(row["reserved_cents"]).toBe(30);
   expect((row["payload"] as { quote: unknown }).quote).toEqual({
-    quoteId: "quote_1",
+    quoteId: signedQuoteId,
     expectedCost: "0.3",
   });
 });

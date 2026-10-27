@@ -188,6 +188,32 @@ it("parses a free quote and rounds its cost up to whole cents", async () => {
   expect(f.mock.calls[0]![0]).toMatch(/\/jobs\/quote$/);
   expect(f.mock.calls[0]![1].headers["Idempotency-Key"]).toBeUndefined();
 });
+it.each([352, 4096])("preserves a signed opaque quote token of %s characters", async (length) => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  const quoteId = `header.${"a".repeat(length - 17)}.signature`;
+  expect(quoteId).toHaveLength(length);
+  const f = vi.fn().mockResolvedValue(Response.json({ code: 200, data: {
+    quoteId, model: SPICY_MODELS[0], estimatedCost: "0.1", maxCharge: "0.1",
+    currency: "USD", expiresAt: new Date(Date.now() + 300000).toISOString(),
+  } }));
+  vi.stubGlobal("fetch", f);
+  const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+  expect(await quoteSpicyRequest(body)).toMatchObject({ quoteId, cents: 10 });
+  expect(f).toHaveBeenCalledTimes(1);
+});
+it.each(["", "a".repeat(4097), " token", "token ", "to\nken", "to\rken", "to\tken", "to\u0000ken", "to\u007fken", "tökén"])(
+  "rejects empty, oversized or unsafe opaque quote tokens (case %#)", async (quoteId) => {
+    vi.stubEnv("SPICY_API_KEY", "test");
+    const f = vi.fn().mockResolvedValue(Response.json({ code: 200, data: {
+      quoteId, model: SPICY_MODELS[0], estimatedCost: "0.1",
+      expiresAt: new Date(Date.now() + 300000).toISOString(),
+    } }));
+    vi.stubGlobal("fetch", f);
+    const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
+    await expect(quoteSpicyRequest(body)).rejects.toThrow("spicy_quote_invalid");
+    expect(f).toHaveBeenCalledTimes(1);
+  },
+);
 it("rejects expired or mismatched quotes", async () => {
   vi.stubEnv("SPICY_API_KEY", "test");
   const body = buildSpicyRequest(SPICY_MODELS[0], "scene", ["https://refs.example.com/a"]);
