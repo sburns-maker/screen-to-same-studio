@@ -1,5 +1,6 @@
 import { PlaceArtwork } from "@/components/PlaceArtwork";
 import { VenueScene } from "@/components/VenueScene";
+import { WorkplaceVisit } from "@/components/WorkplaceVisit";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -56,13 +57,14 @@ function Place() {
           </div>
           <div className={`${card} mb-5 bg-primary/5`}>
             <p className="text-xs uppercase tracking-widest text-primary">
-              {place.community} · Fictional {place.kind}
+              {place.community} · {place.kind === "workplace" ? "Real business · fictional encounter" : `Fictional ${place.kind}`}
             </p>
             <p className="my-5 font-display text-2xl leading-relaxed">{place.description}</p>
             <p className="text-sm text-muted-foreground">
               {place.kind === "home" ? (place.open?"Private home · invited access":"Private home · invitation required") : `${place.opens}:00–${place.closes}:00 Eastern · ${place.open ? "Open" : "Closed"}`}
             </p>
           </div>
+          <WorkplaceVisit placeKey={placeKey} arrived={here} />
           {travelling ? (
             <p role="status" className={`${card} mb-4`}>
               Travelling virtually to{" "}
@@ -88,9 +90,9 @@ function Place() {
                 : `Visit virtually · about ${to ? travelMinutes(from, to) : 15} min`}
             </button>
           )}
-          {here && <VenueScene placeKey={placeKey} />}
+          {here && place.kind !== "workplace" && <VenueScene placeKey={placeKey} />}
           <h2 className="mb-3 text-lg font-semibold">Around you</h2>
-          {here && place.open ? (
+          {here && place.open && place.kind !== "workplace" ? (
             q.data?.people
               .filter((n) => n.present)
               .map((n) => (
@@ -115,7 +117,7 @@ function Place() {
               Arrive during opening hours to see who is around. Nobody is guaranteed to be here.
             </p>
           )}
-          {here && !q.data?.people.some((n) => n.present) && (
+          {here && place.kind !== "workplace" && !q.data?.people.some((n) => n.present) && (
             <p className="text-sm text-muted-foreground">
               A quiet moment. No one is available for an encounter right now.
             </p>
