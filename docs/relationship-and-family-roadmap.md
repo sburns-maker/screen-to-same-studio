@@ -118,3 +118,11 @@ _Status: phased design and initial implementation branch; not a production commi
 - Generic VenueScene and random town encounters are suppressed on workplace pages; restricted medical spaces stay inaccessible. Hospital contact is an invitation to meet in a permitted public area, not an invitation inside the lab. Claire's real-world setting is a public library, not a school; any future school workplace must require controlled access and prior authorization.
 - Fixed the overnight-shift helper's timezone/day rollover and added unit coverage.
 - The completed conversational visit, workplace-specific dialogue scenes, confirmed meetup persistence, revised coordinates and production map integration must be checked in staging. Current workplace coordinates are approximate illustrative anchors, not verified building entrance locations. Never claim live interactive encounters are production-ready from these commits alone.
+
+## Workplace/schedule consolidation
+- Riley's canonical shift is now Sunday–Thursday 22:00–06:00 Eastern, with cross-midnight workday attribution consistent between workplace hints and character messaging; daytime 09:00–16:00 is reserved for sleep.
+- All six schedules have off-shift windows. Off-shift means potential personal time, NOT guaranteed availability: disruptions, activities, calendar plans and independent choice still apply.
+- Place seeding now upserts updated business names and positions for existing users, instead of retaining superseded workplace labels. Generic worker NPC encounters are not assumed.
+- Safety: UPMC Altoona is a real hospital setting but the lab is never a playable patient-care area; workplace text messages remain fictional and must never assert real employment or private medical records.
+- Existing map arrival, visitor choices and one-time in-chat drafts are implemented. A *fully automatic in-person AI scene with confirmed mutual presence, persistent accepted meetups and subsequent call/text callbacks remains unimplemented*. This cannot be treated as done without a distinct encounter state machine and staging E2E proof.
+- Tests added to cover weekly work/off-hours and night-shift behavior, not executed yet. No merge/deployment.
