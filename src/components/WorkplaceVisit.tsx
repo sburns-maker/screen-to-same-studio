@@ -38,6 +38,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       if (!thread) throw new Error("Conversation unavailable");
       await encounter({ data: {
         conversationId: thread.id, character: place.character,
+        activity: dropoff ? "lunch_dropoff" : "conversation",
         text: dropoff ? `LUNCH DROP-OFF ATTEMPT (NOT YET RECEIVED): I brought ${lunch.trim()}. ${dropoffNote.trim()} The front desk may decline; no handoff or meeting is confirmed.` : spoken.trim(), requestId: crypto.randomUUID(),
       }});
       if (!dropoff) setSpoken("");
