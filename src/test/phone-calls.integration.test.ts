@@ -449,7 +449,7 @@ describe("developer incoming-call readiness and controlled ringing", () => {
     );
     expect((await db.query("select * from phone_calls")).rows).toHaveLength(0);
   });
-  it("creates one 25-second ring, replays its request safely, and does not request paid audio", async () => {
+  it("creates one 45-second ring, replays its request safely, and does not request paid audio", async () => {
     const { developerTestRing } = await ready();
     const request = id();
     await developerTestRing(admin(), user, cid, request);
@@ -457,7 +457,7 @@ describe("developer incoming-call readiness and controlled ringing", () => {
     expect((await db.query("select * from phone_calls")).rows).toHaveLength(1);
     const call = await ownedCall(admin(), user, request);
     expect(call).toMatchObject({ direction: "incoming", state: "ringing", duration_seconds: 0 });
-    expect(Date.parse(call.ring_until) - Date.parse(call.offered_at)).toBe(25000);
+    expect(Date.parse(call.ring_until) - Date.parse(call.offered_at)).toBe(45000);
     expect(mocks.text).not.toHaveBeenCalled();
     expect(mocks.asr).not.toHaveBeenCalled();
     expect(mocks.tts).not.toHaveBeenCalled();
