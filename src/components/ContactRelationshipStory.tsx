@@ -36,9 +36,32 @@ export function ContactRelationshipStory({ characterKey, characterName }: {
   if (query.error) return <p role="alert" className="text-sm text-muted-foreground">Relationship history is temporarily unavailable.</p>;
   if (!query.data?.available) return null;
   const pending = query.data.events.filter((e) => e.status === "pending");
+  async function propose(kind: "exclusive" | "partnership") {
+    setBusy(true);
+    setFeedback("");
+    try {
+      await change({ data: {
+        requestId: crypto.randomUUID(), characterKey, kind, action: "propose", eventId: null,
+      } });
+      await cache.invalidateQueries({ queryKey: ["relationship-commitments", characterKey] });
+      setFeedback("You proposed a relationship decision. The other person has not agreed yet.");
+    } catch {
+      setFeedback("Unable to send your proposal. Please try again.");
+    } finally { setBusy(false); }
+  }
   return (
     <div className="space-y-3">
       <RelationshipMilestones events={query.data.events} characterName={characterName} />
+      {characterKey === "tess" && pending.length === 0 && (
+        <section aria-label="Discuss a relationship commitment" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
+          <h3 className="font-semibold">Where do we stand?</h3>
+          <p className="mt-1 text-sm text-muted-foreground">You can bring up exclusivity or a committed relationship. Tess decides for herself; proposing is not acceptance.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" disabled={busy} onClick={() => void propose("exclusive")} className="min-h-11 rounded-xl border px-4 text-sm">Ask about exclusivity</button>
+            <button type="button" disabled={busy} onClick={() => void propose("partnership")} className="min-h-11 rounded-xl border px-4 text-sm">Discuss a relationship</button>
+          </div>
+        </section>
+      )}
       {pending.map((event) => (
         <section key={event.id} aria-label="Pending relationship decision" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
           <h3 className="font-semibold">A decision to make together</h3>
