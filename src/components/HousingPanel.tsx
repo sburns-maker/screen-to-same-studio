@@ -129,6 +129,31 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
             : "No primary virtual home selected."}
         </p>
       )}
+      {!character && home && (
+        <div aria-label="Household overview" className="overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-rose-50/80 via-background to-amber-50/70 p-4 shadow-sm dark:from-rose-950/20 dark:via-background dark:to-amber-950/10 sm:p-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Your little corner of the world</p>
+              <h3 className="mt-1 font-display text-2xl leading-tight">{home.label}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{home.community} · {home.arrangement.replaceAll("_", " ")}</p>
+            </div>
+            <span aria-hidden="true" className="rounded-full bg-background/80 px-3 py-2 text-xl shadow-sm">⌂</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border/60 bg-background/80 p-3">
+              <p className="text-xs text-muted-foreground">People at home</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{q.data.members.filter((m) => m.residence_id === home.id && m.kind !== "temporary").length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Recorded residents</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/80 p-3">
+              <p className="text-xs text-muted-foreground">Shared-home plans</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{q.data.proposals.filter((p) => p.status === "pending" || p.status === "proposed").length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Awaiting decisions</p>
+            </div>
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">A home changes only when everyone required agrees. Dating, affection or relationship scores never move someone in automatically.</p>
+        </div>
+      )}
       {!character && (
         <>
           <div className="flex flex-wrap gap-3 text-sm">
