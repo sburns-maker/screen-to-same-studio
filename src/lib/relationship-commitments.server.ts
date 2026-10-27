@@ -26,6 +26,10 @@ export async function commitmentSnapshot(db: Client, userId: string, characterKe
     .limit(100);
   if (error) throw new Error("Relationship history unavailable");
   const rows = (data ?? []) as Record<string, unknown>[];
+  // The pilot must never expose a commitment belonging to another character,
+  // even if upstream query construction or a future refactor changes.
+  if (rows.some((row) => row.user_id !== userId || row.character_key !== characterKey))
+    throw new Error("Relationship scope mismatch");
   return {
     available: true,
     events: rows.map((row) => commitmentEventSchema.parse({
