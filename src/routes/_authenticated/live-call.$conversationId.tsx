@@ -4,7 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
 import { characterFor } from "@/lib/characters";
 import { usePortraits } from "@/lib/use-portrait";
 import { endLiveCall, liveCallHeartbeat, liveCallStatus, startLiveCall } from "@/lib/live-calls.functions";
@@ -51,6 +51,28 @@ function LiveCallScreen() {
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [muted, setMuted] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
+  const [audioRouteMessage, setAudioRouteMessage] = useState("");
+  const [outputs, setOutputs] = useState<MediaDeviceInfo[]>([]);
+  const [selectedOutput, setSelectedOutput] = useState("");
+  useEffect(() => {
+    if (state !== "connected") return;
+    void navigator.mediaDevices?.enumerateDevices?.().then(devices => setOutputs(devices.filter(d => d.kind === "audiooutput"))).catch(() => {});
+  }, [state]);
+  async function changeAudioOutput(deviceId: string) {
+    const element = audio.current;
+    if (!element || typeof element.setSinkId !== "function") {
+      setAudioRouteMessage("This browser cannot select a separate earpiece or speaker. Use the phone audio controls or a supported output device.");
+      return;
+    }
+    try {
+      await element.setSinkId(deviceId);
+      setSelectedOutput(deviceId);
+      setAudioRouteMessage("Audio output changed.");
+    } catch {
+      setAudioRouteMessage("This audio output is unavailable. Check your device permissions.");
+    }
+  }
   const [speaking, setSpeaking] = useState(false);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [now, setNow] = useState(Date.now());
@@ -146,16 +168,16 @@ function LiveCallScreen() {
   if (!status.data?.character) return <ContactPending conversationId={conversationId} failed={!!status.error || !status.isPending} retry={() => void status.refetch()} />;
 
   return (
-    <main className="flex min-h-dvh flex-col items-center px-6 pb-28 pt-10 text-center">
-      <Link to="/calls" search={{ conversation: conversationId }} className="mb-5 min-h-11 py-3 underline">Call history</Link>
+    <main className="flex min-h-dvh flex-col items-center bg-gradient-to-b from-slate-950 via-slate-900 to-slate-800 px-6 pb-28 pt-10 text-center text-white">
+      <Link to="/calls" search={{ conversation: conversationId }} className="mb-5 min-h-11 py-3 text-slate-200 underline">Call history</Link>
       <audio ref={audio} autoPlay playsInline />
       <img
         src={portraits.data?.[def.key] ?? def.avatar}
         alt={def.preferredName}
-        className={`h-32 w-32 rounded-full object-cover ${speaking ? "ring-4 ring-primary" : ""}`}
+        className={`mt-12 h-36 w-36 rounded-full object-cover ${speaking ? "ring-4 ring-primary" : ""}`}
       />
-      <h1 className="mt-4 text-2xl font-semibold">{def.preferredName}</h1>
-      <p className="mt-1 text-sm text-muted-foreground">{contactPhoneNumber(def.key)}</p>
+      <h1 className="mt-4 text-3xl font-semibold">{def.preferredName}</h1>
+      <p className="mt-1 text-sm text-slate-300">{contactPhoneNumber(def.key)}</p>
       <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
         {state === "dialing"
           ? "Calling…"
@@ -186,7 +208,7 @@ function LiveCallScreen() {
       )}
       {note && <p className="mt-4 max-w-sm text-sm text-muted-foreground">{note}</p>}
 
-      <div className="mt-8 flex justify-center gap-5">
+      <div className="mt-16 flex flex-wrap justify-center gap-6">
         {!active && state !== "ending" && (
           <button
             aria-label={`${incomingCallId && state === "idle" ? "Answer" : "Call"} ${def.preferredName}`}
@@ -199,7 +221,7 @@ function LiveCallScreen() {
               setLines([]);
               dial();
             }}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-40"
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500 text-white disabled:opacity-40"
           >
             <Phone />
           </button>
@@ -222,17 +244,34 @@ function LiveCallScreen() {
             {muted ? <MicOff /> : <Mic />}
           </button>
         )}
+        {(state === "connected" || state === "blocked") && (
+          <button type="button" aria-label="Audio output options" aria-pressed={speakerOn} onClick={() => {
+            setSpeakerOn(v => !v);
+            setAudioRouteMessage("Browser audio routing may not follow a speaker toggle. Choose an available output below if supported.");
+          }} className="flex h-14 w-14 items-center justify-center rounded-full border border-white/60">
+            {speakerOn ? <Volume2 /> : <VolumeX />}
+          </button>
+        )}
         {active && (
           <button
             aria-label="Hang up"
             onClick={() => call.current?.hangUp()}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-red-600 text-white"
           >
             <PhoneOff />
           </button>
         )}
       </div>
 
+      {(state === "connected" || state === "blocked") && <div className="mt-4 w-full max-w-xs text-sm">
+        {outputs.length > 1 && <label className="block">Audio output
+          <select className="mt-2 w-full rounded-lg bg-slate-700 p-3 text-white" value={selectedOutput} onChange={e => void changeAudioOutput(e.target.value)}>
+            <option value="">Device default</option>
+            {outputs.filter(d => d.deviceId).map((device,i) => <option key={device.deviceId} value={device.deviceId}>{device.label || `Audio output ${i+1}`}</option>)}
+          </select>
+        </label>}
+        <p role="status" className="mt-2 text-xs text-slate-300">{audioRouteMessage || "Speaker/earpiece routing depends on Android and browser support."}</p>
+      </div>}
       {lines.length > 0 && (
         <section className="mt-8 w-full max-w-md space-y-2 text-left text-sm" aria-label="Live captions">
           {lines.slice(-6).map((l, i) => (
