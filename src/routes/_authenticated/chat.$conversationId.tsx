@@ -91,6 +91,26 @@ function Chat() {
   const again = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const homeDraft = useRef<{ text: string; homeKey: string; activity: string } | null>(null);
+  // The Home Moments action prepares a one-use draft. It never sends a message
+  // on navigation and never overwrites an actively edited composer.
+  useEffect(() => {
+    const key = "home-moment-draft:" + conversationId;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return;
+    sessionStorage.removeItem(key);
+    try {
+      const draft = JSON.parse(raw) as { text?: unknown; homeKey?: unknown; activity?: unknown };
+      if (typeof draft.text === "string" && draft.text.trim().length > 0 && draft.text.length <= 500) {
+        if (typeof draft.homeKey === "string" && draft.homeKey.length <= 140 &&
+            typeof draft.activity === "string" && draft.activity.length <= 30)
+          homeDraft.current = { text: draft.text, homeKey: draft.homeKey, activity: draft.activity };
+        setText(current => current.trim() ? current : draft.text as string);
+      }
+    } catch {
+      // Discard an invalid one-time draft rather than disturbing the chat.
+    }
+  }, [conversationId]);
 
   const all = msgs.data ?? [];
   const visible = all.filter((m) => new Date(m.visible_at).getTime() <= now);
@@ -199,12 +219,21 @@ function Chat() {
       return;
     }
     const { data: u } = await supabase.auth.getUser();
-    const { error } = await supabase.from("messages").insert({ conversation_id: convId, user_id: u.user!.id, sender: "user", body });
+    // Provenance is an activity *suggestion*, never evidence that an outing occurred.
+    const draftSource = homeDraft.current;
+    const origin = draftSource && draftSource.text.trim() === body
+      ? { home_moment_prompt: { home_key: draftSource.homeKey, activity: draftSource.activity } }
+      : undefined;
+    const { error } = await supabase.from("messages").insert({
+      conversation_id: convId, user_id: u.user!.id, sender: "user", body,
+      ...(origin ? { metadata: origin } : {}),
+    });
     if (error) {
       toast.error("Message didn't send");
       setText(body);
       return;
     }
+    homeDraft.current = null;
     setNow(Date.now());
     await refetch();
     if (debounce.current) clearTimeout(debounce.current);

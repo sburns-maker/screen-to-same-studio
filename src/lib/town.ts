@@ -1,3 +1,4 @@
+import { WORKPLACES } from "./workplaces";
 /** Fictional venues near approximate public community centers; never device GPS. */
 export const TOWN_PLACES = [
   {
@@ -187,6 +188,7 @@ export const TOWN_PLACES = [
     opens: 16,
     closes: 2,
   },
+  ...Object.values(WORKPLACES),
 ] as const;
 export type TownNpc = {
   key: string;

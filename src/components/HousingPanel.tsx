@@ -1,4 +1,7 @@
 import { useRef, useState } from "react";
+import { ContactRelationshipStory } from "./ContactRelationshipStory";
+import { HomeMoments } from "./HomeMoments";
+import { HomePhotoGallery } from "./HomePhotoGallery";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -107,6 +110,7 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
       className={`${card} my-4 space-y-4`}
     >
       <h2 className="font-display text-xl">{character ? "Home" : "My home & household"}</h2>
+      {character && <ContactRelationshipStory characterKey={character} characterName={contacts.find((contact) => contact.key === character)?.name ?? character} />}
       {home ? (
         <div>
           <Link
@@ -128,6 +132,40 @@ export function HousingPanel({ character }: { character?: string | undefined }) 
             ? "Private home details have not been shared."
             : "No primary virtual home selected."}
         </p>
+      )}
+      {home && (!character || home.canVisit) && <HomeMoments home={home} snapshot={q.data} character={character} />}
+      {home && home.canVisit && home.primaryFor.includes("tess") && <HomePhotoGallery homeKey={home.key} />}
+      {!character && home && (
+        <section aria-label="My home photo memories" className="rounded-2xl border border-border/70 bg-background p-4 sm:p-5">
+          <h3 className="font-display text-xl">Your home memories</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Your place deserves its own photos and moments too. Only pictures explicitly tied to this residence will appear here—Tess's townhouse photos won't be relabeled as yours.</p>
+          <p className="mt-3 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">Home-photo uploads and verified room snapshots are coming next. For now, explore your place or invite someone over using Home Moments above.</p>
+        </section>
+      )}
+      {!character && home && (
+        <div aria-label="Household overview" className="overflow-hidden rounded-2xl border border-border/70 bg-gradient-to-br from-rose-50/80 via-background to-amber-50/70 p-4 shadow-sm dark:from-rose-950/20 dark:via-background dark:to-amber-950/10 sm:p-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Your little corner of the world</p>
+              <h3 className="mt-1 font-display text-2xl leading-tight">{home.label}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{home.community} · {home.arrangement.replaceAll("_", " ")}</p>
+            </div>
+            <span aria-hidden="true" className="rounded-full bg-background/80 px-3 py-2 text-xl shadow-sm">⌂</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border/60 bg-background/80 p-3">
+              <p className="text-xs text-muted-foreground">People at home</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{q.data.members.filter((m) => m.residence_id === home.id && m.kind !== "temporary").length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Recorded residents</p>
+            </div>
+            <div className="rounded-xl border border-border/60 bg-background/80 p-3">
+              <p className="text-xs text-muted-foreground">Shared-home plans</p>
+              <p className="mt-1 text-2xl font-semibold tabular-nums">{q.data.proposals.filter((p) => p.status === "pending" || p.status === "proposed").length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">Awaiting decisions</p>
+            </div>
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-muted-foreground">A home changes only when everyone required agrees. Dating, affection or relationship scores never move someone in automatically.</p>
+        </div>
       )}
       {!character && (
         <>

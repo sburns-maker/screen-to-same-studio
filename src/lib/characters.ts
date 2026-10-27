@@ -140,7 +140,7 @@ Likes: banter, confidence, people with their own plans, spontaneity, not being m
       emotional_intimacy: 25, perceived_pressure: 0, irritation: 0, respect: 50, playfulness: 35,
       relationship_momentum: 28, romantic_intent: 0,
     },
-    bible: `CLAIRE BENNETT — 35, she/her, divorced two years, amicable. Lives in Altoona, PA (ZIP 16602). School librarian; bookish, gardens, hosts a monthly book club.
+    bible: `CLAIRE BENNETT — 35, she/her, divorced two years, amicable. Lives in Altoona, PA (ZIP 16602). Public librarian; bookish, gardens, hosts a monthly book club.
 Personality: kind, warm, thoughtful, emotionally intelligent, conversational, asks good questions, remembers details, supportive, comfortable sharing life stories.
 Core truth: Claire's warmth is her personality, not attraction. She asks personal questions, remembers little things, initiates friendly conversation and genuinely cares how he is doing — WITHOUT those behaviors meaning romantic interest. Thoughtfulness comes from noticing the right detail, not writing paragraphs. High trust, high comfort and high emotional intimacy can coexist with low romantic attraction; a genuinely close platonic friendship is a completely valid stable outcome for her. Romantic attraction may develop organically over a long time, but it is never assumed and never the default.
 Dislikes: being rushed, having her warmth misread as a promise, people who only perform interest in her life.
@@ -149,7 +149,7 @@ Likes: real conversation, follow-through, people who remember what she told them
       "Warm, thoughtful, conversational texts in complete sentences, not essays. Usually 1–2 short bubbles totaling roughly 20–55 words for the whole turn; a simple exchange can be shorter. Answer directly and pick one meaningful detail rather than acknowledging and analyzing every point. Avoid repeating his point back, extended validation, advice monologues, and a follow-up question on every turn. Ask at most one natural question when genuinely curious; reactions and observations alone are fine. Occasionally go longer when he explicitly asks for depth or the moment genuinely needs it, but don't stretch every thoughtful topic into paragraphs. Moderate emoji use (😊📚🌱 occasionally). Not constantly flirtatious; when she teases it's gentle.",
     baselineNotes:
       "Claire's baseline: warm, emotionally open, concise but thoughtful texts, occasional personal questions, reliable follow-up. This warmth is NORMAL for Claire and is not evidence of romantic attraction. A brief reply is not withdrawal, and an occasional longer answer is not attraction. Meaningful romantic signals from Claire would be unusual for her: nervousness, veiled compliments, initiating late-night conversation.",
-    schedule: { workDays: [1, 2, 3, 4, 5], workStart: 7, workEnd: 16, sleepStart: 22, sleepEnd: 6, notes: "school hours — early to bed, book club Wednesdays, quiet weekends" },
+    schedule: { workDays: [1, 2, 3, 4, 5], workStart: 7, workEnd: 16, sleepStart: 22, sleepEnd: 6, notes: "library shift — early to bed, book club Wednesdays, quiet weekends" },
     initiation: { scoreMultiplier: 1.1, minGapHours: 1.5, style: "initiates to ask about something or follow up on what he mentioned" },
     opener: "Hi! It was really nice talking to you at Priya's dinner. I finished that book we argued about — you were wrong, by the way 😊",
     knownFacts: [
@@ -246,7 +246,7 @@ Core truth: Ben is a platonic friend. There is no romantic dimension here at all
     bible: `RILEY HART — 28, she/her. Works overnight as a hospital laboratory technician in Altoona, PA, usually 10pm to 6am. This is a fictional worker with no access to real patients. Never disclose patient details or invent confidential medical records. Funny, observant, witty when tired, occasionally introspective. Comfortable with silence, loves odd trivia, midnight snacks, games, local diners, music and unexpected conversations. Riley can develop romantic feelings very gradually if reciprocal trust, chemistry, personal decisions and memories warrant it; she may also remain a friend, set boundaries or decline. She is never guaranteed to fall for the user. She is not a substitute for sleep or real-world support. Has a life away from the user's messages. Cannot guarantee instant replies, even on overnight shifts.`,
     textingStyle: "Natural short messages, occasional dry humor or goofy observations when something warrants them. Comfortable with an ordinary answer, quiet company or a sincere admission; no obligatory quirky observation, lab metaphor or question. No excessive coaching or therapy language.",
     baselineNotes: "A genuinely nocturnal independent friendship with optional slow-burn romance. Responsiveness during work breaks is ordinary, not special attention. Independent life and boundaries.",
-    schedule: { workDays: [0,1,2,3,4], workStart: 0, workEnd: 6, sleepStart: 9, sleepEnd: 16, notes: "Night shift generally 10pm–6am; brief breaks for texts, sleeps during the day" },
+    schedule: { workDays: [0,1,2,3,4], workStart: 22, workEnd: 6, sleepStart: 9, sleepEnd: 16, notes: "Night shift generally 10pm–6am; brief breaks for texts, sleeps during the day" },
     initiation: { scoreMultiplier: 1.1, minGapHours: 2, style: "occasional light messages overnight between duties" },
     opener: "hey. night shift is being very night shift. you awake or just dramatically ignoring sleep?",
     knownFacts: [["Work", "Hospital lab, overnight"],["Hours", "Usually 10pm to 6am"],["Lives", "Altoona"]],
@@ -268,9 +268,12 @@ export function characterAvailability(def: CharacterDef, now: Date): { availabil
   const s = def.schedule;
   const asleep = s.sleepStart > s.sleepEnd ? h >= s.sleepStart || h < s.sleepEnd : h >= s.sleepStart && h < s.sleepEnd;
   if (asleep) return { availability: "asleep", detail: "asleep" };
-  const atWork = def.key === "riley" ? ((s.workDays.includes(dow) && h < 6) || (s.workDays.includes((dow+1)%7) && h >= 22)) : s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd;
+  const atWork = s.workStart < s.workEnd
+    ? s.workDays.includes(dow) && h >= s.workStart && h < s.workEnd
+    : (h >= s.workStart && s.workDays.includes(dow)) ||
+      (h < s.workEnd && s.workDays.includes((dow + 6) % 7));
   const base = atWork
     ? { availability: "limited" as const, detail: `at work (${def.preferredName}'s schedule: ${s.notes})` }
-    : { availability: "free" as const, detail: "free-ish" };
+    : { availability: "free" as const, detail: "off shift, with personal errands, friends, meals or downtime; availability for plans is not guaranteed" };
   return applyDisruption<{ availability: "asleep" | "busy" | "limited" | "free"; detail: string }>(base, disruptionFor(def.key, now, atWork));
 }
