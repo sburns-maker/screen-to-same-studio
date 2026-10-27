@@ -61,3 +61,13 @@ export function commitmentLabel(status: CommitmentStatus): string {
     divorced: "Divorced",
   } as const)[status];
 }
+
+/** Structured fictional character intent, attached only to a committed visible message. */
+export const commitmentActionSchema = z.object({
+  action: z.enum(["propose", "accept", "decline"]).nullable(),
+  kind: z.enum(["exclusive", "partnership", "engagement", "marriage", "separation", "divorce"]).nullable(),
+  quote: z.string().max(500).nullable(),
+  proposalId: z.string().uuid().nullable(),
+});
+export type CommitmentAction = z.infer<typeof commitmentActionSchema>;
+export const COMMITMENT_ACTION_RULES = `RELATIONSHIP DECISIONS: commitment_action defaults to {action:null,kind:null,quote:null,proposalId:null}. Tess may independently propose exclusivity or partnership only when sincerely desired and her recent established relationship context supports it; never as a score reward or scheduled obligation. Only put action=propose when her own current visible words make a clear, specific request for a mutually chosen relationship commitment. Do not mistake romantic language, jokes, kisses or a hypothetical future for a proposal. quote must be an exact contiguous passage from her message. Character response actions require the authoritative pending proposal ID; otherwise do not emit accept/decline. Never imply the player has already accepted. Housing, marriage, separation and family changes have separate approval workflows and may never be inferred from this proposal. Never manufacture consent.`;
