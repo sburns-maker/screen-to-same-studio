@@ -180,7 +180,9 @@ export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyReq
     envelope?.code !== 200 ||
     !q ||
     typeof q.quoteId !== "string" ||
-    !/^[A-Za-z0-9_-]{1,200}$/.test(q.quoteId) ||
+    // Provider-issued opaque tokens may be signed and dot-delimited. Preserve
+    // them verbatim; bound size and reject whitespace/control/non-ASCII bytes.
+    !/^[\x21-\x7E]{1,4096}$/.test(q.quoteId) ||
     q.model !== body.model ||
     (q.currency ?? "USD") !== "USD" ||
     !/^\d{1,6}(?:\.\d{1,10})?$/.test(cost) ||
