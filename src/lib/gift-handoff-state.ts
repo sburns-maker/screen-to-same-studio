@@ -4,9 +4,8 @@ export function nextGiftStatus(current: GiftStatus, action: "wait" | "take_back"
   if (current === "returned" || current === "received") return current;
   return action === "take_back" ? "returned" : "waiting";
 }
-export function giftReceiptConfirmed(status: GiftStatus): false {
-  void status;
-  return false;
+export function giftReceiptConfirmed(status: GiftStatus): boolean {
+  return status === "received";
 }
 
 /** Conservative character first-person acknowledgment, tied to the actual item.
