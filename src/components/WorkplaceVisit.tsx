@@ -16,7 +16,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [error, setError] = useState("");
   const [spoken, setSpoken] = useState("");
   const [encounterStatus, setEncounterStatus] = useState("");
-  const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak">("ask");
+  const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak" | "drop_lunch">("ask");
   if (!workplace) return null;
   const place = workplace;
   const name = CHARACTERS[workplace.character as CharacterKey].preferredName;
@@ -53,7 +53,9 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       const rows = await inbox({});
       const thread = rows.find(row => row.characterKey === place.character);
       if (!thread) throw new Error("Conversation unavailable");
-      const draft = choice === "speak"
+      const draft = choice === "drop_lunch"
+        ? `Hey ${name}, I stopped by the public reception desk at ${place.label} to leave a lunch for you. I didn’t go into any staff or patient areas. If the front desk can accept it, they can let you know whenever you get a break. No need to stop what you’re doing.`
+        : choice === "speak"
         ? `Hey ${name}, I’m in the public visitor area at ${place.label}. If you’re actually here and have time, could we catch up for a minute? Totally fine if not.`
         : choice === "wait"
         ? `Hey ${name}, I am in the public waiting area near ${place.label}. No rush or pressure—are you free for a quick hello, or should I head out?`
@@ -83,11 +85,12 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {(arrived ? ["ask", "speak", "wait", "leave_note"] as const : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
+        {(arrived ? (place.character === "riley" ? ["ask", "speak", "wait", "leave_note", "drop_lunch"] as const : ["ask", "speak", "wait", "leave_note"] as const) : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "drop_lunch" ? "Drop off lunch" : item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>
-    {arrived && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
+    {arrived && place.character === "riley" && choice === "drop_lunch" && <p className="mt-3 rounded-xl border bg-background p-3 text-sm">Leave lunch with the public reception desk only if staff can accept it. No lab access, no guaranteed handoff or interruption. Your editable message will let Riley know; the lunch is not marked received until the story confirms it.</p>}
+    {arrived && choice !== "drop_lunch" && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
       <label htmlFor="workplace-dialogue" className="block text-sm font-medium">Speak from the public visitor area</label>
       <textarea id="workplace-dialogue" value={spoken} maxLength={900} onChange={e=>setSpoken(e.target.value)}
         placeholder={restricted ? "Ask whether they can meet you outside the restricted area…" : "Say hello, ask if they have a moment…"}
@@ -101,7 +104,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     {encounterStatus && <p role="status" className="mt-2 text-sm">{encounterStatus}</p>}
     <button type="button" disabled={busy} onClick={() => void prepare()}
       className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">
-      {busy ? "Opening conversation…" : choice === "leave_note" ? "Write a note" : choice === "speak" ? "Open live conversation" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
+      {busy ? "Opening conversation…" : choice === "drop_lunch" ? "Write lunch drop-off message" : choice === "leave_note" ? "Write a note" : choice === "speak" ? "Open live conversation" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
     </button>
     {error && <p role="alert" className="mt-2 text-sm text-destructive">{error}</p>}
   </section>;
