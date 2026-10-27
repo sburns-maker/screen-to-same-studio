@@ -44,3 +44,28 @@ Automated tests use mocked paid image/vision/text boundaries. Tests cover distin
 **Results:** all **429 tests in 45 files** passed, as did `tsc --noEmit`, the production `vite build`, focused ESLint and whitespace checks. Existing build warnings remain.
 
 Manual visual acceptance remains required: on an authorized preview, use the existing developer **Preview** first (free), then separately approve a paid opportunity at a compatible time. Compare a Tess clinic-break photo and Maya venue/home moments against their actual current approved references; test a short same-location follow-up, an explicitly changed hairstyle, a mood-appropriate tired expression and an environment-only photo. Inspect separate captions and the debug scenario/style/retry record. The character can still decline. No live image was generated during this task and automated tests do not establish actual rendered likeness, wardrobe fidelity or caption accuracy.
+
+## Subject balance after repeated objects
+
+The owner/conversation-scoped delivered-photo lookup now also feeds a separate
+24-hour subject history (latest six screened generated attachments, deduplicated
+by storage path). It counts object/environment photos as well as photos with the
+character in frame. Hidden, pending, rejected and other-character photos do not
+contribute. Object photos still cannot supply outfit or hairstyle continuity.
+
+Two most recent object-only photos add a soft suggestion to consider an ordinary
+eligible selfie or candid in the actual setting. There is no forced alternation,
+romantic escalation, new photographer or outfit change, and direct requests for
+objects remain valid. Topic repetition guidance explicitly allows the character's
+face rather than implicitly requiring a new object. Shared guidance applies to
+all cast members while preserving each photography profile and all eligibility
+and willingness checks. No images are regenerated and no additional model call
+is made. Curated/legacy photos without screened character metadata are excluded
+from this signal rather than assigned an unverified subject.
+
+`photo-subject-balance.test.ts` exercises 20 synthetic opportunities per character;
+these checks validate prompt context, not actual model choice or generated pixels.
+After publication, review naturally delivered photos for subject balance, current
+location/clothes and identity. A run of object photos may still be an intentional
+choice or a selfie boundary; inspect existing photo diagnostics before changing
+permissions. This workspace cannot verify the user's live conversation history.

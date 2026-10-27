@@ -235,6 +235,7 @@ export type PhotographyPlan = {
   continuity: VisualContinuity;
   continuitySource: "recent_delivered_photo" | "current_context_only";
   continuityReason: string;
+  recentSubjects?: PhotoSubject[];
   recentStyles?: PhotoStyle[];
   captureDecision?: string;
   ordinaryWardrobe?: string | null;
@@ -255,6 +256,7 @@ export function planPhotography(args: {
   userText?: string;
   weather?: string | null;
   previous?: DeliveredPhoto | null;
+  recentSubjects?: PhotoSubject[];
   recentStyles?: PhotoStyle[];
 }): PhotographyPlan {
   const profile = photographyProfile(args.character),
@@ -325,6 +327,7 @@ export function planPhotography(args: {
     ordinaryWardrobe: retain && previous.style.clothing_category
       ? previous.style.clothing_category
       : ordinaryWardrobeChoice(args.character, args.now, location, text),
+    recentSubjects: (args.recentSubjects ?? []).slice(0, 6),
     recentStyles: (args.recentStyles ?? []).slice(0, 20),
     continuity: {
       hairstyle: retain ? (previous.style.hairstyle ?? null) : null,
@@ -338,9 +341,46 @@ export function planPhotography(args: {
       : outfitEpisode === "context_transition" ? "An established clothing change starts a fresh visual episode." : "No established same-day outfit continuity; do not invent continuity.",
   };
 }
+export type PhotoSubject = "object" | "person";
+/** Separate from outfit continuity: objects must count toward subject variety, never supply clothes. */
+export function deliveredPhotoSubjects(
+  messages: Parameters<typeof deliveredPhotoHistory>[0],
+  character: string,
+  now: Date,
+): PhotoSubject[] {
+  const subjects: PhotoSubject[] = [];
+  const seen = new Set<string>();
+  const personTypes = ["casual_selfie", "personal_selfie", "intimate_selfie", "tess_candid", "mature_romantic"];
+  for (const m of [...messages].sort((a, b) =>
+    (b.visible_at ?? b.created_at).localeCompare(a.visible_at ?? a.created_at))) {
+    const at = Date.parse(m.visible_at ?? m.created_at);
+    const md = m.metadata as {
+      generated_path?: string;
+      photo_type?: string;
+      photo_identity?: { validationStatus?: string };
+      photo_visual?: { version?: number; character?: string };
+    } | null;
+    if (m.sender !== "tess" || !Number.isFinite(at) || !Number.isFinite(Date.parse(m.created_at)) ||
+      at > now.getTime() || at < now.getTime() - 24 * 3_600_000 ||
+      typeof md?.generated_path !== "string" || !md.generated_path ||
+      md.photo_identity?.validationStatus !== "screen_passed" ||
+      md.photo_visual?.version !== 1 || md.photo_visual.character !== character ||
+      (md.photo_type !== "object" && !personTypes.includes(md.photo_type ?? "")) ||
+      seen.has(md.generated_path)) continue;
+    seen.add(md.generated_path);
+    subjects.push(md.photo_type === "object" ? "object" : "person");
+    if (subjects.length === 6) break;
+  }
+  return subjects;
+}
+
+export function photoSubjectGuidance(subjects: readonly PhotoSubject[]): string {
+  return `PHOTO SUBJECT BALANCE: A grounded photograph can include you; it does not need a new object, event, scenic view or visual punchline. An ordinary front-camera selfie, a reaction selfie, or a plausible candid of you doing your current activity can fit your personality just as naturally as a detail photo. Avoiding a repeated coffee or conversation topic does not mean avoiding your face. Subject choice is independent of framing and wardrobe variety. Respect the player's actual request and current context; never substitute a selfie when they asked to see a particular object. Only choose an eligible type if independently willing; a selfie boundary, privacy or being busy still applies. No required alternation, quota, new photographer, forced outfit change or escalation to romantic content. No photo remains valid.${subjects.length >= 2 && subjects[0] === "object" && subjects[1] === "object" ? " Your two most recent visible screened photos in the last 24 hours were object/environment-only. Consider an ordinary eligible photo with you in frame if you want to share, rather than reflexively finding another prop. This is a soft suggestion, never permission or an obligation." : ""}`;
+}
+
 export function photographyGuidance(plan: PhotographyPlan): string {
   const p = photographyProfile(plan.character);
-  return `CATEGORY STYLING: mature_romantic is a deliberately suggestive but non-explicit photo category for consenting adult characters, distinct from the cozy affectionate intimate_selfie. When character willingness and current scene support it, permit ordinary believable lingerie, matching bra and underwear, bralette sets, satin slips, flattering necklines, or a partly open robe over underwear. Choose natural yet confident posing, subtle romantic tension, and authentic unfiltered phone-camera framing, not studio glamour, generic pajamas, or polished pinup aesthetics. These wardrobe examples are optional, not required: preserve established outfit and location continuity, personal boundaries, and character choice. No nudity, visible nipples or genitals, explicit acts, or pornographic poses. Provider moderation is authoritative; do not circumvent rejection. Keep existing category identifiers.\nPHOTOGRAPHY PERSONALITY (soft preferences, never permission): ${JSON.stringify(p)}\nGrounded scenario plan: ${JSON.stringify(plan)}\nORDINARY PHOTO WARDROBE: ordinaryWardrobe is one character-specific fallback for this local day and activity, not a fact already established in dialogue. Use it only when no current clothing is established or explicitly requested. For ordinary photos choose concrete garment, color and fabric details rather than generic home_casual/work labels. Do not default everyone to the same knit, polo, hoodie or matching palette. Keep established clothes within a scene. This fallback does not apply to mature_romantic styling.\nPriority: approved canonical identity > factual continuity > user-established scene > tendencies > aesthetic defaults. Settings above are examples, not destinations or evidence. Do not invent visits, completed events, clothes, objects or relationships to fit a tag. Current outfit/hair/scene requests override defaults; keep a recent same-moment outfit or hairstyle unless the conversation establishes a change. Known location is current; never teleport back to a prior photo. Regional weather applies only when relevant to the actual setting; do not invent indoor lighting. Vary framing and expression, not established facts. Mood overrides expression tendencies. Captions are separate messages in your established dialogue voice, match only the actual selected scene and never become image text. Do not repeat recent jokes or signature phrases. A null scenario is valid; don't force a photo. These notes do not change eligibility, willingness, budgets or identity rules.`;
+  return `CATEGORY STYLING: mature_romantic is a deliberately suggestive but non-explicit photo category for consenting adult characters, distinct from the cozy affectionate intimate_selfie. When character willingness and current scene support it, permit ordinary believable lingerie, matching bra and underwear, bralette sets, satin slips, flattering necklines, or a partly open robe over underwear. Choose natural yet confident posing, subtle romantic tension, and authentic unfiltered phone-camera framing, not studio glamour, generic pajamas, or polished pinup aesthetics. These wardrobe examples are optional, not required: preserve established outfit and location continuity, personal boundaries, and character choice. No nudity, visible nipples or genitals, explicit acts, or pornographic poses. Provider moderation is authoritative; do not circumvent rejection. Keep existing category identifiers.\nPHOTOGRAPHY PERSONALITY (soft preferences, never permission): ${JSON.stringify(p)}\nGrounded scenario plan: ${JSON.stringify(plan)}\n${photoSubjectGuidance(plan.recentSubjects ?? [])}\nORDINARY PHOTO WARDROBE: ordinaryWardrobe is one character-specific fallback for this local day and activity, not a fact already established in dialogue. Use it only when no current clothing is established or explicitly requested. For ordinary photos choose concrete garment, color and fabric details rather than generic home_casual/work labels. Do not default everyone to the same knit, polo, hoodie or matching palette. Keep established clothes within a scene. This fallback does not apply to mature_romantic styling.\nPriority: approved canonical identity > factual continuity > user-established scene > tendencies > aesthetic defaults. Settings above are examples, not destinations or evidence. Do not invent visits, completed events, clothes, objects or relationships to fit a tag. Current outfit/hair/scene requests override defaults; keep a recent same-moment outfit or hairstyle unless the conversation establishes a change. Known location is current; never teleport back to a prior photo. Regional weather applies only when relevant to the actual setting; do not invent indoor lighting. Vary framing and expression, not established facts. Mood overrides expression tendencies. Captions are separate messages in your established dialogue voice, match only the actual selected scene and never become image text. Do not repeat recent jokes or signature phrases. A null scenario is valid; don't force a photo. These notes do not change eligibility, willingness, budgets or identity rules.`;
 }
 /** Sanitized structural diagnostics; no transcripts, image bytes, URLs, secrets or full prompts. */
 function safe(value: string | null | undefined): string | null {
