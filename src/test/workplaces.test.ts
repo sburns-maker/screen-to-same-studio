@@ -14,9 +14,9 @@ describe("fictional places of work", () => {
       expect(TOWN_PLACES.some(p => p.key === place.key)).toBe(true);
     }
   });
-  it("does not treat hospital or school jobs as unrestricted visits", () => {
+  it("restricts hospital visits and keeps library visitors in public space", () => {
     expect(WORKPLACES.riley.publicAccess).toBe("restricted");
-    expect(WORKPLACES.claire.publicAccess).toBe("restricted");
+    expect(WORKPLACES.claire.publicAccess).toBe("lobby");
     const guidance=workVisitGuidance("riley", new Date("2026-10-27T06:00:00Z"));
     expect(guidance).toContain("does not guarantee");
     expect(guidance).toContain("never imply workplace access");

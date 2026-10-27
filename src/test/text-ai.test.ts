@@ -212,6 +212,7 @@ describe("correlated structured provider diagnostics", () => {
     const { SEED_STATE } = await import("@/lib/tess-logic");
     const full = {
       housing_actions: null,
+      commitment_action: {action:null,kind:null,quote:null,proposalId:null},
       schedule_actions: null,
       continuity: null,
       messages: ["Yes, let's continue the afternoon there."],

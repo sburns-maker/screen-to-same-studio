@@ -32,6 +32,7 @@ describe("reply schema memory layers", () => {
       continuity: null,
       schedule_actions: null,
       housing_actions: null,
+      commitment_action: {action:null,kind:null,quote:null,proposalId:null},
       messages: ["hi"],
       send_delay_seconds: 10,
       state_delta: Object.fromEntries(

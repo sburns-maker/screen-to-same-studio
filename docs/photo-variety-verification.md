@@ -63,3 +63,13 @@ background. Repeated uniforms are valid; repeated whole compositions are not des
 Do not require an expression, outfit or hairstyle change for every opportunity. Reject
 unexplained travel, wardrobe changes, invented people and identity drift. Real output
 variety remains a manual acceptance check; all automated provider responses are mocked.
+
+## Compatibility with the current home/workplace foundation
+
+The integrated branch also corrects optional/narrowed TypeScript values in home and
+workplace controls and uses explicit record indexing for relationship-history reads.
+Updated fixtures account for the commitment action contract, six newly registered
+workplaces, and Claire's public library role. Town initialization retains its prior
+preservation guarantee: newly registered venues are inserted, and existing venue labels
+are not overwritten. None of these corrections applies a production migration or changes
+saved relationships, consent, residence membership, or conversations.

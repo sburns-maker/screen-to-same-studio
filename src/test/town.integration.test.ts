@@ -47,9 +47,9 @@ beforeEach(async () => {
   await initializeTown(admin, user);
 });
 describe("persistent exploration and contact exchange", () => {
-  it("seeds the same eleven places without changing existing primary conversations", async () => {
+  it("seeds the same public and workplace places without changing existing primary conversations", async () => {
     await initializeTown(admin, user);
-    expect(await count("world_places")).toBe(16);
+    expect(await count("world_places")).toBe(22);
     expect(await count("conversations")).toBe(0);
     expect(await count("messages")).toBe(0);
   });

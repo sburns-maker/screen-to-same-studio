@@ -46,10 +46,19 @@ export async function initializeTown(db: Client, user: string) {
       kind: p.kind,
       metadata: { ...p, public: true, fictional: true },
     })),
-    { onConflict: "user_id,key" },
+    { onConflict: "user_id,key", ignoreDuplicates: true },
   );
   if (r.error) throw new Error("Places could not be loaded");
-
+  // Annotate old registry rows without renaming an established place or replacing its metadata.
+  for (const p of places) {
+    const marked = await db
+      .from("world_places")
+      .update({ metadata: { ...p, public: true, fictional: true } })
+      .eq("user_id", user)
+      .eq("key", p.key)
+      .eq("metadata", "{}");
+    if (marked.error) throw new Error("Place geography unavailable");
+  }
   const people = await db.from("town_people").upsert(
     npcs.map((n) => ({
       user_id: user,
