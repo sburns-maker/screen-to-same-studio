@@ -5,6 +5,7 @@ import { ensureConversations, inboxOverview } from "@/lib/tess.functions";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
 import { WORKPLACES, workplaceShiftLikely } from "@/lib/workplaces";
 import { workplaceEncounterTurn } from "@/lib/workplace-encounter.functions";
+import { nextReceptionTurn, dropoffSummary, type ReceptionSession } from "@/lib/workplace-reception";
 
 export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrived: boolean }) {
   const workplace = Object.values(WORKPLACES).find(p => p.key === placeKey);
@@ -18,8 +19,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [lunch, setLunch] = useState("A packed lunch and a drink");
   const [dropoffNote, setDropoffNote] = useState('I walk up to reception with the lunch. "Hi, I brought this for someone who works here. Is there a permitted way to leave it for them?"');
   const [encounterStatus, setEncounterStatus] = useState("");
-  const [receptionStep, setReceptionStep] = useState<"approach" | "requested">("approach");
-  const [handoffChoice, setHandoffChoice] = useState<"wait" | "leave_message">("leave_message");
+  const [receptionSession, setReceptionSession] = useState<ReceptionSession | null>(null);
   const [choice, setChoice] = useState<"ask" | "wait" | "leave_note" | "speak" | "drop_lunch">("ask");
   if (!workplace) return null;
   const place = workplace;
@@ -31,7 +31,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     : `Hey ${name}, would it be okay if I stopped by ${workplace.label} when you have a minute? No pressure if you're busy.`;
 
   async function speakOnSite(dropoff = false) {
-    if (!workplace || !arrived || busy || !(dropoff ? dropoffNote.trim() && lunch.trim() : spoken.trim())) return;
+    if (!workplace || !arrived || busy || !(dropoff ? receptionSession && receptionSession.turns.length > 0 && lunch.trim() : spoken.trim())) return;
     setBusy(true);setError("");setEncounterStatus("");
     try {
       await ensure();
@@ -41,7 +41,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       await encounter({ data: {
         conversationId: thread.id, character: place.character,
         activity: dropoff ? "lunch_dropoff" : "conversation",
-        text: dropoff ? `I brought ${lunch.trim()} for ${name}. ${dropoffNote.trim()} ${handoffChoice === "wait" ? "I stay in the public waiting area to see whether there is a permitted handoff." : "I offer to leave a message for them at reception."}` : spoken.trim(), requestId: crypto.randomUUID(),
+        text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : spoken.trim(), requestId: crypto.randomUUID(),
       }});
       if (!dropoff) setSpoken("");
       setEncounterStatus("Your conversation was recorded. Open the thread to continue and read the reply.");
@@ -99,18 +99,20 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <p className="text-sm text-muted-foreground">You're in the permitted public visitor area. Ask reception about a delivery; no access to staff-only spaces or guaranteed handoff.</p>
       <label htmlFor="lunch-items" className="block text-sm font-medium">What did you bring?</label>
       <input id="lunch-items" value={lunch} maxLength={160} onChange={e => setLunch(e.target.value)} className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm" />
-      <label htmlFor="lunch-dialogue" className="block text-sm font-medium">What do you say or do?</label>
+      <label htmlFor="lunch-dialogue" className="block text-sm font-medium">Speak with reception</label>
       <textarea id="lunch-dialogue" value={dropoffNote} maxLength={600} onChange={e => setDropoffNote(e.target.value)} rows={4} className="w-full rounded-lg border bg-background p-3 text-sm" />
-      {receptionStep === "requested" && <div className="space-y-2 rounded-xl border p-3" aria-label="Reception response">
-        <p className="text-sm"><strong>Reception:</strong> "I can take your request, but I can’t promise a handoff or interrupt anyone at work. Would you prefer to wait in the public area or leave a message?"</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" aria-pressed={handoffChoice === "wait"} className="min-h-11 rounded-lg border px-3 text-sm" onClick={() => setHandoffChoice("wait")}>Wait here</button>
-          <button type="button" aria-pressed={handoffChoice === "leave_message"} className="min-h-11 rounded-lg border px-3 text-sm" onClick={() => setHandoffChoice("leave_message")}>Leave a message</button>
-        </div>
-      </div>}
-      <button type="button" disabled={busy || !lunch.trim() || !dropoffNote.trim()} onClick={() => receptionStep === "approach" ? setReceptionStep("requested") : void speakOnSite(true)} className="min-h-11 rounded-xl bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
-        {busy ? "Playing scene…" : receptionStep === "approach" ? "Ask reception" : "Continue drop-off"}
-      </button>
+      {receptionSession?.turns.map((turn, i) => <p key={i} className="rounded-lg border p-3 text-sm"><strong>{turn.speaker === "player" ? "You" : "Reception"}:</strong> {turn.body}</p>)}
+      {receptionSession && <p className="text-xs text-muted-foreground">Status: {receptionSession.outcome.replaceAll("_", " ")}. Item receipt is unconfirmed.</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={busy || !lunch.trim() || !dropoffNote.trim() || (receptionSession?.turns.length ?? 0) >= 20} onClick={() => {
+          const previous = receptionSession ?? { character: place.character as CharacterKey, item: lunch.trim(), outcome: "unresolved" as const, turns: [] };
+          setReceptionSession(nextReceptionTurn({ ...previous, item: lunch.trim() }, dropoffNote));
+          setDropoffNote("");
+        }} className="min-h-11 rounded-xl border px-4 text-sm">Talk to reception</button>
+        {receptionSession && receptionSession.turns.length > 0 && <button type="button" disabled={busy} onClick={() => void speakOnSite(true)} className="min-h-11 rounded-xl bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
+          {busy ? "Saving…" : "Finish visit"}
+        </button>}
+      </div>
       <p className="text-xs text-muted-foreground">Reception is a fictional on-site interaction. Continuing records your attempted delivery, not a completed handoff. No scheduling or restricted access.</p>
     </div>}
     {arrived && choice !== "drop_lunch" && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
