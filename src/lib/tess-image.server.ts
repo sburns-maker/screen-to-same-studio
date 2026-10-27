@@ -326,7 +326,12 @@ export async function generateTessImage(args: {
     // A rejected candidate must never be delivered or replace the original identity anchor.
     // Retry only a visual-design mismatch, once, with stronger face continuity instructions.
     for (let attempt = 0; attempt < 2; attempt++) {
-      const retryPrompt = attempt === 0 ? prompt : retryReasons[0] === "scene_mismatch"\n        ? `${prompt}\n\nSECOND ATTEMPT — SCENE CORRECTION: The previous candidate failed the required scene consistency screen. Strictly follow the requested CURRENT location, time of day, activity, and access restrictions. If at work, depict only a plausible permitted staff/public setting for the fictional worker—never patient care, private records, identifiable patients, or an invented off-duty location. Preserve the supplied character reference. Do not use the previous failed image as a reference.`\n        : `${prompt}\n\nSECOND ATTEMPT — IDENTITY CONTINUITY CORRECTION: The previous candidate did not match the approved fictional character portrait. Use the ORIGINAL supplied reference as the identity source, not the prior generation. Preserve facial geometry, eye shape, nose, lips, jawline, complexion and approximate age. The requested messy bun, expression, outfit and lighting are legitimate variations and must remain possible. Do not reproduce the portrait pose or setting.`;
+      const retryPrompt =
+        attempt === 0
+          ? prompt
+          : retryReasons[0] === "scene_mismatch"
+            ? `${prompt}\n\nSECOND ATTEMPT — SCENE CORRECTION: The previous candidate failed the required scene consistency screen. Strictly follow the requested CURRENT location, time of day, activity, and access restrictions. If at work, depict only a plausible permitted staff/public setting for the fictional worker—never patient care, private records, identifiable patients, or an invented off-duty location. Preserve the supplied character reference. Do not use the previous failed image as a reference.`
+            : `${prompt}\n\nSECOND ATTEMPT — IDENTITY CONTINUITY CORRECTION: The previous candidate did not match the approved fictional character portrait. Use the ORIGINAL supplied reference as the identity source, not the prior generation. Preserve facial geometry, eye shape, nose, lips, jawline, complexion and approximate age. The requested messy bun, expression, outfit and lighting are legitimate variations and must remain possible. Do not reproduce the portrait pose or setting.`;
       stage = "provider_generation";
       const candidate = await args.provider.generate(retryPrompt, references, {
         highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
