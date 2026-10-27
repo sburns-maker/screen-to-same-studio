@@ -1,0 +1,1 @@
+DO $$ BEGIN IF to_regclass('public.spicy_photo_jobs') IS NULL THEN RAISE EXCEPTION 'spicy_photo_jobs missing after 0051'; END IF; END $$;

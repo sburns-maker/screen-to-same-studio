@@ -365,6 +365,13 @@
       "when": 1793100000000,
       "tag": "0051_spicy_photo_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1793100000001,
+      "tag": "0052_verify_spicy_photo_install",
+      "breakpoints": true
     }
   ]
 }
