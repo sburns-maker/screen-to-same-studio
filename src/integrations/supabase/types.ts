@@ -3832,6 +3832,10 @@ export type Database = {
         }
         Returns: string
       }
+      relationship_sync_character: {
+        Args: { p_character: string; p_user: string }
+        Returns: number
+      }
       relationship_sync_tess: { Args: { p_user: string }; Returns: number }
       reserve_image_attempt: {
         Args: {
