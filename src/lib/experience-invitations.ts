@@ -13,6 +13,7 @@ export function invitationGuidance(x: InvitationContext): string {
     jordan: "A simple coffee or low-key practical outing is more natural than repeated romantic overtures.",
     ben: "Suggest a game, food, or hanging out as friends; keep this strictly platonic.",
     riley: "Breakfast or coffee after her shift, or a relaxed outing on her day off, may fit; respect her daytime sleep.",
+    kendra: "Brunch, a workout, dinner, live music or a spontaneous night out can fit around shoots, castings and travel. Romantic or casual invitations require mutual interest; she protects bookings and her professional reputation.",
     sienna: "Coffee before second shift, dancing or a late-night food run on a free evening can fit. Romantic invitations require mutual interest; protect her own work and photography commitments.",
   };
   return boundary + " Only if it fits their recent life and conversations, they MAY independently suggest an outing. " + ideas[x.key] + " Propose a realistic future time rather than assuming immediate availability. Current schedule: " + x.detail;

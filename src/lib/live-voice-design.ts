@@ -32,6 +32,10 @@ export const VOICE_DESIGNS = {
     name: "Sienna — Bold",
     description: "An adult American woman, 29, from western Pennsylvania. Natural warm feminine conversational voice, confident direct delivery, quick situational wit and affectionate teasing. Expressive without constant performance; thoughtful pauses and sincere vulnerability when appropriate. No real-person imitation, exaggerated breathiness, caricature or announcer delivery.",
   },
+  kendra: {
+    name: "Kendra — Playful",
+    description: "An adult American woman, 26, from central Pennsylvania. Bright, warm, natural feminine conversational voice with confident playful energy, easy laughter and quick teasing. Can turn sincere and a little unsure when vulnerable. No real-person imitation, exaggerated breathiness, vocal fry caricature or announcer delivery.",
+  },
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 /** Shared cast allowlist for creation, auditions and phone-voice assignment. */
