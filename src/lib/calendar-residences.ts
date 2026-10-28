@@ -18,7 +18,7 @@ export function homeInvitationActivity(
     return null;
   if (!/\b(?:my (?:house|home|place|apartment)|at mine)\b/i.test(s)) return null;
   if (
-    !/\b(?:come (?:over|round|to)|want to|would you|how about|you['’]re invited|you are invited|let['’]s|we (?:could|should)|i['’]d (?:love|like))\b/i.test(
+    !/\b(?:come (?:over|round|to)|want to|would you|how about|you['’]re invited|you are invited|let['’]s|we (?:could|should)|i['’]d (?:love|like)|(?:my (?:house|home|place|apartment)|mine) (?:is|works|sounds) (?:fine|good|great|perfect)|(?:is|it['’]s) (?:still )?the plan|put (?:it|us|that) down|works for me|see you (?:then|there|at))\b/i.test(
       s,
     )
   )
@@ -27,9 +27,7 @@ export function homeInvitationActivity(
   if (/\b(?:games?|game night)\b/i.test(s)) return { title: "Game night", category: "meetup" };
   if (/\b(?:cook|cooking|dinner)\b/i.test(s))
     return { title: "Dinner together", category: "dinner" };
-  if (/\b(?:hang out|come over|visit)\b/i.test(s))
-    return { title: "Visit at home", category: "meetup" };
-  return null;
+  return { title: "Visit at home", category: "meetup" };
 }
 export function sameHomeActivity(a: string, b: string) {
   const classify = (s: string) =>
