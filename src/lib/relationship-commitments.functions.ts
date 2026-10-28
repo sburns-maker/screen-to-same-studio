@@ -1,3 +1,4 @@
+import { supportsRelationshipCommitment } from "./relationship-commitments";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -24,11 +25,11 @@ export const changeRelationshipCommitment = createServerFn({ method: "POST" })
   }).parse(value))
   .handler(async ({ context, data }) => {
     const { CHARACTERS } = await import("./characters");
-    if (!CHARACTERS[data.characterKey].romanticCapable || CHARACTERS[data.characterKey].age < 18)
+    if (!supportsRelationshipCommitment(data.characterKey) || !CHARACTERS[data.characterKey].romanticCapable || CHARACTERS[data.characterKey].age < 18)
       throw new Error("Romantic commitments are unavailable for this contact");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { commitmentReady } = await import("./relationship-commitments.server");
-    if (!(await commitmentReady(supabaseAdmin))) throw new Error("Relationship feature is not enabled");
+    const { commitmentSnapshot } = await import("./relationship-commitments.server");
+    if (!(await commitmentSnapshot(supabaseAdmin, context.userId, data.characterKey)).available) throw new Error("Relationship feature is not enabled");
     const result = await supabaseAdmin.rpc("relationship_player_command" as never, {
       p_user: context.userId,
       p_request: data.requestId,

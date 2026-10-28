@@ -1,3 +1,4 @@
+import { relationshipDraftKey, relationshipDiscussionDraft } from "@/lib/relationship-commitments";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { mkdirSync, writeFileSync, readdirSync } from "node:fs";
@@ -294,4 +295,21 @@ it("keeps a short composer scrollbar-free and caps long drafts without hiding th
   fireEvent.change(composer, { target: { value: "A much longer draft" } });
   expect(composer.style.height).toBe("144px");
   expect(composer.style.overflowY).toBe("auto");
+});
+
+it.each(["tess", "maya", "riley", "claire", "jordan"])("opens only %s's editable relationship draft without sending", (key) => {
+  fixture.key = key;
+  sessionStorage.setItem(relationshipDraftKey(fixture.conversation), JSON.stringify({character:key,kind:"partnership",eventId:crypto.randomUUID()}));
+  render(<Chat />);
+  expect(screen.getByRole("textbox")).toHaveValue(relationshipDiscussionDraft("partnership"));
+  expect(fixture.insert).not.toHaveBeenCalled();
+  expect(fixture.respond).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem(relationshipDraftKey(fixture.conversation))).toBeNull();
+});
+it("does not load another contact's draft", () => {
+  fixture.key = "riley";
+  sessionStorage.setItem(relationshipDraftKey(fixture.conversation), JSON.stringify({character:"tess",kind:"partnership",eventId:crypto.randomUUID()}));
+  render(<Chat />);
+  expect(screen.getByRole("textbox")).toHaveValue("");
+  expect(fixture.insert).not.toHaveBeenCalled();
 });

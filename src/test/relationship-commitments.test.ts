@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canFinalizeCommitment, commitmentEventSchema, commitmentLabel, resolveCommitmentStatus,
-  type CommitmentEvent, canShareCommitmentWithCharacter, RELATIONSHIP_PILOT, commitmentContextForCharacter,
+  type CommitmentEvent, canShareCommitmentWithCharacter, RELATIONSHIP_PILOT, commitmentContextForCharacter, RELATIONSHIP_CAST, supportsRelationshipCommitment, relationshipDiscussionDraft, readRelationshipDraft, relationshipDraftKey,
 } from "@/lib/relationship-commitments";
 
 const example: CommitmentEvent = {
@@ -71,4 +71,24 @@ it("does not import another contact's relationship events into Tess", () => {
   expect(commitmentContextForCharacter("tess", "tess", [
     { ...example, characterKey: "riley", status: "accepted", userResponse: "accepted" },
   ]).join(" ")).not.toContain("Exclusive");
+});
+
+it.each(RELATIONSHIP_CAST)("isolates proposals and editable drafts for %s", (character) => {
+  const own = { ...example, characterKey: character };
+  expect(supportsRelationshipCommitment(character)).toBe(true);
+  for (const recipient of [...RELATIONSHIP_CAST, "ben"]) {
+    if (recipient !== character) expect(commitmentContextForCharacter(character, recipient, [own])).toEqual([]);
+    const raw = JSON.stringify({ character, kind: "partnership", eventId: example.id });
+    expect(readRelationshipDraft(raw, recipient)).toBe(recipient === character ? relationshipDiscussionDraft("partnership") : null);
+  }
+  const mixed = RELATIONSHIP_CAST.map(key => ({ ...own, characterKey: key, id: crypto.randomUUID() }));
+  const context = commitmentContextForCharacter(character, character, mixed).join(" ");
+  for (const event of mixed.filter(e => e.characterKey !== character)) expect(context).not.toContain(event.id);
+});
+it("separates draft keys, validates them, and leaves Ben platonic", () => {
+  expect(relationshipDraftKey("one")).not.toBe(relationshipDraftKey("two"));
+  expect(supportsRelationshipCommitment("ben")).toBe(false);
+  expect(readRelationshipDraft("invalid", "tess")).toBeNull();
+  expect(readRelationshipDraft(JSON.stringify({character:"tess",kind:"partnership",eventId:"invalid"}), "tess")).toBeNull();
+  expect(relationshipDiscussionDraft("exclusive")).toContain("exclusively");
 });

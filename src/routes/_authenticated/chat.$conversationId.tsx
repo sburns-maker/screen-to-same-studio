@@ -1,3 +1,4 @@
+import { relationshipDraftKey, readRelationshipDraft } from "@/lib/relationship-commitments";
 import { persistQueuedMessage } from "@/lib/chat-outbox";
 import { messageReceipt, nearConversationEnd, parseOutbox, type QueuedMessage } from "@/lib/chat-presentation";
 import { useChatViewport } from "@/lib/use-chat-viewport";
@@ -140,6 +141,18 @@ function Chat({ conversationId }: { conversationId: string }) {
       // Discard an invalid one-time draft rather than disturbing the chat.
     }
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!characterKey) return;
+    const key = relationshipDraftKey(conversationId);
+    try {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return;
+      sessionStorage.removeItem(key);
+      const draft = readRelationshipDraft(raw, characterKey);
+      if (draft) setText(current => current.trim() ? current : draft);
+    } catch { /* Keep the existing composer if temporary storage is unavailable. */ }
+  }, [conversationId, characterKey]);
 
   const all = msgs.data ?? [];
   const visible = all.filter((m) => new Date(m.visible_at).getTime() <= now);
