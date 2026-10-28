@@ -149,7 +149,7 @@ describe("multi-week life developments", () => {
     const latest = Math.max(...closed.map(s=>Date.parse(s.updatedAt)));
     for (const state of closed) expect(beginStories("alice",new Date(Date.parse(state.updatedAt)+DAY),[state],links).some(r=>r.state.owner===state.owner)).toBe(false);
     const next = beginStories("alice",new Date(latest+20*DAY),closed,links);
-    expect(next).toHaveLength(6);
+    expect(next).toHaveLength(7);
     expect(next.some(r=>closed.some(s=>s.template===r.state.template))).toBe(false);
   });
 });
