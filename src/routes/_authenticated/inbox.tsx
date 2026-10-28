@@ -90,6 +90,7 @@ function Inbox() {
         key: def.key,
         name: r.name,
         preview: r.preview ?? "",
+        lastAt: r.lastAt,
         unread: r.unread,
         photo: portraits.data?.[def.key] ?? def.avatar,
       };
