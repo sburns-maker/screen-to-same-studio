@@ -18,7 +18,7 @@ export const changeRelationshipCommitment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value: unknown) => z.object({
     requestId: z.string().uuid(),
-    characterKey: z.enum(["tess","maya","claire","jordan","ben","riley","sienna"]),
+    characterKey: z.enum(["tess","maya","claire","jordan","ben","riley","sienna","kendra"]),
     kind: z.enum(["exclusive","partnership","engagement","marriage","separation","divorce"]),
     action: z.enum(["propose","accept","decline","cancel"]),
     eventId: z.string().uuid().nullable(),

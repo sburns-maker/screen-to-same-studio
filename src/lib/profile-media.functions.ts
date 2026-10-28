@@ -6,7 +6,7 @@ export const saveProfileImage = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        key: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna"]),
+        key: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"]),
         avatar: z.string().max(5_600_000),
         reference: z.string().max(5_600_000).optional(),
         canonicalApproved: z.boolean(),

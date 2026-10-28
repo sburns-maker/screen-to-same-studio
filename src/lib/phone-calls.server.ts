@@ -271,7 +271,7 @@ export async function offerDueCallback(db: Client, user: string, now: Date) {
     if (!/\b(?:call you|phone you|give you a call|call back)\b/i.test(r.source_quote)) continue;
     const key = r.character_key as CallRow["character_key"];
     if (
-      !["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"].includes(key) ||
+      !["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"].includes(key) ||
       callAvailability(key, now).outcome !== "answer" ||
       snap.calls.some(c => c.character_key === key && now.getTime() - Date.parse(c.offered_at) < 6 * 3_600_000)
     )

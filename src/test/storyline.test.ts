@@ -46,7 +46,7 @@ function database() {
 describe("multi-week life developments", () => {
   it("supports existing characters and Sienna without joining their circles", () => {
     const roots = beginStories("alice", START, [], links);
-    expect(roots.map(r => r.state.owner)).toEqual(["tess","maya","claire","jordan","ben","sienna"]);
+    expect(roots.map(r => r.state.owner)).toEqual(["tess","maya","claire","jordan","ben","sienna","kendra"]);
     expect(roots.every(r => r.state.characters.length === 1)).toBe(true);
     for (const r of roots) expect(CANON_LINKS.some(l => l.characterKey === r.state.owner && l.otherKey === r.state.npc)).toBe(true);
   });
