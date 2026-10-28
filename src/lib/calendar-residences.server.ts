@@ -49,7 +49,10 @@ export async function savedHomeInvitation(
     .eq("sender", "tess")
     .gte(
       "created_at",
-      new Date(Math.max(Date.parse(started), now.getTime() - 7 * 86400000)).toISOString(),
+      // The residence may have been added to the calendar after the characters
+      // agreed to visit. Use recent visible invitation evidence regardless of when
+      // the housing record was registered; current residency is checked above.
+      new Date(now.getTime() - 7 * 86400000).toISOString(),
     )
     .lte("visible_at", now.toISOString())
     .order("created_at", { ascending: false })
