@@ -10,7 +10,7 @@ import { CHARACTERS } from "./characters";
 export const workplaceEncounterTurn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => z.object({
-    conversationId: z.string().uuid(), character: z.enum(["tess","maya","claire","jordan","ben","riley"]),
+    conversationId: z.string().uuid(), character: z.enum(["tess","maya","claire","jordan","ben","riley","sienna"]),
     text: z.string().trim().min(1).max(900), requestId: z.string().uuid(),
     activity: z.enum(["conversation", "lunch_dropoff", "item_dropoff"]).default("conversation"),
     receptionTurns: z.array(z.object({ speaker: z.enum(["player", "reception"]), body: z.string().max(600) })).max(20).optional(),

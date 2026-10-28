@@ -3,6 +3,7 @@ import type { PhotoStyle } from "./tess-photos";
 // Fictional fallback styling, not possessions or remembered facts. Separate
 // capsules avoid a shared model default; established clothing always wins.
 const everyday: Record<string, readonly string[]> = {
+  sienna: ["black scoop-neck cotton tee and straight-leg jeans", "emerald fitted blouse and charcoal trousers", "burgundy ribbed tank and a denim jacket with jeans"],
   tess: [
     "rust cotton henley and straight-leg jeans",
     "denim-blue linen button-down with stone trousers",
@@ -35,6 +36,7 @@ const everyday: Record<string, readonly string[]> = {
   ],
 };
 const sleepwear: Record<string, string> = {
+  sienna: "soft charcoal sleep tee and cotton lounge shorts",
   tess: "faded navy sleep tee and loose cotton pajama trousers",
   maya: "mauve jersey sleep shirt and soft lounge shorts",
   riley: "loose grey sleep tee and blue plaid pajama trousers",
