@@ -106,16 +106,48 @@ export async function referenceLibraryPage(
       ];
   if (images.error || rejected.error) throw new Error("Reference inventory unavailable");
   const paths = new Set(images.data.map((i) => i.storage_path));
-  const candidates = potential
-    .filter((c) => c.source === "canonical" || paths.has(c.asset))
-    .map((c) => ({
-      id: c.id ?? null,
-      source: c.source,
-      asset: c.asset,
-      rejected: rejected.data.some(
-        (r) => r.asset === c.asset && r.canonical_sha256 === canonical.sha256,
-      ),
-    }));
+  const candidates: { id: string | null; source: string; asset: string; rejected: boolean }[] =
+    potential
+      .filter((c) => c.source === "canonical" || paths.has(c.asset))
+      .map((c) => ({
+        id: c.id ?? null,
+        source: c.source,
+        asset: c.asset,
+        rejected: rejected.data.some(
+          (r) => r.asset === c.asset && r.canonical_sha256 === canonical.sha256,
+        ),
+      }));
+  if (offset === 0) {
+    const uploads = await db
+      .from("photo_reference_uploads")
+      .select("id,asset")
+      .eq("user_id", user)
+      .eq("character_key", key)
+      .eq("canonical_sha256", canonical.sha256)
+      .order("created_at");
+    if (uploads.error) throw new Error("Reference inventory unavailable");
+    const uploadRejections = uploads.data.length
+      ? await db
+          .from("photo_reference_rejections")
+          .select("asset,canonical_sha256")
+          .eq("user_id", user)
+          .eq("character_key", key)
+          .in(
+            "asset",
+            uploads.data.map((u) => u.asset),
+          )
+      : { data: [], error: null };
+    if (uploadRejections.error) throw new Error("Reference inventory unavailable");
+    for (const u of uploads.data)
+      candidates.splice(1, 0, {
+        id: u.id,
+        source: "uploaded",
+        asset: u.asset,
+        rejected: uploadRejections.data.some(
+          (r) => r.asset === u.asset && r.canonical_sha256 === canonical.sha256,
+        ),
+      });
+  }
   const compatible = slots.data.filter((s) => s.canonical_sha256 === canonical.sha256);
   const count = compatible.length;
   return {
@@ -279,7 +311,13 @@ export async function approvedProviderReferences(db: Client, user: string, key: 
     throw new Error("Approve the current canonical reference first");
   const refs: { url: string; blob: Blob }[] = [];
   for (const slot of ordered) {
-    const asset = await validatedAsset(db, user, key, slot.source_message_id, canonical.sha256);
+    const asset = await validatedAsset(
+      db,
+      user,
+      key,
+      slot.source_message_id ?? slot.source_upload_id,
+      canonical.sha256,
+    );
     if (asset !== slot.asset) throw new Error("Reference identity changed");
     let path = asset,
       blob: Blob;
