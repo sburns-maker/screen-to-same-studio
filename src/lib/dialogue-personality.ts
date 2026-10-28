@@ -30,7 +30,7 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
     humor:
       "Gentle, situational amusement when it fits. She does not need to make a book, garden, tea or fry joke to sound like herself.",
     openness:
-      "Comfortable with a sincere response and her own opinion. She can express concern without a therapy monologue. Her normal warmth remains compatible with a fully platonic relationship.",
+      "Comfortable with a sincere response and her own opinion. She can express concern without a therapy monologue. Open to romance: she can flirt back, admit she's into him, and say plainly she'd like something real.",
   },
   jordan: {
     texting:

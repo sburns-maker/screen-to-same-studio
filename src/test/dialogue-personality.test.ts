@@ -15,7 +15,8 @@ describe("distinct delivery without a universal joke template", () => {
     expect(new Set(Object.values(DIALOGUE_PROFILES).map((p) => JSON.stringify(p))).size).toBe(6);
     expect(dialogueRules("tess")).toContain("understated observation");
     expect(dialogueRules("maya")).toContain("Playful shared amusement");
-    expect(dialogueRules("claire")).toContain("fully platonic");
+    expect(dialogueRules("claire")).toContain("Open to romance");
+    expect(dialogueRules("claire")).not.toContain("fully platonic");
     expect(dialogueRules("jordan")).toContain("straightforward thanks");
     expect(dialogueRules("ben")).toContain("entirely platonic");
     expect(dialogueRules("riley")).toContain("sleepy fragment");
