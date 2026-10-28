@@ -12,7 +12,8 @@ import {
 describe("live character call rules", () => {
   it("allows Riley to use the same phone-voice assignment and calling paths as the cast", () => {
     expect(LIVE_CALL_CHARACTERS).toContain("riley");
-    expect(LIVE_CALL_CHARACTERS).toHaveLength(6);
+    expect(LIVE_CALL_CHARACTERS).toContain("sienna");
+    expect(LIVE_CALL_CHARACTERS).toHaveLength(7);
   });
   it("defaults to 5-minute calls, 20 a day and 2 hours a month", () => {
     expect(liveCallLimits({})).toEqual({ seconds: 300, leaseSeconds: 450, daily: 20, monthlySeconds: 7200 });

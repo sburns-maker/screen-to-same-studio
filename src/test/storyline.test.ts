@@ -44,9 +44,9 @@ function database() {
 }
 
 describe("multi-week life developments", () => {
-  it("supports all five existing characters without joining their circles", () => {
+  it("supports existing characters and Sienna without joining their circles", () => {
     const roots = beginStories("alice", START, [], links);
-    expect(roots.map(r => r.state.owner)).toEqual(["tess","maya","claire","jordan","ben"]);
+    expect(roots.map(r => r.state.owner)).toEqual(["tess","maya","claire","jordan","ben","sienna"]);
     expect(roots.every(r => r.state.characters.length === 1)).toBe(true);
     for (const r of roots) expect(CANON_LINKS.some(l => l.characterKey === r.state.owner && l.otherKey === r.state.npc)).toBe(true);
   });
@@ -149,7 +149,7 @@ describe("multi-week life developments", () => {
     const latest = Math.max(...closed.map(s=>Date.parse(s.updatedAt)));
     for (const state of closed) expect(beginStories("alice",new Date(Date.parse(state.updatedAt)+DAY),[state],links).some(r=>r.state.owner===state.owner)).toBe(false);
     const next = beginStories("alice",new Date(latest+20*DAY),closed,links);
-    expect(next).toHaveLength(5);
+    expect(next).toHaveLength(6);
     expect(next.some(r=>closed.some(s=>s.template===r.state.template))).toBe(false);
   });
 });

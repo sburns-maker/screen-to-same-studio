@@ -85,7 +85,7 @@ export function storyMayAdvance(s: StoryState, now: Date, committed: ReadonlySet
 /** Tenant-specific, non-repeating topic selection; never reads user conversations. */
 export function beginStories(userId: string, now: Date, existing: StoryState[], links: LinkRow[], committed: ReadonlySet<string> = new Set()): { id: string; state: StoryState }[] {
   const out: { id: string; state: StoryState }[] = [];
-  for (const owner of ["tess", "maya", "claire", "jordan", "ben"]) {
+  for (const owner of ["tess", "maya", "claire", "jordan", "ben", "sienna"]) {
     const all = [...existing, ...out.map(x => x.state)];
     if (all.filter(s => storyActive(s) && s.characters.includes(owner)).length >= STORY_LIMIT) continue;
     const previous = all.filter(s => s.characters.includes(owner)).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt))[0];

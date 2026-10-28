@@ -35,7 +35,7 @@ export const performVenueAction = createServerFn({ method: "POST" })
         ]),
         text: z.string().trim().max(1500).default(""),
         planId: z.string().uuid().optional(),
-        character: z.enum(["tess", "maya", "claire", "jordan", "ben"]).optional(),
+        character: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna"]).optional(),
       })
       .parse(d),
   )

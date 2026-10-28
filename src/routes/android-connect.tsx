@@ -10,6 +10,14 @@ import { supabase } from "@/integrations/supabase/client";
  * Google's login remains in Chrome, never an embedded Android WebView.
  */
 export const Route = createFileRoute("/android-connect")({
+  head: () => ({ meta: [
+    { title: "Android connection · Tess" },
+    { name: "description", content: "Securely connect the Tess Android app to your existing account." },
+    { property: "og:title", content: "Android connection · Tess" },
+    { property: "og:description", content: "Securely connect the Tess Android app to your existing account." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   ssr: false,
   component: AndroidConnect,
 });

@@ -1,21 +1,21 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { voiceConfiguration } from "@/lib/voice-provider.server";
 
-const keys = ["tess","maya","claire","jordan","ben","riley"] as const;
+const keys = ["tess","maya","claire","jordan","ben","riley","sienna"] as const;
 function valid() {
   vi.stubEnv("ENABLE_VOICE_CALLS", "true");
   vi.stubEnv("VOICE_PROVIDER_VALIDATED", "true");
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   vi.stubEnv("OPENAI_TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe");
   vi.stubEnv("OPENAI_SPEECH_MODEL", "gpt-4o-mini-tts");
-  keys.forEach((key, i) => vi.stubEnv(`VOICE_${key.toUpperCase()}`, ["alloy","echo","fable","onyx","nova","shimmer"][i]!));
+  keys.forEach((key, i) => vi.stubEnv(`VOICE_${key.toUpperCase()}`, ["alloy","echo","fable","onyx","nova","shimmer","coral"][i] ?? ""));
   vi.stubEnv("VOICE_DAILY_BUDGET_CENTS", "100");
   vi.stubEnv("VOICE_MONTHLY_BUDGET_CENTS", "1000");
   vi.stubEnv("VOICE_TURN_RESERVATION_CENTS", "5");
 }
 afterEach(() => vi.unstubAllEnvs());
 describe("OpenAI voice chain configuration", () => {
-  it("recognizes all six fictional characters without a paid API request", () => {
+  it("recognizes all seven fictional characters without a paid API request", () => {
     valid();
     const cfg = voiceConfiguration();
     expect(cfg.ready).toBe(true);

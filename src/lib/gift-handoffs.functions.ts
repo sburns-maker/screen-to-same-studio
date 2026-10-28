@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const characterSchema = z.enum(["tess", "maya", "claire", "jordan", "ben", "riley"]);
+const characterSchema = z.enum(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"]);
 const payloadSchema = z.object({
   item: z.string().default("Item"),
   status: z.enum(["attempted", "waiting", "returned", "received"]).default("attempted"),

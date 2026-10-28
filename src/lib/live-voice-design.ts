@@ -28,10 +28,14 @@ export const VOICE_DESIGNS = {
     name: "Riley — Night Shift",
     description: "An adult American woman, 28, a hospital laboratory technician in Altoona, Pennsylvania. A clearly feminine, warm, clear mid-to-light register with a relaxed General American accent. Funny, observant and quietly witty, comfortable with pauses, with understated dry timing, small amused reactions and occasional reflective warmth. A little tired after an overnight shift without sounding flat or whispery. Natural connected speech, gentle pitch movement and conversational imperfections; never robotic, theatrical, announcer-like, exaggeratedly husky or artificially bubbly.",
   },
+  sienna: {
+    name: "Sienna — Bold",
+    description: "An adult American woman, 29, from western Pennsylvania. Natural warm feminine conversational voice, confident direct delivery, quick situational wit and affectionate teasing. Expressive without constant performance; thoughtful pauses and sincere vulnerability when appropriate. No real-person imitation, exaggerated breathiness, caricature or announcer delivery.",
+  },
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 /** Shared cast allowlist for creation, auditions and phone-voice assignment. */
-export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley"] as const satisfies readonly VoiceDesignKey[];
+export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"] as const satisfies readonly VoiceDesignKey[];
 
 /**
  * Longer script hint used only for custom voice creation (OpenAI rejects short
