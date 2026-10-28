@@ -35,6 +35,14 @@ beforeAll(async () => {
   await db.exec(readFileSync("drizzle/migrations/0047_photo_reference_library.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0048_api18_generation_jobs.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0051_spicy_photo_tasks.sql", "utf8"));
+  // The reference inventory now includes uploaded references, not only generated images.
+  // This integration fixture must expose the upload table to the Supabase emulator.
+  await db.exec(`CREATE TABLE IF NOT EXISTS public.photo_reference_uploads (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL,
+    character_key text NOT NULL, canonical_sha256 text NOT NULL,
+    asset text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+  );
+  GRANT ALL ON public.photo_reference_uploads TO service_role;`);
   const base = postgresSupabase(db).admin;
   admin = {
     ...base,
