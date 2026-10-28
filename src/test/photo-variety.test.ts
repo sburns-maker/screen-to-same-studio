@@ -221,6 +221,8 @@ describe.each(Object.values(CHARACTERS))(
         });
         const prompt = provider.mock.calls[i]![0];
         expect(prompt).toContain("identity only");
+        expect(prompt).toContain("REFERENCE ROLE / NEW CAPTURE");
+        expect(prompt).toContain(`pose_type: ${capture.style.pose_type}`);
         expect(prompt).toContain(`Scene: at ${place}`);
         expect(provider.mock.calls[i]![1][0]).toBe(canonical.blob);
         expect(result.diagnostics.canonicalSha256).toBe(canonical.sha256);

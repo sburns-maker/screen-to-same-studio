@@ -69,3 +69,36 @@ After publication, review naturally delivered photos for subject balance, curren
 location/clothes and identity. A run of object photos may still be an intentional
 choice or a selfie boundary; inspect existing photo diagnostics before changing
 permissions. This workspace cannot verify the user's live conversation history.
+
+## Reference pose anchoring
+
+Canonical portraits remain unchanged and authoritative for stable appearance.
+Their head tilt, smile, gaze, shoulder line, arm position and camera distance are
+not identity traits. `photo-reference-prompt.ts` provides a shared contract to
+the ordinary and Spicy image prompts, with an explicit target capture assembled
+from the selected pose, expression, camera angle, crop and capture method.
+The broad reference-overrides-description language is restricted to stable
+appearance; scene instructions control pose and framing. No provider settings,
+references, screening thresholds, paid retries or budgets change.
+
+Both dialogue adapters ask for a concrete pose (body/shoulders, head, gaze and
+visible hands where relevant), rather than just "natural", "selfie" or "sitting".
+They use actual scene and recent-photo context, preserve explicit same-pose
+requests, and do not rotate emotions, invent photographers or change established
+clothes for variety. The existing composition selector still chooses plausible
+framing without random draws; it is not an image-pose detector.
+
+Confirmed code weaknesses were the broad reference precedence language and
+under-specified pose planning. Provider tendency to carry reference geometry
+into the output remains a hypothesis without the matching live request and
+reference/output review; prompts already contained general anti-copy guidance.
+The change is a stronger instruction, not proof of pixel-level variety.
+
+Verification: mocked generation over 20 opportunities for each character keeps
+canonical bytes/hash and scene/outfit continuity while including explicit target
+capture instructions. Direct builder tests cover both image providers, objects,
+mirror geometry, unspecified poses and deliberate same-pose requests. After
+publication, visually review a sequence for head/torso/arm placement as well as
+crop, location and identity. Compare the actual chosen pose metadata to the
+result before attributing a repeat to planning versus the image model. No paid
+generation was run during these checks.
