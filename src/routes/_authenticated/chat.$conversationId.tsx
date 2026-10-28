@@ -311,7 +311,8 @@ function Chat({ conversationId }: { conversationId: string }) {
     const bridge = (window as Window & {
       LivingWorldAndroid?: { receiveMessages?: (json: string) => void };
     }).LivingWorldAndroid;
-    if (!bridge?.receiveMessages) return;
+    const receiveMessages = bridge?.receiveMessages;
+    if (!receiveMessages) return;
     let cancelled = false;
     void (async () => {
       const messages = await Promise.all(visible.slice(-120).map(async (m) => {
