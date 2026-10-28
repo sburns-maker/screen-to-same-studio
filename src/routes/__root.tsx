@@ -102,6 +102,31 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  // The Android app decrypts a one-time browser OAuth handoff locally,
+  // then invokes this on the allowlisted page. Never accept tokens through
+  // query parameters or an externally injected JS message.
+  useEffect(() => {
+    const target = window as Window & {
+      __livingWorldAndroidAcceptSession?: (
+        access: string, refresh: string,
+      ) => Promise<boolean>;
+    };
+    target.__livingWorldAndroidAcceptSession = async (access, refresh) => {
+      if (!access || !refresh || access.length > 12000 || refresh.length > 12000) {
+        throw new Error("Invalid Android session");
+      }
+      const { error } = await supabase.auth.setSession({
+        access_token: access,
+        refresh_token: refresh,
+      });
+      if (error) throw error;
+      const { data: verified, error: verifyError } = await supabase.auth.getUser();
+      if (verifyError || !verified.user) throw new Error("Google session could not be verified");
+      window.location.replace("/inbox");
+      return true;
+    };
+    return () => { delete target.__livingWorldAndroidAcceptSession; };
+  }, []);
   const router = useRouter();
   useEffect(() => registerServiceWorker(), []);
   useEffect(() => {
