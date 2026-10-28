@@ -7,8 +7,14 @@ import {Screen,ScreenHeader} from "@/components/ScreenHeader";
 import {PPG_ARENA,ALL_PPG_GAME_EVENTS,type ArenaEvent} from "@/lib/arena-events";
 import {createTravelTrip,inviteTravelCompanion} from "@/lib/travel.functions";
 
-export const Route=createFileRoute("/_authenticated/ppg-arena")({component:ArenaCalendar});
-const CHARACTERS=["maya","tess","riley","claire","jordan","ben"] as const;
+export const Route=createFileRoute("/_authenticated/ppg-arena")({component:ArenaCalendar,head:()=>({meta:[
+ {title:"PPG Paints Arena calendar · Tess"},
+ {name:"description",content:"Explore Pittsburgh arena events and discuss fictional trips with your Tess contacts."},
+ {property:"og:title",content:"PPG Paints Arena calendar · Tess"},
+ {property:"og:description",content:"Explore Pittsburgh arena events and discuss fictional trips with your Tess contacts."},
+ {property:"og:type",content:"website"},{name:"twitter:card",content:"summary"},
+]})});
+const CHARACTERS=["maya","tess","riley","claire","jordan","ben","sienna"] as const;
 type Character=typeof CHARACTERS[number];
 const charactersLabel=(c:Character)=>c.charAt(0).toUpperCase()+c.slice(1);
 function ArenaCalendar(){

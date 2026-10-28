@@ -12,6 +12,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { saveGameMatch, recentGameMatches } from "@/lib/game-matches.functions";
 
 export const Route = createFileRoute("/_authenticated/games/$conversationId")({
+  head: () => ({ meta: [
+    { title: "Game room · Tess" },
+    { name: "description", content: "Play games with your fictional contacts in Tess." },
+    { property: "og:title", content: "Game room · Tess" },
+    { property: "og:description", content: "Play games with your fictional contacts in Tess." },
+    { property: "og:type", content: "website" },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: GameRoom,
 });
 
