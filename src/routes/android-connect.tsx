@@ -62,6 +62,7 @@ function AndroidConnect() {
   const [flow] = useState(() => pendingSession());
   const [signedIn, setSignedIn] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [readyToReturn, setReadyToReturn] = useState<string | null>(null);
   const [message, setMessage] = useState("Checking your existing Living World login…");
   useEffect(() => {
     let active = true;
@@ -128,10 +129,10 @@ function AndroidConnect() {
       const handoff = base64url(new TextEncoder().encode(JSON.stringify({
         version: 1, pub: base64url(pub), iv: base64url(iv), payload: base64url(encrypted),
       })));
-      sessionStorage.removeItem(STORAGE);
-      // The URL contains ciphertext only. The private key never leaves Android.
-      window.location.assign("livingworld://auth?data=" + encodeURIComponent(handoff));
-      setMessage("Opening Living World Home… If prompted, choose Living World Home.");
+      // The return is initiated by a separate explicit user action so Chrome
+      // does not block navigation following asynchronous WebCrypto work.
+      setReadyToReturn(handoff);
+      setMessage("Secure Google sign-in is ready. Tap Open Living World Home.");
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "Unable to complete encrypted sign-in.");
     } finally {
@@ -143,7 +144,14 @@ function AndroidConnect() {
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-5 px-6 text-foreground">
       <h1 className="text-3xl font-semibold">Connect Living World Home</h1>
       <p className="text-sm text-muted-foreground">{message}</p>
-      {!flow ? (
+      {readyToReturn ? (
+        <button onClick={() => {
+          localStorage.removeItem(STORAGE);
+          window.location.assign("livingworld://auth?data=" + encodeURIComponent(readyToReturn));
+        }} className="min-h-12 rounded-full bg-primary px-5 text-primary-foreground">
+          Open Living World Home
+        </button>
+      ) : !flow ? (
         <p className="rounded-xl border p-4 text-sm">
           This sign-in request has expired. Open Living World Home and tap Connect with Google again.
         </p>
