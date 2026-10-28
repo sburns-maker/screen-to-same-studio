@@ -12,7 +12,7 @@ export function voiceConfiguration() {
   // Existing per-character voice assignments must be resolved from Voice Studio
   // before voice calling is enabled; never silently substitute a different voice.
   const voices = Object.fromEntries(
-    ["tess", "maya", "claire", "jordan", "ben", "riley"].map((k) => [
+    ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"].map((k) => [
       k, env[`VOICE_${k.toUpperCase()}`] ?? "",
     ]),
   );
@@ -25,7 +25,7 @@ export function voiceConfiguration() {
   for (const [key, voice] of Object.entries(voices)) {
     if (!/^[a-zA-Z0-9_-]{1,50}$/.test(voice)) blockers.push(`voice_${key}_missing_or_invalid`);
   }
-  if (new Set(Object.values(voices)).size !== 6) blockers.push("voices_not_unique");
+  if (new Set(Object.values(voices)).size !== Object.keys(voices).length) blockers.push("voices_not_unique");
   if (bounded("VOICE_DAILY_BUDGET_CENTS", 1, 100000, 100) <= 0) blockers.push("daily_budget_missing");
   if (bounded("VOICE_MONTHLY_BUDGET_CENTS", 1, 1000000, 1000) <= 0) blockers.push("monthly_budget_missing");
   if (bounded("VOICE_TURN_RESERVATION_CENTS", 1, 10000, 5) <= 0) blockers.push("turn_budget_missing");
