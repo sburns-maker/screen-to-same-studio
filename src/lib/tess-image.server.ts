@@ -81,7 +81,7 @@ export function fictionalGroupScene(scene: string): boolean {
   return /\b(?:group (?:photo|selfie|portrait)|team (?:photo|selfie|picture)|trivia team|(?:photo|selfie|portrait) (?:of |with )?(?:everyone|the whole group)|teammates? (?:in|at|posing|standing|sitting))\b/i.test(scene);
 }
 export function mentionsOtherEstablishedCharacter(scene: string, lead: string): boolean {
-  return ["tess", "maya", "claire", "jordan", "ben"].some(k =>
+  return ["tess", "maya", "claire", "jordan", "ben", "sienna"].some(k =>
     k !== lead && new RegExp(`\\b${k}\\b`, "i").test(scene));
 }
 
