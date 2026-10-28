@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Browser-only OAuth continuation for the Android app.
- * An ephemeral ECDH key is created inside Android Keystore. The public key
+ * A one-time ECDH key is created inside Android Keystore. The public key
  * and random state are carried into this page; only encrypted tokens return.
  * Google's login remains in Chrome, never an embedded Android WebView.
  */
@@ -34,16 +34,16 @@ function pendingSession(): Pending | null {
   if (pub && state && pub.length < 1200 && /^[A-Za-z0-9_-]+$/.test(pub) &&
       /^[A-Za-z0-9_-]{32,64}$/.test(state)) {
     const flow: Pending = { pub, state, created: Date.now() };
-    sessionStorage.setItem(STORAGE, JSON.stringify(flow));
+    localStorage.setItem(STORAGE, JSON.stringify(flow));
     window.history.replaceState(window.history.state, "", "/android-connect");
     return flow;
   }
   try {
-    const value = sessionStorage.getItem(STORAGE);
+    const value = localStorage.getItem(STORAGE);
     if (!value) return null;
     const flow = JSON.parse(value) as Pending;
     if (Date.now() - flow.created > 10 * 60_000 || !flow.pub || !flow.state) {
-      sessionStorage.removeItem(STORAGE);
+      localStorage.removeItem(STORAGE);
       return null;
     }
     return flow;
@@ -151,8 +151,8 @@ function AndroidConnect() {
         </button>
       )}
       <p className="text-xs text-muted-foreground">
-        Sign-in happens in your browser. Your password is never shown to the Android app.
-        The transfer is encrypted for this installation and expires in ten minutes.
+        Only continue if you started sign-in from Living World Home. Sign-in happens in Chrome;
+        the transfer is encrypted for your installed app and expires in ten minutes.
       </p>
     </main>
   );
