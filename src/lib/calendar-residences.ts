@@ -11,7 +11,7 @@ export function homeInvitationActivity(
 ): { title: string; category: "dinner" | "meetup" } | null {
   const s = text.replace(/(?:can['’]t|cannot) wait/gi, "look forward");
   if (
-    /\b(?:don['’]t|do not|can['’]t|cannot|not tonight|never|won['’]t|no longer|not ready|not sure|not inviting|not hosting|cancelled|canceled|rather not|maybe|someday|if|wish|remember|yesterday|you said|you asked)\b/i.test(
+    /\b(?:don['’]t|do not|can['’]t|cannot|not tonight|never|won['’]t|no longer|not ready|not sure|not inviting|not hosting|cancelled|canceled|rather not|maybe|someday|if(?! you (?:bring|want|like))|wish|remember|yesterday|you said|you asked)\b/i.test(
       s,
     )
   )
