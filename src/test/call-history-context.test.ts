@@ -35,7 +35,7 @@ describe("factual phone continuity", () => {
     ).join("\n");
     expect(lines).toContain("The player called you; declined / not answered");
     expect(lines).toContain("You called the player; answered; call ended");
-    expect(lines).toContain("Topics are known only from retained call memories");
+    expect(lines).toContain("Topics are known only from retained call dialogue or memories");
   });
   it("excludes developer test rings, future and stale records", () => {
     expect(

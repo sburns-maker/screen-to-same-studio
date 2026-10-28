@@ -238,6 +238,16 @@ export const liveCallHeartbeat = createServerFn({ method: "POST" })
     return { ended: false };
   });
 
+/** Checkpoint captured dialogue only; no summary, inference or billable retry. */
+export const checkpointLiveCall = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({callId:z.string().uuid(),transcript:transcriptSchema}).strict().parse(v))
+  .handler(async ({context,data}) => {
+    const {supabaseAdmin:db} = await import("@/integrations/supabase/client.server");
+    const {persistLiveCallTranscript} = await import("./live-call-transcript.server");
+    return persistLiveCallTranscript(db,context.userId,data.callId,data.transcript);
+  });
+
 /** Hang up, then save at most one short memory of what was said. */
 export const endLiveCall = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -262,6 +272,9 @@ export const endLiveCall = createServerFn({ method: "POST" })
       if (offered.state === "connected" || offered.state === "connecting")
         await old.phoneCommand(db, context.userId, offered.id, "end").catch(() => {});
     }
+    // Saving actual dialogue must not depend on the optional paid summary.
+    const { persistLiveCallTranscript } = await import("./live-call-transcript.server");
+    await persistLiveCallTranscript(db, context.userId, data.callId, data.transcript, true);
     if (r.data.summary_saved || !hasUserSpeech(data.transcript)) return { saved: false };
     // Claim once so a double hang-up never writes two memories.
     const claim = await liveCalls(db)

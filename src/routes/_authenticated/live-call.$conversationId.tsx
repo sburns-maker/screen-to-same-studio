@@ -1,3 +1,4 @@
+import { checkpointLiveCall } from "@/lib/live-calls.functions";
 import { contactPhoneNumber } from "@/lib/contact-numbers";
 import { ContactPending } from "@/components/ContactPending";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -35,6 +36,7 @@ function LiveCallScreen() {
   const startFn = useServerFn(startLiveCall);
   const beatFn = useServerFn(liveCallHeartbeat);
   const endFn = useServerFn(endLiveCall);
+  const checkpointFn = useServerFn(checkpointLiveCall);
   const portraits = usePortraits();
   const status = useQuery({
     queryKey: ["live-call-status", conversationId],
@@ -46,6 +48,7 @@ function LiveCallScreen() {
   const callId = useRef<string | null>(null);
   const deadline = useRef<number>(0);
   const finished = useRef(false);
+  const finishRef = useRef<() => Promise<void>>(async () => {});
   const acceptedOffer = useRef<string | undefined>(undefined);
   const [state, setState] = useState<LiveCallState | "idle">("idle");
   const [error, setError] = useState("");
@@ -62,14 +65,18 @@ function LiveCallScreen() {
     const transcript = call.current?.transcript() ?? [];
     try {
       const r = await endFn({ data: { callId: callId.current, transcript, ...(acceptedOffer.current ? { incomingCallId: acceptedOffer.current } : {}) } });
-      if (r.saved) setNote(`${def.preferredName} will remember this call.`);
+      setNote(r.saved ? `${def.preferredName} will remember this call. Transcript saved in messages.` : !transcript.some(line => line.text.trim()) ? "No transcript text was captured for this call." : !transcript.some(line => line.role === "user" && line.text.trim()) ? "Character transcript saved. Your speech was not captured as text." : "Call transcript saved in messages.");
     } catch {
+      setNote("The full call transcript could not be saved. Earlier checkpoints may be in messages.");
       /* the server deadline and scheduled sweep still close it */
     } finally {
+      void queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
       void queryClient.invalidateQueries({ queryKey: ["phone"] });
       void queryClient.invalidateQueries({ queryKey: ["voice-history"] });
     }
   }
+
+  finishRef.current = finish;
 
   useEffect(() => {
     if (state === "ended") void finish();
@@ -84,6 +91,8 @@ function LiveCallScreen() {
     }, 1_000);
     const beat = setInterval(() => {
       if (!callId.current) return;
+      const captured = call.current?.transcript() ?? [];
+      if (captured.length > 1) void checkpointFn({data:{callId:callId.current,transcript:captured}}).catch(() => {});
       void beatFn({ data: { callId: callId.current } })
         .then((r) => r.ended && call.current?.hangUp())
         .catch(() => {});
@@ -92,10 +101,11 @@ function LiveCallScreen() {
       clearInterval(tick);
       clearInterval(beat);
     };
-  }, [state, beatFn]);
+  }, [state, beatFn, checkpointFn]);
 
   useEffect(
     () => () => {
+      void finishRef.current();
       call.current?.hangUp();
       call.current?.release();
     },

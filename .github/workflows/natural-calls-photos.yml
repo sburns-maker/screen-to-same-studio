@@ -9,6 +9,9 @@ on:
       - "src/test/calls-debug.test.tsx"
       - "src/test/phone-calls.integration.test.ts"
       - "src/test/live-calls.test.ts"
+      - "src/lib/live-call-transcript.server.ts"
+      - "src/test/live-call-transcript.integration.test.ts"
+      - "src/test/live-call-end.test.ts"
       - "src/lib/live-call-request.ts"
       - "src/test/live-call-request.test.ts"
       - "src/test/live-call-start.test.ts"
@@ -74,5 +77,5 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx vitest run src/test/photo-pacing.test.ts src/test/photo-opportunities.test.ts src/test/photo-policy.test.ts src/test/photo-personality.test.ts src/test/photo-subject-balance.test.ts src/test/photo-variety.test.ts src/test/photo-reference-pose.test.ts src/test/photo-wardrobe.test.ts src/test/photo-turn.test.ts src/test/tess-image.test.ts src/test/photo-reference-library.test.ts src/test/relationship-commitments.test.ts src/test/private-commitments.integration.test.ts src/test/relationship-discussion-ui.test.tsx src/test/chat-presentation.test.ts src/test/chat-viewport.test.tsx src/test/chat-screen.test.tsx src/test/inbox-polish.test.tsx src/test/conversation-plans.test.ts src/test/photo-attachment-status.test.tsx src/test/photo-viewer.test.tsx
       - run: bunx tsc --noEmit
-      - run: bunx vitest run src/test/live-call-request.test.ts src/test/live-call-start.test.ts src/test/incoming-call.test.tsx src/test/live-calls.test.ts src/test/voice-provider-config.test.ts src/test/voice-defaults.test.ts src/test/phone-calls.integration.test.ts src/test/calls-debug.test.tsx
+      - run: bunx vitest run src/test/live-call-end.test.ts src/test/live-call-transcript.integration.test.ts src/test/live-call-request.test.ts src/test/live-call-start.test.ts src/test/incoming-call.test.tsx src/test/live-calls.test.ts src/test/voice-provider-config.test.ts src/test/voice-defaults.test.ts src/test/phone-calls.integration.test.ts src/test/calls-debug.test.tsx
       - run: bun run build

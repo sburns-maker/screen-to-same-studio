@@ -313,3 +313,11 @@ it("does not load another contact's draft", () => {
   expect(screen.getByRole("textbox")).toHaveValue("");
   expect(fixture.insert).not.toHaveBeenCalled();
 });
+
+it("labels captured phone dialogue separately from ordinary texts", () => {
+  fixture.messages = [message("call-one", "tess", "We covered the question on the phone.", {channel:"voice",transcript_source:"live_call_capture"})];
+  render(<Chat />);
+  expect(screen.getByText("Phone call transcript")).toBeInTheDocument();
+  expect(screen.getByText("We covered the question on the phone.")).toBeInTheDocument();
+  expect(fixture.respond).not.toHaveBeenCalled();
+});
