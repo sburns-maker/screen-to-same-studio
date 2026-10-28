@@ -35,7 +35,7 @@ export const VOICE_DESIGNS = {
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 /** Shared cast allowlist for creation, auditions and phone-voice assignment. */
-export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"] as const satisfies readonly VoiceDesignKey[];
+export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"] as const satisfies readonly VoiceDesignKey[];
 
 /**
  * Longer script hint used only for custom voice creation (OpenAI rejects short

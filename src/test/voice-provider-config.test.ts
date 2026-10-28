@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { voiceConfiguration } from "@/lib/voice-provider.server";
 
-const keys = ["tess","maya","claire","jordan","ben","riley","sienna"] as const;
+const keys = ["tess","maya","claire","jordan","ben","riley","sienna","kendra"] as const;
 function valid() {
   vi.stubEnv("ENABLE_VOICE_CALLS", "true");
   vi.stubEnv("VOICE_PROVIDER_VALIDATED", "true");

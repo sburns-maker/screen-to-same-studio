@@ -12,7 +12,7 @@ export function voiceConfiguration() {
   // Existing per-character voice assignments must be resolved from Voice Studio
   // before voice calling is enabled; never silently substitute a different voice.
   const voices = Object.fromEntries(
-    ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"].map((k) => [
+    ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"].map((k) => [
       k, env[`VOICE_${k.toUpperCase()}`] ?? "",
     ]),
   );

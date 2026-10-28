@@ -13,7 +13,7 @@ import { applyDisruption, disruptionFor } from "./daily-disruptions";
 import type { TessState } from "./tess-logic";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 
-export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben" | "riley" | "sienna";
+export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben" | "riley" | "sienna" | "kendra";
 
 export type CharacterDef = {
   key: CharacterKey;

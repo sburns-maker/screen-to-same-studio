@@ -5,7 +5,7 @@ import { canonicalProfile, jpegDimensions } from "@/lib/canonical-profile.server
 import { PROFILE_PORTRAITS } from "@/lib/character-portraits";
 import { CHARACTERS } from "@/lib/characters";
 describe("authoritative profile bytes", () => {
-  it.each(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"] as const)(
+  it.each(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"] as const)(
     "%s reference is byte-for-byte the existing displayed portrait",
     async (key) => {
       const reference = await canonicalProfile(key);
@@ -18,7 +18,7 @@ describe("authoritative profile bytes", () => {
   );
   it("different characters have different immutable anchors", async () => {
     const refs = await Promise.all(
-      (["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"] as const).map((key) =>
+      (["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"] as const).map((key) =>
         canonicalProfile(key),
       ),
     );

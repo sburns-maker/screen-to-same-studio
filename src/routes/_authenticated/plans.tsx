@@ -114,7 +114,7 @@ function Plans() {
               }}
               className="mt-1 w-full rounded-xl border bg-background p-3"
             >
-              {["tess", "maya", "claire", "jordan", "ben", "sienna"].map((k) => (
+              {["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"].map((k) => (
                 <option key={k}>{k}</option>
               ))}
             </select>
@@ -130,7 +130,7 @@ function Plans() {
               }}
               className="mt-1 w-full rounded-xl border bg-background p-3"
             >
-              {["tess", "maya", "claire", "jordan", "ben", "sienna"]
+              {["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"]
                 .filter((k) => k !== host)
                 .map((k) => (
                   <option key={k}>{k}</option>
