@@ -1,3 +1,4 @@
+import type {CalendarResidence} from "@/lib/calendar-residences";
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import type { AgendaEvent } from "@/lib/scheduling-agenda.server";
 const mocks = vi.hoisted(() => ({
   events: [] as AgendaEvent[],
   manual: false,
+  residences: undefined as CalendarResidence[] | undefined,
   respond: vi.fn(),
   create: vi.fn(),
   edit: vi.fn(),
@@ -26,6 +28,7 @@ vi.mock("@/lib/use-schedule", () => ({
       manual: mocks.manual,
       structured: true,
       events: mocks.events,
+      residences:mocks.residences,
       contacts: [{ id: "contact", name: "Maya", key: "maya" }],
     },
   }),
@@ -80,6 +83,7 @@ const fixture: AgendaEvent = {
 beforeEach(() => {
   mocks.events = [{ ...fixture }];
   mocks.manual = false;
+  mocks.residences = undefined;
   mocks.navigate.mockClear();
   mocks.respond.mockReset().mockResolvedValue({ conversationId: "contact" });
   mocks.create.mockReset().mockResolvedValue({ replyPending: false });
@@ -215,4 +219,17 @@ it("manual confirmation stays on the calendar and editing sends no request-detai
   fireEvent.click(screen.getByRole("button", { name: "Edit details" }));
   expect(screen.getByRole("form", { name: "Edit plan" })).toBeInTheDocument();
   expect(mocks.respond).toHaveBeenCalledTimes(1);
+});
+
+it("lists private homes with invitation status and restricts them to the selected contact",()=>{
+  mocks.manual=true;
+  mocks.residences=[{key:'home:maya',label:"Maya's home",canPlan:true,existingPermission:false,characters:['maya']},{key:'home:claire',label:"Claire's home",canPlan:false,existingPermission:false,characters:['claire']},{key:'home:riley',label:"Riley's home",canPlan:true,existingPermission:true,characters:['riley']},{key:'home:user',label:'My Home',canPlan:true,existingPermission:true,characters:[]}];
+  view();
+  fireEvent.click(screen.getByRole('button',{name:'Add agreed plan'}));
+  fireEvent.change(screen.getByLabelText('Contact'),{target:{value:'contact'}});
+  expect(screen.getByRole('option',{name:"⌂ Maya's home"})).not.toBeDisabled();
+  expect(screen.getByRole('option',{name:"⌂ Claire's home · Invitation required"})).toBeDisabled();
+  expect(screen.getByRole('option',{name:"⌂ Riley's home"})).toBeDisabled();
+  expect(screen.getByRole('option',{name:'⌂ My Home'})).not.toBeDisabled();
+  expect(mocks.create).not.toHaveBeenCalled();
 });

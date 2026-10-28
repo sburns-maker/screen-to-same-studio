@@ -1,3 +1,4 @@
+import type { CalendarResidence } from "./calendar-residences";
 import { followupCanStart } from "./calendar-view";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -22,7 +23,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
       manual: false,
       structured: false,
       events: [] as AgendaEvent[],
-      residences: [] as { key: string; label: string }[],
+      residences: [] as CalendarResidence[],
       contacts: [] as { id: string; key: string; name: string }[],
     };
   await syncCalendar(db, user, now);
@@ -101,7 +102,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
     manual: await (await import("./manual-calendar.server")).manualCalendarReady(db),
     structured: await calendarContractReady(db),
     events,
-    residences: homes.filter((h) => h.canPlan).map((h) => ({ key: h.key, label: h.label })),
+    residences: await (await import("./calendar-residences.server")).calendarResidences(db,user,now),
     contacts: (cast.data ?? []).flatMap((c) => {
       const person = c.character as { key: string; preferred_name: string } | null;
       return person ? [{ id: c.id, key: person.key, name: person.preferred_name }] : [];

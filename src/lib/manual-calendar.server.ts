@@ -28,13 +28,15 @@ export async function saveManualCalendar(
   await (await import("./interactive-world.server")).registerInteractivePlaces(db, user);
   const plan = scheduleActionSchema.parse(input.plan);
   if (plan.date && plan.time) easternInstant(plan.date, plan.time);
+  const residential = await (await import("./calendar-residences.server")).prepareResidentialManualSave(db,user,input,plan,now);
   const payload = await schedulePayload(
     db,
     user,
     input.conversationId,
     {
       ...plan,
-      planId: input.planId ?? null,
+      planId: residential.planId,
+      ...(residential.planId && !input.planId ? {action:"accept"} : {}),
       confirmed: input.confirmed,
     },
     now,
@@ -46,8 +48,8 @@ export async function saveManualCalendar(
       p_user: user,
       p_id: input.id,
       p_conversation: input.conversationId,
-      p_plan: input.planId ?? null,
-      p_version: input.version ?? null,
+      p_plan: residential.planId,
+      p_version: residential.version,
       p_payload: payload,
       p_now: now.toISOString(),
     } as never,

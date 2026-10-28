@@ -9,6 +9,10 @@ on:
       - 'src/lib/town*'
       - 'src/lib/world.server.ts'
       - 'src/components/Housing*'
+      - 'src/components/CalendarBoard.tsx'
+      - 'src/components/PlanEditor.tsx'
+      - 'src/test/calendar-residences.test.ts'
+      - 'src/test/plan-editor.test.tsx'
       - 'src/test/housing*'
       - 'vitest.housing-postgres.config.ts'
       - '.github/workflows/housing.yml'
@@ -31,7 +35,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Residential integration and interface regressions
-        run: bunx vitest run src/test/housing.integration.test.ts src/test/housing.test.ts src/test/housing-ui.test.tsx src/test/manual-calendar.integration.test.ts src/test/experience-scene.integration.test.ts
+        run: bunx vitest run src/test/calendar-residences.test.ts src/test/plan-editor.test.tsx src/test/housing.integration.test.ts src/test/housing.test.ts src/test/housing-ui.test.tsx src/test/manual-calendar.integration.test.ts src/test/experience-scene.integration.test.ts
       - name: PostgreSQL locks and private default ACLs
         run: bunx vitest run --config vitest.housing-postgres.config.ts
         env:
