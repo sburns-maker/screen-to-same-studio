@@ -5,6 +5,8 @@ it.each([
   "Come over to my place for a film.",
   "I'd love a game night at mine.",
   "How about cooking dinner at my home?",
+  "Friday works. My place is fine if you bring snacks",
+  "Friday at 7 at my place is still the plan. You can put it down as Claire's home for now",
 ])("recognizes an actual home invitation: %s", (body) => {
   expect(homeInvitationActivity(body)).not.toBeNull();
 });
