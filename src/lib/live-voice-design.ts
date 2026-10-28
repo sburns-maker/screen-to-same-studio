@@ -4,6 +4,10 @@
  * impersonate anyone and are not themselves generated audio.
  */
 export const VOICE_DESIGNS = {
+  sienna: {
+    name: "Sienna — Bold",
+    description: "An adult American woman, 29, from western Pennsylvania. Natural warm feminine conversational voice, confident direct delivery, quick situational wit and affectionate teasing. Expressive without constant performance; thoughtful pauses and sincere vulnerability when appropriate. No real-person imitation, exaggerated breathiness, caricature or announcer delivery.",
+  },
   tess: {
     name: "Tess — Refined",
     description: "An adult woman who grew up in England and has lived in Pennsylvania for around ten years. Her English is now predominantly American, but her vowels occasionally retain a soft southern-English roundness and her speech keeps a subtle measured English cadence; the hybrid accent sounds natural and consistent, never performative. Warm, softly feminine, clear, quietly confident, intelligent and genuinely conversational, with graceful articulation, unhurried pacing and understated dry wit. Gentle melodic movement, reflective pauses and sincere tenderness. Not strongly British or posh, and never husky, raspy, breathy, perky, bubbly, theatrical, announcer-like or robotic.",
@@ -31,7 +35,7 @@ export const VOICE_DESIGNS = {
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 /** Shared cast allowlist for creation, auditions and phone-voice assignment. */
-export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley"] as const satisfies readonly VoiceDesignKey[];
+export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"] as const satisfies readonly VoiceDesignKey[];
 
 /**
  * Longer script hint used only for custom voice creation (OpenAI rejects short

@@ -12,7 +12,7 @@ import { topicGuidance } from "@/lib/tess-topics";
 describe("distinct delivery without a universal joke template", () => {
   it("covers every primary character with distinct tendencies and preserves explicit canon boundaries", () => {
     expect(Object.keys(DIALOGUE_PROFILES).sort()).toEqual(Object.keys(CHARACTERS).sort());
-    expect(new Set(Object.values(DIALOGUE_PROFILES).map((p) => JSON.stringify(p))).size).toBe(6);
+    expect(new Set(Object.values(DIALOGUE_PROFILES).map((p) => JSON.stringify(p))).size).toBe(Object.keys(CHARACTERS).length);
     expect(dialogueRules("tess")).toContain("understated observation");
     expect(dialogueRules("maya")).toContain("Playful shared amusement");
     expect(dialogueRules("claire")).toContain("Open to romance");
@@ -105,7 +105,7 @@ describe("distinct delivery without a universal joke template", () => {
 describe("casual language without forced slang or shared comic habits", () => {
   it("uses distinct texting registers without applying text shorthand to calls or in-person scenes", () => {
     const styles = Object.values(DIALOGUE_PROFILES).map((p) => p.texting);
-    expect(new Set(styles).size).toBe(6);
+    expect(new Set(styles).size).toBe(Object.keys(CHARACTERS).length);
     for (const key of Object.keys(DIALOGUE_PROFILES)) {
       expect(dialogueRules(key)).toContain("TEXTING LANGUAGE");
       expect(dialogueRules(key)).toContain("do not manufacture typos");

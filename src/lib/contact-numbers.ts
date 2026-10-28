@@ -10,6 +10,7 @@ export const CONTACT_DISPLAY_NUMBERS: Readonly<Record<string, string>> = Object.
   jordan: "8142084916",
   ben: "8149326187",
   riley: "8145217063",
+  sienna: "8146158027",
   "rowan-ellis": "8146312847",
   "leah-moss": "8147426031",
   "nolan-reed": "8145098263",
