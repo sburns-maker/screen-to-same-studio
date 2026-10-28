@@ -22,7 +22,7 @@ describe("authoritative profile bytes", () => {
         canonicalProfile(key),
       ),
     );
-    expect(new Set(refs.map((r) => r.sha256)).size).toBe(7);
+    expect(new Set(refs.map((r) => r.sha256)).size).toBe(8);
     expect((await canonicalProfile("sienna")).sha256).toBe(refs[6]?.sha256);
     expect(await canonicalProfile("maya")).toMatchObject({ sha256: refs[1]!.sha256 });
   });
