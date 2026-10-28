@@ -29,11 +29,12 @@ export default defineConfig({
           // precache pipeline so notifications work with the app closed.
           importScripts: ["/push-handler.js"],
           navigateFallback: "/",
-          navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//],
+          navigateFallbackDenylist: [/^\/~oauth/, /^\/api\//, /^\/android-connect(?:\/|$)/, /^\/auth(?:\/|$)/],
           runtimeCaching: [
             {
               // HTML navigations: network first, cache fallback for offline.
-              urlPattern: ({ request }: { request: Request }) => request.mode === "navigate",
+              urlPattern: ({ request, url }: { request: Request; url: URL }) =>
+                request.mode === "navigate" && !/^\/(android-connect|auth)(?:\/|$)/.test(url.pathname),
               handler: "NetworkFirst",
               options: { cacheName: "tess-pages", networkTimeoutSeconds: 4 },
             },
