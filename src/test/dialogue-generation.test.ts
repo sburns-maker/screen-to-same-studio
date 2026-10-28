@@ -272,3 +272,17 @@ it.each(Object.values(CHARACTERS))("plans concrete pose geometry for $preferredN
   expect(input).toContain("The identity portrait's posture and smile are not character traits");
   expect(model.run).toHaveBeenCalledTimes(1);
 });
+
+it.each(["maya", "riley", "claire", "jordan"] as const)("allows %s's own visible relationship decision", async (key) => {
+  const action = { action: "accept", kind: "partnership", quote: "Yes, I want us to be together.", proposalId: "00000000-0000-4000-8000-000000000099" };
+  model.run.mockResolvedValueOnce({ ...makeReply(), messages: [action.quote], commitment_action: action });
+  const reply = await generateContactReply({ ...args, character: CHARACTERS[key] });
+  expect(reply.commitment_action).toEqual(action);
+  expect(model.run.mock.calls[0]![1]).toContain("RELATIONSHIP DECISIONS");
+  expect(model.run.mock.calls[0]![1]).not.toContain("pilot is Tess-only");
+});
+it("ignores a romantic decision returned for Ben", async () => {
+  model.run.mockResolvedValueOnce({ ...makeReply(), commitment_action: {action:"accept",kind:"partnership",quote:"Yes, I want that.",proposalId:crypto.randomUUID()} });
+  const reply = await generateContactReply({ ...args, character: CHARACTERS.ben });
+  expect(reply.commitment_action.action).toBeNull();
+});

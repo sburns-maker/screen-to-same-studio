@@ -302,12 +302,12 @@ export async function generateExperience(
     const venue = live.current.locationLabel;
     const liveInstructions = liveSceneInstructions(live.current);
     const relationshipFacts: string[] = [];
-    if (def.key === "tess") {
+    if (["tess", "maya", "riley", "claire", "jordan"].includes(def.key)) {
       const { commitmentSnapshot } = await import("./relationship-commitments.server");
       const { commitmentContextForCharacter } = await import("./relationship-commitments");
-      const commitment = await commitmentSnapshot(db, user, "tess").catch(() => null);
+      const commitment = await commitmentSnapshot(db, user, def.key).catch(() => null);
       if (commitment?.available)
-        relationshipFacts.push(...commitmentContextForCharacter("tess", def.key, commitment.events));
+        relationshipFacts.push(...commitmentContextForCharacter(def.key, def.key, commitment.events));
     }
     const args = {
       operationId: id,

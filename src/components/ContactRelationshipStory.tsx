@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { changeRelationshipCommitment } from "@/lib/relationship-commitments.functions";
 import { useRelationshipCommitments } from "@/lib/use-relationship-commitments";
 import { RelationshipMilestones } from "./RelationshipMilestones";
-import type { CommitmentEvent } from "@/lib/relationship-commitments";
+import { supportsRelationshipCommitment, relationshipDraftKey, type CommitmentEvent } from "@/lib/relationship-commitments";
 
 export function ContactRelationshipStory({ characterKey, characterName, conversationId }: {
   characterKey: string;
@@ -68,10 +68,10 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
   return (
     <div className="space-y-3">
       <RelationshipMilestones events={query.data.events} characterName={characterName} connectionStage={connectionStage} />
-      {characterKey === "tess" && pending.length === 0 && (
+      {supportsRelationshipCommitment(characterKey) && pending.length === 0 && (
         <section aria-label="Discuss a relationship commitment" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
           <h3 className="font-semibold">Where do we stand?</h3>
-          <p className="mt-1 text-sm text-muted-foreground">You can bring up exclusivity or a committed relationship. Tess decides for herself; proposing is not acceptance.</p>
+          <p className="mt-1 text-sm text-muted-foreground">You can bring up exclusivity or a committed relationship. {characterName} decides for herself; proposing is not acceptance.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={() => void propose("exclusive")} className="min-h-11 rounded-xl border px-4 text-sm">Ask about exclusivity</button>
             <button type="button" disabled={busy} onClick={() => void propose("partnership")} className="min-h-11 rounded-xl border px-4 text-sm">Discuss a relationship</button>
@@ -83,11 +83,19 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
           <h3 className="font-semibold">A decision to make together</h3>
           <p className="mt-1 text-sm text-muted-foreground capitalize">{event.kind.replaceAll("_", " ")} · {event.proposedBy === "character" ? characterName + " proposed" : "You proposed"}</p>
           <p className="mt-2 text-xs text-muted-foreground">This isn't final until both people independently agree. Living arrangements are managed separately.</p>
-          {conversationId && <p className="mt-2 text-sm text-muted-foreground">Continue the discussion in your conversation with {characterName}.</p>}
+          {conversationId && <p className="mt-2 text-sm text-muted-foreground">Opens an editable message to {characterName}. Tap Send when you’re ready.</p>}
           <div className="mt-3 flex flex-wrap gap-2">
             {conversationId && <Link
               to="/chat/$conversationId"
               params={{ conversationId }}
+              onClick={(e) => {
+                try {
+                  sessionStorage.setItem(relationshipDraftKey(conversationId), JSON.stringify({ character: characterKey, kind: event.kind, eventId: event.id }));
+                } catch {
+                  e.preventDefault();
+                  setFeedback("Could not prepare the message. Open your conversation and write it there.");
+                }
+              }}
               className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground"
             >Discuss in messages</Link>}
             {event.userResponse === "pending" && <>

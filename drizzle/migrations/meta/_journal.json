@@ -372,6 +372,13 @@
       "when": 1793100000001,
       "tag": "0052_verify_spicy_photo_install",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793100000002,
+      "tag": "0053_private_character_commitments",
+      "breakpoints": true
     }
   ]
 }

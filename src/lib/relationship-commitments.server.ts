@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { commitmentEventSchema, type CommitmentEvent } from "./relationship-commitments";
+import { commitmentEventSchema, supportsRelationshipCommitment, type CommitmentEvent } from "./relationship-commitments";
 
 type Client = SupabaseClient<Database>;
 
-/** Until 0046 has been applied, this capability is deliberately unavailable. */
+/** Until 0050 has been applied, this capability is deliberately unavailable. */
 export async function commitmentReady(db: Client): Promise<boolean> {
   const { error } = await db.from("relationship_commitment_events" as never)
     .select("id", { head: true, count: "exact" }).limit(1);
@@ -14,11 +14,13 @@ export async function commitmentReady(db: Client): Promise<boolean> {
 export async function commitmentSnapshot(db: Client, userId: string, characterKey: string):
   Promise<{ available: boolean; events: CommitmentEvent[] }> {
   if (!(await commitmentReady(db))) return { available: false, events: [] };
-  if (characterKey === "tess") {
-    const synced = await db.rpc("relationship_sync_tess" as never, { p_user: userId } as never);
-    // Existing commitment history remains readable if the optional Tess backfill fails.
-    // Do not turn one failed synchronization into a broken contact page.
-    if (synced.error) console.error("Tess commitment sync failed", synced.error.code, synced.error.message);
+  if (supportsRelationshipCommitment(characterKey)) {
+    const synced = await db.rpc("relationship_sync_character" as never, { p_user: userId, p_character: characterKey } as never);
+    if (synced.error) {
+      if (characterKey !== "tess") return { available: false, events: [] };
+      // Preserve legacy Tess history during the additive migration rollout.
+      await db.rpc("relationship_sync_tess" as never, { p_user: userId } as never);
+    }
   }
   const { data, error } = await db.from("relationship_commitment_events" as never)
     .select("*")
