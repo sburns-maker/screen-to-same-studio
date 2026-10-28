@@ -50,7 +50,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
 DECLARE m record; a jsonb; target relationship_commitment_events; n integer:=0;
 BEGIN
  IF auth.role() IS DISTINCT FROM 'service_role' THEN RAISE EXCEPTION 'service role required';END IF;
- IF p_character IS NULL OR p_character NOT IN ('tess','maya','riley','claire','jordan','ben','sienna','kendra') THEN RAISE EXCEPTION 'Unsupported relationship character';END IF;
+ IF p_character IS NULL OR p_character NOT IN ('tess','maya','riley','claire','jordan','sienna','kendra') THEN RAISE EXCEPTION 'Unsupported relationship character';END IF;
  PERFORM pg_advisory_xact_lock(hashtextextended('relationship:'||p_user::text||':'||p_character,0));
  FOR m IN
  SELECT msg.id,msg.body,msg.metadata,msg.visible_at FROM messages msg
