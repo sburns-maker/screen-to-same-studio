@@ -71,7 +71,7 @@ describe("bounded NPC continuity and agency", () => {
     expect(await count("town_people")).toBe(10);
     expect(await count("visual_identity_registry")).toBe(10);
     const snapshot = await townSnapshot(admin, user, now);
-    expect(snapshot.places).toHaveLength(22);
+    expect(snapshot.places).toHaveLength(24);
     expect(snapshot.people.every((p) => !p.photosEnabled)).toBe(true);
     expect(snapshot.places.find((p) => p.key === "hope:drop-in")?.description).toContain(
       "fictional",
