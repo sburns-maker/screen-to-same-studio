@@ -3,11 +3,20 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode, MouseEvent } from "react";
 import { ContactRelationshipStory } from "@/components/ContactRelationshipStory";
 import { relationshipDraftKey, RELATIONSHIP_CAST } from "@/lib/relationship-commitments";
-const state = vi.hoisted(() => ({ pending: false, change: vi.fn() }));
+const state = vi.hoisted(() => ({
+  pending: false,
+  available: true,
+  loading: false,
+  refetch: vi.fn(),
+  change: vi.fn(),
+}));
 vi.mock("@/lib/use-relationship-commitments", () => ({
   useRelationshipCommitments: () => ({
+    isLoading: state.loading,
+    refetch: state.refetch,
     data: {
-      available: true,
+      available: state.available,
+      diagnostic: state.available ? undefined : { phase: "sync", code: "PGRST202" },
       events: state.pending
         ? [
             {
@@ -40,7 +49,7 @@ vi.mock("@tanstack/react-router", () => ({
     className,
   }: {
     params: { conversationId: string };
-    onClick: (e: MouseEvent<HTMLAnchorElement>) => void;
+    onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
     children: ReactNode;
     className: string;
   }) => (
@@ -48,7 +57,7 @@ vi.mock("@tanstack/react-router", () => ({
       href={`/chat/${params.conversationId}`}
       className={className}
       onClick={(e) => {
-        onClick(e);
+        onClick?.(e);
         e.preventDefault();
       }}
     >
@@ -58,6 +67,9 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 beforeEach(() => {
   state.pending = false;
+  state.available = true;
+  state.loading = false;
+  state.refetch.mockReset();
   state.change.mockReset();
   sessionStorage.clear();
 });
@@ -102,4 +114,34 @@ it("leaves Ben's relationship buttons unavailable", () => {
     />,
   );
   expect(screen.queryByRole("button", { name: "Discuss a relationship" })).toBeNull();
+});
+
+it.each(RELATIONSHIP_CAST)(
+  "keeps %s's card visible with safe failure details and retry",
+  (character) => {
+    state.available = false;
+    render(
+      <ContactRelationshipStory
+        characterKey={character}
+        characterName={character}
+        conversationId="own-conversation"
+      />,
+    );
+    expect(screen.getByText("Your story together")).toBeInTheDocument();
+    expect(screen.getByText(/temporarily unavailable/)).toBeInTheDocument();
+    expect(screen.getByText(/PGRST202/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Discuss a relationship" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry relationship history" }));
+    expect(state.refetch).toHaveBeenCalledOnce();
+    expect(screen.getByRole("link", { name: "Open messages" })).toHaveAttribute(
+      "href",
+      "/chat/own-conversation",
+    );
+    expect(state.change).not.toHaveBeenCalled();
+  },
+);
+it("shows loading instead of disappearing", () => {
+  state.loading = true;
+  render(<ContactRelationshipStory characterKey="claire" characterName="Claire" />);
+  expect(screen.getByRole("status")).toHaveTextContent("Loading relationship history");
 });

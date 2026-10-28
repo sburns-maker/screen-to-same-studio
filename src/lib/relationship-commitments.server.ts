@@ -11,15 +11,24 @@ export async function commitmentReady(db: Client): Promise<boolean> {
   return !error;
 }
 
+const safeCodes = new Set(["PGRST202", "PGRST205", "42P01", "42883", "42501", "P0001", "42703", "42702", "57014", "23505", "23503"]);
+export type CommitmentDiagnostic = {phase: "storage" | "sync"; code: string};
+const diagnostic = (phase: CommitmentDiagnostic["phase"], error: {code?:string}): CommitmentDiagnostic =>
+  ({phase, code: error.code && safeCodes.has(error.code) ? error.code : "unavailable"});
+
 export async function commitmentSnapshot(db: Client, userId: string, characterKey: string):
-  Promise<{ available: boolean; events: CommitmentEvent[] }> {
-  if (!(await commitmentReady(db))) return { available: false, events: [] };
+  Promise<{ available: boolean; events: CommitmentEvent[]; diagnostic?: CommitmentDiagnostic }> {
+  const probe = await db.from("relationship_commitment_events" as never)
+    .select("id", {head:true,count:"exact"}).limit(1);
+  if (probe.error) return {available:false,events:[],diagnostic:diagnostic("storage",probe.error)};
+  let failure: CommitmentDiagnostic | undefined;
   if (supportsRelationshipCommitment(characterKey)) {
     const synced = await db.rpc("relationship_sync_character" as never, { p_user: userId, p_character: characterKey } as never);
     if (synced.error) {
-      if (characterKey !== "tess") return { available: false, events: [] };
-      // Preserve legacy Tess history during the additive migration rollout.
-      await db.rpc("relationship_sync_tess" as never, { p_user: userId } as never);
+      if (characterKey === "tess") {
+        const legacy = await db.rpc("relationship_sync_tess" as never, {p_user:userId} as never);
+        if (legacy.error) failure = diagnostic("sync",legacy.error);
+      } else failure = diagnostic("sync",synced.error);
     }
   }
   const { data, error } = await db.from("relationship_commitment_events" as never)
@@ -35,7 +44,8 @@ export async function commitmentSnapshot(db: Client, userId: string, characterKe
   if (rows.some((row) => row["user_id"] !== userId || row["character_key"] !== characterKey))
     throw new Error("Relationship scope mismatch");
   return {
-    available: true,
+    available: !failure,
+    ...(failure ? {diagnostic:failure} : {}),
     events: rows.map((row) => commitmentEventSchema.parse({
       id: row["id"],
       userId: row["user_id"],
