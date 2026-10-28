@@ -345,7 +345,7 @@ function Chat({ conversationId }: { conversationId: string }) {
           photo: photo ?? "",
         };
       }));
-      if (!cancelled) bridge.receiveMessages(JSON.stringify({ conversationId: convId, messages }));
+      if (!cancelled) receiveMessages(JSON.stringify({ conversationId: convId, messages }));
     })();
     return () => { cancelled = true; };
   }, [conversationId, convId, msgs.isSuccess, msgs.data, now]);
