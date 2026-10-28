@@ -22,7 +22,7 @@ const base64url = (data: ArrayBuffer | Uint8Array): string => {
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 };
-function unbase64url(value: string): Uint8Array {
+function unbase64url(value: string): Uint8Array<ArrayBuffer> {
   const text = value.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(text + "=".repeat((4 - text.length % 4) % 4));
   return Uint8Array.from(binary, c => c.charCodeAt(0));

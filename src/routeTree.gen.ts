@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AndroidConnectRouteImport } from './routes/android-connect'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedCallsRouteImport } from './routes/_authenticated/calls'
 import { Route as AuthenticatedExperiencesRouteImport } from './routes/_authenticated/experiences'
@@ -45,6 +46,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AndroidConnectRoute = AndroidConnectRouteImport.update({
+  id: '/android-connect',
+  path: '/android-connect',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -192,6 +198,7 @@ const ApiPublicJobsWorldTickRoute = ApiPublicJobsWorldTickRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/android-connect': typeof AndroidConnectRoute
   '/auth': typeof AuthRoute
   '/calls': typeof AuthenticatedCallsRoute
   '/experiences': typeof AuthenticatedExperiencesRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/android-connect': typeof AndroidConnectRoute
   '/auth': typeof AuthRoute
   '/calls': typeof AuthenticatedCallsRoute
   '/experiences': typeof AuthenticatedExperiencesRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/android-connect': typeof AndroidConnectRoute
   '/auth': typeof AuthRoute
   '/_authenticated/calls': typeof AuthenticatedCallsRoute
   '/_authenticated/experiences': typeof AuthenticatedExperiencesRoute
@@ -283,6 +292,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/android-connect'
     | '/auth'
     | '/calls'
     | '/experiences'
@@ -312,6 +322,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/android-connect'
     | '/auth'
     | '/calls'
     | '/experiences'
@@ -342,6 +353,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/android-connect'
     | '/auth'
     | '/_authenticated/calls'
     | '/_authenticated/experiences'
@@ -373,6 +385,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AndroidConnectRoute: typeof AndroidConnectRoute
   AuthRoute: typeof AuthRoute
   ApiPublicPushWorkerRoute: typeof ApiPublicPushWorkerRoute
   ApiPublicJobsWorldTickRoute: typeof ApiPublicJobsWorldTickRoute
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/android-connect': {
+      id: '/android-connect'
+      path: '/android-connect'
+      fullPath: '/android-connect'
+      preLoaderRoute: typeof AndroidConnectRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -642,6 +662,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AndroidConnectRoute: AndroidConnectRoute,
   AuthRoute: AuthRoute,
   ApiPublicPushWorkerRoute: ApiPublicPushWorkerRoute,
   ApiPublicJobsWorldTickRoute: ApiPublicJobsWorldTickRoute,
