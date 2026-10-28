@@ -4,10 +4,6 @@
  * impersonate anyone and are not themselves generated audio.
  */
 export const VOICE_DESIGNS = {
-  sienna: {
-    name: "Sienna — Bold",
-    description: "An adult American woman, 29, from western Pennsylvania. Natural warm feminine conversational voice, confident direct delivery, quick situational wit and affectionate teasing. Expressive without constant performance; thoughtful pauses and sincere vulnerability when appropriate. No real-person imitation, exaggerated breathiness, caricature or announcer delivery.",
-  },
   tess: {
     name: "Tess — Refined",
     description: "An adult woman who grew up in England and has lived in Pennsylvania for around ten years. Her English is now predominantly American, but her vowels occasionally retain a soft southern-English roundness and her speech keeps a subtle measured English cadence; the hybrid accent sounds natural and consistent, never performative. Warm, softly feminine, clear, quietly confident, intelligent and genuinely conversational, with graceful articulation, unhurried pacing and understated dry wit. Gentle melodic movement, reflective pauses and sincere tenderness. Not strongly British or posh, and never husky, raspy, breathy, perky, bubbly, theatrical, announcer-like or robotic.",
@@ -31,6 +27,10 @@ export const VOICE_DESIGNS = {
   riley: {
     name: "Riley — Night Shift",
     description: "An adult American woman, 28, a hospital laboratory technician in Altoona, Pennsylvania. A clearly feminine, warm, clear mid-to-light register with a relaxed General American accent. Funny, observant and quietly witty, comfortable with pauses, with understated dry timing, small amused reactions and occasional reflective warmth. A little tired after an overnight shift without sounding flat or whispery. Natural connected speech, gentle pitch movement and conversational imperfections; never robotic, theatrical, announcer-like, exaggeratedly husky or artificially bubbly.",
+  },
+  sienna: {
+    name: "Sienna — Bold",
+    description: "An adult American woman, 29, from western Pennsylvania. Natural warm feminine conversational voice, confident direct delivery, quick situational wit and affectionate teasing. Expressive without constant performance; thoughtful pauses and sincere vulnerability when appropriate. No real-person imitation, exaggerated breathiness, caricature or announcer delivery.",
   },
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
