@@ -262,3 +262,13 @@ it("keeps repeated espresso photo captions out of Maya's next default topic usin
   expect(input).toContain("photo=null is valid");
   expect(model.run).toHaveBeenCalledTimes(1); // No paid rewriter or image-repair request.
 });
+
+it.each(Object.values(CHARACTERS))("plans concrete pose geometry for $preferredName without another model call", async (character) => {
+  if (character.key === "tess") await generateTessReply(args);
+  else await generateContactReply({ ...args, character });
+  const input = model.run.mock.calls[0]![1] as string;
+  expect(input).toContain("PHOTO POSE PLANNING");
+  expect(input).toContain("body/shoulder orientation, head position, gaze");
+  expect(input).toContain("The identity portrait's posture and smile are not character traits");
+  expect(model.run).toHaveBeenCalledTimes(1);
+});

@@ -1,3 +1,4 @@
+import { referencePoseGuidance } from "./photo-reference-prompt";
 import { createServerOnlyFn } from "@tanstack/react-start";
 import type { GeneratedImage } from "./tess-image.server";
 export const SPICY_BASE = "https://api.spicyapi.ai/api/v1";
@@ -332,5 +333,5 @@ SCENE / LOCATION: ${scene}
 POSE / EXPRESSION: ${style["pose_type"] ?? "Natural to the actual activity"}; ${style["expression"] ?? "Match the established mood"}.
 CAMERA: ${style["selfie_type"] ?? "Self-taken phone photo"}; ${style["camera_angle"] ?? "plausible phone perspective"}; ${style["crop_type"] ?? "casual framing"}. For a front-camera photo the phone is behind the lens and should not be visible. For a selected mirror selfie, show one plausible phone/reflection geometry. Never invent a photographer or mirror.
 LIGHTING: Ambient light appropriate to the established place and time; no invented studio lighting.
-QUALITY: Photorealistic casual smartphone photograph, natural skin texture, believable hands, hair and fabric. Avoid editorial polish, text overlays and watermarks. No nudity or explicit sexual acts. Preserve adult eligibility, boundaries and identity.`;
+QUALITY: Photorealistic casual smartphone photograph, natural skin texture, believable hands, hair and fabric. Avoid editorial polish, text overlays and watermarks. No nudity or explicit sexual acts. Preserve adult eligibility, boundaries and identity.\n${referencePoseGuidance(style)}`;
 }
