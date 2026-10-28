@@ -24,7 +24,7 @@ export function callHistoryLines(rows: CallHistoryFact[], now: Date): string[] {
     .slice(0, 8);
   if (!facts.length) return [];
   return [
-    "AUTHORITATIVE RECENT CALL HISTORY: These are this conversation's actual phone records. Incoming means YOU called the player; outgoing means the PLAYER called you. Do not deny a recorded attempt. These records override contradictory guesses or denials in earlier messages; if asked, correct an earlier mistake naturally without discussing prompts or the ledger. An unanswered/missed call contains no shared dialogue or agreement. Never invent its purpose, audible ringing, voicemail, topics or blame. An empty/partial history is not proof no call occurred. Mention calls only when relevant.",
+    "AUTHORITATIVE RECENT CALL HISTORY: These are this conversation's actual phone records. Incoming means YOU called the player; outgoing means the PLAYER called you. Do not deny a recorded attempt. These records override contradictory guesses or denials in earlier messages; if asked, correct an earlier mistake naturally without discussing prompts or the ledger. An unanswered/missed call contains no shared dialogue or agreement. Never invent its purpose, audible ringing, voicemail, topics or blame. An empty/partial history is not proof no call occurred. A missed attempt does not rule out a separate later answered call. Mention calls only when relevant.",
     ...facts.map((r) => {
       const at = new Date(r.offered_at).toLocaleString("en-US", {
         timeZone: "America/New_York",
@@ -39,7 +39,7 @@ export function callHistoryLines(rows: CallHistoryFact[], now: Date): string[] {
       const answered = r.answered_at && Date.parse(r.answered_at) <= now.getTime();
       const expired = r.state === "ringing" && Date.parse(r.ring_until) <= now.getTime();
       const outcome = answered
-        ? `answered; ${r.ended_at && Date.parse(r.ended_at) <= now.getTime() ? "call ended" : "no confirmed end recorded"}. Topics are known only from retained call memories, not this record`
+        ? `answered; ${r.ended_at && Date.parse(r.ended_at) <= now.getTime() ? "call ended" : "no confirmed end recorded"}. Topics are known only from retained call dialogue or memories, not this record`
         : r.state === "missed" || expired
           ? "missed / not answered; no conversation occurred"
           : r.state === "declined"

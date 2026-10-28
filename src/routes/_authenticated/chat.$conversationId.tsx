@@ -562,6 +562,7 @@ function Chat({ conversationId }: { conversationId: string }) {
                     if (md?.generated_path) return <GeneratedPhoto path={md.generated_path} name={def.preferredName} mediaId={m.id} />;
                     return null;
                   })()}
+                  {(m.metadata as {transcript_source?:string}|null)?.transcript_source === "live_call_capture" && <span className="px-2 text-[11px] text-muted-foreground">Phone call transcript</span>}
                   {!mine&&<NpcIntroductionChip messageId={m.id} text={m.body}/>}
                   {m.body && <ReactionBubble
                     messageId={m.id}
