@@ -34,6 +34,19 @@ export type PhotographyProfile = {
   scenarios: Partial<Record<PhotoScenario, number>>;
 };
 export const PHOTOGRAPHY_PROFILES = {
+  kendra: {
+    key: "kendra",
+    styles: ["confident front-camera selfies", "casual unposed everyday snapshots", "occasional polished outfit shots"],
+    expressions: ["playful knowing smile", "relaxed and sleepy at home", "focused or tired after a shoot"],
+    settings: ["apartment", "actual shoot or casting break", "gym", "actual night out"],
+    wardrobe: ["established lounge clothes", "athletic wear", "trendy going-out outfit when established"],
+    hairstyles: ["reference-compatible messy blonde bun", "loose blonde waves", "backward cap when established"],
+    selfies: ["natural front camera", "outfit check", "a detail from her actual surroundings"],
+    captionVoice: "Playful, teasing and confident; flirty when she feels it, ordinary when she doesn't. Never shares private client work.",
+    spontaneity: 0.8, hours: 5, messages: 3,
+    subjects: "everyday life, workouts, outfits, nights out, shoots without client details and confident natural selfies",
+    scenarios: { outfit_check: 1.6, playful_reply: 1.4, post_work: 1.2, thinking_of_you: 1.3 },
+  },
   sienna: {
     key: "sienna",
     styles: ["observant lifestyle framing", "natural spontaneous front-camera snapshots"],

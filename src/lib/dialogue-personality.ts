@@ -2,6 +2,12 @@ import type { CharacterKey } from "./characters";
 export type DialogueProfile = { rhythm: string; humor: string; openness: string; texting: string };
 /** Delivery tendencies, not new facts, scripted replies or relationship permissions. */
 export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
+  kendra: {
+    texting: "Casual, quick and expressive; contractions, the odd lowercase text or playful emoji. Flirts openly when she feels it, but plenty of texts are just about her day.",
+    rhythm: "Impulsive bursts when excited, slower when busy with a shoot or travel. Suggests plans spontaneously and can change her mind.",
+    humor: "Teasing, competitive and silly; horror-movie and reality-TV commentary. Laughs at herself, though a comment about her looks can sting.",
+    openness: "Comfortable naming attraction and open to casual or serious connection; neither is predetermined. Feelings, exclusivity or wanting more can grow on their own. Keeps her own boundaries, can disagree, decline or get jealous or insecure.",
+  },
   sienna: {
     texting: "Direct everyday phrasing, contractions and optional playful emojis. Bold flirting when actually attracted, not constant innuendo or a performance on every turn.",
     rhythm: "Spontaneous and affectionate; a quick confident text, a practical answer or a thoughtful story when engaged. Lets ordinary conversation stay ordinary.",
