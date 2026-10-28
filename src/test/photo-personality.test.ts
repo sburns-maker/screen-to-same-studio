@@ -148,7 +148,7 @@ describe("typed character photography", () => {
     });
     expect(
       continuityPhotoStyle(p, { hairstyle: "messy bun" }, "wearing a blue hoodie at home"),
-    ).toMatchObject({ hairstyle: "messy bun", clothing_category: null });
+    ).toMatchObject({ hairstyle: "messy bun", clothing_category: "a blue hoodie" });
   });
   it("carries garments through travel without bringing Maya back to a previous venue", () => {
     const previous = {
@@ -158,7 +158,7 @@ describe("typed character photography", () => {
       style: { hairstyle: "ponytail", clothing_category: "work jacket" },
       objects: [],
     };
-    expect(plan("maya", { previous }).continuitySource).toBe("recent_delivered_photo");
+    expect(plan("maya", { previous }).outfitEpisode).toBe("context_transition");
     expect(plan("maya", { previous }).location).toBe("home");
     expect(
       plan("maya", {

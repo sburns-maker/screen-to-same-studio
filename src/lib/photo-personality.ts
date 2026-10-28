@@ -1,4 +1,4 @@
-import { ordinaryWardrobeChoice } from "./photo-wardrobe";
+import { ordinaryWardrobeChoice, sceneOutfit } from "./photo-wardrobe";
 import {physicalPhotoContext} from "./calendar-commitment";
 import type { CharacterKey } from "./characters";
 import type { PhotoStyle } from "./tess-photos";
@@ -239,6 +239,7 @@ export type PhotographyPlan = {
   recentStyles?: PhotoStyle[];
   captureDecision?: string;
   ordinaryWardrobe?: string | null;
+  outfitLocked?: boolean;
   outfitEpisode: "same_day" | "new_day" | "context_transition" | "unestablished";
 };
 export type DeliveredPhoto = {
@@ -300,8 +301,14 @@ export function planPhotography(args: {
     new Intl.DateTimeFormat("en-CA", {timeZone: "America/New_York", year:"numeric",month:"2-digit",day:"2-digit"}).format(args.now) ===
     new Intl.DateTimeFormat("en-CA", {timeZone: "America/New_York", year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(previous.at));
   // Travel alone is not a wardrobe change. Retain known garments across locations.
-  const explicitChange = /\b(?:changed (?:clothes|outfit)|got dressed|getting dressed|put on (?:my|a)|showered|pajamas|pyjamas|getting ready|dressed up)\b/i.test(text);
-  const newEpisode = explicitChange;
+  const explicitChange = /\b(?:changed (?:clothes|outfit)|got dressed|getting dressed|put on (?:my|a)|showered|dressed up)\b/i.test(text);
+  const keepClothes = /\b(?:same (?:clothes|outfit|scrubs)|still wearing|haven['’]t changed|have not changed)\b/i.test(text);
+  const arrivedHome = location === "home" && !!previous && previous.location !== "home";
+  const futureChange = /\b(?:later|tomorrow|will change|going to change|before i change)\b/i.test(text);
+  const requestedChange = /^(?:(?:please|could you|can you|would you)\s+)?(?:wear|put on|change into)\b/i.test(user.trim()) && !/\b(?:later|tomorrow)\b/i.test(user);
+  const workLocations = ["work", "clinic", "venue"];
+  const startsShift = workLocations.includes(location ?? "") && !!previous && !workLocations.includes(previous.location ?? "");
+  const newEpisode = !keepClothes && ((explicitChange && !futureChange) || arrivedHome || startsShift || requestedChange);
   const continuousShift = age >= 0 && age <= 8 * 3600000 &&
     location === previous?.location && ["work", "clinic", "venue"].includes(location ?? "");
   const sameEpisode = sameDay || continuousShift;
@@ -324,6 +331,7 @@ export function planPhotography(args: {
     location,
     availability: args.schedule.availability,
     outfitEpisode,
+    outfitLocked: retain && !!previous?.style.clothing_category,
     ordinaryWardrobe: retain && previous.style.clothing_category
       ? previous.style.clothing_category
       : ordinaryWardrobeChoice(args.character, args.now, location, text),
@@ -338,7 +346,7 @@ export function planPhotography(args: {
     continuitySource: retain ? "recent_delivered_photo" : "current_context_only",
     continuityReason: retain
       ? "Same local day or continuous overnight shift, with no established outfit change; retain visible clothes and hair through travel."
-      : outfitEpisode === "context_transition" ? "An established clothing change starts a fresh visual episode." : "No established same-day outfit continuity; do not invent continuity.",
+      : outfitEpisode === "context_transition" ? "An established change, arrival home or start of work permits a fresh outfit episode; the chosen next photo establishes the clothes." : "No established same-day outfit continuity; do not invent continuity.",
   };
 }
 export type PhotoSubject = "object" | "person";
@@ -506,11 +514,12 @@ export function photoPersonalityPrompt(
     return `Current location category: ${plan.location ?? "unspecified"}. Scenario: ${plan.scenario ?? "unspecified"}. Photographic habits: ${p.styles.join("; ")}. Objects must come from the requested scene and current activity. Current relevant weather: ${plan.continuity.weather ?? "unknown; do not invent"}. Do not add a human to an object-only photo. Captions belong to the separate chat message, never an image overlay.`;
   return `Priority: canonical facial identity first, factual current context second, explicit scene third, soft tendencies last. Current location category: ${plan.location ?? "unspecified; do not infer from preferred settings"}. Scenario tag: ${plan.scenario ?? "none; do not invent an activity"}.\nContinuity hints, only if still true and not explicitly changed: ${JSON.stringify(plan.continuity)}.\nSoft photographic tendencies: ${p.styles.join("; ")}. Expression options only when the requested expression/mood is unspecified: ${p.expressions.join("; ")}. For ordinary photos only, if neither the scene, requested style nor established continuity specifies actual garments, use this single character/day/activity fallback: ${plan.ordinaryWardrobe ?? "choose from the character's established style"}. It is a proposed outfit, not a remembered fact. Clothing tendencies are secondary: ${p.wardrobe.join("; ")}. Do not combine all the alternatives or copy the reference portrait clothes. Mature styling uses the approved scene instead of this ordinary fallback. Hairstyle possibilities only if none is established/requested: ${p.hairstyles.join("; ")}. These do not change the reference's hair-color family, facial features, age or identity.\nRequested style remains authoritative over tendencies: ${JSON.stringify(style ?? {})}. Do not add a human to an object-only photo. Avoid repeating compositions while retaining current facts. Work uniforms may repeat without repeating the pose, camera angle, expression or background crop. Expressions follow actual mood; never rotate emotions for variety. Captions belong to the separate chat message; no caption text or overlays in this photo.`;
 }
-/** Carry missing same-moment details, without overriding an explicitly chosen scene/style. */
+/** Preserve established episode clothes; scene wardrobe controls an unlocked episode. */
 export function continuityPhotoStyle(
   plan: PhotographyPlan,
   proposed: PhotoStyle,
   scene: string,
+  allowSceneWardrobeChange = false,
 ): PhotoStyle {
   const explicitHair = /\b(?:hair|bun|ponytail|waves|braid|updo)\b/i.test(scene);
   const explicitClothes =
@@ -522,8 +531,10 @@ export function continuityPhotoStyle(
     hairstyle:
       proposed.hairstyle ??
       (!explicitHair && plan.outfitEpisode === "same_day" ? plan.continuity.hairstyle : null),
-    clothing_category: explicitClothes
-      ? null
+    clothing_category: plan.outfitLocked && plan.continuity.clothing && !allowSceneWardrobeChange
+      ? plan.continuity.clothing
+      : explicitClothes
+      ? sceneOutfit(scene) ?? proposed.clothing_category ?? null
       : (plan.outfitEpisode === "same_day" ? plan.continuity.clothing : null) ??
         proposed.clothing_category ??
         null,

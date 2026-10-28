@@ -37,3 +37,8 @@ export function textProneScene(scene: string): boolean {
     scene,
   );
 }
+
+/** The image attachment is rendered separately; never print a model's leading media placeholder. */
+export function cleanPhotoCaptionMarker(text: string): string {
+  return text.replace(/^\s*\[(?:photo|image|selfie)(?:\s+(?:attached|sent))?\]\s*/i, "");
+}
