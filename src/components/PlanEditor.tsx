@@ -19,7 +19,7 @@ export function PlanEditor({
   onCancel,
 }: {
   manual?: boolean;
-  residences?: { key: string; label: string }[] | undefined;
+  residences?: { key: string; label: string; canPlan?: boolean }[] | undefined;
   plan: {
     title: string;
     starts_at: string | null;
@@ -88,8 +88,8 @@ export function PlanEditor({
         >
           <option value="">Keep current</option>
           {places.map((p) => (
-            <option key={p.key} value={p.key}>
-              {p.label}
+            <option key={p.key} value={p.key} disabled={"canPlan" in p && p.canPlan === false}>
+              {p.label}{"canPlan" in p && p.canPlan === false ? " · Invitation required" : ""}
             </option>
           ))}
         </select>

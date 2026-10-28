@@ -26,3 +26,9 @@ it("releases the save control and exposes a failed request without falsely confi
   await waitFor(() => expect(screen.getByText("Save changes")).not.toBeDisabled());
   expect(save).toHaveBeenCalledTimes(1);
 });
+
+it("shows known homes and makes invitation requirements visible",()=>{
+  render(<PlanEditor residences={[{key:"home:user",label:"My Home",canPlan:true},{key:"home:claire",label:"Claire's home",canPlan:true},{key:"home:riley",label:"Riley's home",canPlan:false}]} plan={{title:"Movie night",starts_at:null,date_local:null,time_local:null,duration_minutes:120,place_key:null,status:"proposed"}} onSave={vi.fn()} onCancel={()=>{}}/>);
+  expect(screen.getByRole("option",{name:"Claire's home"})).not.toBeDisabled();
+  expect(screen.getByRole("option",{name:"Riley's home · Invitation required"})).toBeDisabled();
+});
