@@ -79,6 +79,10 @@ function Inbox() {
   // the source of truth. No database credentials or contact data cross this boundary.
   useEffect(() => {
     if (!inbox.isSuccess) return;
+    // Android checks this marker only after the authenticated inbox has loaded.
+    // The marker carries no credentials; conversation data stays in the app bridge.
+    (window as Window & { __livingWorldInboxBridgeReady?: boolean })
+      .__livingWorldInboxBridgeReady = true;
     const bridge = (window as Window & {
       LivingWorldAndroid?: { receiveInbox?: (json: string) => void };
     }).LivingWorldAndroid;
