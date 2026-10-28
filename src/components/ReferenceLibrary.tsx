@@ -257,7 +257,11 @@ export function ReferenceLibrary() {
                 onClick={() => void choose(c)}
               >
                 <ReferenceThumbnail character={key} message={c.id} hash={page.hash} />
-                {c.source === "canonical" ? "View canonical portrait" : "Preview received photo"}
+                {c.source === "canonical"
+                  ? "View canonical portrait"
+                  : c.source === "uploaded"
+                    ? "Preview your uploaded photo"
+                    : "Preview received photo"}
                 {c.rejected ? " · Rejected" : ""}
                 {page.slots.some((s) => s.asset === c.asset) ? " · Selected" : ""}
               </button>

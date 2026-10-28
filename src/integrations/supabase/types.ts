@@ -1929,6 +1929,7 @@ export type Database = {
           reviewed_at: string
           role: string
           source_message_id: string | null
+          source_upload_id: string | null
           user_id: string
         }
         Insert: {
@@ -1939,6 +1940,7 @@ export type Database = {
           reviewed_at?: string
           role: string
           source_message_id?: string | null
+          source_upload_id?: string | null
           user_id: string
         }
         Update: {
@@ -1949,6 +1951,7 @@ export type Database = {
           reviewed_at?: string
           role?: string
           source_message_id?: string | null
+          source_upload_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -1957,6 +1960,13 @@ export type Database = {
             columns: ["source_message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_reference_slots_source_upload_id_fkey"
+            columns: ["source_upload_id"]
+            isOneToOne: false
+            referencedRelation: "photo_reference_uploads"
             referencedColumns: ["id"]
           },
           {
@@ -1995,6 +2005,39 @@ export type Database = {
           spicy_enabled?: boolean
           user_id?: string
           version?: number
+        }
+        Relationships: []
+      }
+      photo_reference_uploads: {
+        Row: {
+          asset: string
+          canonical_sha256: string
+          character_key: string
+          content_sha256: string
+          created_at: string
+          id: string
+          label: string
+          user_id: string
+        }
+        Insert: {
+          asset: string
+          canonical_sha256: string
+          character_key: string
+          content_sha256: string
+          created_at?: string
+          id?: string
+          label?: string
+          user_id: string
+        }
+        Update: {
+          asset?: string
+          canonical_sha256?: string
+          character_key?: string
+          content_sha256?: string
+          created_at?: string
+          id?: string
+          label?: string
+          user_id?: string
         }
         Relationships: []
       }
