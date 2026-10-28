@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { stateQuery } from "@/lib/tess-queries";
 import { deriveStage } from "@/lib/tess-logic";
@@ -59,7 +60,7 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
         requestId: crypto.randomUUID(), characterKey, kind, action: "propose", eventId: null,
       } });
       await cache.invalidateQueries({ queryKey: ["relationship-commitments", characterKey] });
-      setFeedback("You proposed a relationship decision. The other person has not agreed yet.");
+      setFeedback("Your proposal is saved. Open messages to discuss it together; the other person has not agreed yet.");
     } catch {
       setFeedback("Unable to send your proposal. Please try again.");
     } finally { setBusy(false); }
@@ -82,7 +83,13 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
           <h3 className="font-semibold">A decision to make together</h3>
           <p className="mt-1 text-sm text-muted-foreground capitalize">{event.kind.replaceAll("_", " ")} · {event.proposedBy === "character" ? characterName + " proposed" : "You proposed"}</p>
           <p className="mt-2 text-xs text-muted-foreground">This isn't final until both people independently agree. Living arrangements are managed separately.</p>
+          {conversationId && <p className="mt-2 text-sm text-muted-foreground">Continue the discussion in your conversation with {characterName}.</p>}
           <div className="mt-3 flex flex-wrap gap-2">
+            {conversationId && <Link
+              to="/chat/$conversationId"
+              params={{ conversationId }}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-4 text-primary-foreground"
+            >Discuss in messages</Link>}
             {event.userResponse === "pending" && <>
               <button type="button" disabled={busy} className="min-h-11 rounded-xl bg-primary px-4 text-primary-foreground" onClick={() => void respond(event, "accept")}>Agree</button>
               <button type="button" disabled={busy} className="min-h-11 rounded-xl border px-4" onClick={() => void respond(event, "decline")}>Decline</button>
