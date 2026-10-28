@@ -19,12 +19,11 @@ describe("Kendra Blake independent adult cast integration", () => {
     expect(canShareCommitmentWithCharacter("kendra", "riley")).toBe(false);
     expect(canShareCommitmentWithCharacter("kendra", "kendra")).toBe(true);
   });
-  it("keeps second shift separate from daytime sleep and independent free time", () => {
-    const shift = new Date("2026-10-28T22:00:00Z");
-    expect(workplaceShiftLikely("kendra", shift)).toBe(true);
-    expect(characterAvailability(CHARACTERS.kendra, shift).availability).toBe("limited");
-    expect(characterAvailability(CHARACTERS.kendra, new Date("2026-10-28T08:00:00Z")).availability).toBe("asleep");
-    expect(workplaceShiftLikely("kendra", new Date("2026-10-28T17:00:00Z"))).toBe(false);
+  it("keeps daytime shoots separate from overnight sleep", () => {
+    // Wed Oct 28 2026, 2pm Eastern = 18:00Z; 6am Eastern = 10:00Z
+    expect(workplaceShiftLikely("kendra", new Date("2026-10-28T18:00:00Z"))).toBe(true);
+    expect(characterAvailability(CHARACTERS.kendra, new Date("2026-10-28T10:00:00Z")).availability).toBe("asleep");
+    expect(workplaceShiftLikely("kendra", new Date("2026-10-29T00:00:00Z"))).toBe(false);
     expect(WORKPLACES.kendra.character).toBe("kendra");
   });
   it("uses her own photography and voice profiles without activating paid sessions", () => {
@@ -33,8 +32,10 @@ describe("Kendra Blake independent adult cast integration", () => {
     expect(CHARACTER_VOICE_PRESETS.kendra.prompt.length).toBeGreaterThan(40);
     expect(CHARACTERS.kendra.photosEnabled).toBe(true);
   });
-  it("gives her an independent friend and coworker without cross-character knowledge links", () => {
+  it("has her own friends plus a platonic friendship with Ben only", () => {
     expect(CANON_NPCS.filter(n=>n.characterKey==="kendra").map(n=>n.category)).toEqual(["friend","coworker"]);
-    expect(CANON_LINKS.filter(n=>n.characterKey==="kendra").every(n=>n.otherType==="npc")).toBe(true);
+    const cross = CANON_LINKS.filter(n=>n.characterKey==="kendra" && n.otherType==="character");
+    expect(cross.map(l=>[l.otherKey,l.level])).toEqual([["ben","friend"]]);
+    expect(CHARACTERS.ben.romanticCapable).toBe(false);
   });
 });
