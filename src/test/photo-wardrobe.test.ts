@@ -64,7 +64,7 @@ describe("character-specific ordinary wardrobe", () => {
     const p = plan("riley");
     const style = { clothing_category: "black polo and jeans" };
     expect(ordinaryPhotoStyle(style, "a kitchen selfie", p)).toBe(style);
-    expect(ordinaryPhotoStyle({}, "wearing a red silk blouse", p)).toEqual({});
+    expect(ordinaryPhotoStyle({}, "wearing a red silk blouse", p)).toEqual({clothing_category:"a red silk blouse"});
     expect(ordinaryPhotoStyle(null, "in blue scrubs", p)).toBeNull();
   });
 

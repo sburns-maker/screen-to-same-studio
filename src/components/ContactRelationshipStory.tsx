@@ -39,7 +39,8 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
       setFeedback("Unable to save that decision. Please try again.");
     } finally { setBusy(false); }
   }
-  if (query.isLoading) return null;
+  if (!supportsRelationshipCommitment(characterKey)) return null;
+  if (query.isLoading) return <section aria-label={`Relationship with ${characterName}`} className="rounded-2xl border bg-background p-4"><h3 className="font-semibold">Your story together</h3><p role="status" className="mt-2 text-sm text-muted-foreground">Loading relationship history…</p></section>;
   if (query.error) return (
     <section aria-label={`Relationship with ${characterName}`} className="rounded-2xl border bg-background p-4">
       <h3 className="font-semibold">Your story together</h3>
@@ -50,7 +51,18 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
       <button type="button" onClick={() => void query.refetch()} className="mt-2 min-h-11 rounded-xl border px-4 text-sm">Retry milestones</button>
     </section>
   );
-  if (!query.data?.available) return null;
+  if (!query.data?.available) return (
+    <section aria-label={`Relationship with ${characterName}`} className="space-y-3 rounded-2xl border bg-background p-4">
+      <h3 className="font-semibold">Your story together</h3>
+      <p role="status" className="text-sm text-muted-foreground">Recorded relationship decisions are temporarily unavailable. You can still talk in messages.</p>
+      {!!query.data?.events.length && <RelationshipMilestones events={query.data.events} characterName={characterName} connectionStage={connectionStage} />}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => void query.refetch()} className="min-h-11 rounded-xl border px-4 text-sm">Retry relationship history</button>
+        {conversationId && <Link to="/chat/$conversationId" params={{conversationId}} className="inline-flex min-h-11 items-center rounded-xl border px-4 text-sm">Open messages</Link>}
+      </div>
+      {query.data?.diagnostic && <details className="text-xs text-muted-foreground"><summary>Troubleshooting</summary><p>Step: {query.data.diagnostic.phase} · Code: {query.data.diagnostic.code}</p></details>}
+    </section>
+  );
   const pending = query.data.events.filter((e) => e.status === "pending");
   async function propose(kind: "exclusive" | "partnership") {
     setBusy(true);

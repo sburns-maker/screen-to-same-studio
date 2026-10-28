@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { ContactRelationshipStory } from "./ContactRelationshipStory";
 import { HomeMoments } from "./HomeMoments";
 import { HomePhotoGallery } from "./HomePhotoGallery";
 import { Link } from "@tanstack/react-router";
@@ -110,7 +109,6 @@ export function HousingPanel({ character, conversationId }: { character?: string
       className={`${card} my-4 space-y-4`}
     >
       <h2 className="font-display text-xl">{character ? "Home" : "My home & household"}</h2>
-      {character && <ContactRelationshipStory characterKey={character} characterName={contacts.find((contact) => contact.key === character)?.name ?? character} conversationId={conversationId} />}
       {home ? (
         <div>
           <Link

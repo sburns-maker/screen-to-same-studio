@@ -1,5 +1,5 @@
 import { referencePoseGuidance } from "./photo-reference-prompt";
-import { ordinaryPhotoStyle } from "./photo-wardrobe";
+import { ordinaryPhotoStyle, outfitContinuityPrompt } from "./photo-wardrobe";
 import { PendingPhotoTask, buildSpicyPrompt } from "./spicy-image.server";
 import { photoPersonalityPrompt, photographyDiagnostics, type PhotographyPlan } from "./photo-personality";
 import { canonicalProfile } from "./canonical-profile.server";
@@ -132,7 +132,7 @@ export function buildImagePrompt(
   const merged: PhotoStyle = { ...style, expression: style?.expression ?? expression };
   const selfieFallback =
     !merged.selfie_type && type === "casual_selfie" ? "Use a plausible self-taken phone photo consistent with the selected framing; do not default to a centered arm’s-length portrait." : "";
-  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}\n\n${WARDROBE_AND_COMPOSITION}\n\n${PHONE_CAPTURE}\n\n${PORTRAIT_PHYSICS}${personality}\n\n${referencePoseGuidance(merged)}`;
+  return `${identityBlock(identity)}\n\nScene: ${scene}.${styleLines(merged)}${selfieFallback ? ` ${selfieFallback}` : ""}${mabel}\n\n${type === "mature_romantic" ? MATURE_STYLE : STYLE}\n\n${WARDROBE_AND_COMPOSITION}\n\n${PHONE_CAPTURE}\n\n${PORTRAIT_PHYSICS}${personality}\n\n${referencePoseGuidance(merged)}${type !== "mature_romantic" ? `\n\n${outfitContinuityPrompt(photography)}` : ""}`;
 }
 
 export function lovableGatewayProvider(gatewayKey: string): ImageProvider {

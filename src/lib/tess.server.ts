@@ -5,7 +5,7 @@ import { nextTextDelivery, deliveryDiagnostic } from "./dialogue-turn";
 import {spontaneousPhotoTask} from "./spontaneous-photo-flow";
 import { dialogueRules, dialogueContext } from "./dialogue-personality";
 import { scheduleActionsSchema, SCHEDULE_RULES } from "./calendar-contract";
-import { photoTextSchema, PHOTO_TEXT_RULES } from "./photo-text";
+import { photoTextSchema, PHOTO_TEXT_RULES, cleanPhotoCaptionMarker } from "./photo-text";
 import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
 import { runStructured } from "./text-ai.server";
 import { z } from "zod";
@@ -303,6 +303,7 @@ ${EVENT_TAGS_LINE}`;
   reply.messages = cleaned.length || !reply.messages.length
     ? cleaned
     : [(reply.messages[0] ?? "").replace(/\p{Extended_Pictographic}/gu, "").replace(/!+/g, ".").trim()].filter(Boolean);
+  if (reply.photo) reply.messages = reply.messages.map(cleanPhotoCaptionMarker);
   if (focus) console.info("[conversation-focus]", focusDiagnostic(focus, reply.messages));
   if (!args.experience && args.deliveryChannel !== "voice") console.info("[dialogue-delivery]", deliveryDiagnostic("tess", tessLines, reply.messages));
   return reply;
@@ -469,6 +470,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { ...voice, recentTess });
   reply.messages = cleaned.length || !reply.messages.length ? cleaned : reply.messages.slice(0, 1);
+  if (reply.photo) reply.messages = reply.messages.map(cleanPhotoCaptionMarker);
   if (focus) console.info("[conversation-focus]", focusDiagnostic(focus, reply.messages));
   if (!args.experience && args.deliveryChannel !== "voice") console.info("[dialogue-delivery]", deliveryDiagnostic(c.key, ownLines, reply.messages));
   return reply;

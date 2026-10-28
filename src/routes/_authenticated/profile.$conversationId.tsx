@@ -1,3 +1,4 @@
+import { ContactRelationshipStory } from "@/components/ContactRelationshipStory";
 import { ContactPending } from "@/components/ContactPending";
 import { HousingPanel } from "@/components/HousingPanel";
 import { CallButton } from "@/components/CallButton";
@@ -75,6 +76,7 @@ function Profile() {
         backParams={{ conversationId }}
       />
       <Screen>
+        <ContactRelationshipStory characterKey={def.key} characterName={def.preferredName} conversationId={conversationId} />
         <HousingPanel character={def.key} conversationId={conversationId}/>
         <div className="flex flex-col items-center text-center">
           <DropdownMenu>

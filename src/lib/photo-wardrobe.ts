@@ -85,16 +85,32 @@ const genericClothing =
 const garmentInScene =
   /\b(?:wearing|dressed|shirt|tee|t-shirt|henley|blouse|top|polo|sweater|knit|jacket|coat|hoodie|cardigan|dress|scrubs|uniform|robe|lingerie|pajamas|pyjamas|bra|bralette|tank|trousers|jeans|shorts|skirt|suit)\b/i;
 
-/** Only resolve missing/vague ordinary clothing; never replace an explicit outfit. */
+/** Persist a concrete outfit already selected in scene prose, not a new invented garment. */
+export function sceneOutfit(scene: string): string | null {
+  const match = /\b(?:wearing|dressed in)\s+(.+?)(?=\s+(?:at|while|looking|standing|sitting|holding)\b|[.;\n]|$)/i.exec(scene);
+  return match && garmentInScene.test(match[1] ?? "") ? match[1]!.trim().slice(0,160) : null;
+}
+
+/** Established episode clothes precede generated suggestions; unlocked scenes may choose new clothes. */
 export function ordinaryPhotoStyle(
   style: PhotoStyle | null | undefined,
   scene: string,
-  plan?: { ordinaryWardrobe?: string | null; continuity: { clothing: string | null } },
+  plan?: { outfitLocked?: boolean; ordinaryWardrobe?: string | null; continuity: { clothing: string | null } },
 ): PhotoStyle | null | undefined {
+  if (plan?.outfitLocked && plan.continuity.clothing) return {...style,clothing_category:plan.continuity.clothing};
+  const outfit = sceneOutfit(scene);
+  if (outfit) return {...style, clothing_category:outfit};
   if (!plan || garmentInScene.test(scene)) return style;
   const current = style?.clothing_category?.trim();
   const known = plan.continuity.clothing;
   const fallback = known || plan.ordinaryWardrobe;
   if (!fallback || (current && !genericClothing.test(current))) return style;
   return { ...style, clothing_category: fallback };
+}
+
+/** Generated prose is not evidence that a character changed clothes. */
+export function outfitContinuityPrompt(plan?: {outfitLocked?: boolean; continuity:{clothing:string|null}}): string {
+  return plan?.outfitLocked && plan.continuity.clothing
+    ? `CURRENT OUTFIT CONTINUITY: ${plan.continuity.clothing}. This is the established outfit for the current clothing episode. Preserve these garments, colors, fabric and layers. It takes precedence over conflicting wardrobe suggestions in the generated scene or reference portrait. Changing pose, crop, expression or background does not change the clothes. A future intention to change later is not a change now.`
+    : "";
 }

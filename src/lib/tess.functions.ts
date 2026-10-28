@@ -686,7 +686,7 @@ async function runTurnUnlocked(
         // Context first, variety second: only nudge an exact repeat of a recent photo.
         const { fictionalGroupScene } = await import("./tess-image.server");
         const isGroupScene = fictionalGroupScene(photoScene);
-        const currentStyle = continuityPhotoStyle(photography,rawStyle,photoScene);
+        const currentStyle = continuityPhotoStyle(photography,rawStyle,photoScene,p.type === "mature_romantic");
         const capture = p.type === "object" || isGroupScene
           ? {style: currentStyle, decision: "preserved" as const}
           : selectPhotoComposition(currentStyle, recentStyles, photoScene,

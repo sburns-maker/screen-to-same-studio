@@ -286,3 +286,10 @@ it("ignores a romantic decision returned for Ben", async () => {
   const reply = await generateContactReply({ ...args, character: CHARACTERS.ben });
   expect(reply.commitment_action.action).toBeNull();
 });
+
+it.each(["tess", "maya", "riley", "claire", "jordan", "ben"] as const)("removes only %s's leading photo marker from an attached-photo caption", async (key) => {
+  model.run.mockResolvedValueOnce({...makeReply(),messages:["[photo] Current work face."],photo:{action:"generate",type:"casual_selfie"}});
+  const reply = key === "tess" ? await generateTessReply(args) : await generateContactReply({...args,character:CHARACTERS[key]});
+  expect(reply.messages).toEqual(["Current work face."]);
+  expect(model.run).toHaveBeenCalledTimes(1);
+});

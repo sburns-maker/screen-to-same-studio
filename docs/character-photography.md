@@ -102,3 +102,33 @@ publication, visually review a sequence for head/torso/arm placement as well as
 crop, location and identity. Compare the actual chosen pose metadata to the
 result before attributing a repeat to planning versus the image model. No paid
 generation was run during these checks.
+
+## Outfit episodes
+
+Known clothing is retained through a work shift and ordinary travel, including
+the existing continuous overnight-shift window. During an unchanged episode,
+new model-generated wardrobe prose cannot override the saved outfit, even if
+it says "wearing" a different garment. The shared ordinary image prompt states
+which current outfit takes precedence; pose/expression/framing can still vary.
+Concrete clothing selected in a "wearing/dressed in" scene is also saved in
+style metadata, rather than discarded as a null clothing field. Unknown clothes
+are not inferred from an object photo or another character. These are selected
+wardrobe instructions, not an extra pixel-level clothing verification.
+
+Arrival home, starting work, an established clothing change, a new local day
+(outside an ongoing overnight shift), or a direct current outfit request can
+start a new episode. Arrival permits a fresh outfit; it does not invent a memory
+of changing clothes. The next selected photo establishes the new clothes. An
+explicit "still wearing the same clothes" retains them at home. A future plan
+to change later and a player's statement about their own clothes do not reset
+the character's current outfit. Bedtime/pajamas alone are not repeated change
+events that authorize different clothes on every photograph.
+
+This does not alter the independently approved mature-photo scene, provider
+selection, canonical references, willingness or budgets. Leading model media
+markers such as [photo] are removed only from character replies that actually
+select a photo; the image attachment is rendered separately. Marker-only
+captions retain their attachment slot with empty text. Existing dialogue is
+not rewritten. Tests cover 20 work-photo choices for each cast member, home
+changes and later continuity, travel, overnight work, actual/future changes
+and caption cleanup. No paid image generation was performed.

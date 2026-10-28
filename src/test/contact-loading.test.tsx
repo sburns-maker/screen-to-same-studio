@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   incoming: undefined as string | undefined,
   invalidate: vi.fn(),
   housing: vi.fn(),
+  relationship: vi.fn(),
   voice: vi.fn(),
 }));
 vi.mock("@tanstack/react-router", () => ({
@@ -41,10 +42,14 @@ vi.mock("@/components/HousingPanel", () => ({
     return null;
   },
 }));
+vi.mock("@/components/ContactRelationshipStory", () => ({
+  ContactRelationshipStory: (props: unknown) => { mocks.relationship(props); return <section>Relationship card</section>; },
+}));
 vi.mock("@/components/ProfilePhotoPanel", () => ({ ProfilePhotoPanel: () => null }));
 vi.mock("@/components/PhotoViewer", () => ({ PhotoViewer: () => null }));
 vi.mock("@/lib/live-call-client", () => ({ createLiveCall: mocks.voice }));
 vi.mock("@/lib/live-calls.functions", () => ({
+  checkpointLiveCall: vi.fn(),
   endLiveCall: vi.fn(),
   liveCallHeartbeat: vi.fn(),
   liveCallStatus: vi.fn(),
@@ -71,12 +76,15 @@ it("does not render Tess or mount her housing while another profile loads", () =
   expect(screen.getByRole("status")).toHaveTextContent("Loading contact");
   expect(screen.queryByText(/Tess/)).not.toBeInTheDocument();
   expect(mocks.housing).not.toHaveBeenCalled();
+  expect(mocks.relationship).not.toHaveBeenCalled();
   expect(screen.getByText("Call history")).toHaveAttribute("href", "/calls?conversation=selected");
   mocks.query.data = { character: { key: "maya" } };
   mocks.query.isPending = false;
   view.rerender(<Profile />);
   expect(screen.getByRole("heading", { name: /Maya/ })).toBeInTheDocument();
   expect(mocks.housing).toHaveBeenCalledWith({ character: "maya", conversationId: "selected" });
+  expect(mocks.relationship).toHaveBeenCalledWith({characterKey:"maya",characterName:"Maya",conversationId:"selected"});
+  expect(screen.getByText("Relationship card")).toBeInTheDocument();
 });
 it("keeps the live call neutral until the correct character is resolved and shows history", () => {
   const view = render(<Live />);
