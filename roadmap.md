@@ -16,3 +16,4 @@
 - [x] SpicyAPI: drop SPICY_OUTPUT_HOSTS, harden output downloads, free quote before paid submission
 - [x] Fix SpicyAPI signed quote-token validation; 69 mocked provider/routing/recovery tests pass and preview build OK. No paid requests or publishing.
 - [x] SpicyAPI: key, budgets and credit-check time supplied in the earlier setup.
+- [ ] Add Sienna Hayes with approved portrait, independent personality and complete messaging/world/photo/voice/calendar connections; preserve existing data and verify without paid generation or publishing.
