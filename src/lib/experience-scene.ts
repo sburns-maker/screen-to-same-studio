@@ -197,7 +197,7 @@ export function sceneContradiction(scene: LiveScene, text: string) {
   return clauses.some((s) => {
     if (
       scene.locationKind !== "park" &&
-      /\b(?:we (?:walk|are walking|stroll)|(?:she|he|riley|tess|maya|claire|jordan|sienna) (?:walks|strolls)|you (?:walk|stroll)|(?:the|our) (?:park )?path (?:winds|stretches))\b.{0,65}\b(?:park|trail|path|juniper commons)\b|\b(?:back at|still at|here at|around us at) (?:the )?(?:park|juniper commons)\b/i.test(
+      /\b(?:we (?:walk|are walking|stroll)|(?:she|he|riley|tess|maya|claire|jordan|sienna|kendra) (?:walks|strolls)|you (?:walk|stroll)|(?:the|our) (?:park )?path (?:winds|stretches))\b.{0,65}\b(?:park|trail|path|juniper commons)\b|\b(?:back at|still at|here at|around us at) (?:the )?(?:park|juniper commons)\b/i.test(
         s,
       )
     )

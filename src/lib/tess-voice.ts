@@ -79,6 +79,7 @@ export const CONTACT_VOICE: Record<string, Omit<VoiceOptions, "recentTess">> = {
   ben: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
   riley: { maxBubbles: 3, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
   sienna: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2 },
+  kendra: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2 },
 };
 
 /** Enforce Tess's voice on a fresh reply. Returns cleaned bubbles (may be fewer). */

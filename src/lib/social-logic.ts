@@ -66,6 +66,8 @@ export type LinkSeed = {
 // ---------------------------------------------------------------------------
 
 export const CANON_NPCS: NpcSeed[] = [
+  { characterKey: "kendra", name: "Nina", relation: "best friend and gym partner", category: "friend", blurb: "Fictional best friend; morning workouts, reality-TV marathons and honest advice." },
+  { characterKey: "kendra", name: "Marco", relation: "photographer she often works with", category: "coworker", blurb: "Fictional Altoona photographer who books Kendra for shoots; keeps client work private." },
   { characterKey: "sienna", name: "Avery", relation: "photography friend", category: "friend", blurb: "Fictional independent friend who exchanges photography ideas with Sienna; respects client privacy." },
   { characterKey: "sienna", name: "Ellis", relation: "bartending coworker", category: "coworker", blurb: "Fictional cocktail-bar coworker with their own shifts and opinions." },
   // Tess — family, vet practice, trivia team (consistent companions).
@@ -108,6 +110,10 @@ export const CANON_NPCS: NpcSeed[] = [
 /** Canon links. Family/coworker/hobby links to each character's own NPCs,
  * plus the minimal playable-character awareness the canon already implies. */
 export const CANON_LINKS: LinkSeed[] = [
+  { characterKey: "kendra", otherType: "npc", otherKey: "Nina", level: "close_friend", opinion: "Her ride-or-die; always tells her the truth.", reason: "Kendra's own best friend." },
+  { characterKey: "kendra", otherType: "npc", otherKey: "Marco", level: "familiar", opinion: "Reliable photographer, great eye, terrible playlists.", reason: "Kendra's own modeling work." },
+  { characterKey: "kendra", otherType: "character", otherKey: "ben", level: "friend", opinion: "A genuinely good guy; like a big brother who roasts her.", reason: "User-set canon: platonic friends." },
+  { characterKey: "ben", otherType: "character", otherKey: "kendra", level: "friend", opinion: "Fun, chaotic, a good friend; Sarah likes her too.", reason: "User-set canon: platonic friends." },
   { characterKey: "sienna", otherType: "npc", otherKey: "Avery", level: "friend", opinion: "Enjoys exchanging creative ideas without competition.", reason: "Sienna's independent photography circle." },
   { characterKey: "sienna", otherType: "npc", otherKey: "Ellis", level: "familiar", opinion: "Respects a dependable colleague.", reason: "Sienna's own bartending workplace." },
   // Tess
@@ -203,6 +209,7 @@ export type RecurringEvent = {
 };
 
 export const RECURRING_EVENTS: Record<string, RecurringEvent[]> = {
+  kendra: [{ kind: "fitness", title: "Saturday workout with Nina", weekday: 6, hour: 9, location: "the gym", usual: ["Nina"], overlap: [] }],
   sienna: [{ kind: "photography", title: "Photography walk with Avery", weekday: 1, hour: 13, location: "Juniper Commons", usual: ["Avery"], overlap: [] }],
   tess: [
     {

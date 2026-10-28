@@ -135,7 +135,7 @@ export async function syncCalendar(db: Client, user: string, now: Date) {
   if (process.env['NODE_ENV'] !== "test") return { processed: 0, updated: 0 };
   await registerInteractivePlaces(db, user);
   if (await (await import("./manual-calendar.server")).manualCalendarReady(db)) {
-    const blocked = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna"].filter((key) =>
+    const blocked = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"].filter((key) =>
       ["busy", "asleep"].includes(currentActivity(characterFor(key), now).availability),
     );
     const presence = await db.rpc("calendar_advance", {
@@ -217,7 +217,7 @@ export async function syncCalendar(db: Client, user: string, now: Date) {
     processed++;
     if (patch.action !== "none") updated++;
   }
-  const blocked = ["tess", "maya", "claire", "jordan", "ben", "sienna"].filter((key) => {
+  const blocked = ["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"].filter((key) => {
     const a = currentActivity(characterFor(key), now);
     return (
       a.availability === "busy" ||

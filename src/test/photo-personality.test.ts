@@ -22,7 +22,7 @@ const plan = (character = "tess", override: Partial<Parameters<typeof planPhotog
   planPhotography({ character, key: "stable-action", now, schedule, ...override });
 describe("typed character photography", () => {
   it("keeps all seven profiles distinct with increased opportunity rates and unchanged pacing metadata", () => {
-    expect(Object.keys(PHOTOGRAPHY_PROFILES)).toHaveLength(7);
+    expect(Object.keys(PHOTOGRAPHY_PROFILES)).toHaveLength(8);
     expect(photographyProfile("tess").expressions).toContain("deadpan");
     expect(photographyProfile("maya").expressions.join(" ")).toContain("tired");
     expect(photographyProfile("tess").captionVoice).not.toBe(

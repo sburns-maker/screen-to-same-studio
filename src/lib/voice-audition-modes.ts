@@ -33,6 +33,7 @@ const HUMAN =
 
 /** One-tap, personality-based voice-creation presets for every contact. */
 export const CHARACTER_VOICE_PRESETS: Record<VoiceDesignKey, { name: string; prompt: string }> = {
+  kendra: { name: "Kendra — Bright & Playful", prompt: VOICE_DESIGNS.kendra.description + HUMAN },
   sienna: { name: "Sienna — Confident & Warm", prompt: VOICE_DESIGNS.sienna.description + HUMAN },
   tess: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT },
   maya: {

@@ -30,7 +30,7 @@ export function photoPacing(args: {
     visual = visualCue(args.userText + " " + args.context) || reaction;
   const scale =
     (args.frequency === "rare" ? 2 : args.frequency === "frequent" ? 0.6 : 1) *
-    { tess: 1, maya: 0.8, claire: 1.25, jordan: 1.75, ben: 1.25, riley: 1, sienna: 0.8 }[args.character];
+    { tess: 1, maya: 0.8, claire: 1.25, jordan: 1.75, ben: 1.25, riley: 1, sienna: 0.8, kendra: 0.75 }[args.character];
   const minutes = args.developerOverride ? 0 : Math.max(3, Math.ceil((direct ? 3 : reaction ? 5 : visual ? 10 : 30) * scale));
   const messages = args.developerOverride || direct || reaction ? 0 : visual ? 1 : args.frequency === "rare" ? 4 : 2;
   const age = args.lastPhotoAt ? args.now.getTime() - Date.parse(args.lastPhotoAt) : Infinity;

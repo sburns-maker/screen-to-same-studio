@@ -54,8 +54,8 @@ export const suggestGathering = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        organizer: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna"]),
-        invitee: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna"]),
+        organizer: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"]),
+        invitee: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"]),
         place: z.string().refine((k) => TOWN_PLACES.some((p) => p.key === k), "Unknown place"),
         title: z.string().trim().min(1).max(120),
         startsAt: z.string().datetime({ offset: true }),

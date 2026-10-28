@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-const key = z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna"]);
+const key = z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"]);
 export const loadActivePortraits = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
