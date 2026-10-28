@@ -11,7 +11,7 @@ export function homeInvitationActivity(
 ): { title: string; category: "dinner" | "meetup" } | null {
   const s = text.replace(/(?:can['’]t|cannot) wait/gi, "look forward");
   if (
-    /\b(?:don['’]t|do not|can['’]t|cannot|not tonight|never|won['’]t|no longer|not ready|not sure|not inviting|not hosting|cancelled|canceled|rather not|maybe|someday|if(?! you (?:bring|want|like))|wish|remember|yesterday|you said|you asked)\b/i.test(
+    /\b(?:(?:don['’]t|do not) (?:want|come|visit|feel|think|host|invite|do that)|(?:can['’]t|cannot|won['’]t) (?:host|have you|do (?:my place|mine))|not tonight|never|no longer|not ready|not sure|not inviting|not hosting|cancelled|canceled|rather not|maybe|someday|if(?! you (?:bring|want|like))|wish|remember|yesterday|you said|you asked)\b/i.test(
       s,
     )
   )
@@ -38,6 +38,8 @@ export function sameHomeActivity(a: string, b: string) {
         : /\b(?:cook|dinner)/i.test(s)
           ? "dinner"
           : s.trim().toLowerCase();
+  // A general home visit invitation covers ordinary home activities like a movie.
+  if (classify(b) === "visit at home" || classify(a) === "visit at home") return true;
   return classify(a) === classify(b);
 }
 

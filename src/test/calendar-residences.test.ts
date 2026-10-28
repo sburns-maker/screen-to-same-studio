@@ -26,3 +26,7 @@ it("keeps movie invitations distinct from dinner or games", () => {
   expect(sameHomeActivity("Movie night with Claire", "Movie night")).toBe(true);
   expect(sameHomeActivity("Dinner together", "Movie night")).toBe(false);
 });
+it("does not treat an unrelated 'don't' as refusing Claire's confirmed plan", () => {
+  expect(homeInvitationActivity("I don’t have a street address I can send you here, but Friday at 7 at my place is still the plan. You can put it down as Claire’s home for now.")).not.toBeNull();
+  expect(sameHomeActivity("Movie night", "Visit at home")).toBe(true);
+});
