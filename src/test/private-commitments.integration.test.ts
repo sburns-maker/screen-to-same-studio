@@ -18,6 +18,7 @@ beforeAll(async () => {
     SET request.jwt.claim.role='service_role';`);
   await db.exec(readFileSync("drizzle/migrations/0050_relationship_commitments.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0053_private_character_commitments.sql", "utf8"));
+  await db.exec(readFileSync("drizzle/migrations/0065_expand_relationship_commitment_cast.sql", "utf8"));
   for (const key of RELATIONSHIP_CAST) {
     const cid = crypto.randomUUID(),
       id = crypto.randomUUID();
