@@ -247,12 +247,12 @@ function Chat({ conversationId }: { conversationId: string }) {
     }
   }
 
-  async function send() {
-    const body = text.trim();
+  async function send(nativeBody?: string) {
+    const body = (nativeBody ?? text).trim();
     if (!body || !convId || sendingRef.current) return;
     keepAtEnd.current = true;
     const outgoing = { id: crypto.randomUUID(), body, at: Date.now() };
-    setText("");
+    if (nativeBody === undefined) setText("");
     if (!navigator.onLine) {
       // Offline: queue locally, send when connectivity returns. No fake reply.
       try {
@@ -302,6 +302,45 @@ function Chat({ conversationId }: { conversationId: string }) {
       }
     } finally { sendingRef.current = false; setSending(false); }
   }
+
+  // Native Android launcher bridge: the website owns authentication, data writes,
+  // world ticks and AI response scheduling; Android only renders a safe subset.
+  // No session tokens or database credentials are passed to the native layer.
+  useEffect(() => {
+    if (!msgs.isSuccess || !convId) return;
+    const bridge = (window as Window & {
+      LivingWorldAndroid?: { receiveMessages?: (json: string) => void };
+    }).LivingWorldAndroid;
+    if (!bridge?.receiveMessages) return;
+    const payload = {
+      conversationId: convId,
+      messages: visible.slice(-120).map((m) => ({
+        id: m.id,
+        text: m.body ?? "",
+        outgoing: m.sender === "user",
+        timestamp: new Date(m.created_at).getTime(),
+      })),
+    };
+    bridge.receiveMessages(JSON.stringify(payload));
+  }, [conversationId, convId, msgs.isSuccess, msgs.data, now]);
+
+  useEffect(() => {
+    if (!convId) return;
+    const handler = (event: Event) => {
+      const data = (event as CustomEvent<{ conversationId?: string; text?: string }>).detail;
+      if (!data || data.conversationId !== convId ||
+          typeof data.text !== "string" || !data.text.trim() ||
+          data.text.length > 4000) return;
+      void send(data.text);
+    };
+    window.addEventListener("living-world-native-send", handler);
+    (window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady = convId;
+    return () => {
+      window.removeEventListener("living-world-native-send", handler);
+      if ((window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady === convId)
+        delete (window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady;
+    };
+  });
 
   // Connectivity: flush the outbox when we're back online, then let the contact respond.
   useEffect(() => {
