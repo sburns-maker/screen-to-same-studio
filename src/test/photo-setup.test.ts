@@ -49,7 +49,7 @@ describe("browser photo setup checks", () => {
     const status = await photoSetupStatus("my-user-id");
     expect(status.migration).toBe("present");
     expect(status.tessReference).toBe("present");
-    expect(status.canonicalReferences).toHaveLength(5);
+    expect(status.canonicalReferences).toHaveLength(7);
     expect(status.canonicalReferences.every((ref) => ref.status === "structurally_usable")).toBe(
       true,
     );

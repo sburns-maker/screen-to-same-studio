@@ -103,7 +103,7 @@ export const listTravelMoments=createServerFn({method:"POST"}).middleware([requi
  }));
 });
 
-const momentInput=z.object({id:uuid,stopId:z.string().min(1).max(100),day:z.number().int().min(1).max(90),text:z.string().trim().min(1).max(1500),character:z.enum(["tess","maya","claire","jordan","ben","riley","sienna"]).optional()});
+const momentInput=z.object({id:uuid,stopId:z.string().min(1).max(100),day:z.number().int().min(1).max(90),text:z.string().trim().min(1).max(1500),character:z.enum(["tess","maya","claire","jordan","ben","riley","sienna","kendra"]).optional()});
 export const travelSceneTurn=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
 .inputValidator((v:unknown)=>momentInput.parse(v)).handler(async({context,data})=>{
  const db=await getDb();
@@ -120,7 +120,7 @@ export const travelSceneTurn=createServerFn({method:"POST"}).middleware([require
  const photo=await (await import("./travel-photos.server")).deliverTravelPhoto(db,context.userId,trip,data.stopId,travelTurnId,data.character,ai.photo);
  return {body,detail:ai.newDetail,photo};
 });
-const askInput=z.object({followUp:z.string().trim().max(1500).optional(),id:uuid,character:z.enum(["tess","maya","claire","jordan","ben","riley","sienna"])});
+const askInput=z.object({followUp:z.string().trim().max(1500).optional(),id:uuid,character:z.enum(["tess","maya","claire","jordan","ben","riley","sienna","kendra"])});
 export const inviteTravelCompanion=createServerFn({method:"POST"}).middleware([requireSupabaseAuth])
 .inputValidator((v:unknown)=>askInput.parse(v)).handler(async({context,data})=>{
  const db=await getDb();const {data:row,error}=await (db as any).from("travel_trips").select("*").eq("id",data.id).eq("user_id",context.userId).single();

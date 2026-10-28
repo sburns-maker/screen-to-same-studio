@@ -89,7 +89,7 @@ export async function runSocialTick(admin: Admin, userId: string, now: Date): Pr
   }));
 
   const week = weekId(now);
-  const characterKeys = ["tess", "maya", "claire", "jordan", "ben", "sienna"];
+  const characterKeys = ["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"];
   const perCharacter = characterKeys.map((k) => planWeekEvents(k, week));
   const planned = Array.from({ length: Math.max(...perCharacter.map((events) => events.length)) }, (_, i) => perCharacter.flatMap((events) => events[i] ? [events[i]!] : [])).flat().slice(0, SOCIAL_MAX_EVENTS_PER_USER);
   report.eventsPlanned = planned.length;

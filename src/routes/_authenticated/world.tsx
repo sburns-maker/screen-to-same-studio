@@ -118,7 +118,7 @@ function WorldPage() {
         <h3 className="mt-8 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Social networks</h3>
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           {(q.data?.social.links ?? []).length === 0 && <p className="px-4 py-3 text-sm text-muted-foreground">No social links yet — run a tick to seed the world.</p>}
-          {(["tess", "maya", "claire", "jordan", "ben", "sienna"] as const).map((ck) => {
+          {(["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"] as const).map((ck) => {
             const charLinks = (q.data?.social.links ?? []).filter((l) => l.character_key === ck);
             if (!charLinks.length) return null;
             return (

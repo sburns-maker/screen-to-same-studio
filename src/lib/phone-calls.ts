@@ -10,6 +10,7 @@ export const FICTIONAL_NUMBERS: Record<string, number> = {
   jordan: 103,
   ben: 104,
   sienna: 115,
+  kendra: 116,
   "rowan-ellis": 105,
   "leah-moss": 106,
   "nolan-reed": 107,
@@ -42,6 +43,7 @@ export const CALL_VOICES: Record<CharacterKey, { style: string }> = {
   },
   ben: { style: "Relaxed, ordinary, friendly and entirely platonic." },
   riley: { style: "Natural, understated and observant, with dry humor and occasional tired wit." },
+  kendra: { style: "Playful, confident and quick; teases friends, laughs easily and says what she thinks. Warm and sincere when something matters, a little guarded when insecure; never constantly performing flirtation." },
   sienna: { style: "Warm, direct, confident and witty; affectionate when mutual, thoughtful when vulnerable, never constantly performing flirtation." },
 };
 export const ACTIVE_CALL_STATES = ["calling", "ringing", "connecting", "connected"];

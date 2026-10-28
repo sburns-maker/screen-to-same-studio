@@ -186,7 +186,7 @@ describe("grounded conversational calendar", () => {
     expect(recognizePlan(m("Let's take a walk Saturday.", "user"), [], null).category).toBe("walk");
   });
   it("has only clearly fictional/unverified map pins and no invented real addresses", () => {
-    expect(PLACE_REGISTRY).toHaveLength(22);
+    expect(PLACE_REGISTRY).toHaveLength(24);
     // Only owner-supplied addresses are shown; everything else has none.
     expect(PLACE_REGISTRY.filter((p) => p.address !== null).map((p) => p.key)).toEqual(["bar:4ds"]);
     expect(PLACE_REGISTRY.every((p) => p.coordinatesStatus === "illustrative_fictional")).toBe(true);

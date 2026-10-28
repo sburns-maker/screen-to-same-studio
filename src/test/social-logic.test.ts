@@ -46,10 +46,14 @@ describe("canon social networks", () => {
 
   it("playable characters do not start as one friend group", () => {
     const crossLinks = CANON_LINKS.filter((l) => l.otherType === "character");
-    // The only canon cross-character awareness is knows_of, never friendship.
+    // Canon cross-character awareness is knows_of, except the user-set
+    // platonic Kendra–Ben friendship.
+    const isKendraBen = (l: { characterKey: string; otherKey: string }) =>
+      [l.characterKey, l.otherKey].sort().join() === "ben,kendra";
     for (const l of crossLinks) {
-      expect(l.level).toBe("knows_of");
+      expect(l.level).toBe(isKendraBen(l) ? "friend" : "knows_of");
     }
+    expect(crossLinks.filter(isKendraBen)).toHaveLength(2);
     // Claire and Jordan know nobody playable at start.
     expect(crossLinks.some((l) => l.characterKey === "claire")).toBe(false);
     expect(crossLinks.some((l) => l.characterKey === "jordan")).toBe(false);

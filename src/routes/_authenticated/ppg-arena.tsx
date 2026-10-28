@@ -14,7 +14,7 @@ export const Route=createFileRoute("/_authenticated/ppg-arena")({component:Arena
  {property:"og:description",content:"Explore Pittsburgh arena events and discuss fictional trips with your Tess contacts."},
  {property:"og:type",content:"website"},{name:"twitter:card",content:"summary"},
 ]})});
-const CHARACTERS=["maya","tess","riley","claire","jordan","ben","sienna"] as const;
+const CHARACTERS=["maya","tess","riley","claire","jordan","ben","sienna","kendra"] as const;
 type Character=typeof CHARACTERS[number];
 const charactersLabel=(c:Character)=>c.charAt(0).toUpperCase()+c.slice(1);
 function ArenaCalendar(){

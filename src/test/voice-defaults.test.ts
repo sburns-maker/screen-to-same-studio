@@ -10,7 +10,7 @@ describe("speech-chain low-touch Lovable defaults", () => {
     const c = voiceConfiguration();
     expect(c.transcription).toBe("gpt-4o-mini-transcribe");
     expect(c.speech).toBe("gpt-4o-mini-tts");
-    expect(Object.keys(c.voices)).toHaveLength(6);
+    expect(Object.keys(c.voices)).toHaveLength(8);
     expect(c.blockers).toContain("voice_riley_missing_or_invalid");
     expect(c.dailyCents).toBe(100);
     expect(c.monthlyCents).toBe(1000);
