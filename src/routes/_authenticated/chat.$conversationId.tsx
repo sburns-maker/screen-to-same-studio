@@ -303,25 +303,50 @@ function Chat({ conversationId }: { conversationId: string }) {
     } finally { sendingRef.current = false; setSending(false); }
   }
 
-  // Native Android launcher bridge: the website owns authentication, data writes,
-  // world ticks and AI response scheduling; Android only renders a safe subset.
-  // No session tokens or database credentials are passed to the native layer.
+  // Native Android message bridge. Keep auth tokens in the web session;
+  // only sanitized display data and temporary signed media URLs are shared.
+  const nativePhotoUrls = useRef(new Map<string, { url: string; until: number }>());
   useEffect(() => {
     if (!msgs.isSuccess || !convId) return;
     const bridge = (window as Window & {
       LivingWorldAndroid?: { receiveMessages?: (json: string) => void };
     }).LivingWorldAndroid;
     if (!bridge?.receiveMessages) return;
-    const payload = {
-      conversationId: convId,
-      messages: visible.slice(-120).map((m) => ({
-        id: m.id,
-        text: m.body ?? "",
-        outgoing: m.sender === "user",
-        timestamp: new Date(m.created_at).getTime(),
-      })),
-    };
-    bridge.receiveMessages(JSON.stringify(payload));
+    let cancelled = false;
+    void (async () => {
+      const messages = await Promise.all(visible.slice(-120).map(async (m) => {
+        const md = m.metadata as {
+          photo?: string; generated_path?: string; user_photo?: string;
+        } | null;
+        let photo = md?.photo ? PHOTO_SRC[md.photo] : undefined;
+        const storagePath = md?.generated_path ?? md?.user_photo;
+        if (storagePath) {
+          const previous = nativePhotoUrls.current.get(storagePath);
+          if (previous && previous.until > Date.now()) photo = previous.url;
+          else {
+            try {
+              const { data, error } = await supabase.storage.from("tess-photos")
+                .createSignedUrl(storagePath, 3600);
+              if (!error && data?.signedUrl) {
+                photo = data.signedUrl;
+                nativePhotoUrls.current.set(storagePath, {
+                  url: photo, until: Date.now() + 45 * 60_000,
+                });
+              }
+            } catch { /* A media preview can be unavailable without hiding text. */ }
+          }
+        }
+        return {
+          id: m.id,
+          text: m.body ?? "",
+          outgoing: m.sender === "user",
+          timestamp: new Date(m.created_at).getTime(),
+          photo: photo ?? "",
+        };
+      }));
+      if (!cancelled) bridge.receiveMessages(JSON.stringify({ conversationId: convId, messages }));
+    })();
+    return () => { cancelled = true; };
   }, [conversationId, convId, msgs.isSuccess, msgs.data, now]);
 
   useEffect(() => {
