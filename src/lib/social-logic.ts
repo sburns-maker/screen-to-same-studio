@@ -66,6 +66,8 @@ export type LinkSeed = {
 // ---------------------------------------------------------------------------
 
 export const CANON_NPCS: NpcSeed[] = [
+  { characterKey: "sienna", name: "Avery", relation: "photography friend", category: "friend", blurb: "Fictional independent friend who exchanges photography ideas with Sienna; respects client privacy." },
+  { characterKey: "sienna", name: "Ellis", relation: "bartending coworker", category: "coworker", blurb: "Fictional cocktail-bar coworker with their own shifts and opinions." },
   // Tess — family, vet practice, trivia team (consistent companions).
   { characterKey: "tess", name: "Denise", relation: "mother", category: "family", blurb: "Retired school secretary; keeps trying to set Tess up. The one person who calls her Jessica." },
   { characterKey: "tess", name: "Mark", relation: "father", category: "family", blurb: "HVAC tech nearing retirement; affectionately bickers with Denise." },
@@ -106,6 +108,8 @@ export const CANON_NPCS: NpcSeed[] = [
 /** Canon links. Family/coworker/hobby links to each character's own NPCs,
  * plus the minimal playable-character awareness the canon already implies. */
 export const CANON_LINKS: LinkSeed[] = [
+  { characterKey: "sienna", otherType: "npc", otherKey: "Avery", level: "friend", opinion: "Enjoys exchanging creative ideas without competition.", reason: "Sienna's independent photography circle." },
+  { characterKey: "sienna", otherType: "npc", otherKey: "Ellis", level: "familiar", opinion: "Respects a dependable colleague.", reason: "Sienna's own bartending workplace." },
   // Tess
   { characterKey: "tess", otherType: "npc", otherKey: "Denise", level: "family", opinion: "Loves her; dreads the setups.", reason: "Canon: her mother." },
   { characterKey: "tess", otherType: "npc", otherKey: "Mark", level: "family", opinion: "Easy to be around.", reason: "Canon: her father." },
@@ -199,6 +203,7 @@ export type RecurringEvent = {
 };
 
 export const RECURRING_EVENTS: Record<string, RecurringEvent[]> = {
+  sienna: [{ kind: "photography", title: "Photography walk with Avery", weekday: 1, hour: 13, location: "Juniper Commons", usual: ["Avery"], overlap: [] }],
   tess: [
     {
       kind: "trivia", title: "Thursday trivia", weekday: 4, hour: 19,

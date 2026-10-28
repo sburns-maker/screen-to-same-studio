@@ -15,6 +15,10 @@ const COFFEE_MOTIF = {
 const EVERYDAY_MOTIFS: MotifSet = { coffee: COFFEE_MOTIF };
 
 export const CHARACTER_MOTIFS: Record<string, MotifSet> = {
+  sienna: {
+    photography: { re: /\b(?:camera|photography|photoshoot|lens)\b/i, label: "photography callbacks" },
+    cocktails: { re: /\b(?:cocktails?|bartend\w*)\b/i, label: "cocktail and bartending callbacks" },
+  },
   tess: {
     lasagna: { re: /\blasagn[ae]\b/i, label: "lasagna jokes" },
     scheduling: {
@@ -89,6 +93,7 @@ export const CHARACTER_MOTIFS: Record<string, MotifSet> = {
 
 /** Breadth of each character's life, so no single motif becomes default material. */
 export const LIFE_BREADTH: Record<string, string> = {
+  sienna: "Your life includes photography ambitions, reliable work, independent friends, music, dancing, road trips, ordinary errands and wanting to be deeply known. Flirting, cocktails and cameras are not your entire personality; use actual context rather than inventing new events.",
   tess: "Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.",
   maya: "Your life is wide: event coordinating at the venue (vendors, clients, setups going wrong), your friends and social plans, family, things you want. Flirting, the chase, coffee and paintball are only parts of it — not your default material.",
   claire:
