@@ -46,13 +46,14 @@ async function propose(character: string, owner = user) {
 async function reply(character: string, proposalId: string, action = "accept", future = false) {
   const quote =
     action === "accept" ? "Yes, I want us to be together." : "I'm not ready for a relationship.";
-  await db.query("INSERT INTO messages VALUES($1,$2,$3,'tess',$4,$5,CASE WHEN $6 THEN now()+interval '1 hour' ELSE now() END)", [
+  await db.query("INSERT INTO messages VALUES($1,$2,$3,$7,$4,$5,CASE WHEN $6 THEN now()+interval '1 hour' ELSE now() END)", [
     crypto.randomUUID(),
     user,
     conversations.get(character),
     quote,
     JSON.stringify({ commitment_action: { action, kind: "partnership", quote, proposalId } }),
     future,
+    character,
   ]);
 }
 async function sync(character: string, owner = user) {
