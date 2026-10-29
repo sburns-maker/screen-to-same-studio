@@ -54,7 +54,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
         activity: dropoff ? "item_dropoff" : "conversation",
         ...(dropoff ? { item: lunch.trim() } : {}),
         ...(dropoff && receptionSession ? { receptionTurns: receptionSession.turns, deliveryOutcome: receptionSession.outcome } : {}),
-        text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : publicBar ? `At the public customer bar of ${place.label}, I have ${barSeat ? "taken a seat" : "walked in"}${barOrder ? ` and ordered ${barOrder}` : ""}. ${spoken.trim()}` : spoken.trim(), requestId: crypto.randomUUID(),
+        text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : publicBar ? `At the public customer bar of ${place.label}, I have ${barSeat ? "taken a seat" : "walked in"}${barOrder ? ` and ordered ${barOrder}` : ""}. ${spoken.trim()}`.slice(0,900) : spoken.trim(), requestId: crypto.randomUUID(),
       }});
       if (dropoff) await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] });
       if (!dropoff) setSpoken("");
@@ -92,7 +92,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   return <section aria-label={name + "'s fictional workplace"} className="mb-4 rounded-2xl border bg-surface p-4">
     <h2 className="font-display text-xl">{name}'s workplace</h2>
     <p className="mt-2 text-sm text-muted-foreground">
-      This is a real Altoona location used as a fictional game setting. {name} is an invented character, not an employee.
+      {publicBar ? "This cocktail bar is a fictional game setting. " : "This is a real Altoona location used as a fictional game setting. "}{name} is an invented character, not an employee.
       {restricted
         ? " No access to clinical, private or staff-only areas. Ask about meeting outside work."
         : " The workplace may be busy. Being here does not guarantee a conversation."}
@@ -111,7 +111,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </div>
       {barStatus && <p role="status" className="text-sm">{barStatus}</p>}
       <label htmlFor="bar-dialogue" className="block text-sm font-medium">Say something at the bar</label>
-      <textarea id="bar-dialogue" value={spoken} maxLength={900} onChange={e => setSpoken(e.target.value)} placeholder="I look toward the bartender. Hey, could I get an old fashioned? ... Oh, Sienna! I didn\'t know you worked here." className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" />
+      <textarea id="bar-dialogue" value={spoken} maxLength={650} onChange={e => setSpoken(e.target.value)} placeholder="I look toward the bartender. Hey, could I get an old fashioned? ... Oh, Sienna! I didn\'t know you worked here." className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" />
       <button type="button" disabled={busy || !spoken.trim() || !shiftLikely} onClick={() => void speakOnSite()} className="min-h-11 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">{busy ? "Talking…" : "Talk if Sienna is on shift"}</button>
       <p className="text-xs text-muted-foreground">This sends a genuine encounter turn only if Sienna is on her usual shift. The AI can be busy or unavailable; ordering alone never summons her. Your written dialogue is saved to the character conversation.</p>
     </div>}
