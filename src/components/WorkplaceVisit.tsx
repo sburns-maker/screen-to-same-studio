@@ -31,13 +31,16 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const barOrder = barQuery.data?.order ?? "";
   const barStatus = barQuery.data?.interruption ?? "";
   const [barBusy, setBarBusy] = useState(false);
+  const [barNotice, setBarNotice] = useState("");
   async function barAction(action: "seat" | "menu" | "order" | "settle" | "conversation" | "talk_house" | "leave") {
     if (barBusy) return;
     setBarBusy(true);
     setError("");
+    setBarNotice("");
     try {
       await barAct({ data: { action, requestId: crypto.randomUUID(), ...(action === "order" ? { drink: "an old fashioned" } : {}) } });
       await queryClient.invalidateQueries({ queryKey: ["copper-lens", placeKey] });
+      if (action === "leave") setBarNotice("Bar scene closed. Your next virtual visit starts fresh.");
     } catch (e) { setError(e instanceof Error ? e.message : "Bar action unavailable"); }
     finally { setBarBusy(false); }
   }
@@ -132,6 +135,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </div>}
       <p className="text-xs text-muted-foreground">{barQuery.data?.bartender === "house_bartender" ? "House bartender is serving customers; Sienna isn't confirmed on shift." : "Sienna may be tending bar if her schedule permits; actual availability is not guaranteed."}</p>
       <p className="text-sm">Seat: {barSeat ? "At the bar" : "Not seated"} · Drink: {barOrder || "None"} · Tab: {barQuery.data?.tabOpen ? "Open" : "Closed"}</p>
+      {barNotice && <p role="status" className="text-sm">{barNotice}</p>}
       {barQuery.data?.houseReply && <p role="status" className="text-sm">{barQuery.data.houseReply}</p>}
       {barStatus && <p role="status" className="text-sm">{barStatus}</p>}
       <label htmlFor="bar-dialogue" className="block text-sm font-medium">Say something at the bar</label>
