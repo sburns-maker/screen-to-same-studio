@@ -71,8 +71,21 @@ export const copperLensAction = createServerFn({ method: "POST" }).middleware([r
       if (next.turns % 3 === 0) next.interruption = "Another customer approaches the bar. The bartender pauses to serve them before returning.";
     }
     if (data.action === "leave") Object.assign(next, initial);
+    // world_events requires an existing, user-owned conversation foreign key.
+    // A Copper Lens event belongs to Sienna's thread; never fabricate a UUID
+    // or associate it with an unrelated contact merely to satisfy the type.
+    const { data: sienna, error: characterError } = await db.from("characters")
+      .select("id").eq("key", "sienna").maybeSingle();
+    if (characterError || !sienna) throw new Error("Sienna's character is unavailable.");
+    const { data: conversation, error: conversationError } = await db.from("conversations")
+      .select("id").eq("user_id", context.userId).eq("character_id", sienna.id).maybeSingle();
+    if (conversationError || !conversation)
+      throw new Error("Open your inbox to initialize Sienna's conversation before visiting the bar.");
     const event = await db.from("world_events").insert({
-      user_id: context.userId, kind: "copper_lens_bar_state",
+      user_id: context.userId,
+      character_key: "sienna",
+      conversation_id: conversation.id,
+      kind: "copper_lens_bar_state",
       summary: "Fictional Copper Lens bar activity",
       payload: { ...next, requestId: data.requestId, action: data.action, place_key: PLACE },
     });
