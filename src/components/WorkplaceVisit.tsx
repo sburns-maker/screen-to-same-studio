@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -26,6 +26,19 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [barSeat, setBarSeat] = useState(false);
   const [barOrder, setBarOrder] = useState("");
   const [barStatus, setBarStatus] = useState("");
+  useEffect(() => {
+    if (placeKey !== "work:sienna") return;
+    try {
+      const saved = JSON.parse(sessionStorage.getItem("copper-lens-visit") ?? "null");
+      if (saved?.seated) setBarSeat(true);
+      if (typeof saved?.order === "string") setBarOrder(saved.order);
+      if (typeof saved?.status === "string") setBarStatus(saved.status);
+    } catch { /* Ignore an invalid local scene snapshot. */ }
+  }, [placeKey]);
+  useEffect(() => {
+    if (placeKey !== "work:sienna" || !arrived) return;
+    sessionStorage.setItem("copper-lens-visit", JSON.stringify({ seated: barSeat, order: barOrder, status: barStatus }));
+  }, [placeKey, arrived, barSeat, barOrder, barStatus]);
   const [lunch, setLunch] = useState("A packed lunch and a drink");
   const [dropoffNote, setDropoffNote] = useState('I walk up to reception with the lunch. "Hi, I brought this for someone who works here. Is there a permitted way to leave it for them?"');
   const [encounterStatus, setEncounterStatus] = useState("");
@@ -52,6 +65,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       await encounter({ data: {
         conversationId: thread.id, character: place.character,
         activity: dropoff ? "item_dropoff" : "conversation",
+        ...(publicBar && !dropoff ? { barContext: { seated: barSeat, ...(barOrder ? { order: barOrder } : {}) } } : {}),
         ...(dropoff ? { item: lunch.trim() } : {}),
         ...(dropoff && receptionSession ? { receptionTurns: receptionSession.turns, deliveryOutcome: receptionSession.outcome } : {}),
         text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : publicBar ? `At the public customer bar of ${place.label}, I have ${barSeat ? "taken a seat" : "walked in"}${barOrder ? ` and ordered ${barOrder}` : ""}. ${spoken.trim()}`.slice(0,900) : spoken.trim(), requestId: crypto.randomUUID(),
@@ -106,14 +120,14 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       <div className="flex flex-wrap gap-2">
         <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarSeat(true); setBarStatus("You take an open stool at the bar."); }}>Sit at the bar</button>
         <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => setBarStatus("You browse the fictional cocktail menu. An old fashioned is available.")}>View drink menu</button>
-        <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarOrder("an old fashioned"); setBarSeat(true); setBarStatus("You order an old fashioned from the on-duty bartender. This is a fictional order; the bartender is not assumed to be Sienna."); }}>Order old fashioned</button>
+        <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarOrder("an old fashioned"); setBarSeat(true); setBarStatus("Your old fashioned is ordered. If Sienna is on duty, she may be the bartender serving you; otherwise the bar continues operating without her."); }}>Order old fashioned</button>
         <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarOrder(""); setBarStatus("Your fictional tab is settled."); }}>Settle tab</button>
       </div>
       {barStatus && <p role="status" className="text-sm">{barStatus}</p>}
       <label htmlFor="bar-dialogue" className="block text-sm font-medium">Say something at the bar</label>
-      <textarea id="bar-dialogue" value={spoken} maxLength={650} onChange={e => setSpoken(e.target.value)} placeholder="I look toward the bartender. Hey, could I get an old fashioned? ... Oh, Sienna! I didn\'t know you worked here." className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" />
+      <textarea id="bar-dialogue" value={spoken} maxLength={650} onChange={e => setSpoken(e.target.value)} placeholder="I look up from the bar as the bartender approaches. Oh, Sienna! I didn\'t know you worked here." className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" />
       <button type="button" disabled={busy || !spoken.trim() || !shiftLikely} onClick={() => void speakOnSite()} className="min-h-11 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">{busy ? "Talking…" : "Talk if Sienna is on shift"}</button>
-      <p className="text-xs text-muted-foreground">This sends a genuine encounter turn only if Sienna is on her usual shift. The AI can be busy or unavailable; ordering alone never summons her. Your written dialogue is saved to the character conversation.</p>
+      <p className="text-xs text-muted-foreground">Sienna is the established bartender, but may be off shift or busy with other customers. Encounter context is saved to your conversation; seating and tab are retained for this browser session only.</p>
     </div>}
     {!publicBar && <div className="mt-3 rounded-xl border bg-background p-3">
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
