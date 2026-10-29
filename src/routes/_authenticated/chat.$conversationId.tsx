@@ -249,7 +249,7 @@ function Chat({ conversationId }: { conversationId: string }) {
 
   async function send(nativeBody?: string) {
     const body = (nativeBody ?? text).trim();
-    if (!body || !convId || sendingRef.current) return;
+    if (!body || !convId || sendingRef.current) return "ignored";
     keepAtEnd.current = true;
     const outgoing = { id: crypto.randomUUID(), body, at: Date.now() };
     if (nativeBody === undefined) setText("");
@@ -259,12 +259,13 @@ function Chat({ conversationId }: { conversationId: string }) {
         const q = [...readQueue(conversationId), outgoing];
         writeQueue(conversationId, q);
         setQueue(q);
+        taRef.current?.focus();
+        return "queued";
       } catch {
         setText(current => current ? `${body}\n\n${current}` : body);
         toast.error("Offline storage is unavailable. Keep this draft open until you reconnect.");
+        return "failed";
       }
-      taRef.current?.focus();
-      return;
     }
     sendingRef.current = true;
     setSending(true);
@@ -287,6 +288,7 @@ function Chat({ conversationId }: { conversationId: string }) {
     if (debounce.current) clearTimeout(debounce.current);
     debounce.current = setTimeout(() => { debounce.current = null; void runRespond(); }, 2500);
     taRef.current?.focus();
+    return "sent";
     } catch {
       // Preserve the exact request ID after an uncertain acknowledgment. A retry
       // verifies the stored row instead of creating another user message.
@@ -296,74 +298,122 @@ function Chat({ conversationId }: { conversationId: string }) {
         writeQueue(conversationId, next);
         setQueue(next);
         toast.error("Sending wasn't confirmed. Your text is saved on this device.");
+        return "queued";
       } catch {
         setText(current => current ? `${body}\n\n${current}` : body);
         toast.error("Message wasn't confirmed. Your text is back in the composer.");
+        return "failed";
       }
     } finally { sendingRef.current = false; setSending(false); }
   }
 
-  // Native Android message bridge. Keep auth tokens in the web session;
-  // only sanitized display data and temporary signed media URLs are shared.
+  // Native Android bridge: publish text immediately. Media signing never blocks
+  // message history or the ability to reply.
   const nativePhotoUrls = useRef(new Map<string, { url: string; until: number }>());
   useEffect(() => {
     if (!msgs.isSuccess || !convId) return;
-    const bridge = (window as Window & {
-      LivingWorldAndroid?: { receiveMessages?: (json: string) => void };
-    }).LivingWorldAndroid;
-    const receiveMessages = bridge?.receiveMessages;
-    if (!receiveMessages) return;
-    let cancelled = false;
+    const current = (window as Window & {
+      LivingWorldAndroid?: {
+        receiveMessages?: (json: string) => void;
+      };
+      __livingWorldNativeChatSnapshot?: string;
+    });
+    const entries = visible.slice(-120);
+    const payload = entries.map(m => {
+      const md = m.metadata as {
+        photo?: string; generated_path?: string; user_photo?: string;
+      } | null;
+      return {
+        id: m.id,
+        text: m.body ?? "",
+        outgoing: m.sender === "user",
+        timestamp: new Date(m.created_at).getTime(),
+        photo: md?.photo ? PHOTO_SRC[md.photo] ?? "" : "",
+      };
+    });
+    function publish(items: typeof payload) {
+      const result = JSON.stringify({ conversationId: convId, messages: items });
+      // A pull-based fallback also works if WebView's injected Java interface
+      // isn't visible during the first React render.
+      current.__livingWorldNativeChatSnapshot = result;
+      try { current.LivingWorldAndroid?.receiveMessages?.(result); }
+      catch { /* Android can poll the snapshot after hydration. */ }
+    }
+    publish(payload);
+    const missing = entries.flatMap((m, i) => {
+      const md = m.metadata as { generated_path?: string; user_photo?: string } | null;
+      const path = md?.generated_path ?? md?.user_photo;
+      return path ? [{path, index: i}] : [];
+    });
+    if (missing.length === 0) return;
+    let active = true;
     void (async () => {
-      const messages = await Promise.all(visible.slice(-120).map(async (m) => {
-        const md = m.metadata as {
-          photo?: string; generated_path?: string; user_photo?: string;
-        } | null;
-        let photo = md?.photo ? PHOTO_SRC[md.photo] : undefined;
-        const storagePath = md?.generated_path ?? md?.user_photo;
-        if (storagePath) {
-          const previous = nativePhotoUrls.current.get(storagePath);
-          if (previous && previous.until > Date.now()) photo = previous.url;
-          else {
-            try {
-              const { data, error } = await supabase.storage.from("tess-photos")
-                .createSignedUrl(storagePath, 3600);
-              if (!error && data?.signedUrl) {
-                photo = data.signedUrl;
-                nativePhotoUrls.current.set(storagePath, {
-                  url: photo, until: Date.now() + 45 * 60_000,
-                });
-              }
-            } catch { /* A media preview can be unavailable without hiding text. */ }
-          }
+      const enriched = payload.map(item => ({ ...item }));
+      // Keep text available even if a storage URL request fails or hangs.
+      await Promise.all(missing.map(async ({path, index}) => {
+        const old = nativePhotoUrls.current.get(path);
+        if (old && old.until > Date.now()) {
+          enriched[index]!.photo = old.url;
+          return;
         }
-        return {
-          id: m.id,
-          text: m.body ?? "",
-          outgoing: m.sender === "user",
-          timestamp: new Date(m.created_at).getTime(),
-          photo: photo ?? "",
-        };
+        try {
+          const {data, error} = await supabase.storage.from("tess-photos")
+            .createSignedUrl(path, 3600);
+          if (!error && data?.signedUrl) {
+            enriched[index]!.photo = data.signedUrl;
+            nativePhotoUrls.current.set(path, {
+              url: data.signedUrl, until: Date.now() + 45 * 60_000,
+            });
+          }
+        } catch { /* Keep the text if media is unavailable. */ }
       }));
-      if (!cancelled) receiveMessages(JSON.stringify({ conversationId: convId, messages }));
+      if (active) publish(enriched);
     })();
-    return () => { cancelled = true; };
+    return () => { active = false; };
   }, [conversationId, convId, msgs.isSuccess, msgs.data, now]);
 
   useEffect(() => {
-    if (!convId) return;
-    const handler = (event: Event) => {
-      const data = (event as CustomEvent<{ conversationId?: string; text?: string }>).detail;
+    if (!convId || !msgs.isSuccess) return;
+    const onSend = (event: Event) => {
+      const data = (event as CustomEvent<{
+        conversationId?: string; text?: string; requestId?: string;
+      }>).detail;
       if (!data || data.conversationId !== convId ||
           typeof data.text !== "string" || !data.text.trim() ||
-          data.text.length > 4000) return;
-      void send(data.text);
+          data.text.length > 4000 ||
+          typeof data.requestId !== "string" ||
+          !/^[0-9a-fA-F-]{36}$/.test(data.requestId)) return;
+      // Do not acknowledge merely dispatching the event. Wait for the
+      // existing send() pipeline to report whether the message was persisted,
+      // durably queued, or failed.
+      void send(data.text).then(result => {
+        const reply = JSON.stringify({
+          conversationId: convId, requestId: data.requestId,
+          status: result ?? "failed",
+        });
+        try {
+          (window as Window & {
+            LivingWorldAndroid?: { receiveSendStatus?: (json: string) => void };
+          }).LivingWorldAndroid?.receiveSendStatus?.(reply);
+        } catch { /* Android preserves the draft on callback failure. */ }
+      }).catch(() => {
+        const reply = JSON.stringify({
+          conversationId: convId, requestId: data.requestId, status: "failed",
+        });
+        try {
+          (window as Window & {
+            LivingWorldAndroid?: { receiveSendStatus?: (json: string) => void };
+          }).LivingWorldAndroid?.receiveSendStatus?.(reply);
+        } catch { /* Keep the draft if the callback is unavailable. */ }
+      });
     };
-    window.addEventListener("living-world-native-send", handler);
+    window.addEventListener("living-world-native-send", onSend);
     (window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady = convId;
     return () => {
-      window.removeEventListener("living-world-native-send", handler);
-      if ((window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady === convId)
+      window.removeEventListener("living-world-native-send", onSend);
+      if ((window as Window & {
+        __livingWorldNativeChatReady?: string
+      }).__livingWorldNativeChatReady === convId)
         delete (window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady;
     };
   });
