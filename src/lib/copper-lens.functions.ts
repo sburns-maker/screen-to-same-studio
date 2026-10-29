@@ -11,9 +11,10 @@ const stateSchema = z.object({
   tabOpen: z.boolean().default(false),
   turns: z.number().int().min(0).max(1000).default(0),
   interruption: z.string().max(200).default(""),
+  houseReply: z.string().max(250).default(""),
 });
 type BarState = z.infer<typeof stateSchema>;
-const initial: BarState = { seated: false, order: "", tabOpen: false, turns: 0, interruption: "" };
+const initial: BarState = { seated: false, order: "", tabOpen: false, turns: 0, interruption: "", houseReply: "" };
 type EventRow = { payload: unknown };
 function stateFrom(row: EventRow | null | undefined): BarState {
   const data = row?.payload && typeof row.payload === "object" ? row.payload : {};
@@ -44,7 +45,7 @@ export const copperLensState = createServerFn({ method: "GET" }).middleware([req
   });
 export const copperLensAction = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({
-    action: z.enum(["seat", "menu", "order", "settle", "conversation", "leave"]),
+    action: z.enum(["seat", "menu", "order", "settle", "conversation", "talk_house", "leave"]),
     requestId: z.string().uuid(),
     drink: z.string().trim().max(100).optional(),
   }).parse(input))
@@ -56,12 +57,15 @@ export const copperLensAction = createServerFn({ method: "POST" }).middleware([r
     const previous = await latestState(db, context.userId);
     const next: BarState = { ...previous, interruption: "" };
     if (data.action === "seat") next.seated = true;
+    if (data.action === "menu") next.houseReply = "Tonight’s menu includes an old fashioned and other classic cocktails. What can I get you?";
+    if (data.action === "talk_house") next.houseReply = next.order ? "The bartender checks on your drink and asks how you're enjoying it." : "The house bartender looks over and asks what you'd like to order.";
     if (data.action === "order") {
       if (!next.seated) throw new Error("Take a seat before ordering.");
       next.order = data.drink || "an old fashioned";
       next.tabOpen = true;
+      next.houseReply = "The on-duty bartender begins preparing your drink. Your fictional tab is open.";
     }
-    if (data.action === "settle") { next.tabOpen = false; next.order = ""; }
+    if (data.action === "settle") { next.tabOpen = false; next.order = ""; next.houseReply = "The bartender closes your fictional tab and thanks you."; }
     if (data.action === "conversation") {
       next.turns = Math.min(1000, next.turns + 1);
       if (next.turns % 3 === 0) next.interruption = "Another customer approaches the bar. The bartender pauses to serve them before returning.";
