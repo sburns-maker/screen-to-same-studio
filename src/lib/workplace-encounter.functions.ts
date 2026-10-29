@@ -16,6 +16,7 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
     receptionTurns: z.array(z.object({ speaker: z.enum(["player", "reception"]), body: z.string().max(600) })).max(20).optional(),
     deliveryOutcome: z.enum(["unresolved", "message_left", "waiting", "declined"]).optional(),
     item: z.string().trim().min(1).max(160).optional(),
+    barContext: z.object({ seated: z.boolean(), order: z.string().max(100).optional() }).optional(),
   }).parse(v))
   .handler(async ({ context, data }) => {
     const work = WORKPLACES[data.character];
@@ -37,6 +38,8 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
     if (conversation.error || !conversation.data ||
         (conversation.data.character as {key?: string} | null)?.key !== data.character)
       throw new Error("This conversation isn't associated with the workplace character.");
+    if (data.barContext && (data.character !== "sienna" || work.key !== "work:sienna"))
+      throw new Error("Bar context is only available at Copper Lens.");
     // Restricted workplace access remains a public-area conversation only.
     const body = data.text;
     const { data: existing, error: existingError } = await db.from("messages")
@@ -53,7 +56,8 @@ export const workplaceEncounterTurn = createServerFn({ method: "POST" })
         workplace_encounter: {
           request_id: data.requestId, place_key: work.key, character: data.character,
           access: work.publicAccess === "restricted" ? "public_reception_only" : "public_visitor_area",
-          event: data.activity !== "conversation" ? "player_attempted_item_dropoff" : "player_requested_conversation", occurred_at: now.toISOString(),
+          event: data.activity !== "conversation" ? "player_attempted_item_dropoff" : data.barContext ? "public_bar_encounter" : "player_requested_conversation", occurred_at: now.toISOString(),
+          ...(data.barContext ? { customer_area: true, bartender_role: true, seated: data.barContext.seated, order: data.barContext.order ?? null, shift_suggested: true, presence_unconfirmed: true, service_interruption_possible: true } : {}),
           ...(data.activity !== "conversation" ? { delivery_status: "attempted", recipient_notified: false,
             reception_turns: data.receptionTurns ?? [], delivery_outcome: data.deliveryOutcome ?? "unresolved" } : {}),
         },
