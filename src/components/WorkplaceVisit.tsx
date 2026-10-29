@@ -31,7 +31,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const barOrder = barQuery.data?.order ?? "";
   const barStatus = barQuery.data?.interruption ?? "";
   const [barBusy, setBarBusy] = useState(false);
-  async function barAction(action: "seat" | "menu" | "order" | "settle" | "conversation" | "leave") {
+  async function barAction(action: "seat" | "menu" | "order" | "settle" | "conversation" | "talk_house" | "leave") {
     if (barBusy) return;
     setBarBusy(true);
     setError("");
@@ -126,11 +126,13 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
         <button type="button" disabled={barBusy} className="min-h-11 rounded-lg border px-3" onClick={() => void barAction("seat")}>Sit at bar</button>
         <button type="button" disabled={barBusy} className="min-h-11 rounded-lg border px-3" onClick={() => void barAction("menu")}>View drink menu</button>
         <button type="button" disabled={barBusy || !barSeat} className="min-h-11 rounded-lg border px-3" onClick={() => void barAction("order")}>Order old fashioned</button>
+        <button type="button" disabled={barBusy} className="min-h-11 rounded-lg border px-3" onClick={() => void barAction("talk_house")}>Talk to house bartender</button>
         <button type="button" disabled={barBusy || !barQuery.data.tabOpen} className="min-h-11 rounded-lg border px-3" onClick={() => void barAction("settle")}>Settle tab</button>
         <button type="button" disabled={barBusy} className="min-h-11 rounded-lg border px-3" onClick={() => void barAction("leave")}>Close bar scene</button>
       </div>}
       <p className="text-xs text-muted-foreground">{barQuery.data?.bartender === "house_bartender" ? "House bartender is serving customers; Sienna isn't confirmed on shift." : "Sienna may be tending bar if her schedule permits; actual availability is not guaranteed."}</p>
       <p className="text-sm">Seat: {barSeat ? "At the bar" : "Not seated"} · Drink: {barOrder || "None"} · Tab: {barQuery.data?.tabOpen ? "Open" : "Closed"}</p>
+      {barQuery.data?.houseReply && <p role="status" className="text-sm">{barQuery.data.houseReply}</p>}
       {barStatus && <p role="status" className="text-sm">{barStatus}</p>}
       <label htmlFor="bar-dialogue" className="block text-sm font-medium">Say something at the bar</label>
       <textarea id="bar-dialogue" value={spoken} maxLength={650} onChange={e => setSpoken(e.target.value)} placeholder="I look up from the bar as the bartender approaches. Oh, Sienna! I didn\'t know you worked here." className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" />
