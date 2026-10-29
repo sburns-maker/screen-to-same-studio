@@ -91,6 +91,25 @@ function Chat({ conversationId }: { conversationId: string }) {
   const convId = conv.data?.id;
   const [historyLimit, setHistoryLimit] = useState(200);
   const msgs = useQuery(messagesQuery(convId, historyLimit));
+  // Optional native Android refresh request. A previously published chat
+  // snapshot may contain an in-progress/old version of a message body.
+  // Requery the authenticated server and republish the full text via the
+  // existing receiveMessages bridge; no credentials cross into Android.
+  useEffect(() => {
+    if (!convId) return;
+    const target = window as Window & {
+      __livingWorldAndroidRefreshChat?: (id: string) => void;
+    };
+    const refresh = (id: string) => {
+      if (id !== convId) return;
+      void msgs.refetch();
+    };
+    target.__livingWorldAndroidRefreshChat = refresh;
+    return () => {
+      if (target.__livingWorldAndroidRefreshChat === refresh)
+        delete target.__livingWorldAndroidRefreshChat;
+    };
+  }, [convId, msgs.refetch]);
   const pollPhotos=useServerFn(refreshPendingPhotos);
   const refetchMessages=msgs.refetch;
   const hasPendingPhoto=msgs.data?.some(m=>!!(m.metadata as {photo_pending?:unknown}|null)?.photo_pending)??false;
