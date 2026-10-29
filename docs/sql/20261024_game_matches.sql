@@ -32,6 +32,7 @@ returns void
 language plpgsql security definer set search_path = public
 as $$
 declare m public.game_matches%rowtype;
+declare recent_effects integer;
 begin
  select * into m from public.game_matches where id=p_id and user_id=p_user_id for update;
  if not found or m.status <> 'completed' then raise exception 'Unverified game match'; end if;
@@ -39,11 +40,19 @@ begin
  insert into public.memories(id,user_id,conversation_id,memory_type,summary,importance)
  values(m.id,m.user_id,m.conversation_id,'shared_game',left(p_summary,1000),3)
  on conflict(id) do nothing;
- update public.tess_state
-   set playfulness=least(100,playfulness+1),
-       relationship_momentum=least(100,relationship_momentum+1),
-       updated_at=now()
- where conversation_id=m.conversation_id and user_id=m.user_id;
+ -- Cap small social nudges to the first TWO completed games per character
+ -- in a rolling 24-hour period; never award romance, attraction or intent.
+ select count(*) into recent_effects from public.game_matches prior
+ where prior.user_id=m.user_id and prior.conversation_id=m.conversation_id
+   and prior.id<>m.id and prior.status='completed' and prior.effects_applied
+   and prior.updated_at > now() - interval '24 hours';
+ if recent_effects < 2 then
+   update public.tess_state
+     set playfulness=least(100,playfulness+1),
+         relationship_momentum=least(100,relationship_momentum+1),
+         updated_at=now()
+   where conversation_id=m.conversation_id and user_id=m.user_id;
+ end if;
  update public.game_matches set effects_applied=true where id=m.id;
 end $$;
 revoke all on function public.finalize_game_match(uuid,uuid,text) from public,anon,authenticated;
