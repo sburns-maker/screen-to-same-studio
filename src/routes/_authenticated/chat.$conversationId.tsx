@@ -386,26 +386,20 @@ function Chat({ conversationId }: { conversationId: string }) {
       // Do not acknowledge merely dispatching the event. Wait for the
       // existing send() pipeline to report whether the message was persisted,
       // durably queued, or failed.
-      void send(data.text).then(result => {
+      const acknowledge = (status: string) => {
         const reply = JSON.stringify({
-          conversationId: convId, requestId: data.requestId,
-          status: result ?? "failed",
+          conversationId: convId, requestId: data.requestId, status,
         });
-        try {
-          (window as Window & {
-            LivingWorldAndroid?: { receiveSendStatus?: (json: string) => void };
-          }).LivingWorldAndroid?.receiveSendStatus?.(reply);
-        } catch { /* Android preserves the draft on callback failure. */ }
-      }).catch(() => {
-        const reply = JSON.stringify({
-          conversationId: convId, requestId: data.requestId, status: "failed",
-        });
-        try {
-          (window as Window & {
-            LivingWorldAndroid?: { receiveSendStatus?: (json: string) => void };
-          }).LivingWorldAndroid?.receiveSendStatus?.(reply);
-        } catch { /* Keep the draft if the callback is unavailable. */ }
-      });
+        const target = window as Window & {
+          __livingWorldNativeSendStatus?: string;
+          LivingWorldAndroid?: { receiveSendStatus?: (json: string) => void };
+        };
+        target.__livingWorldNativeSendStatus = reply;
+        try { target.LivingWorldAndroid?.receiveSendStatus?.(reply); }
+        catch { /* Android can poll the signed-in page for the result. */ }
+      };
+      void send(data.text).then(result => acknowledge(result ?? "failed"))
+        .catch(() => acknowledge("failed"));
     };
     window.addEventListener("living-world-native-send", onSend);
     (window as Window & { __livingWorldNativeChatReady?: string }).__livingWorldNativeChatReady = convId;
