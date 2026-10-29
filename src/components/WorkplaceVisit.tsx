@@ -122,7 +122,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
         {(arrived ? (["ask", "speak", "wait", "leave_note", "drop_lunch"] as const) : ["ask"] as const).map(item => <button key={item} type="button" aria-pressed={choice === item} onClick={() => setChoice(item)} className={`min-h-11 rounded-lg border px-3 text-sm ${choice === item ? "bg-primary/10 border-primary" : "bg-background"}`}>{item === "drop_lunch" ? "Drop off item" : item === "ask" ? "Ask permission" : item === "speak" ? "Start a visit conversation" : item === "wait" ? "Ask while waiting" : "Leave a note"}</button>)}
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
-    </div>
+    </div>}
     {!publicBar && arrived && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play item drop-off">
       <h3 className="font-semibold">Item drop-off · public reception</h3>
       <p className="text-sm text-muted-foreground">You're in the permitted public visitor area. Ask reception about a delivery; no access to staff-only spaces or guaranteed handoff.</p>
