@@ -23,6 +23,9 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [spoken, setSpoken] = useState("");
+  const [barSeat, setBarSeat] = useState(false);
+  const [barOrder, setBarOrder] = useState("");
+  const [barStatus, setBarStatus] = useState("");
   const [lunch, setLunch] = useState("A packed lunch and a drink");
   const [dropoffNote, setDropoffNote] = useState('I walk up to reception with the lunch. "Hi, I brought this for someone who works here. Is there a permitted way to leave it for them?"');
   const [encounterStatus, setEncounterStatus] = useState("");
@@ -32,6 +35,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   const place = workplace;
   const name = CHARACTERS[workplace.character as CharacterKey].preferredName;
   const restricted = workplace.publicAccess === "restricted";
+  const publicBar = workplace.key === "work:sienna" && workplace.publicAccess === "lobby";
   const shiftLikely = workplaceShiftLikely(workplace.character, new Date());
   const prompt = restricted
     ? `Hey ${name}, I was thinking of stopping by when you have a break. Would meeting somewhere public near work suit you?`
@@ -50,7 +54,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
         activity: dropoff ? "item_dropoff" : "conversation",
         ...(dropoff ? { item: lunch.trim() } : {}),
         ...(dropoff && receptionSession ? { receptionTurns: receptionSession.turns, deliveryOutcome: receptionSession.outcome } : {}),
-        text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : spoken.trim(), requestId: crypto.randomUUID(),
+        text: dropoff ? dropoffSummary({ ...receptionSession!, item: lunch.trim() }) : publicBar ? `At the public customer bar of ${place.label}, I have ${barSeat ? "taken a seat" : "walked in"}${barOrder ? ` and ordered ${barOrder}` : ""}. ${spoken.trim()}`.slice(0,900) : spoken.trim(), requestId: crypto.randomUUID(),
       }});
       if (dropoff) await queryClient.invalidateQueries({ queryKey: ["gift-handoffs", placeKey] });
       if (!dropoff) setSpoken("");
@@ -88,7 +92,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
   return <section aria-label={name + "'s fictional workplace"} className="mb-4 rounded-2xl border bg-surface p-4">
     <h2 className="font-display text-xl">{name}'s workplace</h2>
     <p className="mt-2 text-sm text-muted-foreground">
-      This is a real Altoona location used as a fictional game setting. {name} is an invented character, not an employee.
+      {publicBar ? "This cocktail bar is a fictional game setting. " : "This is a real Altoona location used as a fictional game setting. "}{name} is an invented character, not an employee.
       {restricted
         ? " No access to clinical, private or staff-only areas. Ask about meeting outside work."
         : " The workplace may be busy. Being here does not guarantee a conversation."}
@@ -96,7 +100,22 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
     <p className="mt-2 text-sm text-muted-foreground">{arrived
       ? "You've reached the virtual public area. Contact them before expecting a visit."
       : "You can ask first, then decide whether to travel virtually."}</p>
-    <div className="mt-3 rounded-xl border bg-background p-3">
+    {publicBar && arrived && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Public cocktail bar actions">
+      <h3 className="font-semibold">At the bar</h3>
+      <p className="text-sm text-muted-foreground">A fictional public bar scene. No real orders or payments. Sienna may be working, but nobody is guaranteed to be available.</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarSeat(true); setBarStatus("You take an open stool at the bar."); }}>Sit at the bar</button>
+        <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => setBarStatus("You browse the fictional cocktail menu. An old fashioned is available.")}>View drink menu</button>
+        <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarOrder("an old fashioned"); setBarSeat(true); setBarStatus("You order an old fashioned from the on-duty bartender. This is a fictional order; the bartender is not assumed to be Sienna."); }}>Order old fashioned</button>
+        <button type="button" className="min-h-11 rounded-lg border px-3" onClick={() => { setBarOrder(""); setBarStatus("Your fictional tab is settled."); }}>Settle tab</button>
+      </div>
+      {barStatus && <p role="status" className="text-sm">{barStatus}</p>}
+      <label htmlFor="bar-dialogue" className="block text-sm font-medium">Say something at the bar</label>
+      <textarea id="bar-dialogue" value={spoken} maxLength={650} onChange={e => setSpoken(e.target.value)} placeholder="I look toward the bartender. Hey, could I get an old fashioned? ... Oh, Sienna! I didn\'t know you worked here." className="min-h-24 w-full rounded-lg border bg-background p-3 text-sm" />
+      <button type="button" disabled={busy || !spoken.trim() || !shiftLikely} onClick={() => void speakOnSite()} className="min-h-11 rounded-lg bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">{busy ? "Talking…" : "Talk if Sienna is on shift"}</button>
+      <p className="text-xs text-muted-foreground">This sends a genuine encounter turn only if Sienna is on her usual shift. The AI can be busy or unavailable; ordering alone never summons her. Your written dialogue is saved to the character conversation.</p>
+    </div>}
+    {!publicBar && <div className="mt-3 rounded-xl border bg-background p-3">
       <p className="text-sm font-semibold">{arrived ? "Public visitor area" : "Plan a visit"}</p>
       <p className="mt-1 text-xs text-muted-foreground">{shiftLikely ? "A usual shift may be in progress, but availability is unconfirmed." : "Outside the character’s usual working hours; they may not be here."}</p>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -104,7 +123,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </div>
       <p className="mt-2 text-xs text-muted-foreground">Only public spaces are simulated. Waiting never guarantees a meeting; messages are editable and must be sent manually.</p>
     </div>
-    {arrived && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play item drop-off">
+    {!publicBar && arrived && choice === "drop_lunch" && <div className="mt-3 space-y-3 rounded-xl border bg-background p-3" aria-label="Play item drop-off">
       <h3 className="font-semibold">Item drop-off · public reception</h3>
       <p className="text-sm text-muted-foreground">You're in the permitted public visitor area. Ask reception about a delivery; no access to staff-only spaces or guaranteed handoff.</p>
       <label htmlFor="lunch-items" className="block text-sm font-medium">What did you bring?</label>
@@ -125,7 +144,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </div>
       <p className="text-xs text-muted-foreground">This is a fictional, rule-based receptionist—not an AI employee. Finish only when ready to record the visit in your character conversation. No delivery is automatically confirmed, and no plan is scheduled.</p>
     </div>}
-    {arrived && choice !== "drop_lunch" && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
+    {!publicBar && arrived && choice !== "drop_lunch" && <div className="mt-4 space-y-2 rounded-xl border bg-background p-3">
       <label htmlFor="workplace-dialogue" className="block text-sm font-medium">Speak from the public visitor area</label>
       <textarea id="workplace-dialogue" value={spoken} maxLength={900} onChange={e=>setSpoken(e.target.value)}
         placeholder={restricted ? "Ask whether they can meet you outside the restricted area…" : "Say hello, ask if they have a moment…"}
@@ -171,7 +190,7 @@ export function WorkplaceVisit({ placeKey, arrived }: { placeKey: string; arrive
       </div>)}
     </section>}
     {encounterStatus && <p role="status" className="mt-2 text-sm">{encounterStatus}</p>}
-    {choice !== "drop_lunch" && <button type="button" disabled={busy} onClick={() => void prepare()}
+    {!publicBar && choice !== "drop_lunch" && <button type="button" disabled={busy} onClick={() => void prepare()}
       className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50">
       {busy ? "Opening conversation…" : choice === "leave_note" ? "Write a note" : choice === "speak" ? "Open live conversation" : choice === "wait" ? "Ask about a quick hello" : restricted ? `Ask ${name} to meet nearby` : `Ask to visit ${name} at work`}
     </button>}
