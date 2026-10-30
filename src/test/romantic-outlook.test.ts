@@ -31,8 +31,8 @@ describe("private relationship possibilities for the full romantic cast", () => 
       expect(content).not.toBe("");
       expect(content.toLowerCase()).toContain("private");
       expect(content).toContain("friend");
-      expect(characterMindPossibility(key, matureConnection, "Mutual romantic curiosity")).toContain("Possible private thought");
-      expect(mindSummary(matureConnection, "Mutual romantic curiosity", key).notes[0]).toContain("Possible private thought");
+      expect(characterMindPossibility(key, matureConnection, "Mutual romantic curiosity")).toContain("not a saved first-person thought");
+      expect(mindSummary(matureConnection, "Mutual romantic curiosity", key).notes[0]).toContain("only a saved, generated character reflection");
     }
     expect(characterCanPrivatelyReconsider("ben", matureConnection)).toBe(false);
     expect(characterPrivateRomanticOutlook("ben", matureConnection, "Friendly connection", [], [])).toBe("");
@@ -41,7 +41,6 @@ describe("private relationship possibilities for the full romantic cast", () => 
 
   it("Jordan processes attraction quietly and remembers friends-only boundaries", () => {
     const outlook = characterPrivateRomanticOutlook("jordan", matureConnection, "Flirty friendship", friendshipBoundary, []);
-    expect(outlook).toContain("I've been thinking about him more than I planned");
     expect(outlook).toContain("inviting him climbing");
     expect(outlook).toContain("friends");
     expect(outlook).toContain("remains the outward agreement");
@@ -53,8 +52,9 @@ describe("private relationship possibilities for the full romantic cast", () => 
   });
 
   it("Maya, Tess, Sienna and Kendra retain different inner voices", () => {
-    const voices = romanticCast.map(key => characterMindPossibility(key, matureConnection, "Mutual romantic curiosity") ?? "");
+    const voices = romanticCast.map(key => characterPrivateRomanticOutlook(key, matureConnection, "Mutual romantic curiosity", [], []));
     expect(new Set(voices).size).toBe(romanticCast.length);
+    expect(voices.join(" ")).not.toContain("A possible private sentiment in her own style");
     expect(characterPrivateRomanticOutlook("maya", matureConnection, "Mutual romantic curiosity", [], []))
       .toContain("unhurried date");
     expect(characterPrivateRomanticOutlook("tess", matureConnection, "Mutual romantic curiosity", [], []))
@@ -72,7 +72,7 @@ describe("private relationship possibilities for the full romantic cast", () => 
     expect(outlook).not.toContain("Maybe there could be more here someday");
     const diagnostic = characterMindPossibility("riley", matureConnection, "Established relationship");
     expect(diagnostic).toContain("existing relationship");
-    expect(diagnostic).toContain("NOT a saved reflection");
+    expect(diagnostic).toContain("not a saved first-person thought");
   });
 
   it("does not force new feelings when romance is absent, or in a pressuring situation", () => {
