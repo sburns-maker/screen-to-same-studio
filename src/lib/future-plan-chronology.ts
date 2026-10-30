@@ -63,6 +63,8 @@ export function futurePlanCompletionClaim(
       if (!hasDay && !explicitDate) continue;
       if (hasDay && new RegExp("\\b(?:last|previous)\\s+" + day + "\\b", "i").test(sentence)) continue;
       if (!new RegExp("\\b" + plan.event + "\\b", "i").test(sentence)) continue;
+      // Remembering that a plan was *scheduled* is not remembering attendance.
+      if (/\b(?:planned|scheduled|booked|arranged|confirmed|agreed)\b/i.test(sentence)) continue;
       if (PAST_ATTENDANCE.test(sentence)) return plan;
     }
   }
