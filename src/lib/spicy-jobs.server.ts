@@ -21,6 +21,7 @@ type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
   expression: string | null;
+  type?: "mature_romantic" | "suggestive";
   style?: PhotoStyle | null;
   photography?: PhotographyPlan;
   delivery?: "chat" | "lab";
@@ -153,7 +154,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
   return {
     generated_path: path,
     generated_image_id: job.action_id,
-    photo_type: "mature_romantic",
+    photo_type: job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",
     photo_identity: identity,
     photo_visual: {
       version: 1,
