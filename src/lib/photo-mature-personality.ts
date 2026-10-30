@@ -71,6 +71,14 @@ export function maturePhotoCharacterHint(character: string, eligibleTypes: reado
   return "";
 }
 
+/** One shared instruction entrypoint for Tess and every other character's chat turn. */
+export function characterPhotoInstructions(character: CharacterKey, eligible: readonly string[]): string {
+  return [
+    maturePhotoCharacterHint(character, eligible),
+    characterPhotoIntensityHint(character, eligible),
+  ].filter(Boolean).join("\n");
+}
+
 /** A delivered attachment remains legible as shared relationship history in later chat turns. */
 export function deliveredPhotoContextLabel(type: string | null | undefined): string {
   return type === "mature_romantic"
