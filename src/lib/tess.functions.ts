@@ -610,7 +610,7 @@ async function runTurnUnlocked(
   }
   if (initiation?.spontaneousPhoto && !reply.photo && !reply.messages.some((line)=>line.trim()))
     return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested:false, reason: "Character chose not to send a photo or message for this moment." };
-  if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character declined the opportunity" };
+  if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character did not select a photo for this opportunity", photoDecision: { result: "no_photo_action", eligibleTypes: generateTypes, proposedText: reply.messages.some((line) => line.trim().length > 0) } };
 
   if (voice) { reply.photo=null;reply.photo_boundary_decision="unchanged";await (await import("./phone-calls.server")).guardVoiceTurn(supabase,userId,conv.id,voice); }
   const scheduleActions = await (await import("./calendar-coordinator.server")).prepareScheduleActions(
