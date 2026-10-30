@@ -30,19 +30,27 @@ export function spicyTransportCode(error: unknown): SpicyTransportCode {
   return value?.name === "TypeError" ? "fetch_failed" : "unknown";
 }
 
-/** Read-only health probe. No quote, reference upload, reservation or paid task. */
-export const spicyConnectionProbe = createServerOnlyFn(async function spicyConnectionProbe(): Promise<{
-  status: "reachable" | "http_error" | "transport_error" | "not_configured";
+type SpicyProbeResult = {
+  status: "reachable" | "http_error" | "transport_error";
   httpStatus: number | null;
   transportCode: SpicyTransportCode | null;
-}> {
-  const key = process.env["SPICY_API_KEY"];
-  if (!key || process.env["SPICY_ENABLED"] !== "true")
-    return { status: "not_configured", httpStatus: null, transportCode: null };
+};
+export type SpicyConnectionReport = {
+  status: SpicyProbeResult["status"] | "not_configured";
+  httpStatus: number | null;
+  transportCode: SpicyTransportCode | null;
+  checks: {
+    publicCatalog: SpicyProbeResult;
+    internet: SpicyProbeResult;
+  } | null;
+};
+
+/** A read-only GET to a fixed, trusted URL; never sends a prompt, image or quote. */
+async function probeHttpConnection(url: string, key?: string): Promise<SpicyProbeResult> {
   try {
-    const response = await fetch(`${SPICY_BASE}/models`, {
+    const response = await fetch(url, {
       method: "GET",
-      headers: { Authorization: `Bearer ${key}` },
+      ...(key ? { headers: { Authorization: `Bearer ${key}` } } : {}),
       redirect: "error",
       signal: AbortSignal.timeout(12000),
     });
@@ -53,10 +61,31 @@ export const spicyConnectionProbe = createServerOnlyFn(async function spicyConne
     };
   } catch (error) {
     return {
-      status: "transport_error", httpStatus: null,
+      status: "transport_error",
+      httpStatus: null,
       transportCode: spicyTransportCode(error),
     };
   }
+}
+
+/**
+ * Read-only connection matrix. Two free GETs to the provider's API host and
+ * one neutral control check distinguish host-specific failures from general
+ * outbound network issues. Results carry only status codes, never response bodies.
+ */
+export const spicyConnectionProbe = createServerOnlyFn(async function spicyConnectionProbe(): Promise<SpicyConnectionReport> {
+  const key = process.env["SPICY_API_KEY"];
+  if (!key || process.env["SPICY_ENABLED"] !== "true")
+    return { status: "not_configured", httpStatus: null, transportCode: null, checks: null };
+  const [authenticated, publicCatalog, internet] = await Promise.all([
+    probeHttpConnection(`${SPICY_BASE}/models`, key),
+    probeHttpConnection("https://api.spicyapi.ai/console/v1/catalog/models?strict=1"),
+    probeHttpConnection("https://example.com/"),
+  ]);
+  return {
+    ...authenticated,
+    checks: { publicCatalog, internet },
+  };
 });
 export const SPICY_MODELS = [
   "bytedance/seedream-5.0-flash/edit",
