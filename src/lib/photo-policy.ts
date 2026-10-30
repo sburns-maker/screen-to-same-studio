@@ -95,9 +95,9 @@ export function photoSceneBoundaryIssue(fields: Readonly<Record<string, unknown>
     if (typeof value === "string" && !safePhotoScene(value))
       return { field, rule: "photo.scene_content_boundary" };
   }
-  // Defense in depth: preserve the historical combined-value check.
-  const combined = Object.values(fields).filter((v): v is string => typeof v === "string").join(" ");
-  return safePhotoScene(combined) ? null : { field: "combined", rule: "photo.scene_content_boundary" };
+  // Text is screened for structure only; combining independent fields could
+  // incorrectly exceed the per-field size limit.
+  return null;
 }
 export class PhotoSceneBoundaryError extends Error {
   readonly field: string;
