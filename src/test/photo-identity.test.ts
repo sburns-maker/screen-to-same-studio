@@ -211,6 +211,36 @@ describe("every shared generation path anchors original portraits", () => {
       new Uint8Array(readFileSync(PROFILE_PORTRAITS.maya.asset)),
     );
   });
+  it("never calls OpenAI or an external visual checker for SpicyAPI suggestive photos", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+    const fetcher = vi.fn().mockRejectedValue(new Error("no external checker allowed"));
+    vi.stubGlobal("fetch", fetcher);
+    const generate = vi.fn().mockResolvedValue({
+      bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+      mime: "image/png",
+      provider: "spicyapi",
+      model: "model",
+    });
+    const result = await generateTessImage({
+      provider: { name: "spicyapi", model: "model", referenceConditioning: true, generate },
+      type: "suggestive",
+      scene: "fictional adult in a private non-explicit portrait",
+      expression: null,
+      identity: { key: "maya", name: "Maya", age: 31, pronouns: "she/her", appearance: "" },
+    });
+    expect(result.diagnostics.validationStatus).toBe("provider_output_validated");
+    expect(generate).toHaveBeenCalledOnce();
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+  it("never routes suggestive images through an ordinary provider", async () => {
+    const generate = vi.fn();
+    await expect(generateTessImage({
+      provider: { name: "openai", model: "model", referenceConditioning: true, generate },
+      type: "suggestive", scene: "fictional adult private portrait", expression: null,
+      identity: { key: "maya", name: "Maya", age: 31, pronouns: "she/her", appearance: "" },
+    })).rejects.toMatchObject({ diagnostics: { validationStatus: "failed" } });
+    expect(generate).not.toHaveBeenCalled();
+  });
   it("does not buy an image for an unknown character, unavailable screen or unverified conditioning provider", async () => {
     const generate = vi.fn();
     const identity = { key: "maya", name: "Maya", age: 31, pronouns: "she/her", appearance: "" };
