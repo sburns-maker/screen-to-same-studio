@@ -1290,12 +1290,20 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     // Read it only from this user's conversation; never generate a thought when
     // opening debug or use a sample sentence as a stand-in for persisted data.
     const reflectionResult = await supabase.from("relationship_evaluations" as "memories")
-      .select("character_perspective,evaluated_at,source_kind,context_summary")
+      .select("*")
       .eq("user_id", userId).eq("conversation_id", conv.id)
       .not("character_perspective", "is", null)
       .lte("evaluated_at", nowIso)
       .order("evaluated_at", { ascending: false }).limit(10);
-    const latestReflection = reflectionResult.error ? null : (reflectionResult.data ?? [])
+    // The table is intentionally accessed with a compatibility cast because
+    // generated Supabase types can lag behind the evaluation migration.
+    const reflectionRows = (reflectionResult.data ?? []) as unknown as Array<{
+      character_perspective: string | null;
+      evaluated_at: string;
+      source_kind: string;
+      context_summary: string | null;
+    }>;
+    const latestReflection = reflectionResult.error ? null : reflectionRows
       .find(row => typeof row.character_perspective === "string" && row.character_perspective.trim().length > 0);
     const mindReflection = latestReflection
       ? { text: latestReflection.character_perspective.trim(), generatedAt: latestReflection.evaluated_at,
