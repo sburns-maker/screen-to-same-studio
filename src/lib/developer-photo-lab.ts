@@ -40,7 +40,7 @@ export const PHOTO_LAB_PRESETS: Record<PhotoLabType, { label: string; scene: str
   suggestive: {
     label: "Suggestive (non-explicit)",
     scene:
-      "A private, confidently flirtatious adult personal phone portrait in a comfortable indoor setting. Expressive eye contact and a deliberately playful, flattering pose; natural phone-camera lighting and a plausible opaque outfit. Make the visual mood clearly different from a casual selfie without inventing nudity, a photographer or an implausible setting.",
+      "A private, confidently flirtatious adult personal phone portrait in a comfortable indoor setting. Expressive eye contact and a deliberately playful, flattering pose; natural phone-camera lighting and a plausible opaque outfit. Make the visual mood clearly different from a casual selfie without inventing a photographer or an implausible setting.",
   },
   mature_adult: {
     label: "Mature adult (non-explicit)",
