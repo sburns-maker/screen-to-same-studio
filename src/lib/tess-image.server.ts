@@ -4,6 +4,7 @@ import { PendingPhotoTask, buildSpicyPrompt } from "./spicy-image.server";
 import { photoPersonalityPrompt, photographyDiagnostics, type PhotographyPlan } from "./photo-personality";
 import { canonicalProfile } from "./canonical-profile.server";
 import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
+import { requireSuggestiveScreen, screenSuggestivePhoto } from "./suggestive-photo-qc.server";
 import type { CharacterKey } from "./characters";
 import {
   photoTextPrompt,
@@ -327,7 +328,12 @@ export async function generateTessImage(args: {
         throw new Error("reference_conditioning_unverified");
     }
     stage = "preflight";
-    requireVisualScreen(); // Fail before any paid image if screening cannot run.
+    if (args.type === "suggestive") {
+      if (args.provider.name !== "spicyapi") throw new Error("suggestive_provider_required");
+      requireSuggestiveScreen();
+    } else {
+      requireVisualScreen(); // Fail before any paid image if screening cannot run.
+    }
     const text = validatePhotoText(args.text);
     const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
     if (text && !textVerificationAvailable()) throw new Error("text_verification_unavailable");
@@ -358,12 +364,18 @@ export async function generateTessImage(args: {
       });
       stage = "visual_screen";
       try {
-        await screenPhotoVisuals(
-          canonical?.blob ?? null,
-          new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
-          args.scene,
-          { allowBackgroundAdults: group },
-        );
+        if (args.type === "suggestive") {
+          await screenSuggestivePhoto(
+            new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
+          );
+        } else {
+          await screenPhotoVisuals(
+            canonical?.blob ?? null,
+            new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
+            args.scene,
+            { allowBackgroundAdults: group },
+          );
+        }
         img = candidate;
         break;
       } catch (screenError) {
