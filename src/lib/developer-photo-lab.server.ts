@@ -20,7 +20,6 @@ import {
   PhotoGenerationFailure,
 } from "./tess-image.server";
 import { requireVisualScreen } from "./photo-identity-qc.server";
-import { requireSuggestiveScreen } from "./suggestive-photo-qc.server";
 import { currentCanonical } from "./profile-media.server";
 type Client = SupabaseClient<Database>;
 type Job = Database["public"]["Tables"]["job_runs"]["Row"];
@@ -171,16 +170,15 @@ export async function generatePhotoLabTest(
     const key = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
     // Select the generation provider first, so missing SpicyAPI configuration
     // fails with a specific error without reserving paid image-attempt budget.
-    // No OpenAI key or OpenAI visual check is required for suggestive photos.
-    // The independent adult-content/age service is preflighted instead.
+    // Suggestive photos rely on SpicyAPI's provider rules and existing
+    // character/adult/opt-in checks. No independent vision service is called.
     if (!key && generationType !== "suggestive") throw new Error("Image provider not configured");
     const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(
       db, user, def.key as CharacterKey, generationType, lovableGatewayProvider(key ?? ""),
       id, conversation,
       {scene, expression: null, delivery: "lab", type: generationType === "suggestive" ? "suggestive" : "mature_romantic"},
     );
-    if (generationType === "suggestive") requireSuggestiveScreen();
-    else requireVisualScreen();
+    if (generationType !== "suggestive") requireVisualScreen();
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
@@ -235,11 +233,6 @@ export async function generatePhotoLabTest(
     }
     const known = [
       "visual_screen_unavailable",
-      "suggestive_screen_unavailable",
-      "suggestive_screen_uncertain",
-      "suggestive_image_invalid",
-      "suggestive_content_blocked",
-      "suggestive_adult_unverified",
       "suggestive_provider_required",
       "Identity registry unavailable",
       "Canonical identity is not approved",
