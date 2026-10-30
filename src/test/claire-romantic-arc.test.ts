@@ -30,16 +30,18 @@ const recent = [
 describe("Claire's friends-to-romance uncertainty", () => {
   it("recognizes private possibility at her existing state without raising scores", () => {
     expect(claireMayBeReconsideringFriendship(current)).toBe(true);
-    expect(claireMindPossibility(current)).toContain("Maybe there could be more here someday");
+    expect(claireMindPossibility(current)).toContain("not a saved character-generated reflection");
     const summary = mindSummary(current, "Mutual romantic curiosity", "claire");
-    expect(summary.notes[0]).toContain("not a saved reflection");
-    expect(mindSummary(current, "Mutual romantic curiosity", "tess").notes.join(" ")).not.toContain("Maybe there");
+    expect(summary.notes[0]).toContain("only a saved, generated character reflection");
+    expect(mindSummary(current, "Mutual romantic curiosity", "tess").notes.join(" ")).not.toContain("Possible private thought");
     expect(current.romantic_intent).toBe(25);
   });
 
   it("preserves an explicitly stated friends-only evening in her private guidance", () => {
     expect(claireHasExpressedFriendshipBoundary(recent, [])).toBe(true);
     const outlook = clairePrivateRomanticOutlook(current, recent, []);
+    expect(outlook).toContain("independently generated perspective");
+    expect(outlook).not.toContain("Maybe there could be more here someday");
     expect(outlook).toContain("She explicitly framed their time together as friends");
     expect(outlook).toContain("STILL the current outward understanding");
     expect(outlook).toContain("she must choose to communicate that clearly herself");
