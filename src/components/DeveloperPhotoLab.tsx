@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { developerPhotoLab } from "@/lib/developer-photo-lab.functions";
+import { developerPhotoLab, checkDeveloperSpicyConnection } from "@/lib/developer-photo-lab.functions";
 import {
   PHOTO_LAB_PRESETS,
   type PhotoLabType,
@@ -13,6 +13,9 @@ type Snapshot = {
 };
 export function DeveloperPhotoLab({ conversationId }: { conversationId: string }) {
   const command = useServerFn(developerPhotoLab);
+  const checkSpicy = useServerFn(checkDeveloperSpicyConnection);
+  const [spicyStatus, setSpicyStatus] = useState<Awaited<ReturnType<typeof checkDeveloperSpicyConnection>> | null>(null);
+  const [checkingSpicy, setCheckingSpicy] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -51,6 +54,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
   }, [command, conversationId]);
   useEffect(() => {
     setSnapshot(null);
+    setSpicyStatus(null);
     pending.current = null;
     void refresh().catch((e) =>
       setError(e instanceof Error ? e.message : "Photo tests unavailable"),
@@ -173,6 +177,38 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           </button>
         ))}
       </div>
+      <section className="space-y-2 rounded-xl border p-3" aria-label="SpicyAPI connectivity">
+        <p className="text-sm font-medium">SpicyAPI server connection</p>
+        <p className="text-xs text-muted-foreground">
+          Checks the API from the app server. Read-only and free: no image, quote,
+          charge or stored reference is sent.
+        </p>
+        <button
+          disabled={checkingSpicy}
+          onClick={() => {
+            setCheckingSpicy(true);
+            setSpicyStatus(null);
+            void checkSpicy({ data: { conversationId } })
+              .then(setSpicyStatus)
+              .catch(() => setError("SpicyAPI connection check unavailable"))
+              .finally(() => setCheckingSpicy(false));
+          }}
+          className="min-h-11 rounded-full border px-3 disabled:opacity-50"
+        >
+          {checkingSpicy ? "Checking connection..." : "Check SpicyAPI connection (free)"}
+        </button>
+        {spicyStatus && (
+          <p role="status" className="break-words text-sm">
+            {spicyStatus.status === "reachable"
+              ? "SpicyAPI is reachable from the app server."
+              : spicyStatus.status === "http_error"
+                ? `SpicyAPI responded with HTTP ${spicyStatus.httpStatus}. The network connection works; check account/key access.`
+                : spicyStatus.status === "not_configured"
+                  ? "SpicyAPI is not enabled or its server key is missing."
+                  : `The app server could not reach SpicyAPI: ${spicyStatus.transportCode ?? "unknown"}.`}
+          </p>
+        )}
+      </section>
       <button
         disabled={busy}
         onClick={() => void check()}
