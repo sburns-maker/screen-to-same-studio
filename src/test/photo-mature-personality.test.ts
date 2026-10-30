@@ -110,13 +110,12 @@ describe("character-aware mature photo guidance", () => {
     expect(labTypeSupported(CHARACTERS.riley, "suggestive")).toBe(true);
     expect(labTypeSupported(CHARACTERS.ben, "suggestive")).toBe(false);
   });
-  it("gives Tess her own mature-romantic guidance when eligible", () => {
-    expect(maturePhotoCharacterHint("tess", ["casual_selfie"])).toBe("");
-    const guidance = maturePhotoCharacterHint("tess", ["mature_romantic"]);
-    expect(guidance).toContain("TESS PHOTO PERSONALITY");
-    expect(guidance).toContain("dry, understated");
-    expect(guidance).toContain("Mabel");
-    expect(guidance).toContain("independently");
+  it("uses Tess's existing intensity profile without layering on new bespoke restrictions", () => {
+    expect(maturePhotoCharacterHint("tess", ["mature_romantic", "suggestive"])).toBe("");
+    const guidance = characterPhotoInstructions("tess", ["mature_romantic", "suggestive"]);
+    expect(guidance).toContain(PHOTO_INTENSITY_PROFILES.tess.guidance);
+    expect(guidance).toContain("PHOTO CHOICE");
+    expect(guidance).not.toContain("TESS PHOTO PERSONALITY");
   });
   it("wires all female character photo profiles into the shared chat prompt", () => {
     const girls: CharacterKey[] = ["tess", "maya", "riley", "sienna", "kendra", "claire", "jordan"];
@@ -135,7 +134,12 @@ describe("character-aware mature photo guidance", () => {
       } else {
         expect(eligible).toContain("mature_romantic");
         expect(eligible).toContain("suggestive");
-        expect(maturePhotoCharacterHint(key, eligible)).toContain("PHOTO PERSONALITY");
+        if (key === "tess") {
+          // Tess already has a user-edited intensity profile: do not reintroduce a bespoke rule.
+          expect(maturePhotoCharacterHint(key, eligible)).toBe("");
+        } else {
+          expect(maturePhotoCharacterHint(key, eligible)).toContain("PHOTO PERSONALITY");
+        }
         expect(instructions).toContain("PHOTO CHOICE");
         expect(instructions).toContain(profile.guidance);
       }
