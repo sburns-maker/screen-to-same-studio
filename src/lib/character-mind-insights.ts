@@ -1,7 +1,12 @@
 import { STATE_KEYS, type TessState } from "./tess-logic";
+import { claireMindPossibility } from "./claire-romantic-arc";
 export type MindMemory={memory_type:string;summary:string;importance:number;created_at:string};
-export function mindSummary(state:TessState,stage:string){
+export function mindSummary(state:TessState,stage:string,characterKey?:string){
  const notes:string[]=[];
+ if(characterKey==="claire"){
+   const possibility=claireMindPossibility(state);
+   if(possibility)notes.push(possibility);
+ }
  if(state.comfort>=85&&state.romantic_intent<20)notes.push("Very comfortable, but comfort is not the same as wanting a relationship.");
  if(state.emotional_intimacy>=45)notes.push("Meaningful personal familiarity is established.");
  if(state.romantic_attraction>=50&&state.romantic_intent<25)notes.push("Attraction and a decision to pursue dating are separate; intent is still limited.");
