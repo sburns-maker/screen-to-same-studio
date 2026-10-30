@@ -1285,7 +1285,8 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     const debugPacing=photoPacing({character:def.key,frequency:freq,now,lastPhotoAt:lastAttachment.data?.created_at??null,ownSinceLastPhoto:debugIndex<0?99:debugIndex,userText:list.find(m=>m.sender==="user")?.body??"",context:schedule.detail});
     const recentlySentPhoto=!debugPacing.allowed;
     const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
-    const genTypes = recentlySentPhoto ? [] : allowedCharacterPhotoTypes(def.key, eligiblePhotoCategories(state, {
+    // Report the same category eligibility as runTurn; pacing is a separate diagnostic, not a hard category block.
+    const genTypes = allowedCharacterPhotoTypes(def.key, eligiblePhotoCategories(state, {
       age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
       supported: def.photoTypes, matureEnabled: conv.mature_photography,
       boundary: conv.photo_boundary as PhotoBoundary,
