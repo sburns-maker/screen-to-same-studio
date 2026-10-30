@@ -10,6 +10,16 @@ describe("event tag rules", () => {
     expect(EVENT_TAG_RULES).not.toMatch(/"flirt_rejected" ONLY when you deflect/);
   });
 
+  it("separates a player's quiet romantic interest from a character's warm acknowledgement", () => {
+    expect(EVENT_TAG_RULES).toContain("SPEAKER ATTRIBUTION IS REQUIRED");
+    expect(EVENT_TAG_RULES).toContain('"user_flirt" describes the PLAYER');
+    expect(EVENT_TAG_RULES).toContain('"flirt" describes YOUR');
+    expect(EVENT_TAG_RULES).toContain("I'm especially looking forward to spending time with you");
+    expect(EVENT_TAG_RULES).toContain("I'm looking forward to that too. I like getting to know you.");
+    expect(EVENT_TAG_RULES).toContain('emit "user_flirt" but not "flirt"');
+    expect(EVENT_TAG_RULES).toContain("BOTH tags may appear");
+  });
+
   it("classifies conditional interest like Maya's reply as flirt/banter", () => {
     expect(EVENT_TAG_RULES).toContain("if you play your cards right");
     expect(EVENT_TAG_RULES).toMatch(/NEVER "flirt_rejected"/);
@@ -42,6 +52,11 @@ describe("normalizeEventTags", () => {
   });
   it("uses banter, never flirt, for platonic characters like Ben", () => {
     expect(normalizeEventTags(["flirt_rejected", "banter"], "playful", false)).toEqual(["banter"]);
+  });
+  it("preserves independently attributed player and character flirting", () => {
+    expect(normalizeEventTags(["user_flirt"], "warm")).toEqual(["user_flirt"]);
+    expect(normalizeEventTags(["user_flirt", "flirt"], "flirty")).toEqual(["user_flirt", "flirt"]);
+    expect(normalizeEventTags(["user_flirt", "flirt_rejected"], "warm")).toEqual(["user_flirt", "flirt"]);
   });
   it("leaves other tags untouched", () => {
     expect(normalizeEventTags(["correction"], "flirty")).toEqual(["correction"]);
