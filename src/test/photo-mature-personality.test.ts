@@ -17,10 +17,10 @@ describe("character-aware mature photo guidance", () => {
     expect(hint).toContain("never imply consent");
   });
   it("favors appropriately grounded suggestive choices for Sienna and Kendra", () => {
-    expect(PHOTO_INTENSITY_PROFILES.sienna?.maxCategory).toBe("suggestive");
-    expect(PHOTO_INTENSITY_PROFILES.sienna?.suggestiveBias).toBe(0.7);
-    expect(PHOTO_INTENSITY_PROFILES.kendra?.maxCategory).toBe("suggestive");
-    expect(PHOTO_INTENSITY_PROFILES.kendra?.suggestiveBias).toBe(0.8);
+    expect(PHOTO_INTENSITY_PROFILES["sienna"]?.maxCategory).toBe("suggestive");
+    expect(PHOTO_INTENSITY_PROFILES["sienna"]?.suggestiveBias).toBe(0.7);
+    expect(PHOTO_INTENSITY_PROFILES["kendra"]?.maxCategory).toBe("suggestive");
+    expect(PHOTO_INTENSITY_PROFILES["kendra"]?.suggestiveBias).toBe(0.8);
     const eligible = ["casual_selfie", "mature_romantic", "suggestive"];
     for (const character of ["sienna", "kendra"]) {
       expect(allowedCharacterPhotoTypes(character, eligible)).toEqual(eligible);
@@ -32,7 +32,7 @@ describe("character-aware mature photo guidance", () => {
     }
     expect(characterPhotoIntensityHint("sienna", eligible)).toContain("candid");
     expect(characterPhotoIntensityHint("kendra", eligible)).toContain("intentional pose");
-    expect(PHOTO_INTENSITY_PROFILES.kendra!.suggestiveBias).toBeGreaterThan(PHOTO_INTENSITY_PROFILES.sienna!.suggestiveBias);
+    expect(PHOTO_INTENSITY_PROFILES["kendra"]!.suggestiveBias).toBeGreaterThan(PHOTO_INTENSITY_PROFILES["sienna"]!.suggestiveBias);
   });
   it("supports Riley without implying standing consent", () => {
     expect(maturePhotoCharacterHint("riley", ["casual_selfie"])).toBe("");
