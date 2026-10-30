@@ -53,7 +53,7 @@ beforeEach(async () => {
   backing = postgresSupabase(db);
 });
 describe("isolated developer category generation", () => {
-  it.each(PHOTO_LAB_TYPES)(
+  it.each(PHOTO_LAB_TYPES.filter((type) => type !== "suggestive"))(
     "generates exact %s despite chat restrictions, using Riley's original identity",
     async (category) => {
       expect(safePhotoScene(PHOTO_LAB_PRESETS[category].scene)).toBe(true);
@@ -85,6 +85,17 @@ describe("isolated developer category generation", () => {
       });
     },
   );
+  it("fails suggestive tests before charging or calling OpenAI when SpicyAPI is disabled", async () => {
+    vi.stubEnv("SPICY_ENABLED", "false");
+    vi.stubEnv("OPENAI_API_KEY", "");
+    vi.stubEnv("LOVABLE_API_KEY", "");
+    const result = await generatePhotoLabTest(backing.admin, user, conv, id(), "suggestive");
+    expect(result.status).toBe("failed");
+    expect(result.reason).toBe("Suggestive photos require SpicyAPI to be enabled");
+    expect(model.generate).not.toHaveBeenCalled();
+    expect((await db.query("SELECT count(*)::int n FROM media_attempts")).rows[0])
+      .toEqual({ n: 0 });
+  });
   it("never regenerates a successful or failed request ID and refreshes a stored preview", async () => {
     const request = id();
     const first = await generatePhotoLabTest(backing.admin, user, conv, request, "casual_selfie");
