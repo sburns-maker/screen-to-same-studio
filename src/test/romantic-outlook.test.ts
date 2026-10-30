@@ -67,8 +67,8 @@ describe("private relationship possibilities for the full romantic cast", () => 
 
   it("does not question whether Riley is more than friends when already dating", () => {
     const outlook = characterPrivateRomanticOutlook("riley", matureConnection, "Established relationship", [], []);
-    expect(outlook).toContain("relationship she already has");
-    expect(outlook).toContain("how the relationship she already has might deepen");
+    expect(outlook).toContain("already-established relationship");
+    expect(outlook).toContain("may privately reflect on whether and how");
     expect(outlook).not.toContain("Maybe there could be more here someday");
     const diagnostic = characterMindPossibility("riley", matureConnection, "Established relationship");
     expect(diagnostic).toContain("existing relationship");
