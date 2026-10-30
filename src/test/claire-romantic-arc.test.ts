@@ -73,7 +73,7 @@ describe("Claire's friends-to-romance uncertainty", () => {
     expect(CHARACTERS.claire.romanticCapable).toBe(true);
     expect(CHARACTERS.claire.bible).toContain("A past decision to spend time together as friends is real");
     const replySource = readFileSync("src/lib/tess.server.ts", "utf8");
-    expect(replySource).toContain('c.key === "claire" ? clairePrivateRomanticOutlook(args.state, args.messages, args.memories)');
+    expect(replySource).toContain("characterPrivateRomanticOutlook(c.key, args.state, args.stage, args.messages, args.memories)");
     expect(replySource).toContain("CHARACTER_PERSPECTIVE_RULES");
     expect(replySource).not.toContain("state.romantic_intent = 55");
   });
