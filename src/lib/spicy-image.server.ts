@@ -2,6 +2,62 @@ import { referencePoseGuidance } from "./photo-reference-prompt";
 import { createServerOnlyFn } from "@tanstack/react-start";
 import type { GeneratedImage } from "./tess-image.server";
 export const SPICY_BASE = "https://api.spicyapi.ai/api/v1";
+
+/** Safe, finite network categories, never the raw error or a URL with secrets. */
+export type SpicyTransportCode =
+  | "timeout" | "aborted" | "dns_not_found" | "dns_retry"
+  | "connection_refused" | "connection_reset" | "connection_timeout"
+  | "tls_certificate" | "blocked_redirect" | "fetch_failed" | "unknown";
+
+export function spicyTransportCode(error: unknown): SpicyTransportCode {
+  const value = error && typeof error === "object"
+    ? error as { name?: unknown; code?: unknown; cause?: unknown } : null;
+  if (value?.name === "TimeoutError") return "timeout";
+  if (value?.name === "AbortError") return "aborted";
+  const cause = value?.cause && typeof value.cause === "object"
+    ? value.cause as { code?: unknown } : null;
+  const code = typeof cause?.code === "string" ? cause.code
+    : typeof value?.code === "string" ? value.code : "";
+  if (code === "ENOTFOUND") return "dns_not_found";
+  if (code === "EAI_AGAIN") return "dns_retry";
+  if (code === "ECONNREFUSED") return "connection_refused";
+  if (code === "ECONNRESET" || code === "UND_ERR_SOCKET") return "connection_reset";
+  if (code === "ETIMEDOUT" || code === "UND_ERR_CONNECT_TIMEOUT") return "connection_timeout";
+  if (["CERT_HAS_EXPIRED", "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "ERR_TLS_CERT_ALTNAME_INVALID"].includes(code)) return "tls_certificate";
+  if (code === "UND_ERR_REDIRECT" || code === "ERR_FR_TOO_MANY_REDIRECTS") return "blocked_redirect";
+  return value?.name === "TypeError" ? "fetch_failed" : "unknown";
+}
+
+/** Read-only health probe. No quote, reference upload, reservation or paid task. */
+export const spicyConnectionProbe = createServerOnlyFn(async function spicyConnectionProbe(): Promise<{
+  status: "reachable" | "http_error" | "transport_error" | "not_configured";
+  httpStatus: number | null;
+  transportCode: SpicyTransportCode | null;
+}> {
+  const key = process.env["SPICY_API_KEY"];
+  if (!key || process.env["SPICY_ENABLED"] !== "true")
+    return { status: "not_configured", httpStatus: null, transportCode: null };
+  try {
+    const response = await fetch(`${SPICY_BASE}/models`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${key}` },
+      redirect: "error",
+      signal: AbortSignal.timeout(12000),
+    });
+    return {
+      status: response.ok ? "reachable" : "http_error",
+      httpStatus: response.status,
+      transportCode: null,
+    };
+  } catch (error) {
+    return {
+      status: "transport_error", httpStatus: null,
+      transportCode: spicyTransportCode(error),
+    };
+  }
+});
 export const SPICY_MODELS = [
   "bytedance/seedream-5.0-flash/edit",
   "bytedance/seedream-5.0-pro/edit",
@@ -200,8 +256,9 @@ export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyReq
     }
     if (e instanceof Error && /^spicy_response_(?:invalid|too_large)$/.test(e.message))
       throw new SpicyQuoteFailure("spicy_quote_response_invalid");
-    // Network failures do not mean a job was submitted: this is the free quote endpoint.
-    throw new SpicyQuoteFailure("spicy_quote_transport_failed");
+    // Quote requests create no task. Never hide a known local failure as a network error.
+    if (e instanceof Error && /^spicy_[a-z0-9_]{1,80}$/.test(e.message)) throw e;
+    throw new SpicyQuoteFailure("spicy_quote_transport_failed", spicyTransportCode(e));
   }
   const q = envelope?.data;
   const cost = typeof q?.estimatedCost === "string" ? q.estimatedCost : "";
@@ -250,7 +307,10 @@ function spicyQuoteRule(
 /** Local quote rejection; carries only the stable rule code. */
 export class SpicyQuoteFailure extends Error {
   readonly stage = "quote";
-  constructor(readonly rule: SpicyQuoteRule | "spicy_quote_budget_exceeded" | "spicy_quote_response_invalid" | "spicy_quote_transport_failed") {
+  constructor(
+    readonly rule: SpicyQuoteRule | "spicy_quote_budget_exceeded" | "spicy_quote_response_invalid" | "spicy_quote_transport_failed",
+    readonly transportCode?: SpicyTransportCode,
+  ) {
     super(rule);
   }
 }
