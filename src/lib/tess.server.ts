@@ -8,6 +8,7 @@ import { scheduleActionsSchema, SCHEDULE_RULES } from "./calendar-contract";
 import { photoTextSchema, PHOTO_TEXT_RULES, cleanPhotoCaptionMarker } from "./photo-text";
 import { continuitySchema, CONTINUITY_RULES } from "./world-continuity";
 import { runStructured } from "./text-ai.server";
+import { boundedCharacterFacts, boundedRecentDialogue } from "./character-prompt-budget";
 import { z } from "zod";
 import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
@@ -259,11 +260,11 @@ EXISTING PHOTOS SHE COULD SEND: ${args.photos.length ? args.photos.map((p) => `$
 NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.generateTypes.join(", ") : "(none — no new photos)"}
 PHOTO FREQUENCY PREFERENCE: ${args.photoFrequency}
 HER RECENT PHOTO STYLES (avoid repeating the same combination unless the scene demands it): ${args.recentPhotoStyles?.length ? args.recentPhotoStyles.join(" | ") : "(none yet)"}
-LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
-WHAT SHE KNOWS LATELY (her own life and social circle): ${args.worldKnowledge?.length ? args.worldKnowledge.join(" | ") : "(nothing new)"}
+LONG-TERM MEMORIES: ${args.memories.length ? boundedCharacterFacts(args.memories, 12000) : "(none yet)"}
+WHAT SHE KNOWS LATELY (her own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, 18000) : "(nothing new)"}
 
 RECENT CONVERSATION
-${transcript(args.messages, args.tz)}
+${transcript(boundedRecentDialogue(args.messages), args.tz)}
 `.trim();
 
   const task = args.initiation?.developerPhoto === "deliver"
@@ -414,10 +415,10 @@ ${c.preferredName.toUpperCase()}'S LOCAL TIME (Eastern): ${charLocal.toLocaleStr
 ${c.preferredName.toUpperCase()} RIGHT NOW: ${args.availabilityDetail}
 WEATHER IN ${c.preferredName.toUpperCase()}'S AREA (ZIP ${c.zip}): ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F` : "(unknown — don't bring it up)"}
 LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
-WHAT ${c.preferredName.toUpperCase()} KNOWS LATELY (their own life and social circle): ${args.worldKnowledge?.length ? args.worldKnowledge.join(" | ") : "(nothing new)"}
+WHAT ${c.preferredName.toUpperCase()} KNOWS LATELY (their own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, 18000) : "(nothing new)"}
 
 RECENT CONVERSATION
-${transcript(args.messages, args.tz, c.preferredName)}
+${transcript(boundedRecentDialogue(args.messages), args.tz, c.preferredName)}
 `.trim();
 
   const task = args.initiation?.developerPhoto === "deliver"
