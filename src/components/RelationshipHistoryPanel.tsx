@@ -11,28 +11,12 @@ function PhotoEventDetails({e}:{e:Event}){
  return <details className="mt-2 rounded-md border bg-muted/40 p-2"><summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 text-sm"><span>Decision details</span><span className="rounded-full border bg-background px-2 py-0.5 text-xs font-semibold">{d.statusLabel}</span></summary><dl className="mt-2 space-y-2">{row("Outcome",d.statusLabel)}{row("Why",d.reason)}{row("Triggered by",d.trigger??(d.legacy?"Not recorded for this older entry":null))}{row("Source",d.source)}{row("Current location",d.canonicalLocation??null)}{row("Requested scene",d.requestedScene??null)}{row("Validation rule",d.failedRule??null)}{row("Photo generation",d.generationRequested==="yes"?"A generation request was made":d.generationRequested==="no"?"No generation request":"Not recorded at this step")}{row(d.status==="failed"?"Failure reason":"Blocking reason",d.failure)}</dl>{d.legacy&&<p className="mt-2 text-xs text-muted-foreground">Recorded before detailed photo logging; only the saved fields are shown.</p>}</details>;
 }
 const localDay=(d:string)=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(d));
-function perspective(e:Evaluation):string {
- const d=e.delta??{};
- const increased=(k:string)=>Number(d[k]??0)>0;
- const decreased=(k:string)=>Number(d[k]??0)<0;
- const parts:string[]=[];
- if(increased("trust"))parts.push("I feel a little more able to trust this person.");
- if(increased("comfort"))parts.push("This conversation felt easier than before.");
- if(increased("playfulness"))parts.push("The playful side of our dynamic came through.");
- if(increased("emotional_intimacy"))parts.push("Something personal felt more connected.");
- if(increased("romantic_attraction"))parts.push("I noticed a change in attraction, but that doesn't decide anything.");
- if(increased("romantic_intent"))parts.push("I'm more open to pursuing something, though it's not a commitment.");
- if(increased("perceived_pressure")||increased("irritation"))parts.push("Part of the interaction felt uncomfortable or pressuring.");
- if(decreased("trust")||decreased("comfort"))parts.push("Something about the interaction left me less at ease.");
- if(!parts.length)parts.push("My feelings haven't shifted much from this interaction, at least in the saved simulation state.");
- return parts.slice(0,3).join(" ");
-}
 export function RelationshipHistoryPanel({conversationId,state,stage}:{conversationId:string;state?:TessState;stage?:string}){
  const get=useServerFn(relationshipHistory);
  const [data,setData]=useState<{evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean}|null>(null);
  const [error,setError]=useState<string|null>(null);
  const [selected,setSelected]=useState(()=>localDay(new Date().toISOString()));
- const [showPerspective,setShowPerspective]=useState(false);
+ const [showPerspective,setShowPerspective]=useState(true);
  useEffect(()=>{let alive=true;void get({data:{conversationId}}).then(r=>{if(alive){setData(r as {evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean});setError(null);}}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"History unavailable");});return()=>{alive=false;};},[get,conversationId]);
  const dates=useMemo(()=>{
   if(!data)return [];
@@ -63,17 +47,9 @@ export function RelationshipHistoryPanel({conversationId,state,stage}:{conversat
    {changes.length>0?<div className="mt-3"><h4 className="text-sm font-semibold">Recorded relationship changes</h4><div className="mt-2 flex flex-wrap gap-2">{changes.map(k=><span key={k} className="rounded-lg border bg-background px-2 py-1 text-xs">{k.replace(/_/g," ")} <strong>{(totals[k]??0)>0?"+":""}{totals[k]}</strong></span>)}</div></div>:<p className="mt-3 text-sm text-muted-foreground">No numerical relationship changes recorded for this date.</p>}
    {!!plans.length&&<div className="mt-4"><h4 className="font-semibold text-sm">Outings and plans</h4>{plans.map(p=><div key={p.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><strong>{p.title}</strong><p className="text-xs text-muted-foreground">Status: {p.status} · {p.place_key??"Place not recorded"}</p><p className="mt-1 text-xs text-muted-foreground">An invitation is not automatically a completed date; completion must be recorded.</p>{p.starts_at&&<p className="mt-1 text-xs text-muted-foreground">Evaluations recorded during this planned outing window: {evaluations.filter(e=>Date.parse(e.evaluated_at)>=Date.parse(p.starts_at!)&&Date.parse(e.evaluated_at)<=Date.parse(p.ends_at??new Date(Date.parse(p.starts_at!)+2*3600000).toISOString())).length}. Temporal overlap is not proof that the outing caused the change.</p>}</div>)}</div>}
    {!!events.length&&<div className="mt-4"><h4 className="font-semibold text-sm">World events</h4>{events.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><strong>{e.kind.replace(/_/g," ")}</strong><p className="break-words">{e.summary}</p><p className="text-xs text-muted-foreground">{new Date(e.occurs_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})} · {e.processed_at?"Recorded as processed":"Recorded, not marked processed"}</p>{isPhotoEvent(e.kind)&&<PhotoEventDetails e={e}/>}</div>)}</div>}
-   {!!evaluations.length&&<div className="mt-4"><h4 className="font-semibold text-sm">Evaluated interactions</h4>{evaluations.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><div className="flex justify-between gap-2 text-xs text-muted-foreground"><span>{e.source_kind.replace(/_/g," ")}</span><time dateTime={e.evaluated_at}>{new Date(e.evaluated_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})}</time></div><p className="mt-1">{e.context_summary??"Conversation evaluation"}</p><p className="mt-1 text-xs text-muted-foreground">{e.stage_before} → {e.stage_after} · {e.observed_tone??"tone unrecorded"}</p><div className="mt-1 flex flex-wrap gap-1">{Object.entries(e.delta??{}).filter(([,v])=>Number(v)!==0).map(([k,v])=><span key={k} className="text-xs">{k.replace(/_/g," ")} {Number(v)>0?"+":""}{v};</span>)}</div>{showPerspective&&<blockquote className="mt-2 rounded-lg bg-muted p-2 italic">{e.character_perspective?.trim() || perspective(e)}<p className="mt-2 text-xs not-italic text-muted-foreground">{e.character_perspective ? "Generated in-character perspective saved with this interaction" : "Fallback interpretation from recorded score changes"}</p></blockquote>}</div>)}</div>}
-   <label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={showPerspective} onChange={e=>setShowPerspective(e.target.checked)}/><span>Show fictional inner perspective <span className="block text-xs text-muted-foreground">An in-character interpretation generated from saved score changes, not the model's hidden thoughts or proof of actual intentions.</span></span></label>
-   {showPerspective&&!evaluations.length&&<blockquote className="mt-3 rounded-xl border bg-background p-3 text-sm italic">
-     {state ? (Number(state.comfort??0)>=75 && Number(state.romantic_intent??0)<25
-       ? "I feel comfortable talking with this person, but I'm still deciding what kind of connection this is. I don't have to rush it."
-       : Number(state.playfulness??0)>=50
-       ? "I enjoy our playful conversations. I'm curious where things go, without making promises I haven't decided on."
-       : "I'm taking this connection one conversation at a time. There isn't enough recorded here to explain a specific change today.")
-     : "No evaluation is saved for this day. An example perspective will appear once relationship state is available."}
-     <p className="mt-2 text-xs not-italic text-muted-foreground">Illustrative present-state reflection{stage?" · "+stage:""}. Not a saved diary entry or historical event.</p>
-   </blockquote>}
+   {!!evaluations.length&&<div className="mt-4"><h4 className="font-semibold text-sm">Evaluated interactions</h4>{evaluations.map(e=><div key={e.id} className="mt-2 rounded-lg border bg-background p-3 text-sm"><div className="flex justify-between gap-2 text-xs text-muted-foreground"><span>{e.source_kind.replace(/_/g," ")}</span><time dateTime={e.evaluated_at}>{new Date(e.evaluated_at).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})}</time></div><p className="mt-1">{e.context_summary??"Conversation evaluation"}</p><p className="mt-1 text-xs text-muted-foreground">{e.stage_before} → {e.stage_after} · {e.observed_tone??"tone unrecorded"}</p><div className="mt-1 flex flex-wrap gap-1">{Object.entries(e.delta??{}).filter(([,v])=>Number(v)!==0).map(([k,v])=><span key={k} className="text-xs">{k.replace(/_/g," ")} {Number(v)>0?"+":""}{v};</span>)}</div>{showPerspective&&<blockquote className="mt-2 rounded-lg bg-muted p-2 italic">{e.character_perspective?.trim() || "No first-person reflection was saved for this interaction."}<p className="mt-2 text-xs not-italic text-muted-foreground">{e.character_perspective ? "Generated in-character perspective saved with this interaction" : "No authored reflection recorded; scores are shown separately."}</p></blockquote>}</div>)}</div>}
+   <label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={showPerspective} onChange={e=>setShowPerspective(e.target.checked)}/><span>Show fictional inner perspective <span className="block text-xs text-muted-foreground">These are character-authored fictional first-person reflections saved with evaluated interactions, not hidden model reasoning. If absent, no replacement text is invented.</span></span></label>
+   {showPerspective&&!evaluations.length&&<p className="mt-3 rounded-xl border bg-background p-3 text-sm text-muted-foreground">No character-authored inner reflection is saved for this day. Select a day with evaluated interactions; no hypothetical thoughts will be invented from relationship scores.</p>}
   </>}
  </section>;
 }
