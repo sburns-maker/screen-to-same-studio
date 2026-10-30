@@ -17,15 +17,16 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const pending = useRef<{ category: PhotoLabType; id: string } | null>(null);
-  type MatureCategory = "mature_romantic" | "mature_adult";
+  type MatureCategory = "mature_romantic" | "mature_adult" | "suggestive";
   const [scenes, setScenes] = useState<Record<MatureCategory,string[][]>>({
     mature_romantic: [["", "", ""]],
     mature_adult: [["", "", ""]],
+    suggestive: [["", "", ""]],
   });
-  const [chosen, setChosen] = useState<Record<MatureCategory,number>>({ mature_romantic: 0, mature_adult: 0 });
+  const [chosen, setChosen] = useState<Record<MatureCategory,number>>({ mature_romantic: 0, mature_adult: 0, suggestive: 0 });
   useEffect(() => {
-    const next: Record<MatureCategory,string[][]> = { mature_romantic: [["", "", ""]], mature_adult: [["", "", ""]] };
-    for (const category of ["mature_romantic", "mature_adult"] as const) {
+    const next: Record<MatureCategory,string[][]> = { mature_romantic: [["", "", ""]], mature_adult: [["", "", ""]], suggestive: [["", "", ""]] };
+    for (const category of ["mature_romantic", "mature_adult", "suggestive"] as const) {
       try {
         const raw = localStorage.getItem(`photo-lab-scenes:${conversationId}:${category}`);
         const parsed: unknown = raw ? JSON.parse(raw) : null;
@@ -34,7 +35,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
       } catch { /* local storage disabled */ }
     }
     setScenes(next);
-    setChosen({ mature_romantic: 0, mature_adult: 0 });
+    setChosen({ mature_romantic: 0, mature_adult: 0, suggestive: 0 });
   }, [conversationId]);
   function updateScene(category: MatureCategory, index: number, value: string) {
     const previous = scenes[category][0] ?? ["","",""];
@@ -73,7 +74,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           conversationId,
           category,
           requestId: request.id,
-          ...((category === "mature_romantic" || category === "mature_adult") &&
+          ...((category === "mature_romantic" || category === "mature_adult" || category === "suggestive") &&
               scenes[category][0]?.[chosen[category]]?.trim()
             ? { customScene: scenes[category][0]![chosen[category]]!.trim() } : {}),
           confirmation: "GENERATE DEVELOPER PHOTO TEST",
@@ -132,10 +133,10 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {error}
         </p>
       )}
-      {(["mature_romantic", "mature_adult"] as const).map((category) => (
+      {(["mature_romantic", "suggestive", "mature_adult"] as const).map((category) => (
         <details key={category} className="rounded-xl border p-3">
           <summary className="cursor-pointer font-medium">
-            {category === "mature_romantic" ? "Mature Romantic" : "Mature Adult"} — 3 custom scene options
+            {category === "mature_romantic" ? "Mature Romantic" : category === "suggestive" ? "Suggestive" : "Mature Adult"} — 3 custom scene options
           </summary>
           <p className="my-2 text-xs text-muted-foreground">
             Describe clothing, pose, setting and atmosphere. Each option is blank until you fill it in.
