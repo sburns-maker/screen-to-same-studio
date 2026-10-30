@@ -44,7 +44,7 @@ import {
   type LifeEvent,
 } from "./tess-life";
 import { characterFor, type CharacterDef } from "./characters";
-import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, photoDecisionReason, safePhotoScene, type PhotoContext, type PhotoBoundary } from "./photo-policy";
+import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, photoDecisionReason, photoSceneBoundaryIssue, PhotoSceneBoundaryError, type PhotoContext, type PhotoBoundary } from "./photo-policy";
 import { storySchedule } from "./storyline-logic";
 
 const FIRST_MESSAGE =
@@ -194,7 +194,11 @@ export async function createGeneratedPhoto(
     style = ordinaryPhotoStyle(style, scene, photography) ?? null;
   // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
   const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
-  if (!safePhotoScene([scene, expression, text?.exact, text?.surface, ...Object.values(style ?? {})].filter(Boolean).join(" "))) throw new Error("photo scene outside supported boundaries");
+  const issue = photoSceneBoundaryIssue({
+    scene, expression, text_exact: text?.exact, text_surface: text?.surface,
+    ...(style ?? {}),
+  });
+  if (issue) throw new PhotoSceneBoundaryError(issue.field);
   if (!apiKey) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -664,6 +668,7 @@ async function runTurnUnlocked(
   let generated: Awaited<ReturnType<typeof createGeneratedPhoto>> | null = null;
   let pendingPhoto: string | null = null;
   let generationFailure: string | null = null;
+  let generationValidation: { failedRule: string; failedField: string } | null = null;
   let imageRequested = false;
   const p = reply.photo;
   if (isTess && p?.action === "fixed" && p.asset_id && photos.some((x) => x.id === p.asset_id)) {
@@ -699,6 +704,16 @@ async function runTurnUnlocked(
         if (p.type !== "object" && !isGroupScene && !explicitRepeat && repeatsPhotoComposition(style, recentStyles.slice(0, 3))) {
           throw new Error("repeated photo composition");
         }
+        // Scene screening is local and free. Reject before reserving the paid-image
+        // attempt so an invalid model-selected style cannot consume the budget.
+        const preflightIssue = photoSceneBoundaryIssue({
+          scene: photoScene,
+          expression: style.expression ?? p.expression,
+          text_exact: p.text_spec?.exact,
+          text_surface: p.text_spec?.surface,
+          ...style,
+        });
+        if (preflightIssue) throw new PhotoSceneBoundaryError(preflightIssue.field);
         if (worldReady && !await reserveImageBudget(photoAdmin!, photoAction!, conv.id, userId)) throw new Error("Image attempt budget exhausted");
         imageRequested = true;
         generated = await createGeneratedPhoto(supabase, userId, p.type, photoScene, style.expression ?? p.expression, style, def, photoAction!, p.text_spec, photography);
@@ -712,6 +727,8 @@ async function runTurnUnlocked(
         // Do not expose raw provider errors, prompts or secrets in client-facing diagnostics.
         const safeLocalReasons = ["repeated photo composition", "photo scene contradicts current location", "Image attempt budget exhausted",
           "photo scene outside supported boundaries", "image provider not configured"];
+        if (e instanceof PhotoSceneBoundaryError)
+          generationValidation = { failedRule: e.failedRule, failedField: e.field };
         generationFailure = e instanceof PhotoGenerationFailure
           ? e.diagnostics.failureReason ?? "generation_or_quality_check_failed"
           : e instanceof Error && safeLocalReasons.includes(e.message)
@@ -721,7 +738,8 @@ async function runTurnUnlocked(
           await photoAdmin.from("world_events").insert({ user_id: userId, conversation_id: conv.id,
             character_key: def.key, kind: "photo_generation_failure",
             summary: `Photo withheld: ${generationFailure}`,
-            payload: { reason: generationFailure, imageRequested, photoValidation:{...photoSceneCheck(photography,p.scene??"",sceneContext.source),stage:"generated_scene"}, photography: photographyDiagnostics(photography, null),
+            payload: { reason: generationFailure, imageRequested, photoValidation:{...photoSceneCheck(photography,p.scene??"",sceneContext.source),stage:"generated_scene",
+              ...(e instanceof PhotoSceneBoundaryError ? { failedRule:e.failedRule, failedField:e.field, selectedType:p.type } : {})}, photography: photographyDiagnostics(photography, null),
               ...(e instanceof PhotoGenerationFailure ? { ...e.diagnostics } : {}),
               actionId: photoAction, source: initiation?.developerPhoto ? "developer" : initiation ? "autonomous" : "conversation",
               delivery: "not_delivered" } });
@@ -735,7 +753,7 @@ async function runTurnUnlocked(
   if (photoAction && reply.photo && !photo && !generated && !pendingPhoto) {
     const { failPhotoAction } = await import("./photo-delivery.server");
     await failPhotoAction(photoAdmin!, photoAction);
-    return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry", ...(initiation?.developerPhoto?{photoValidation:{...photoSceneCheck(photography,p?.scene??"",sceneContext.source),stage:"generated_scene",imageRequested}}:{}) };
+    return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested, reason: initiation?.developerPhoto ? `photo unavailable: ${generationFailure ?? "no deliverable image"}; action will not be recharged on retry` : "photo unavailable; action will not be recharged on retry", ...(initiation?.developerPhoto?{photoValidation:{...photoSceneCheck(photography,p?.scene??"",sceneContext.source),stage:"generated_scene",imageRequested,selectedType:p?.type ?? null, ...(generationValidation ?? {})}}:{}) };
   }
   const generatedId = generated ? crypto.randomUUID() : null;
   const bubbles = reply.messages.map((b) => b.trim()).filter(Boolean).slice(0, 3);
