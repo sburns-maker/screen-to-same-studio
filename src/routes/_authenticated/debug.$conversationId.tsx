@@ -259,7 +259,7 @@ function Debug() {
                 <strong className="text-lg">{snap.stage}</strong>
                 <p className="mt-1 text-xs text-muted-foreground">Latest observed tone: {snap.lastTone ?? "not recorded"}</p>
                 <div className="mt-3 space-y-2">
-                  {mindSummary(s,snap.stage).notes.map((note,i)=><p key={i} className="text-sm">• {note}</p>)}
+                  {mindSummary(s,snap.stage,snap.character.key).notes.map((note,i)=><p key={i} className="text-sm">• {note}</p>)}
                 </div>
               </div>
               <div className="mt-4">
