@@ -53,7 +53,9 @@ export function futurePlanCompletionClaim(
   text: string,
   plans: readonly FutureConversationPlan[],
 ): FutureConversationPlan | null {
-  const sentences = text.split(/[.!?\n]+/);
+  // A previous walk followed by looking forward to Sunday is not a claim
+  // that Sunday's NEW walk happened. Evaluate the clauses independently.
+  const sentences = text.split(/[.!?\n,;]+/);
   for (const plan of plans) {
     for (const sentence of sentences) {
       const lower = sentence.toLowerCase();
