@@ -1,4 +1,4 @@
-import { allowedCharacterPhotoTypes, characterPhotoIntensityHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory } from "./photo-mature-personality";
+import { allowedCharacterPhotoTypes, characterPhotoInstructions, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory } from "./photo-mature-personality";
 import { supportsRelationshipCommitment } from "./relationship-commitments";
 import { ordinaryPhotoStyle } from "./photo-wardrobe";
 import { PendingPhotoTask } from "./photo-task";
@@ -568,8 +568,7 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason, photoValidation:{...photoPreflight,stage:"requested_context"} };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
-  const { maturePhotoCharacterHint } = await import("./photo-mature-personality");
-  const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), maturePhotoCharacterHint(def.key, generateTypes), characterPhotoIntensityHint(def.key, generateTypes)].filter(Boolean).join('\n');
+  const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
   if (voice) {
     photos=[];generateTypes=[];
