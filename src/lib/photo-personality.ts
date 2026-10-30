@@ -67,10 +67,10 @@ export const PHOTOGRAPHY_PROFILES = {
     settings: ["hospital staff break room without patient details", "apartment kitchen at noon", "local cafe", "Altoona night streets"],
     wardrobe: ["established shift scrubs; an outer layer only if already worn", "casual cardigan and jeans", "soft oversized sweater", "simple fitted casual blouse"],
     hairstyles: ["reference-compatible blonde curls", "practical tied-back curls when established for work", "loose curls when established"],
-    selfies: ["occasional break-time selfie", "activity detail first", "mirror only when actually present"],
-    captionVoice: "Playfully sarcastic, warm, naturally funny, independent; never imply attraction that has not developed.",
-    spontaneity: 0.44, hours: 9, messages: 5,
-    subjects: "night-shift observations, coffee, odd dreams, music, ordinary local life, a rare sleepy selfie",
+    selfies: ["casual face-to-camera selfie when awake and comfortable", "unposed break-time selfie in a private staff area", "quick cozy home selfie", "ordinary activity detail", "mirror only when actually present"],
+    captionVoice: "Playfully sarcastic, warm, naturally funny and independent. Let established mutual affection show; ordinary selfies do not require flirtation or a joke. Never manufacture romance not established in history.",
+    spontaneity: 0.6, hours: 7, messages: 4,
+    subjects: "night-shift observations, coffee, odd dreams, music, ordinary home life, an unposed everyday selfie or quick personal hello when awake and comfortable",
     scenarios: { coffee_break: 1.5, reaction_selfie: 1.2, post_work: 1.4, playful_reply: 1.2 }
   },
 
