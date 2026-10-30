@@ -75,7 +75,7 @@ it("probes connectivity with one authenticated free GET, without creating tasks"
   expect(f).toHaveBeenCalledTimes(1);
   expect(f.mock.calls[0]![0]).toBe("https://api.spicyapi.ai/api/v1/models");
   expect(f.mock.calls[0]![1]).toMatchObject({ method: "GET", redirect: "error" });
-  expect(JSON.stringify(f.mock.calls[0]![1].body)).not.toContain("image");
+  expect(f.mock.calls[0]![1].body).toBeUndefined();
 });
 it("reports a blocked network with no raw hostnames, prompts or keys", async () => {
   vi.stubEnv("SPICY_ENABLED", "true");
