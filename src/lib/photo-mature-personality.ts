@@ -16,3 +16,10 @@ export function maturePhotoCharacterHint(character: string, eligibleTypes: reado
   }
   return "";
 }
+
+/** A delivered attachment remains legible as shared relationship history in later chat turns. */
+export function deliveredPhotoContextLabel(type: string | null | undefined): string {
+  return type === "mature_romantic"
+    ? "a privately shared romantic photo"
+    : "a photo she just took";
+}
