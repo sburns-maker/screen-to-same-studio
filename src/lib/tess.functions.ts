@@ -14,6 +14,7 @@ import { evidenceContinuity, currentActivity } from "./world-continuity";
 import { continuityContext, reserveImageBudget, imageBudgetStatus, reserveWorldAi } from "./world-runtime.server";
 import { attachmentPresent, photoOpportunity, PHOTO_TENDENCIES } from "./photo-opportunities";
 import { recallMemories, type MemoryRow } from "./memory-recall";
+import { futureConversationPlans, futurePlanChronologyContext, futurePlanCompletionClaim } from "./future-plan-chronology";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -451,6 +452,8 @@ async function runTurnUnlocked(
         })
     : [];
   const callHistory = await (await import("./call-history-context.server")).recentCallContext(photoAdmin ?? supabase, userId, conv.id, def.key, now);
+  const futurePlans = futureConversationPlans(calendarLines, now);
+  const chronologyLines = futurePlanChronologyContext(calendarLines, now);
   const worldKnowledge = [...(channelMoments.length ? ["RECENT SPOKEN CALL DIALOGUE (your own conversation, shared continuity across calls and texts):", ...channelMoments, "You may organically reference a specific call topic later in a text, and vice versa. Never claim a call occurred unless recorded. Avoid repeating every call detail or narrating the log."] : []),...callHistory,...(spontaneousQueue.texts.length?[`Your own replies already prepared for later delivery (not yet visible to the user): ${JSON.stringify(spontaneousQueue.texts)}. A new photo will follow those replies. Do not repeat them, contradict them, or assume the user has read them.`]:[]),...calendarLines, ...continuity.lines, ...story.lines, ...knowledgePromptLines(
     await knowledgeForCharacter(supabase, userId, def.key).catch(() => []),
     def.preferredName,
@@ -458,6 +461,7 @@ async function runTurnUnlocked(
   const {profileDisplayContext}=await import("./visual-profiles.server");
   const ownProfile=await profileDisplayContext(supabase,userId,def.key);
   if(ownProfile)worldKnowledge.unshift(ownProfile);
+  worldKnowledge.unshift(...chronologyLines);
 
   const { sharedPlanContext } = await import("./shared-world.server");
   const shared = await sharedPlanContext(supabase, userId, def.key, now);
@@ -588,26 +592,48 @@ async function runTurnUnlocked(
       worldKnowledge.push(...commitmentContextForCharacter(def.key, def.key, snapshot.events));
     }
   }
-  let reply: import("./tess.server").TessReply;
-  if (isTess) {
-    reply = await generateTessReply({
-      deliveryChannel: voice ? "voice" : "text",
-      state, stage: deriveStage(state), difficulty, messages: messageList, photos, generateTypes,
-      photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
-      tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
-      initiationReason: initiation?.reason ?? null, photoBoundary: photoContext.boundary,
-      photoHint, worldKnowledge, availabilityDetail: schedule.detail, conversationThreads: story.topics, topicHistory,
+  // Generate before making any database changes; an impossible past-tense account
+  // of a future canonical outing must never become a message or relationship memory.
+  const generateReply = (extraChronology: string[] = []) => {
+    const groundedKnowledge = [...extraChronology, ...worldKnowledge];
+    return isTess
+      ? generateTessReply({
+          deliveryChannel: voice ? "voice" : "text",
+          state, stage: deriveStage(state), difficulty, messages: messageList, photos, generateTypes,
+          photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
+          tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
+          initiationReason: initiation?.reason ?? null, photoBoundary: photoContext.boundary,
+          photoHint, worldKnowledge: groundedKnowledge, availabilityDetail: schedule.detail,
+          conversationThreads: story.topics, topicHistory,
+        })
+      : generateContactReply({
+          deliveryChannel: voice ? "voice" : "text",
+          character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
+          memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
+          availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
+          photoBoundary: photoContext.boundary, photoHint, worldKnowledge: groundedKnowledge,
+          conversationThreads: story.topics, topicHistory,
+        });
+  };
+  let reply = await generateReply();
+  const impossiblePlan = futurePlanCompletionClaim(reply.messages.join("\n"), futurePlans);
+  if (impossiblePlan && !initiation?.developerPhoto) {
+    console.warn("[plan-chronology] rejected an impossible prior-attendance claim", {
+      character: def.key, date: impossiblePlan.date, title: impossiblePlan.title,
     });
-  } else {
-    reply = await generateContactReply({
-      deliveryChannel: voice ? "voice" : "text",
-      character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
-      memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
-      availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
-      photoBoundary: photoContext.boundary, photoHint, worldKnowledge, conversationThreads: story.topics, topicHistory,
-    });
-    if (!def.photosEnabled || (reply.photo && reply.photo.action !== "generate")) reply.photo = null;
+    // One bounded retry only. Do not save the invalid draft's text, photo,
+    // memory candidates, state deltas, or calendar actions.
+    reply = await generateReply([
+      "CHRONOLOGY CORRECTION: The previous attempted response incorrectly claimed the "
+      + impossiblePlan.weekday + " " + impossiblePlan.title
+      + " already happened. Today is earlier than " + impossiblePlan.date
+      + ". Start a new response, in your own voice, describing only what you"
+      + " expect or look forward to on that future date. Do not invent its outcome.",
+    ]);
+    if (futurePlanCompletionClaim(reply.messages.join("\n"), futurePlans))
+      return { count: 0, lastVisibleAt: null, reason: "Future calendar event was described as already completed; no message or memories saved. Retry this turn." };
   }
+  if (!isTess && (!def.photosEnabled || (reply.photo && reply.photo.action !== "generate"))) reply.photo = null;
   if (initiation?.spontaneousPhoto && !reply.photo && !reply.messages.some((line)=>line.trim()))
     return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested:false, reason: "Character chose not to send a photo or message for this moment." };
   if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character did not select a photo for this opportunity", photoDecision: { result: "no_photo_action", eligibleTypes: generateTypes, proposedText: reply.messages.some((line) => line.trim().length > 0) } };
