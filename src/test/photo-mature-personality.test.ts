@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { PHOTO_INTENSITY_PROFILES, maturePhotoCharacterHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory, allowedCharacterPhotoTypes, characterPhotoIntensityHint } from "@/lib/photo-mature-personality";
+import { PHOTO_INTENSITY_PROFILES, maturePhotoCharacterHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory, allowedCharacterPhotoTypes, characterPhotoIntensityHint, characterPhotoInstructions } from "@/lib/photo-mature-personality";
 import { photoDecisionRules } from "@/lib/tess.server";
 import { PHOTO_LAB_TYPES, PHOTO_LAB_PRESETS, labTypeSupported } from "@/lib/developer-photo-lab";
-import { CHARACTERS } from "@/lib/characters";
+import { CHARACTERS, type CharacterKey } from "@/lib/characters";
+import { photographyProfile } from "@/lib/photo-personality";
 import { safePhotoScene } from "@/lib/photo-policy";
 
 describe("character-aware mature photo guidance", () => {
@@ -58,7 +59,7 @@ describe("character-aware mature photo guidance", () => {
     expect(maturePhotoCharacterHint("claire", ["casual_selfie"])).toBe("");
   });
   it("keeps unmodified or platonic characters out of the romantic-photo guidance", () => {
-    for (const key of ["tess", "jordan", "ben"]) {
+    for (const key of ["jordan", "ben"]) {
       expect(maturePhotoCharacterHint(key, ["mature_romantic"])).toBe("");
     }
     expect(maturePhotoCharacterHint("sienna", [])).toBe("");
@@ -108,5 +109,37 @@ describe("character-aware mature photo guidance", () => {
     expect(safePhotoScene(PHOTO_LAB_PRESETS.suggestive.scene)).toBe(true);
     expect(labTypeSupported(CHARACTERS.riley, "suggestive")).toBe(true);
     expect(labTypeSupported(CHARACTERS.ben, "suggestive")).toBe(false);
+  });
+  it("gives Tess her own mature-romantic guidance when eligible", () => {
+    expect(maturePhotoCharacterHint("tess", ["casual_selfie"])).toBe("");
+    const guidance = maturePhotoCharacterHint("tess", ["mature_romantic"]);
+    expect(guidance).toContain("TESS PHOTO PERSONALITY");
+    expect(guidance).toContain("dry, understated");
+    expect(guidance).toContain("Mabel");
+    expect(guidance).toContain("independently");
+  });
+  it("wires all female character photo profiles into the shared chat prompt", () => {
+    const girls: CharacterKey[] = ["tess", "maya", "riley", "sienna", "kendra", "claire", "jordan"];
+    for (const key of girls) {
+      const def = CHARACTERS[key];
+      expect(def.photosEnabled).toBe(true);
+      expect(photographyProfile(key).key).toBe(key);
+      const profile = PHOTO_INTENSITY_PROFILES[key];
+      expect(profile).toBeDefined();
+      const offered = ["object", "casual_selfie", "mature_romantic", "suggestive"];
+      const eligible = allowedCharacterPhotoTypes(key, offered);
+      const instructions = characterPhotoInstructions(key, eligible);
+      if (profile.maxCategory === "ordinary") {
+        expect(eligible).toEqual(["object", "casual_selfie"]);
+        expect(instructions).toBe("");
+      } else {
+        expect(eligible).toContain("mature_romantic");
+        expect(eligible).toContain("suggestive");
+        expect(maturePhotoCharacterHint(key, eligible)).toContain("PHOTO PERSONALITY");
+        expect(instructions).toContain("PHOTO CHOICE");
+        expect(instructions).toContain(profile.guidance);
+      }
+    }
+    expect(characterPhotoInstructions("ben", allowedCharacterPhotoTypes("ben", ["object", "suggestive"]))).toBe("");
   });
 });
