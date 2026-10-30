@@ -159,7 +159,7 @@ export async function generatePhotoLabTest(
     return present(db, active.data, user, conversation);
   }
   try {
-    const scene = customScene?.trim() && (type === "mature_romantic" || type === "mature_adult")
+    const scene = customScene?.trim() && (type === "mature_romantic" || type === "mature_adult" || type === "suggestive")
       ? `${PHOTO_LAB_PRESETS[type].scene} Custom styling and scene: ${customScene.trim()}. Opaque clothing and tasteful non-explicit composition.`
       : PHOTO_LAB_PRESETS[type].scene;
     if (!safePhotoScene(scene)) throw new Error("Photo test scene rejected");
