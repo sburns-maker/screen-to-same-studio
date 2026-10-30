@@ -250,7 +250,7 @@ describe("typed character photography", () => {
       null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
     expect(mature).toContain("coordinated bra and underwear");
     expect(mature).toContain("intentionally flirtatious and sensual");
-    expect(mature).toContain("No nudity");
+    expect(mature).toContain("No explicit sexual activity");
     expect(mature).toContain("provider's content policy");
     const ordinary = buildImagePrompt("intimate_selfie", "warm evening at home", null,
       null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
@@ -273,5 +273,12 @@ describe("typed character photography", () => {
     expect(JSON.stringify(d)).not.toContain("sk-secret-key");
     expect(d.promptComponents).toContain("approved canonical reference pixels");
     expect(d.scenarioCandidates).not.toContain("venue_update");
+  });
+  it("differentiates suggestive non-explicit portraits from ordinary self-taken photos", () => {
+    const identity = { key: "riley", name: "Riley", age: 30, pronouns: "she/her", appearance: "canonical" };
+    const prompt = buildImagePrompt("suggestive", "adult relaxing at home in established clothes", "playful", null, identity);
+    expect(prompt).toContain("SUGGESTIVE PERSONAL PORTRAIT");
+    expect(prompt).toContain("no exposed nipples or genitals");
+    expect(prompt).not.toContain("Nothing revealing or suggestive");
   });
 });

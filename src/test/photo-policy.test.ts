@@ -93,4 +93,24 @@ describe("photo autonomy and boundaries", () => {
     expect(eligiblePhotos(close).map(p => p.id)).toContain("selfie-couch");
     expect(eligiblePhotos(SEED_STATE).map(p => p.id)).toEqual(["mabel-sock", "mabel-walk", "trivia-sheet", "coffee"]);
   });
+  it("separates voluntary suggestive eligibility from ordinary and mature portraits", () => {
+    const mature = { ...context, matureEnabled: true };
+    expect(eligiblePhotoCategories(romantic, mature)).toContain("mature_romantic");
+    expect(eligiblePhotoCategories({ ...romantic, romantic_intent: 45 }, mature)).not.toContain("suggestive");
+    const ready = { ...romantic, comfort: 85, trust: 80, emotional_intimacy: 75,
+      romantic_attraction: 75, romantic_intent: 70 };
+    expect(eligiblePhotoCategories(ready, mature)).toContain("suggestive");
+    expect(eligiblePhotoCategories(ready, { ...mature, matureEnabled: false })).not.toContain("suggestive");
+    expect(eligiblePhotoCategories(ready, { ...mature, boundary: "mature" })).not.toContain("suggestive");
+    expect(eligiblePhotoCategories(ready, { ...mature, age: 17 })).not.toContain("suggestive");
+    expect(eligiblePhotoCategories({ ...ready, perceived_pressure: 25 }, mature)).not.toContain("suggestive");
+    expect(photoDecisionReason({
+      type: "suggestive", willing: false, contextual: true, framing: "romantic",
+      eligible: ["suggestive"], state: ready, context: mature,
+    })).toContain("did not consent");
+    expect(photoDecisionReason({
+      type: "suggestive", willing: true, contextual: true, framing: "ordinary",
+      eligible: ["suggestive"], state: ready, context: mature,
+    })).toContain("romantic framing");
+  });
 });

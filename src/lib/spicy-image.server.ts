@@ -326,9 +326,10 @@ export function buildSpicyPrompt(
   age: number,
   scene: string,
   style: Record<string, unknown> = {},
+  type: "mature_romantic" | "suggestive" = "mature_romantic",
 ) {
   return `IDENTITY / REFERENCES: Reference 1 is the approved canonical design of ${name}, a fictional adult age ${age}. All references depict this same adult; preserve face, complexion, hair-color family and proportions. References do not prescribe wardrobe, pose or background. Never substitute a similar person.
-WARDROBE: ${style["clothing_category"] ?? "Use the established outfit; never change clothing merely for variety."} Opaque non-nude clothing; retain current scene continuity.
+CATEGORY: ${type === "suggestive" ? "Strongly flirtatious adult portrait. Confident body language, playful expression and realistic intimate mood. Do not force disrobing or a new location." : "Private romantic non-explicit adult portrait."}\nWARDROBE: ${style["clothing_category"] ?? "Use the established outfit; never change clothing merely for variety."} Opaque clothing; retain current scene continuity.
 SCENE / LOCATION: ${scene}
 POSE / EXPRESSION: ${style["pose_type"] ?? "Natural to the actual activity"}; ${style["expression"] ?? "Match the established mood"}.
 CAMERA: ${style["selfie_type"] ?? "Self-taken phone photo"}; ${style["camera_angle"] ?? "plausible phone perspective"}; ${style["crop_type"] ?? "casual framing"}. For a front-camera photo the phone is behind the lens and should not be visible. For a selected mirror selfie, show one plausible phone/reflection geometry. Never invent a photographer or mirror.

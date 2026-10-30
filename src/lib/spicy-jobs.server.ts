@@ -1,4 +1,6 @@
 import { createServerOnlyFn } from "@tanstack/react-start";
+import { deliveredRomanticPhotoMemory } from "./photo-mature-personality";
+import { CHARACTERS } from "./characters";
 import { keepAlive } from "./request-context.server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
@@ -21,6 +23,7 @@ type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
   expression: string | null;
+  type?: "mature_romantic" | "suggestive";
   style?: PhotoStyle | null;
   photography?: PhotographyPlan;
   delivery?: "chat" | "lab";
@@ -153,7 +156,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
   return {
     generated_path: path,
     generated_image_id: job.action_id,
-    photo_type: "mature_romantic",
+    photo_type: job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",
     photo_identity: identity,
     photo_visual: {
       version: 1,
@@ -163,6 +166,23 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
       objects: job.payload.photography?.continuity.objects ?? [],
     },
   };
+}
+async function rememberCommittedPhoto(db: Client, job: Job) {
+  if (job.payload.delivery === "lab") return;
+  const summary = deliveredRomanticPhotoMemory(
+    CHARACTERS[job.character_key].preferredName,
+    job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",
+  );
+  if (!summary) return;
+  const existing = await db.from("memories").select("id")
+    .eq("user_id", job.user_id).eq("conversation_id", job.conversation_id)
+    .eq("summary", summary).maybeSingle();
+  if (existing.error || existing.data) return;
+  const saved = await db.from("memories").insert({
+    user_id: job.user_id, conversation_id: job.conversation_id,
+    memory_type: "relationship", summary, importance: 4,
+  });
+  if (saved.error) console.warn("[spicy-photo] Delivered attachment saved, memory insert pending");
 }
 async function finish(db: Client, job: Job, metadata: unknown, failure: string | null) {
   const r = await db.rpc(
@@ -175,7 +195,13 @@ async function finish(db: Client, job: Job, metadata: unknown, failure: string |
     } as never,
   );
   if (r.error) throw new Error("spicy_delivery_commit_failed");
-  return r.data === true;
+  const committed = r.data === true;
+  if (committed && metadata != null) {
+    // Failure to add a summary never causes a paid image to be submitted again.
+    await rememberCommittedPhoto(db, job).catch(() =>
+      console.warn("[spicy-photo] Delivered attachment saved, memory update pending"));
+  }
+  return committed;
 }
 /** Worker-owned leases; GET-only recovery. Never creates another provider job. */
 export const processSpicyPhotos = createServerOnlyFn(async function processSpicyPhotos(

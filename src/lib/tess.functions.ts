@@ -1,4 +1,4 @@
-import { deliveredPhotoContextLabel } from "./photo-mature-personality";
+import { allowedCharacterPhotoTypes, characterPhotoInstructions, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory } from "./photo-mature-personality";
 import { supportsRelationshipCommitment } from "./relationship-commitments";
 import { ordinaryPhotoStyle } from "./photo-wardrobe";
 import { PendingPhotoTask } from "./photo-task";
@@ -190,7 +190,7 @@ export async function createGeneratedPhoto(
   photography?: PhotographyPlan,
 ) {
   // Persist the same concrete wardrobe sent to GPT so later photos can retain it.
-  if (type !== "object" && type !== "mature_romantic")
+  if (type !== "object" && type !== "mature_romantic" && type !== "suggestive")
     style = ordinaryPhotoStyle(style, scene, photography) ?? null;
   // The provider prefers a direct OPENAI_API_KEY and falls back to the Lovable gateway key.
   const apiKey = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
@@ -206,7 +206,7 @@ export async function createGeneratedPhoto(
     const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
     mabelReference = data ?? null;
   }
-  const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(supabaseAdmin,userId,characterKey,type,lovableGatewayProvider(apiKey),actionId,undefined,{scene,expression,style:style??null,...(photography?{photography}:{})});
+  const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(supabaseAdmin,userId,characterKey,type,lovableGatewayProvider(apiKey),actionId,undefined,{scene,expression,style:style??null,type:type === "suggestive" ? "suggestive" : "mature_romantic",...(photography?{photography}:{})});
   const identity = def
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
@@ -527,7 +527,7 @@ async function runTurnUnlocked(
   // wait for an arbitrary message-count or minute-based cooldown.
   const cooldown = false;
   const photoCompatible = !photoActivityBlock(schedule);
-  let generateTypes = photoHistoryError || cooldown || !photoCompatible ? [] : eligiblePhotoCategories(state, photoContext);
+  let generateTypes = photoHistoryError || cooldown || !photoCompatible ? [] : allowedCharacterPhotoTypes(def.key, eligiblePhotoCategories(state, photoContext));
   const sentPhotos = new Set(recent.map((m) => (m.metadata as { photo?: string } | null)?.photo).filter(Boolean));
   let photos = isTess && !photoHistoryError && !cooldown && photoCompatible
     ? eligiblePhotos(state, { irritation: state.irritation >= 20 }).filter((p) => !sentPhotos.has(p.id) && boundaryAllows(photoContext.boundary, p.selfie ? "casual_selfie" : "object")) : [];
@@ -568,8 +568,7 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason, photoValidation:{...photoPreflight,stage:"requested_context"} };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
-  const { maturePhotoCharacterHint } = await import("./photo-mature-personality");
-  const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), maturePhotoCharacterHint(def.key, generateTypes)].filter(Boolean).join('\n');
+  const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
   if (voice) {
     photos=[];generateTypes=[];
@@ -688,7 +687,7 @@ async function runTurnUnlocked(
         // Context first, variety second: only nudge an exact repeat of a recent photo.
         const { fictionalGroupScene } = await import("./tess-image.server");
         const isGroupScene = fictionalGroupScene(photoScene);
-        const currentStyle = continuityPhotoStyle(photography,rawStyle,photoScene,p.type === "mature_romantic");
+        const currentStyle = continuityPhotoStyle(photography,rawStyle,photoScene,p.type === "mature_romantic" || p.type === "suggestive");
         const capture = p.type === "object" || isGroupScene
           ? {style: currentStyle, decision: "preserved" as const}
           : selectPhotoComposition(currentStyle, recentStyles, photoScene,
@@ -805,7 +804,12 @@ async function runTurnUnlocked(
     .limit(200);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
   const seen = new Set((existingMem ?? []).map((m: { summary: string }) => norm(m.summary)));
-  const memRows = (reply.memory_candidates ?? [])
+  const deliveredPhotoMemory = generated ? deliveredRomanticPhotoMemory(def.preferredName, generated.type) : null;
+  const memoryCandidates = [
+    ...(deliveredPhotoMemory ? [{memory_type:"relationship", summary:deliveredPhotoMemory, importance:4}] : []),
+    ...(reply.memory_candidates ?? []),
+  ];
+  const memRows = memoryCandidates
     .filter((m) => m.summary?.trim())
     .filter((m) => {
       const k = norm(m.summary);
@@ -1280,11 +1284,12 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     const debugPacing=photoPacing({character:def.key,frequency:freq,now,lastPhotoAt:lastAttachment.data?.created_at??null,ownSinceLastPhoto:debugIndex<0?99:debugIndex,userText:list.find(m=>m.sender==="user")?.body??"",context:schedule.detail});
     const recentlySentPhoto=!debugPacing.allowed;
     const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
-    const genTypes = recentlySentPhoto ? [] : eligiblePhotoCategories(state, {
+    // Report the same category eligibility as runTurn; pacing is a separate diagnostic, not a hard category block.
+    const genTypes = allowedCharacterPhotoTypes(def.key, eligiblePhotoCategories(state, {
       age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
       supported: def.photoTypes, matureEnabled: conv.mature_photography,
       boundary: conv.photo_boundary as PhotoBoundary,
-    });
+    }));
     const lastLatency = (last?.metadata as { latency?: string } | null)?.latency ?? null;
     const [{ data: checkpoint }, { data: records }, { data: events }, { data: attempts }] = await Promise.all([
       supabase.from("character_world_state").select("*").eq("conversation_id", conv.id).eq("user_id", userId).maybeSingle(),

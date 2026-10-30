@@ -15,7 +15,7 @@ export async function configuredPhotoProvider(
   conversationId?: string,
   context?: SpicyContext,
 ): Promise<ImageProvider> {
-  if (type !== "mature_romantic" || process.env["SPICY_ENABLED"] !== "true") return ordinary;
+  if ((type !== "mature_romantic" && type !== "suggestive") || process.env["SPICY_ENABLED"] !== "true") return ordinary;
   if (!(SPICY_CAST as readonly string[]).includes(key))
     throw new Error("Mature provider unavailable for this character");
   const preference = await db

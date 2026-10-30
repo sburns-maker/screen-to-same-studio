@@ -159,7 +159,7 @@ export async function generatePhotoLabTest(
     return present(db, active.data, user, conversation);
   }
   try {
-    const scene = customScene?.trim() && (type === "mature_romantic" || type === "mature_adult")
+    const scene = customScene?.trim() && (type === "mature_romantic" || type === "mature_adult" || type === "suggestive")
       ? `${PHOTO_LAB_PRESETS[type].scene} Custom styling and scene: ${customScene.trim()}. Opaque clothing and tasteful non-explicit composition.`
       : PHOTO_LAB_PRESETS[type].scene;
     if (!safePhotoScene(scene)) throw new Error("Photo test scene rejected");
@@ -173,7 +173,7 @@ export async function generatePhotoLabTest(
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
-      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation,{scene,expression:null,delivery:"lab"}),
+      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation,{scene,expression:null,delivery:"lab",type:generationType === "suggestive" ? "suggestive" : "mature_romantic"}),
       canonical,
       type: generationType,
       scene,

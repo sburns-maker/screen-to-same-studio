@@ -315,3 +315,13 @@ it("builds separated scene, identity and phone-geometry instructions without a k
   expect(text).toContain("mirror selfie");
   expect(text).toContain("No nudity");
 });
+
+it("sends distinct suggestive category guidance without changing identity or scene", () => {
+  const base = buildSpicyPrompt("Riley", 28, "in her apartment", { selfie_type: "selfie" }, "mature_romantic");
+  const suggestive = buildSpicyPrompt("Riley", 28, "in her apartment", { selfie_type: "selfie" }, "suggestive");
+  expect(base).toContain("Private romantic non-explicit adult portrait");
+  expect(suggestive).toContain("Strongly flirtatious adult portrait");
+  expect(suggestive).toContain("in her apartment");
+  expect(suggestive).toContain("No nudity or explicit sexual acts");
+  expect(suggestive).not.toEqual(base);
+});
