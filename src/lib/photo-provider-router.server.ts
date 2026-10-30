@@ -15,7 +15,13 @@ export async function configuredPhotoProvider(
   conversationId?: string,
   context?: SpicyContext,
 ): Promise<ImageProvider> {
-  if ((type !== "mature_romantic" && type !== "suggestive") || process.env["SPICY_ENABLED"] !== "true") return ordinary;
+  if (type !== "mature_romantic" && type !== "suggestive") return ordinary;
+  // Suggestive images are SpicyAPI-only. Never send a suggestive prompt or
+  // canonical portrait to OpenAI/the ordinary provider as a silent fallback.
+  if (process.env["SPICY_ENABLED"] !== "true") {
+    if (type === "suggestive") throw new Error("Suggestive photos require SpicyAPI to be enabled");
+    return ordinary;
+  }
   if (!(SPICY_CAST as readonly string[]).includes(key))
     throw new Error("Mature provider unavailable for this character");
   const preference = await db
@@ -25,7 +31,10 @@ export async function configuredPhotoProvider(
     .eq("character_key", key)
     .maybeSingle();
   if (preference.error) throw new Error("SpicyAPI migration or preferences unavailable");
-  if (!preference.data?.spicy_enabled) return ordinary;
+  if (!preference.data?.spicy_enabled) {
+    if (type === "suggestive") throw new Error("Enable SpicyAPI for this character to test suggestive photos");
+    return ordinary;
+  }
   if (
     !preference.data.adult_confirmed ||
     CHARACTERS[key].age < 18 ||

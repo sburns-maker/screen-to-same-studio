@@ -3,7 +3,7 @@
 Open **Simulation Debug → Photos → Photo category lab (developer only)**.
 There is a separate exact-category generation button for object/environment,
 candid portrait, casual selfie, personal selfie, affectionate close-up
-(`intimate_selfie`) and mature romantic. Unsupported categories are disabled.
+(`intimate_selfie`) mature romantic and suggestive. Unsupported categories are disabled.
 Riley supports all six. Mature romantic is the existing **non-explicit, fully
 covered adult portrait** category; this feature does not add explicit imagery.
 
@@ -28,10 +28,16 @@ Every action requires authenticated ownership of the contact plus the existing
 `ENABLE_DEV_PHOTO_ACTIONS=true` and `DEVELOPER_PHOTO_USER_IDS` allowlist. Database
 and configured character ages must be adult. Capability checks still disable
 unsupported categories (for example Ben's romantic portraits). Portraits use
-`currentCanonical` and actual approved reference pixels, the existing provider and
-model selection, `generateTessImage`, content rules, visual design/scene screening
-and its existing bounded identity retry. No alternative provider or unscreened
-output is used. Original image bytes stay in private `tess-photos` storage at an
+`currentCanonical` and actual approved reference pixels, the configured provider and
+model selection, `generateTessImage`, and category-specific content rules.
+Ordinary and mature-romantic categories retain visual design/scene screening.
+Suggestive photos do not undergo third-party visual screening.
+Ordinary categories continue using the normal image provider. **Suggestive is
+SpicyAPI-only** and requires enabled SpicyAPI, per-character adult confirmation
+and explicit opt-in, valid provider configuration, verified funds and approved
+references. It never falls back to OpenAI/the ordinary image provider. If the
+SpicyAPI prerequisites are unavailable, the test fails with an explanation
+before consuming image-attempt budget. Suggestive photos do not pass through an additional OpenAI or Sightengine visual inspection; SpicyAPI's own content rules apply and its PNG output is validated for MIME/signature and integrity. This does not independently verify the pictured character's facial match or that every image meets the requested content boundaries. Original image bytes stay in private `tess-photos` storage at an
 owner/test-specific path; signed preview links expire after 120 seconds and can
 be refreshed without another generation. Images failing checks are not previewed
 as successful results. Missing provider/approved identity fails safely.
@@ -62,7 +68,7 @@ This code work has not reset any live Riley record or generated a live image.
 
 ## Implementation and verification
 
-No migration or new provider configuration. Reuses `job_runs`, `media_attempts`,
+No migration; suggestive uses existing SpicyAPI configuration and explicit consent. Reuses `job_runs`, `media_attempts`,
 the existing budget RPC, private storage and shared canonical/generation services.
 The normal texting/photo/video delivery paths are unchanged. The route component
 is keyed by conversation so delayed UI results cannot appear in another contact's

@@ -168,12 +168,21 @@ export async function generatePhotoLabTest(
       ? await currentCanonical(db, user, def.key as CharacterKey)
       : undefined;
     const key = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
-    if (!key) throw new Error("Image provider not configured");
-    requireVisualScreen();
+    // Select the generation provider first, so missing SpicyAPI configuration
+    // fails with a specific error without reserving paid image-attempt budget.
+    // Suggestive photos rely on SpicyAPI's provider rules and existing
+    // character/adult/opt-in checks. No independent vision service is called.
+    if (!key && generationType !== "suggestive") throw new Error("Image provider not configured");
+    const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(
+      db, user, def.key as CharacterKey, generationType, lovableGatewayProvider(key ?? ""),
+      id, conversation,
+      {scene, expression: null, delivery: "lab", type: generationType === "suggestive" ? "suggestive" : "mature_romantic"},
+    );
+    if (generationType !== "suggestive") requireVisualScreen();
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
-      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation,{scene,expression:null,delivery:"lab",type:generationType === "suggestive" ? "suggestive" : "mature_romantic"}),
+      provider,
       canonical,
       type: generationType,
       scene,
@@ -224,6 +233,7 @@ export async function generatePhotoLabTest(
     }
     const known = [
       "visual_screen_unavailable",
+      "suggestive_provider_required",
       "Identity registry unavailable",
       "Canonical identity is not approved",
       "Canonical reference integrity check failed",
@@ -232,6 +242,14 @@ export async function generatePhotoLabTest(
       "Photo test scene rejected",
       "Image attempt budget exhausted",
       "Image provider not configured",
+      "Suggestive photos require SpicyAPI to be enabled",
+      "Enable SpicyAPI for this character to test suggestive photos",
+      "SpicyAPI server secret missing",
+      "Unsupported SpicyAPI model",
+      "Configure SpicyAPI spending reservations",
+      "Verify usable SpicyAPI account credit before enabling live calls",
+      "SpicyAPI migration or preferences unavailable",
+      "Adult non-nude romantic photo eligibility required",
       "Photo test upload failed",
       "Photo test result was not committed; check history",
     ];

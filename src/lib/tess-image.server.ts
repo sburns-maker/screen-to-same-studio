@@ -267,7 +267,7 @@ export type PhotoDiagnostics = {
   provider: string;
   model: string;
   generationMode: "reference_edit" | "object_generation";
-  validationStatus: "pending" | "screen_passed" | "failed";
+  validationStatus: "pending" | "screen_passed" | "provider_output_validated" | "failed";
   failureReason: string | null;
   retryCount: number;
   failureStage?: string;
@@ -327,10 +327,15 @@ export async function generateTessImage(args: {
         throw new Error("reference_conditioning_unverified");
     }
     stage = "preflight";
-    requireVisualScreen(); // Fail before any paid image if screening cannot run.
+    if (args.type === "suggestive") {
+      if (args.provider.name !== "spicyapi") throw new Error("suggestive_provider_required");
+    } else {
+      requireVisualScreen(); // Fail before any paid image if screening cannot run.
+    }
     const text = validatePhotoText(args.text);
     const { checkPhotoText, textVerificationAvailable } = await import("./photo-text-qc.server");
-    if (text && !textVerificationAvailable()) throw new Error("text_verification_unavailable");
+    if (args.type !== "suggestive" && text && !textVerificationAvailable())
+      throw new Error("text_verification_unavailable");
     const groupInstructions = group
       ? "\n\nFICTIONAL GROUP MOMENT: The approved reference image belongs ONLY to the main foreground character. Keep that character recognizable, and add 1–4 generic fictional adult teammates appropriate to the established scene. Give the teammates distinct ordinary appearances; do not claim they are known or named contacts. No real patrons, clients, patients, private screens or identifying material. Compose like a casual phone group selfie, not a studio portrait."
       : "";
@@ -358,12 +363,14 @@ export async function generateTessImage(args: {
       });
       stage = "visual_screen";
       try {
-        await screenPhotoVisuals(
-          canonical?.blob ?? null,
-          new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
-          args.scene,
-          { allowBackgroundAdults: group },
-        );
+        if (args.type !== "suggestive") {
+          await screenPhotoVisuals(
+            canonical?.blob ?? null,
+            new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
+            args.scene,
+            { allowBackgroundAdults: group },
+          );
+        }
         img = candidate;
         break;
       } catch (screenError) {
@@ -379,8 +386,13 @@ export async function generateTessImage(args: {
     }
     if (!img) throw new Error("visual_screen_uncertain");
     stage = "text_quality";
-    const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
-    diagnostic.validationStatus = "screen_passed";
+    // Never route a suggestive output through OpenAI's optional text vision QC.
+    const textQuality = args.type === "suggestive"
+      ? { status: "not_checked" as const }
+      : await checkPhotoText(img.bytes, img.mime, text, args.scene);
+    diagnostic.validationStatus = args.type === "suggestive"
+      ? "provider_output_validated"
+      : "screen_passed";
     const identityUsed = [
       canonical ? args.identity!.key : null,
       args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference

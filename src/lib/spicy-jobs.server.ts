@@ -150,7 +150,11 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
     referenceConditioning: true,
     provider: "spicyapi",
     model: job.model,
-    validationStatus: "screen_passed",
+    validationStatus: job.payload.type === "suggestive" ? "provider_output_validated" : "screen_passed",
+    ...(job.payload.type === "suggestive" ? {
+      screeningMethod: "spicyapi_provider_policy_and_file_integrity",
+      facialIdentityVerified: false,
+    } : {}),
     retryCount: 0,
   };
   return {
@@ -336,15 +340,21 @@ export const processSpicyPhotos = createServerOnlyFn(async function processSpicy
       const url = task.output?.assets?.[0]?.url;
       if (typeof url !== "string") throw new Error("spicy_output_missing");
       const image = await downloadSpicyOutput(url, job.model);
-      try {
-        await screenPhotoVisuals(
-          canonical.blob,
-          new Blob([new Uint8Array(image.bytes)], { type: image.mime }),
-          job.payload.scene,
-        );
-      } catch {
-        await finish(db, job, null, "spicy_visual_screen_failed");
-        continue;
+      // Suggestive pictures are already limited to adult, opted-in characters
+      // and SpicyAPI's own rules. Do not forward them to an external visual
+      // checker (including OpenAI). The Spicy downloader validates the PNG
+      // response type/signature and the worker verifies file integrity.
+      if (job.payload.type !== "suggestive") {
+        try {
+          await screenPhotoVisuals(
+            canonical.blob,
+            new Blob([new Uint8Array(image.bytes)], { type: image.mime }),
+            job.payload.scene,
+          );
+        } catch {
+          await finish(db, job, null, "spicy_visual_screen_failed");
+          continue;
+        }
       }
       const upload = await db.storage
         .from("tess-photos")
