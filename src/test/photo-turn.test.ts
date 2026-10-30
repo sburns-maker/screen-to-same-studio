@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   existing: vi.fn(),
   admin: {} as Record<string, unknown>,
   realTime: true,
+  character: "tess",
+  userBody: "How is your morning?",
   schedule: { activity: "at work", availability: "limited", detail: "brief clinic office break" },
 }));
 vi.mock("@/lib/tess.server", async (original) => ({
@@ -67,6 +69,8 @@ beforeEach(() => {
   mocks.visual.mockReset().mockResolvedValue({status:"screen_passed",method:"fictional_visual_design",reason:"features_consistent"});
   mocks.schedule.availability = "limited";
   mocks.realTime = true;
+  mocks.character = "tess";
+  mocks.userBody = "How is your morning?";
   mocks.inspect.mockReset().mockResolvedValue(null);
   mocks.reserve.mockReset().mockResolvedValueOnce(action).mockResolvedValue(null);
   mocks.prepare
@@ -140,7 +144,7 @@ beforeEach(() => {
           ? {
               id: cid,
               user_id: uid,
-              character: { key: "tess" },
+              character: { key: mocks.character },
               difficulty: "realistic",
               real_time_mode: mocks.realTime,
               photo_boundary: "none",
@@ -154,7 +158,7 @@ beforeEach(() => {
                   {
                     id: "user-anchor",
                     sender: "user",
-                    body: "How is your morning?",
+                    body: mocks.userBody,
                     metadata: {},
                     created_at: new Date(Date.now() - 3_600_000).toISOString(),
                   },
@@ -215,6 +219,31 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(mocks.generate.mock.calls[0]![0].photoMomentSelected).toBe(true);
     expect(mocks.generate.mock.calls[0]![0].photoHint).toContain("PHOTO OPPORTUNITY");
     expect(mocks.prepare.mock.calls[0]![4].generated).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("lets Riley consider a direct everyday selfie despite a skipped random opportunity, without forcing one", async () => {
+    mocks.character = "riley";
+    mocks.userBody = "Would you send me a quick normal selfie, Riley?";
+    vi.spyOn(opportunities, "photoOpportunity").mockImplementation((args) => ({
+      eligible: true,
+      selected: false,
+      reason: "chooses not to share this random opportunity",
+      key: args.conversationId,
+      hint: "Unsolicited photo opportunity was skipped.",
+    }));
+    const sample = await mocks.generate();
+    mocks.generate.mockClear().mockResolvedValue({ ...sample, photo: null });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { runTurn } = await import("@/lib/tess.functions");
+    const result = await runTurn(client, uid, cid, "America/New_York");
+    expect(result.count).toBe(1);
+    const guidance = mocks.generate.mock.calls.at(-1)![0];
+    expect(guidance.character.key).toBe("riley");
+    expect(guidance.directOrdinaryPhotoRequest).toBe(true);
+    expect(guidance.photoHint).toContain("RILEY ORDINARY PHOTO REQUEST");
+    expect(mocks.prepare.mock.calls.at(-1)![4].generated).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
