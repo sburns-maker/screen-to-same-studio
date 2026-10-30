@@ -43,7 +43,7 @@ it("has a separate button for each exact category and does not generate on openi
   const button = await screen.findByRole("button", {
     name: "Generate Mature romantic (non-explicit) test",
   });
-  expect(screen.getAllByRole("button", { name: /^Generate/ })).toHaveLength(7);
+  expect(screen.getAllByRole("button", { name: /^Generate/ })).toHaveLength(PHOTO_LAB_TYPES.length);
   expect(mocks.command).toHaveBeenCalledTimes(1);
   fireEvent.click(button);
   await screen.findByAltText("Riley Mature romantic (non-explicit) developer test");
@@ -69,4 +69,23 @@ it("keeps a network-uncertain request ID for explicit retry", async () => {
   await screen.findByAltText("Riley Casual selfie developer test");
   const requests = mocks.command.mock.calls.filter((c) => c[0].data.action === "generate");
   expect(requests[1]![0].data.requestId).toBe(first);
+});
+
+it("offers a suggestive test with a private custom scene without messaging the character", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  const testButton = await screen.findByRole("button", {
+    name: "Generate Suggestive (non-explicit) test",
+  });
+  fireEvent.change(screen.getByLabelText("suggestive custom scene 1"), {
+    target: { value: "Confident adult at home, warm lighting, playful eye contact and a realistic phone photo" },
+  });
+  fireEvent.click(testButton);
+  await screen.findByAltText("Riley Suggestive (non-explicit) developer test");
+  expect(mocks.command).toHaveBeenCalledWith({
+    data: expect.objectContaining({
+      action: "generate",
+      category: "suggestive",
+      customScene: "Confident adult at home, warm lighting, playful eye contact and a realistic phone photo",
+    }),
+  });
 });
