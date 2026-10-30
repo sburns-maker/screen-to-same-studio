@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { maturePhotoCharacterHint } from "@/lib/photo-mature-personality";
+import { maturePhotoCharacterHint, deliveredPhotoContextLabel } from "@/lib/photo-mature-personality";
+import { photoDecisionRules } from "@/lib/tess.server";
 
 describe("character-aware mature photo guidance", () => {
   it("gives Kendra optional fashion-aware framing only when the mature category is eligible", () => {
@@ -26,5 +27,20 @@ describe("character-aware mature photo guidance", () => {
       expect(maturePhotoCharacterHint(key, ["mature_romantic"])).toBe("");
     }
     expect(maturePhotoCharacterHint("sienna", [])).toBe("");
+  });
+  it("aligns dialogue selection with the suggestive non-explicit category", () => {
+    const prompt = photoDecisionRules("none");
+    expect(prompt).toContain("distinctly flirtatious but NON-EXPLICIT");
+    expect(prompt).toContain("tasteful opaque lingerie");
+    expect(prompt).toContain("framing=romantic");
+    expect(prompt).toContain("Keep the actual current place and clothing");
+    expect(prompt).toContain("Never put mature styling in an ordinary photo category");
+    expect(prompt).not.toContain("no lingerie, boudoir");
+  });
+  it("preserves the delivered photo category as private chat history", () => {
+    expect(deliveredPhotoContextLabel("mature_romantic"))
+      .toBe("a privately flirtatious, non-explicit romantic photo");
+    expect(deliveredPhotoContextLabel("casual_selfie")).toBe("a photo she just took");
+    expect(deliveredPhotoContextLabel(null)).toBe("a photo she just took");
   });
 });
