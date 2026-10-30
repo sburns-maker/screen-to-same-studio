@@ -250,7 +250,7 @@ describe("typed character photography", () => {
       null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
     expect(mature).toContain("coordinated bra and underwear");
     expect(mature).toContain("intentionally flirtatious and sensual");
-    expect(mature).toContain("No nudity");
+    expect(mature).toContain("No explicit sexual activity");
     expect(mature).toContain("provider's content policy");
     const ordinary = buildImagePrompt("intimate_selfie", "warm evening at home", null,
       null, { key: "claire", name: "Claire", age: 35, pronouns: "she/her", appearance: "reference" });
