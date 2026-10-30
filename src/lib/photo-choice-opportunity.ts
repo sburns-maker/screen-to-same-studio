@@ -11,8 +11,20 @@ export function photoChoiceInstruction(args: {
   opportunitySelected: boolean;
   eligibleTypes: readonly string[];
   currentSetting: string;
+  directOrdinaryRequest?: boolean;
 }): string {
   const { character, opportunitySelected, eligibleTypes, currentSetting } = args;
+  if (args.directOrdinaryRequest) {
+    const ordinary = eligibleTypes.filter(type => !["mature_romantic", "suggestive", "mature_nude"].includes(type));
+    if (!ordinary.length) return "No ordinary photograph is permitted right now. photo=null; answer honestly without promising an attachment.";
+    return [
+      "DIRECT EVERYDAY PHOTO REQUEST: The player asked for an ordinary picture. This is a normal question, not automatically an intimacy test, romantic escalation, pressure or reason to tease/deflect.",
+      `You CAN take and send a fresh photograph right now if comfortable, using only these currently allowed ordinary types: ${ordinary.join(", ")}. Keep the current scene and established clothes. If the request is for your face, consider a casual selfie or candid if allowed; if it is for an object or place, an object photo is fine.`,
+      "Make a genuine choice before drafting the response. If happy to share, return a complete generated photo action with willing=true, contextual=true, framing=ordinary, an eligible ordinary type and a specific present-moment scene, plus a short natural caption. Do not merely say you might send one later.",
+      "An ordinary selfie does not require new romantic feelings or suggestive framing. Do NOT escalate an ordinary-photo request into a mature or suggestive photo, even when those categories are independently eligible.",
+      "If busy, uncomfortable or maintaining a real photo boundary, photo=null is valid. Answer plainly and briefly; do not manufacture a rejection ritual or treat the mere request as misconduct. Repeated requests after an actual refusal can warrant firmer boundaries.",
+    ].join("\n");
+  }
   if (!opportunitySelected || eligibleTypes.length === 0) return "Usually null.";
   const types = eligibleTypes.join(", ");
   const profile = PHOTO_INTENSITY_PROFILES[character];
