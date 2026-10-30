@@ -44,3 +44,20 @@ export const developerPhotoLab = createServerFn({ method: "POST" })
           : await lab.photoLabHistory(db, context.userId, data.conversationId),
     };
   });
+
+
+/** Server-side, no-charge SpicyAPI connectivity test for authorized developer photo testers. */
+export const checkDeveloperSpicyConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ conversationId }).parse(v))
+  .handler(async ({ context, data }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId))
+      throw new Error("Developer photo tests are disabled");
+    const owned = await context.supabase.from("conversations").select("id")
+      .eq("id", data.conversationId).eq("user_id", context.userId).maybeSingle();
+    if (owned.error || !owned.data)
+      throw new Error("Owned conversation required");
+    const { spicyConnectionProbe } = await import("./spicy-image.server");
+    return spicyConnectionProbe();
+  });

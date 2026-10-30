@@ -10,6 +10,8 @@ import {
   buildSpicyPrompt,
   SpicyHttpFailure,
   SpicyQuoteFailure,
+  spicyTransportCode,
+  spicyConnectionProbe,
 } from "@/lib/spicy-image.server";
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -47,11 +49,51 @@ it("preflights the provider's documented 5000-character edit limit", () => {
   expect(() => buildSpicyRequest(SPICY_MODELS[0], "x".repeat(5001), urls))
     .toThrow("spicy_prompt_too_long");
 });
+it("classifies only known network causes without leaking raw exception messages", () => {
+  expect(spicyTransportCode(Object.assign(new TypeError("hidden URL"), {
+    cause: { code: "ENOTFOUND", hostname: "secret-host.internal" },
+  }))).toBe("dns_not_found");
+  expect(spicyTransportCode(Object.assign(new TypeError("hidden"), {
+    cause: { code: "UND_ERR_CONNECT_TIMEOUT" },
+  }))).toBe("connection_timeout");
+  expect(spicyTransportCode(Object.assign(new TypeError("private"), {
+    cause: { code: "CERT_HAS_EXPIRED" },
+  }))).toBe("tls_certificate");
+  expect(spicyTransportCode(Object.assign(new Error("timed out"), {
+    name: "TimeoutError",
+  }))).toBe("timeout");
+  expect(spicyTransportCode(new TypeError("private error"))).toBe("fetch_failed");
+});
+it("probes connectivity with one authenticated free GET, without creating tasks", async () => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "server-secret");
+  const f = vi.fn().mockResolvedValue(Response.json({ code: 200, data: [] }));
+  vi.stubGlobal("fetch", f);
+  expect(await spicyConnectionProbe()).toEqual({
+    status: "reachable", httpStatus: 200, transportCode: null,
+  });
+  expect(f).toHaveBeenCalledTimes(1);
+  expect(f.mock.calls[0]![0]).toBe("https://api.spicyapi.ai/api/v1/models");
+  expect(f.mock.calls[0]![1]).toMatchObject({ method: "GET", redirect: "error" });
+  expect(f.mock.calls[0]![1].body).toBeUndefined();
+});
+it("reports a blocked network with no raw hostnames, prompts or keys", async () => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "private-server-key");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(Object.assign(new TypeError("secret.example?token=leak"), {
+    cause: { code: "EAI_AGAIN", hostname: "secret.example" },
+  })));
+  const report = await spicyConnectionProbe();
+  expect(report).toEqual({
+    status: "transport_error", httpStatus: null, transportCode: "dns_retry",
+  });
+  expect(JSON.stringify(report)).not.toMatch(/secret|example|token/);
+});
 it("reports safe quote transport failures without leaking network messages", async () => {
   vi.stubEnv("SPICY_API_KEY", "test");
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("private proxy internal address")));
   await expect(quoteSpicyRequest(buildSpicyRequest(SPICY_MODELS[0], "fictional adult", ["https://example.com/a"])))
-    .rejects.toMatchObject({ message: "spicy_quote_transport_failed" });
+    .rejects.toMatchObject({ message: "spicy_quote_transport_failed", transportCode: "fetch_failed" });
 });
 it("submits the stable idempotency header and accepts HTTP202/code200", async () => {
   vi.stubEnv("SPICY_API_KEY", "server-only-test");
