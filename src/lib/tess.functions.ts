@@ -1,3 +1,4 @@
+import { deliveredPhotoContextLabel } from "./photo-mature-personality";
 import { supportsRelationshipCommitment } from "./relationship-commitments";
 import { ordinaryPhotoStyle } from "./photo-wardrobe";
 import { PendingPhotoTask } from "./photo-task";
@@ -407,7 +408,7 @@ async function runTurnUnlocked(
         return `[Player speaking from fictional public visitor area at ${md.workplace_encounter.place_key}; no mutual meeting or private access confirmed] ${m.body}`;
       if (md?.channel === "voice") return `[spoken during a phone call] ${m.body}`;
       if (md?.photo) return `[sent a photo: ${md.photo}] ${m.body}`;
-      if (md?.generated_path) return `[sent ${md.photo_type === "mature_romantic" ? "a privately flirtatious, non-explicit romantic photo" : "a photo she just took"}] ${m.body}`;
+      if (md?.generated_path) return `[sent ${deliveredPhotoContextLabel(md.photo_type)}] ${m.body}`;
       if (md?.game_chat && ["trivia", "four", "words", "pool"].includes(md.game_chat)) return `[sent while playing ${md.game_chat === "four" ? "Four in a Row" : md.game_chat === "words" ? "Word Hunt" : md.game_chat === "pool" ? "8 Ball" : "Trivia"} together] ${m.body}`;
       return m.body;
     })(),
