@@ -4,7 +4,6 @@ import { PendingPhotoTask, buildSpicyPrompt } from "./spicy-image.server";
 import { photoPersonalityPrompt, photographyDiagnostics, type PhotographyPlan } from "./photo-personality";
 import { canonicalProfile } from "./canonical-profile.server";
 import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
-import { requireSuggestiveScreen, screenSuggestivePhoto } from "./suggestive-photo-qc.server";
 import type { CharacterKey } from "./characters";
 import {
   photoTextPrompt,
@@ -330,7 +329,6 @@ export async function generateTessImage(args: {
     stage = "preflight";
     if (args.type === "suggestive") {
       if (args.provider.name !== "spicyapi") throw new Error("suggestive_provider_required");
-      requireSuggestiveScreen();
     } else {
       requireVisualScreen(); // Fail before any paid image if screening cannot run.
     }
@@ -364,11 +362,7 @@ export async function generateTessImage(args: {
       });
       stage = "visual_screen";
       try {
-        if (args.type === "suggestive") {
-          await screenSuggestivePhoto(
-            new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
-          );
-        } else {
+        if (args.type !== "suggestive") {
           await screenPhotoVisuals(
             canonical?.blob ?? null,
             new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
@@ -391,7 +385,10 @@ export async function generateTessImage(args: {
     }
     if (!img) throw new Error("visual_screen_uncertain");
     stage = "text_quality";
-    const textQuality = await checkPhotoText(img.bytes, img.mime, text, args.scene);
+    // Never route a suggestive output through OpenAI's optional text vision QC.
+    const textQuality = args.type === "suggestive"
+      ? { status: "not_checked" as const }
+      : await checkPhotoText(img.bytes, img.mime, text, args.scene);
     diagnostic.validationStatus = "screen_passed";
     const identityUsed = [
       canonical ? args.identity!.key : null,
