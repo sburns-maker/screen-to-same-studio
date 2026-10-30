@@ -44,7 +44,7 @@ import {
   type LifeEvent,
 } from "./tess-life";
 import { characterFor, type CharacterDef } from "./characters";
-import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, photoDecisionReason, safePhotoScene, photoSceneBoundaryIssue, PhotoSceneBoundaryError, type PhotoContext, type PhotoBoundary } from "./photo-policy";
+import { eligiblePhotoCategories, boundaryAllows, nextPhotoBoundary, photoDecisionReason, photoSceneBoundaryIssue, PhotoSceneBoundaryError, type PhotoContext, type PhotoBoundary } from "./photo-policy";
 import { storySchedule } from "./storyline-logic";
 
 const FIRST_MESSAGE =
