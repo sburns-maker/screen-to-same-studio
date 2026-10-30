@@ -68,3 +68,12 @@ export function deliveredPhotoContextLabel(type: string | null | undefined): str
       ? "a privately shared suggestive non-explicit photo"
       : "a photo she just took";
 }
+
+/** A durable memory is only created once an actual photo has been committed. */
+export function deliveredRomanticPhotoMemory(name: string, type: string | null | undefined): string | null {
+  if (type === "suggestive")
+    return `${name} independently chose to share a privately suggestive, non-explicit photograph in chat. This was a shared moment, not ongoing consent for future photographs.`;
+  if (type === "mature_romantic")
+    return `${name} independently chose to share a private romantic photograph in chat. This does not imply permission for future photographs.`;
+  return null;
+}
