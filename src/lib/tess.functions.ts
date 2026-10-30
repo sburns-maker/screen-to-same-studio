@@ -576,7 +576,10 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason, photoValidation:{...photoPreflight,stage:"requested_context"} };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
-  const photoHint = [opportunity.selected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
+  // The character evaluates a selected opportunity in normal chat as well as
+  // in autonomous photo ticks. No automatic willingness or category selection.
+  const photoMomentSelected = !voice && !!generateTypes.length && opportunity.eligible && opportunity.selected;
+  const photoHint = [photoMomentSelected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
   if (voice) {
     photos=[];generateTypes=[];
@@ -603,7 +606,7 @@ async function runTurnUnlocked(
           photoFrequency: freq, recentPhotoStyles: recentStyles.map(describeStyle), memories: memoryList,
           tz, initiation, weather, weatherFlavor: weather ? weatherFlavor(weather) : null, lifeEvent,
           initiationReason: initiation?.reason ?? null, photoBoundary: photoContext.boundary,
-          photoHint, worldKnowledge: groundedKnowledge, availabilityDetail: schedule.detail,
+          photoHint, photoMomentSelected, worldKnowledge: groundedKnowledge, availabilityDetail: schedule.detail,
           conversationThreads: story.topics, topicHistory,
         })
       : generateContactReply({
@@ -611,7 +614,7 @@ async function runTurnUnlocked(
           character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
           memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
           availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
-          photoBoundary: photoContext.boundary, photoHint, worldKnowledge: groundedKnowledge,
+          photoBoundary: photoContext.boundary, photoHint, photoMomentSelected, worldKnowledge: groundedKnowledge,
           conversationThreads: story.topics, topicHistory,
         });
   };
