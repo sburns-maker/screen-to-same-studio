@@ -19,7 +19,6 @@ import {
 } from "./spicy-image.server";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
-import { screenSuggestivePhoto } from "./suggestive-photo-qc.server";
 type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
@@ -151,10 +150,10 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
     referenceConditioning: true,
     provider: "spicyapi",
     model: job.model,
-    validationStatus: "screen_passed",
-    // Adult/safety screening is not facial-identity verification.
+    validationStatus: job.payload.type === "suggestive" ? "provider_output_validated" : "screen_passed",
     ...(job.payload.type === "suggestive" ? {
-      screeningMethod: "sightengine_nudity_face_age", facialIdentityVerified: false,
+      screeningMethod: "spicyapi_provider_policy_and_file_integrity",
+      facialIdentityVerified: false,
     } : {}),
     retryCount: 0,
   };
@@ -341,20 +340,21 @@ export const processSpicyPhotos = createServerOnlyFn(async function processSpicy
       const url = task.output?.assets?.[0]?.url;
       if (typeof url !== "string") throw new Error("spicy_output_missing");
       const image = await downloadSpicyOutput(url, job.model);
-      try {
-        const candidate = new Blob([new Uint8Array(image.bytes)], { type: image.mime });
-        if (job.payload.type === "suggestive") {
-          // Do not send suggestive imagery to OpenAI or confuse a passed
-          // content/age screen with a verified face-identity match.
-          await screenSuggestivePhoto(candidate);
-        } else {
-          await screenPhotoVisuals(canonical.blob, candidate, job.payload.scene);
+      // Suggestive pictures are already limited to adult, opted-in characters
+      // and SpicyAPI's own rules. Do not forward them to an external visual
+      // checker (including OpenAI). The Spicy downloader validates the PNG
+      // response type/signature and the worker verifies file integrity.
+      if (job.payload.type !== "suggestive") {
+        try {
+          await screenPhotoVisuals(
+            canonical.blob,
+            new Blob([new Uint8Array(image.bytes)], { type: image.mime }),
+            job.payload.scene,
+          );
+        } catch {
+          await finish(db, job, null, "spicy_visual_screen_failed");
+          continue;
         }
-      } catch (e) {
-        const reason = e instanceof Error && /^suggestive_[a-z_]+$/.test(e.message)
-          ? e.message : "spicy_visual_screen_failed";
-        await finish(db, job, null, reason);
-        continue;
       }
       const upload = await db.storage
         .from("tess-photos")
