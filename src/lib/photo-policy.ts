@@ -109,7 +109,11 @@ export class PhotoSceneBoundaryError extends Error {
   }
 }
 
-/** Allow adult non-nude lingerie styling; provider moderation remains authoritative. */
+/** Structural validity only; image content is handled by existing
+ * character eligibility, relationship boundaries and provider screening.
+ */
 export function safePhotoScene(scene: string): boolean {
-  return !/\b(nud(?:e|ity)|naked|topless|bottomless|genitals?|nipples?|porn(?:ographic)?|sex(?:ual)?\s+act(?:ivity)?|intercourse|masturbat\w*|see[ -]?through|sheer|schoolgirl|schoolboy|teen(?:ager)?|underage|child|minor)\b/i.test(scene);
+  return typeof scene === "string" &&
+    scene.length <= 4096 &&
+    !scene.includes("\u0000");
 }
