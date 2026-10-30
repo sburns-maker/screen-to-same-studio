@@ -1,4 +1,4 @@
-import { allowedCharacterPhotoTypes, characterPhotoIntensityHint, deliveredPhotoContextLabel } from "./photo-mature-personality";
+import { allowedCharacterPhotoTypes, characterPhotoIntensityHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory } from "./photo-mature-personality";
 import { supportsRelationshipCommitment } from "./relationship-commitments";
 import { ordinaryPhotoStyle } from "./photo-wardrobe";
 import { PendingPhotoTask } from "./photo-task";
@@ -805,7 +805,12 @@ async function runTurnUnlocked(
     .limit(200);
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
   const seen = new Set((existingMem ?? []).map((m: { summary: string }) => norm(m.summary)));
-  const memRows = (reply.memory_candidates ?? [])
+  const deliveredPhotoMemory = generated ? deliveredRomanticPhotoMemory(def.preferredName, generated.type) : null;
+  const memoryCandidates = [
+    ...(deliveredPhotoMemory ? [{memory_type:"relationship", summary:deliveredPhotoMemory, importance:4}] : []),
+    ...(reply.memory_candidates ?? []),
+  ];
+  const memRows = memoryCandidates
     .filter((m) => m.summary?.trim())
     .filter((m) => {
       const k = norm(m.summary);
