@@ -340,7 +340,26 @@ export async function generateTessImage(args: {
       ? "\n\nFICTIONAL GROUP MOMENT: The approved reference image belongs ONLY to the main foreground character. Keep that character recognizable, and add 1–4 generic fictional adult teammates appropriate to the established scene. Give the teammates distinct ordinary appearances; do not claim they are known or named contacts. No real patrons, clients, patients, private screens or identifying material. Compose like a casual phone group selfie, not a studio portrait."
       : "";
     let prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\n\n${photoTextPrompt(text)}`;
-    if(args.provider.name === "spicyapi") prompt = `${buildSpicyPrompt(args.identity!.name,args.identity!.age,args.scene,args.style??{},args.type === "suggestive" ? "suggestive" : "mature_romantic")}\n${photoPersonalityPrompt(args.photography ?? {version:1,character:args.identity!.key,scenario:null,candidates:[],location:null,availability:"free",continuity:{hairstyle:null,clothing:null,objects:[],weather:null},continuitySource:"current_context_only",continuityReason:"explicit scene",outfitEpisode:"unestablished"},args.style)}\n${args.type === "suggestive" ? SUGGESTIVE_STYLE : MATURE_STYLE}`;
+    if (args.provider.name === "spicyapi") {
+      // Seedream edit accepts at most 5,000 prompt characters. Preserve the
+      // approved identity, actual scene and mandatory category guidance first.
+      // Optional photographic flavor is shortened only in this outgoing copy.
+      const base = buildSpicyPrompt(
+        args.identity!.name, args.identity!.age, args.scene, args.style ?? {},
+        args.type === "suggestive" ? "suggestive" : "mature_romantic",
+      );
+      const category = args.type === "suggestive" ? SUGGESTIVE_STYLE : MATURE_STYLE;
+      const personality = photoPersonalityPrompt(args.photography ?? {
+        version: 1, character: args.identity!.key, scenario: null, candidates: [],
+        location: null, availability: "free",
+        continuity: { hairstyle: null, clothing: null, objects: [], weather: null },
+        continuitySource: "current_context_only", continuityReason: "explicit scene",
+        outfitEpisode: "unestablished",
+      }, args.style);
+      const available = 5000 - base.length - category.length - 2;
+      if (available < 0) throw new Error("spicy_prompt_too_long");
+      prompt = `${base}\n${personality.slice(0, available)}\n${category}`;
+    }
     const references: Blob[] = [];
     if (canonical) references.push(canonical.blob); // Always primary, original portrait.
     if (args.identity?.key === "tess" && sceneHasMabel(args.scene) && args.mabelReference)
