@@ -8,7 +8,7 @@ import {photoContextForSchedule} from "./calendar-commitment";
 import {resolvePhotoScene} from "./photo-scene.server";
 import {photoSceneCheck, correctedPhotoScene} from "./photo-scene";
 import { continuityPhotoStyle, deliveredPhotoSubjects, deliveredPhotoHistory, planPhotography, photographyGuidance, photographyDiagnostics, previousDeliveredPhoto, photographyProfile, type PhotographyPlan } from "./photo-personality";
-import { photoPacing } from "./photo-pacing";
+import { photoPacing, directPhotoRequest } from "./photo-pacing";
 import { userVideoMetadata, videoTranscriptText } from "./user-video";
 import { evidenceContinuity, currentActivity } from "./world-continuity";
 import { continuityContext, reserveImageBudget, imageBudgetStatus, reserveWorldAi } from "./world-runtime.server";
@@ -576,10 +576,21 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason, photoValidation:{...photoPreflight,stage:"requested_context"} };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
+  // Riley's genuine everyday-photo requests are evaluated directly, not through
+  // the lottery for unsolicited photos. Eligibility, privacy, actual willingness,
+  // boundaries, the existing scene and budgets still apply unchanged.
+  const directRileyOrdinaryPhotoRequest = def.key === "riley" && !voice && !initiation &&
+    generateTypes.some(type => !["mature_romantic", "suggestive", "mature_nude"].includes(type)) &&
+    state.perceived_pressure < 30 && state.irritation < 20 &&
+    directPhotoRequest(recent.find(m => m.sender === "user")?.body ?? "");
   // The character evaluates a selected opportunity in normal chat as well as
   // in autonomous photo ticks. No automatic willingness or category selection.
   const photoMomentSelected = !voice && !!generateTypes.length && opportunity.eligible && opportunity.selected;
-  const photoHint = [photoMomentSelected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }), ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []), characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
+  const photoHint = [directRileyOrdinaryPhotoRequest
+    ? "RILEY ORDINARY PHOTO REQUEST: Answer the specific everyday photo question directly. A first respectful request is not by itself pressure or romantic escalation; you can genuinely send a casual photo when comfortable, or decline without performative deflection. Do not invent a photo or imply you cannot send images."
+    : photoMomentSelected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
+    ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []),
+    characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
   if (voice) {
     photos=[];generateTypes=[];
@@ -614,7 +625,9 @@ async function runTurnUnlocked(
           character: def, state, stage: deriveStage(state), difficulty, messages: messageList,
           memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
           availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
-          photoBoundary: photoContext.boundary, photoHint, photoMomentSelected, worldKnowledge: groundedKnowledge,
+          photoBoundary: photoContext.boundary, photoHint, photoMomentSelected,
+          directOrdinaryPhotoRequest: !!directRileyOrdinaryPhotoRequest,
+          worldKnowledge: groundedKnowledge,
           conversationThreads: story.topics, topicHistory,
         });
   };
