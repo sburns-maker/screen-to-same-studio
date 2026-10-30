@@ -41,6 +41,18 @@ it("rejects unsupported models, local references, empty prompts and excessive re
   ] as [string, string, string[]][])
     expect(() => buildSpicyRequest(...args)).toThrow();
 });
+it("preflights the provider's documented 5000-character edit limit", () => {
+  const urls = ["https://storage.example.com/canon.png"];
+  expect(buildSpicyRequest(SPICY_MODELS[0], "x".repeat(5000), urls).input.prompt.length).toBe(5000);
+  expect(() => buildSpicyRequest(SPICY_MODELS[0], "x".repeat(5001), urls))
+    .toThrow("spicy_prompt_too_long");
+});
+it("reports safe quote transport failures without leaking network messages", async () => {
+  vi.stubEnv("SPICY_API_KEY", "test");
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("private proxy internal address")));
+  await expect(quoteSpicyRequest(buildSpicyRequest(SPICY_MODELS[0], "fictional adult", ["https://example.com/a"])))
+    .rejects.toMatchObject({ message: "spicy_quote_transport_failed" });
+});
 it("submits the stable idempotency header and accepts HTTP202/code200", async () => {
   vi.stubEnv("SPICY_API_KEY", "server-only-test");
   const fetcher = vi
