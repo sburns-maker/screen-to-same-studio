@@ -13,7 +13,7 @@ import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
 import { KNOWLEDGE_RULES } from "./social-logic";
 import { EVENT_TAG_RULES } from "./event-tags";
-export const EVENT_TAGS_LINE = `- event_tags: short tags for what happened this turn, following the EVENT TAGS rules above exactly.`;
+export const EVENT_TAGS_LINE = `- event_tags: tag the latest PLAYER message separately from YOUR reply. Use user_flirt only for the player\u0027s actual romantic overture, flirt only for your own overture, both only if both happened; a warm acknowledgement is not automatically your flirt. Follow the EVENT TAGS rules above exactly.`;
 
 
 import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE } from "./tess-voice";
