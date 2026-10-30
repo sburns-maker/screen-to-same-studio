@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CHARACTERS } from "@/lib/characters";
 import { SEED_STATE } from "@/lib/tess-logic";
 import { eligiblePhotos } from "@/lib/tess-photos";
-import { photoCapabilities, eligiblePhotoCategories, willingPhotoAllowed, photoDecisionReason, nextPhotoBoundary, safePhotoScene, type PhotoContext } from "@/lib/photo-policy";
+import { photoCapabilities, eligiblePhotoCategories, willingPhotoAllowed, photoDecisionReason, nextPhotoBoundary, safePhotoScene, photoSceneBoundaryIssue, PhotoSceneBoundaryError, type PhotoContext } from "@/lib/photo-policy";
 
 const context: PhotoContext = { age: 35, enabled: true, romanticCapable: true,
   supported: CHARACTERS.claire.photoTypes, matureEnabled: false, boundary: "none" };
@@ -113,4 +113,27 @@ describe("photo autonomy and boundaries", () => {
       eligible: ["suggestive"], state: ready, context: mature,
     })).toContain("romantic framing");
   });
+  it("identifies the invalid generated field without exposing prompt content", () => {
+    const teasing = "I'm at work, and I'd love a confident, playful photo from my girlfriend.";
+    expect(photoSceneBoundaryIssue({
+      scene: "Riley at home, playful selfie in opaque casual clothes",
+      expression: "amused smile",
+      caption: teasing,
+    })).toBeNull();
+    expect(photoSceneBoundaryIssue({
+      scene: "Riley at home",
+      clothing_category: "sheer fabric",
+      expression: "playful",
+    })).toEqual({ field: "clothing_category", rule: "photo.scene_content_boundary" });
+    expect(photoSceneBoundaryIssue({
+      scene: "Riley at home",
+      expression: "nude portrait",
+      clothing_category: "blue sweater",
+    })).toEqual({ field: "expression", rule: "photo.scene_content_boundary" });
+    const e = new PhotoSceneBoundaryError("expression");
+    expect(e.message).toBe("photo scene outside supported boundaries");
+    expect(e.field).toBe("expression");
+    expect(JSON.stringify(e)).not.toContain("Riley");
+  });
+
 });
