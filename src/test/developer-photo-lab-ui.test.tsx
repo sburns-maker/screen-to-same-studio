@@ -52,6 +52,21 @@ it("offers a free SpicyAPI connection check without making a generation call", a
   expect(mocks.connectivity).toHaveBeenCalledWith({ data: { conversationId: "riley-conversation" } });
   expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
 });
+it("shows which upstream is failing without generating a paid image", async () => {
+  mocks.connectivity.mockResolvedValueOnce({
+    status: "transport_error", httpStatus: null, transportCode: "fetch_failed",
+    checks: {
+      publicCatalog: { status: "transport_error", httpStatus: null, transportCode: "fetch_failed" },
+      internet: { status: "reachable", httpStatus: 200, transportCode: null },
+    },
+  });
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Check SpicyAPI connection (free)" }));
+  expect(await screen.findByText(/General internet access works/)).toBeTruthy();
+  expect(screen.getByText(/Public SpicyAPI \(no key\)/)).toBeTruthy();
+  expect(screen.getByText(/Neutral internet check/)).toBeTruthy();
+  expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
+});
 it("has a separate button for each exact category and does not generate on opening", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   const button = await screen.findByRole("button", {

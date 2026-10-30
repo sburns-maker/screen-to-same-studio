@@ -6,6 +6,20 @@ import {
   type PhotoLabType,
   type PhotoLabResult,
 } from "@/lib/developer-photo-lab";
+type NetworkCheck = { status: "reachable" | "http_error" | "transport_error"; httpStatus: number | null; transportCode: string | null };
+function describeNetworkCheck(check: NetworkCheck) {
+  if (check.status === "reachable") return "Connected";
+  if (check.status === "http_error") return `Connected · HTTP ${check.httpStatus}`;
+  return `Connection failed · ${check.transportCode ?? "unknown"}`;
+}
+function connectionHint(report: { status: string; checks: { publicCatalog: NetworkCheck; internet: NetworkCheck } | null }) {
+  if (!report.checks || report.status !== "transport_error") return null;
+  const publicWorks = report.checks.publicCatalog.status !== "transport_error";
+  const internetWorks = report.checks.internet.status !== "transport_error";
+  if (publicWorks) return "SpicyAPI answers without an API key, but the authenticated request fails at the network layer. Inspect the hosting runtime's request handling.";
+  if (internetWorks) return "General internet access works, but both requests to the SpicyAPI API host fail. Investigate that hostname's DNS, TLS, hosting allowlist, or upstream reachability.";
+  return "Even the neutral internet request fails. Check the hosting server's outbound HTTPS access before testing another image.";
+}
 type Snapshot = {
   character: string;
   types: { type: PhotoLabType; label: string; supported: boolean }[];
@@ -198,15 +212,27 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {checkingSpicy ? "Checking connection..." : "Check SpicyAPI connection (free)"}
         </button>
         {spicyStatus && (
-          <p role="status" className="break-words text-sm">
-            {spicyStatus.status === "reachable"
-              ? "SpicyAPI is reachable from the app server."
-              : spicyStatus.status === "http_error"
-                ? `SpicyAPI responded with HTTP ${spicyStatus.httpStatus}. The network connection works; check account/key access.`
-                : spicyStatus.status === "not_configured"
-                  ? "SpicyAPI is not enabled or its server key is missing."
-                  : `The app server could not reach SpicyAPI: ${spicyStatus.transportCode ?? "unknown"}.`}
-          </p>
+          <div role="status" className="space-y-2 break-words text-sm">
+            <p>
+              {spicyStatus.status === "reachable"
+                ? "SpicyAPI is reachable from the app server."
+                : spicyStatus.status === "http_error"
+                  ? `SpicyAPI responded with HTTP ${spicyStatus.httpStatus}. Check account/key access if unauthorized.`
+                  : spicyStatus.status === "not_configured"
+                    ? "SpicyAPI is not enabled or its server key is missing."
+                    : `Authenticated SpicyAPI request failed: ${spicyStatus.transportCode ?? "unknown"}.`}
+            </p>
+            {spicyStatus.checks && (
+              <div className="space-y-1 rounded-lg border p-3 text-xs" aria-label="Network comparison">
+                <p>Public SpicyAPI (no key): {describeNetworkCheck(spicyStatus.checks.publicCatalog)}</p>
+                <p>Neutral internet check: {describeNetworkCheck(spicyStatus.checks.internet)}</p>
+                <p className="text-muted-foreground">
+                  All three tests are free GET requests. No image or reference is sent.
+                </p>
+                {connectionHint(spicyStatus) && <p className="font-medium">{connectionHint(spicyStatus)}</p>}
+              </div>
+            )}
+          </div>
         )}
       </section>
       <button
