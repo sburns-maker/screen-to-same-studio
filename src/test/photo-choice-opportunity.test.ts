@@ -43,6 +43,36 @@ describe("character-driven spontaneous photo choices", () => {
     // A mistakenly broad list still cannot override an ordinary-only character's profile.
     expect(choice("jordan", "at home", ready)).not.toContain("PRIVATE ROMANTIC PHOTO OPTION:");
   });
+  it("lets Riley consider an ordinary selfie on a direct request even when the random photo lottery loses", () => {
+    const prompt = photoChoiceInstruction({
+      character: "riley",
+      opportunitySelected: false,
+      directOrdinaryRequest: true,
+      eligibleTypes: ready,
+      currentSetting: "at home relaxing",
+    });
+    expect(prompt).toContain("DIRECT EVERYDAY PHOTO REQUEST");
+    expect(prompt).toContain("casual_selfie");
+    expect(prompt).toContain("willing=true");
+    expect(prompt).toContain("framing=ordinary");
+    expect(prompt).toContain("photo=null is valid");
+    expect(prompt).not.toContain("PRIVATE ROMANTIC PHOTO OPTION");
+    expect(prompt).toContain("Do NOT escalate");
+  });
+  it("does not bypass a saved no-selfie boundary or fabricate a picture when ordinary types are unavailable", () => {
+    const objectOnly = photoChoiceInstruction({
+      character: "riley", opportunitySelected: false, directOrdinaryRequest: true,
+      eligibleTypes: ["object"], currentSetting: "at home",
+    });
+    expect(objectOnly).toContain("object");
+    expect(objectOnly).not.toContain("casual_selfie");
+    const blocked = photoChoiceInstruction({
+      character: "riley", opportunitySelected: false, directOrdinaryRequest: true,
+      eligibleTypes: [], currentSetting: "at home",
+    });
+    expect(blocked).toContain("photo=null");
+    expect(blocked).toContain("No ordinary photograph is permitted");
+  });
   it("retains the normal no-photo default for skipped opportunities and disabled photos", () => {
     expect(choice("maya", "at home", ready, false)).toBe("Usually null.");
     expect(choice("maya", "at home", [], true)).toBe("Usually null.");
