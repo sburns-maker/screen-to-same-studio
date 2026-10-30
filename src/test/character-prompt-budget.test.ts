@@ -13,7 +13,7 @@ describe("character AI context budget (prompt only)", () => {
   });
   it("keeps newest dialogue and latest user text under the prompt limit without mutating history", () => {
     const history = Array.from({ length: 80 }, (_, i) => ({
-      id: i, sender: i % 2 ? "tess" : "user", body: `message-${i}: ${"a".repeat(3000)}`,
+      id: i, sender: i % 2 ? "tess" : "user", body: `message-${i}: ${"a".repeat(9000)}`,
     }));
     const prompt = boundedRecentDialogue(history);
     expect(prompt.length).toBeLessThanOrEqual(26);
