@@ -48,7 +48,7 @@ it("offers a free SpicyAPI connection check without making a generation call", a
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   const button = await screen.findByRole("button", { name: "Check SpicyAPI connection (free)" });
   fireEvent.click(button);
-  expect(await screen.findByText(/dns_retry/)).toBeInTheDocument();
+  expect(await screen.findByText(/dns_retry/)).toBeTruthy();
   expect(mocks.connectivity).toHaveBeenCalledWith({ data: { conversationId: "riley-conversation" } });
   expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
 });
