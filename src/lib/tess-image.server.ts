@@ -236,13 +236,19 @@ const SAFE_DIAG = /^[A-Za-z0-9_.:-]{1,128}$/;
 /** Duck-typed (avoids importing the spicy module): only sanitized tokens survive. */
 export function spicyFailureDiagnostics(error: unknown): Partial<PhotoDiagnostics> {
   if (!(error instanceof Error) || !/^spicy_[a-z0-9_]{1,80}$/.test(error.message)) return {};
-  const e = error as Error & { stage?: unknown; status?: unknown; requestId?: unknown; providerCode?: unknown };
+  const e = error as Error & { stage?: unknown; status?: unknown; requestId?: unknown; providerCode?: unknown; transportCode?: unknown };
   const out: Partial<PhotoDiagnostics> = {};
   if (typeof e.stage === "string" && SAFE_DIAG.test(e.stage)) out.providerStage = e.stage;
   const http = /^spicy_http_(\d{3})$/.exec(error.message);
   if (http) out.providerHttpStatus = Number(http[1]);
   if (typeof e.requestId === "string" && SAFE_DIAG.test(e.requestId)) out.providerRequestId = e.requestId;
   if (typeof e.providerCode === "string" && SAFE_DIAG.test(e.providerCode)) out.providerError = { code: e.providerCode };
+  // Only the closed set of server-classified transport codes can reach the UI.
+  const transportCodes = ["timeout", "aborted", "dns_not_found", "dns_retry",
+    "connection_refused", "connection_reset", "connection_timeout",
+    "tls_certificate", "blocked_redirect", "fetch_failed", "unknown"];
+  if (typeof e.transportCode === "string" && transportCodes.includes(e.transportCode))
+    out.providerTransportCode = e.transportCode;
   if (/^spicy_quote_[a-z_]+$/.test(error.message)) out.localValidationRule = error.message;
   return out;
 }
@@ -274,6 +280,7 @@ export type PhotoDiagnostics = {
   providerHttpStatus?: number;
   providerStage?: string;
   providerRequestId?: string;
+  providerTransportCode?: string;
   localValidationRule?: string;
   providerError?: { code?: string; type?: string; param?: string };
   retryReasons?: string[];
