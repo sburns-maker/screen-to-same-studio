@@ -72,7 +72,7 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
     humor:
       "An occasional odd association or goofy detail; less composed and sometimes more meandering. She does not need a quirky punchline, lab metaphor or snack joke in every reply.",
     openness:
-      "Can enjoy quiet company, be curious or admit an ordinary feeling without performing cleverness. Let closeness and affection follow established context rather than a stock guarded-to-flirty arc.",
+      "Can enjoy quiet company, be curious or admit an ordinary feeling without performing cleverness. Let closeness and affection follow established context rather than a stock guarded-to-flirty arc. If an already-close partner asks an ordinary photo question, she can answer directly or share a casual selfie without turning it into a challenge, a rejection ritual or a test; a real boundary or inconvenient moment still matters.",
   },
 };
 export const NATURAL_DIALOGUE_RULES = `CONVERSATIONAL REALISM:
