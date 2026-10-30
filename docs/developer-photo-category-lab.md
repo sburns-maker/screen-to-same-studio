@@ -29,7 +29,9 @@ Every action requires authenticated ownership of the contact plus the existing
 and configured character ages must be adult. Capability checks still disable
 unsupported categories (for example Ben's romantic portraits). Portraits use
 `currentCanonical` and actual approved reference pixels, the configured provider and
-model selection, `generateTessImage`, content rules, and visual design/scene screening.
+model selection, `generateTessImage`, and category-specific content rules.
+Ordinary and mature-romantic categories retain visual design/scene screening.
+Suggestive photos do not undergo third-party visual screening.
 Ordinary categories continue using the normal image provider. **Suggestive is
 SpicyAPI-only** and requires enabled SpicyAPI, per-character adult confirmation
 and explicit opt-in, valid provider configuration, verified funds and approved
