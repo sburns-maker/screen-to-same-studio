@@ -51,9 +51,13 @@ async function probeHttpConnection(url: string, key?: string): Promise<SpicyProb
     const response = await fetch(url, {
       method: "GET",
       ...(key ? { headers: { Authorization: `Bearer ${key}` } } : {}),
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(12000),
     });
+    // Cloudflare Workers rejects redirect:"error" at Request construction.
+    // Manual mode returns 3xx without following it or forwarding any API key.
+    if (response.status >= 300 && response.status < 400)
+      return { status: "transport_error", httpStatus: response.status, transportCode: "blocked_redirect" };
     return {
       status: response.ok ? "reachable" : "http_error",
       httpStatus: response.status,
@@ -211,7 +215,7 @@ async function spicyCall(path: string, body?: unknown, idempotency?: string): Pr
   if (!key) throw new Error("spicy_secret_missing");
   const response = await fetch(`${SPICY_BASE}${path}`, {
     method: body ? "POST" : "GET",
-    redirect: "error",
+    redirect: "manual",
     signal: AbortSignal.timeout(20000),
     headers: {
       Authorization: `Bearer ${key}`,
@@ -220,6 +224,12 @@ async function spicyCall(path: string, body?: unknown, idempotency?: string): Pr
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
+  // Explicitly reject redirects: no key, prompt or reference may be forwarded.
+  // Unlike redirect:"error", manual mode works in Cloudflare Workers.
+  if (response.status >= 300 && response.status < 400) {
+    await response.body?.cancel().catch(() => {});
+    throw new SpicyHttpFailure(response.status, null, undefined, "redirect_blocked");
+  }
   if (!response.ok) {
     // Keep only a bounded, sanitized provider code and request id; never the body.
     let providerCode: string | undefined;

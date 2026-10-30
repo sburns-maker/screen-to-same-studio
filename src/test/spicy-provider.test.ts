@@ -83,7 +83,7 @@ it("probes three fixed endpoints with only one authenticated request and no task
     "https://example.com/",
   ]);
   expect(f.mock.calls[0]![1]).toMatchObject({
-    method: "GET", redirect: "error", headers: { Authorization: "Bearer server-secret" },
+    method: "GET", redirect: "manual", headers: { Authorization: "Bearer server-secret" },
   });
   for (const call of f.mock.calls) {
     expect(call[1].body).toBeUndefined();
@@ -91,6 +91,50 @@ it("probes three fixed endpoints with only one authenticated request and no task
   for (const call of f.mock.calls.slice(1)) {
     expect(call[1].headers).toBeUndefined();
   }
+});
+it("works with Cloudflare-compatible manual redirect mode, never unsupported error mode", async () => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "server-secret");
+  const fetcher = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+    if (init.redirect === "error") throw new TypeError("Invalid redirect value");
+    return Promise.resolve(new Response(null, { status: 204 }));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  expect((await spicyConnectionProbe()).status).toBe("reachable");
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(fetcher.mock.calls.every((c) => c[1].redirect === "manual")).toBe(true);
+});
+it("classifies redirects as blocked without following or forwarding credentials", async () => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "secret-do-not-forward");
+  const fetcher = vi.fn().mockResolvedValue(new Response(null, {
+    status: 302, headers: { location: "https://third-party.example/collect" },
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  const report = await spicyConnectionProbe();
+  expect(report).toEqual({
+    status: "transport_error", httpStatus: 302, transportCode: "blocked_redirect",
+    checks: {
+      publicCatalog: { status: "transport_error", httpStatus: 302, transportCode: "blocked_redirect" },
+      internet: { status: "transport_error", httpStatus: 302, transportCode: "blocked_redirect" },
+    },
+  });
+  expect(fetcher).toHaveBeenCalledTimes(3);
+  expect(JSON.stringify(report)).not.toContain("secret");
+});
+it("rejects provider redirects before reading the response or creating a follow-up request", async () => {
+  vi.stubEnv("SPICY_API_KEY", "secret-do-not-forward");
+  const fetcher = vi.fn().mockResolvedValue(new Response(null, {
+    status: 307, headers: { location: "https://third-party.example/collect" },
+  }));
+  vi.stubGlobal("fetch", fetcher);
+  await expect(quoteSpicyRequest(buildSpicyRequest(
+    SPICY_MODELS[0], "fictional adult", ["https://example.com/reference.png"],
+  ))).rejects.toMatchObject({
+    status: 307, stage: "quote", providerCode: "redirect_blocked",
+  });
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0]![1].redirect).toBe("manual");
 });
 it("reports a blocked network with no raw hostnames, prompts or keys", async () => {
   vi.stubEnv("SPICY_ENABLED", "true");
@@ -166,7 +210,7 @@ it("submits the stable idempotency header and accepts HTTP202/code200", async ()
       Authorization: "Bearer server-only-test",
       "Idempotency-Key": "photo-msg-stable-render-1",
     },
-    redirect: "error",
+    redirect: "manual",
   });
   expect(fetcher).toHaveBeenCalledTimes(1);
 });
