@@ -13,6 +13,7 @@ import type { Difficulty, Stage, TessState } from "./tess-logic";
 import type { PhotoBoundary } from "./photo-policy";
 import { KNOWLEDGE_RULES } from "./social-logic";
 import { EVENT_TAG_RULES } from "./event-tags";
+import { clairePrivateRomanticOutlook } from "./claire-romantic-arc";
 export const EVENT_TAGS_LINE = `- event_tags: tag the latest PLAYER message separately from YOUR reply. Use user_flirt only for the player\u0027s actual romantic overture, flirt only for your own overture, both only if both happened; a warm acknowledgement is not automatically your flirt. Follow the EVENT TAGS rules above exactly.`;
 
 
@@ -404,6 +405,7 @@ ${c.textingStyle}
 
 HIDDEN STATE (0–100, never mention): ${JSON.stringify(args.state)}
 RELATIONSHIP STAGE: ${args.stage}
+${c.key === "claire" ? clairePrivateRomanticOutlook(args.state, args.messages, args.memories) : ""}
 DIFFICULTY: ${args.difficulty} — ${DIFFICULTY_NOTES[args.difficulty]}
 CURRENT UTC TIMESTAMP: ${now.toISOString()}
 NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
