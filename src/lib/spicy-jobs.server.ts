@@ -19,6 +19,7 @@ import {
 } from "./spicy-image.server";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
+import { screenSuggestivePhoto } from "./suggestive-photo-qc.server";
 type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
@@ -151,6 +152,10 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
     provider: "spicyapi",
     model: job.model,
     validationStatus: "screen_passed",
+    // Adult/safety screening is not facial-identity verification.
+    ...(job.payload.type === "suggestive" ? {
+      screeningMethod: "sightengine_nudity_face_age", facialIdentityVerified: false,
+    } : {}),
     retryCount: 0,
   };
   return {
@@ -337,13 +342,18 @@ export const processSpicyPhotos = createServerOnlyFn(async function processSpicy
       if (typeof url !== "string") throw new Error("spicy_output_missing");
       const image = await downloadSpicyOutput(url, job.model);
       try {
-        await screenPhotoVisuals(
-          canonical.blob,
-          new Blob([new Uint8Array(image.bytes)], { type: image.mime }),
-          job.payload.scene,
-        );
-      } catch {
-        await finish(db, job, null, "spicy_visual_screen_failed");
+        const candidate = new Blob([new Uint8Array(image.bytes)], { type: image.mime });
+        if (job.payload.type === "suggestive") {
+          // Do not send suggestive imagery to OpenAI or confuse a passed
+          // content/age screen with a verified face-identity match.
+          await screenSuggestivePhoto(candidate);
+        } else {
+          await screenPhotoVisuals(canonical.blob, candidate, job.payload.scene);
+        }
+      } catch (e) {
+        const reason = e instanceof Error && /^suggestive_[a-z_]+$/.test(e.message)
+          ? e.message : "spicy_visual_screen_failed";
+        await finish(db, job, null, reason);
         continue;
       }
       const upload = await db.storage
