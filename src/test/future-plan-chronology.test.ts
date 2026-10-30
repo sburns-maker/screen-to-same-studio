@@ -42,6 +42,8 @@ describe("future canonical plan chronology", () => {
       "We did get that walk in last Sunday. I'm looking forward to another one.",
       "We had a walk last Sunday, and this Sunday will be even better.",
       "We had fun on our previous walk, and I'm looking forward to Sunday.",
+      "We had our walk planned for Sunday, but I still need to pack snacks.",
+      "We did get the walk scheduled for Sunday, Mabel is ready.",
     ]) expect(futurePlanCompletionClaim(reply, plans)).toBeNull();
   });
 
