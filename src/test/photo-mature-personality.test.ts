@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { PHOTO_INTENSITY_PROFILES, maturePhotoCharacterHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory, allowedCharacterPhotoTypes, characterPhotoIntensityHint } from "@/lib/photo-mature-personality";
 import { photoDecisionRules } from "@/lib/tess.server";
+import { PHOTO_LAB_TYPES, PHOTO_LAB_PRESETS, labTypeSupported } from "@/lib/developer-photo-lab";
+import { CHARACTERS } from "@/lib/characters";
+import { safePhotoScene } from "@/lib/photo-policy";
 
 describe("character-aware mature photo guidance", () => {
   it("gives Kendra optional fashion-aware framing only when the mature category is eligible", () => {
@@ -98,5 +101,12 @@ describe("character-aware mature photo guidance", () => {
     expect(deliveredRomanticPhotoMemory("Riley", "mature_romantic")).toContain("private romantic");
     expect(deliveredRomanticPhotoMemory("Riley", "casual_selfie")).toBeNull();
     expect(deliveredPhotoContextLabel("suggestive")).toContain("suggestive");
+  });
+  it("developer lab exposes suggestive without changing a character choice", () => {
+    expect(PHOTO_LAB_TYPES).toContain("suggestive");
+    expect(PHOTO_LAB_PRESETS.suggestive.label).toContain("Suggestive");
+    expect(safePhotoScene(PHOTO_LAB_PRESETS.suggestive.scene)).toBe(true);
+    expect(labTypeSupported(CHARACTERS.riley, "suggestive")).toBe(true);
+    expect(labTypeSupported(CHARACTERS.ben, "suggestive")).toBe(false);
   });
 });
