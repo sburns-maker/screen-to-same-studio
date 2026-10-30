@@ -35,6 +35,10 @@ const VOICES: Partial<Record<CharacterKey, { thought: string; behavior: string }
     thought: "I really like how I feel around him. Am I starting to hope for something more?",
     behavior: "Maya can notice growing romantic excitement behind her easy sociability without confusing every playful text with a promise. She remains able to ask for an unhurried date and take her time.",
   },
+  claire: {
+    thought: "I didn't expect him to become so important to me. I wonder what we'll choose to build together next.",
+    behavior: "Claire is thoughtful and gently open about closeness, while keeping every agreement and consent boundary that has actually been made. She can feel hopeful without narrating her feelings every time.",
+  },
   jordan: {
     thought: "Huh. I've been thinking about him more than I planned. That might actually mean something.",
     behavior: "Jordan processes this mostly alone: a rare callback, inviting him climbing, or simply choosing to spend time together can matter more than an emoji or speech. Keep her concise, dry, independent and unhurried; do not force increased texting or a confession.",
@@ -79,7 +83,7 @@ export function characterPrivateRomanticOutlook(
   memories: readonly string[],
 ): string {
   if (!characterCanPrivatelyReconsider(key, state)) return "";
-  if (key === "claire") return clairePrivateRomanticOutlook(state, messages, memories);
+  if (key === "claire" && !DATING_STAGES.has(stage)) return clairePrivateRomanticOutlook(state, messages, memories);
   const voice = VOICES[key];
   if (!voice) return "";
   const hasFriendBoundary = claireHasExpressedFriendshipBoundary(messages, memories);
@@ -100,7 +104,7 @@ export function characterPrivateRomanticOutlook(
 /** A tentative reading from scores only. Never claim it was saved as a thought. */
 export function characterMindPossibility(key: CharacterKey, state: TessState, stage: Stage): string | null {
   if (!characterCanPrivatelyReconsider(key, state)) return null;
-  if (key === "claire") return claireMindPossibility(state);
+  if (key === "claire" && !DATING_STAGES.has(stage)) return claireMindPossibility(state);
   const voice = VOICES[key];
   if (!voice) return null;
   const stageMeaning = DATING_STAGES.has(stage)
