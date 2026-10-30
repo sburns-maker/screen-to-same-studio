@@ -22,8 +22,22 @@ describe("character-aware mature photo guidance", () => {
     expect(hint).toContain("shift schedule");
     expect(hint).toContain("does not create standing consent");
   });
-  it("does not change other characters or bypass eligibility", () => {
-    for (const key of ["tess", "maya", "claire", "jordan", "ben"]) {
+  it("gives Maya her own gradual romantic-photo guidance", () => {
+    const hint = maturePhotoCharacterHint("maya", ["mature_romantic"]);
+    expect(hint).toContain("playful flirtation");
+    expect(hint).toContain("romantic intent");
+    expect(hint).toContain("suggestive non-explicit");
+    expect(maturePhotoCharacterHint("maya", ["casual_selfie"])).toBe("");
+  });
+  it("lets Claire make private romantic choices without equating warmth with consent", () => {
+    const hint = maturePhotoCharacterHint("claire", ["mature_romantic"]);
+    expect(hint).toContain("open to genuine romance");
+    expect(hint).toContain("consent");
+    expect(hint).toContain("suggestive non-explicit");
+    expect(maturePhotoCharacterHint("claire", ["casual_selfie"])).toBe("");
+  });
+  it("keeps unmodified or platonic characters out of the romantic-photo guidance", () => {
+    for (const key of ["tess", "jordan", "ben"]) {
       expect(maturePhotoCharacterHint(key, ["mature_romantic"])).toBe("");
     }
     expect(maturePhotoCharacterHint("sienna", [])).toBe("");
@@ -45,11 +59,21 @@ describe("character-aware mature photo guidance", () => {
   it("filters mature options per character without forcing a photo", () => {
     const riley = allowedCharacterPhotoTypes("riley", ["casual_selfie", "mature_romantic", "suggestive"]);
     expect(riley).toContain("suggestive");
-    expect(allowedCharacterPhotoTypes("maya", riley)).toEqual(["casual_selfie", "mature_romantic"]);
+    expect(allowedCharacterPhotoTypes("maya", riley)).toEqual(riley);
+    expect(allowedCharacterPhotoTypes("claire", riley)).toEqual(riley);
     expect(allowedCharacterPhotoTypes("jordan", riley)).toEqual(["casual_selfie"]);
     expect(allowedCharacterPhotoTypes("ben", riley)).toEqual(["casual_selfie"]);
     expect(characterPhotoIntensityHint("riley", riley)).toContain("independent willingness");
+    expect(characterPhotoIntensityHint("maya", riley)).toContain("gradual");
+    expect(characterPhotoIntensityHint("claire", riley)).toContain("privacy");
+    expect(characterPhotoIntensityHint("claire", ["casual_selfie"])).toBe("");
     expect(characterPhotoIntensityHint("jordan", ["casual_selfie"])).toBe("");
+  });
+  it("never expands a character's hard eligibility list", () => {
+    for (const character of ["maya", "claire"]) {
+      expect(allowedCharacterPhotoTypes(character, ["casual_selfie"])).toEqual(["casual_selfie"]);
+      expect(allowedCharacterPhotoTypes(character, [])).toEqual([]);
+    }
   });
   it("stores only actual private romantic photo categories as memories", () => {
     expect(deliveredRomanticPhotoMemory("Riley", "suggestive")).toContain("non-explicit");
