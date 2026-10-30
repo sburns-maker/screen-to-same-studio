@@ -1305,7 +1305,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     }>;
     const latestReflection = reflectionResult.error ? null : reflectionRows
       .find(row => typeof row.character_perspective === "string" && row.character_perspective.trim().length > 0);
-    const mindReflection = latestReflection
+    const mindReflection = latestReflection?.character_perspective
       ? { text: latestReflection.character_perspective.trim(), generatedAt: latestReflection.evaluated_at,
           sourceKind: latestReflection.source_kind, context: latestReflection.context_summary }
       : null;
