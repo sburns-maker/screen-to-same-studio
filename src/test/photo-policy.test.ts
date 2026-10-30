@@ -16,6 +16,39 @@ describe("photo autonomy and boundaries", () => {
       expect(photoCapabilities({ ...context, supported: CHARACTERS[key].photoTypes })).toEqual(photoCapabilities(context));
     }
   });
+  it("unlocks everyday candid and casual selfies before private photo milestones", () => {
+    // Kendra's seed state is comfortable and curious, but still low on trust.
+    // A normal selfie does not require her to have reached romantic interest.
+    const early = { ...SEED_STATE, comfort: 52, trust: 24, romantic_attraction: 0, romantic_intent: 0 };
+    const categories = eligiblePhotoCategories(early, {
+      ...context, supported: CHARACTERS.kendra.photoTypes, matureEnabled: true,
+    });
+    expect(categories).toEqual(["object", "tess_candid", "casual_selfie"]);
+    expect(categories).not.toContain("personal_selfie");
+    expect(categories).not.toContain("mature_romantic");
+    expect(categories).not.toContain("suggestive");
+    expect(eligiblePhotos(early).map((p) => p.id)).toContain("selfie-work");
+  });
+  it("keeps basic familiarity, consent, and boundaries for ordinary selfies", () => {
+    const barelyKnown = { ...SEED_STATE, comfort: 44, trust: 24 };
+    expect(eligiblePhotoCategories(barelyKnown, context)).toEqual(["object"]);
+    const acquainted = { ...barelyKnown, comfort: 45, trust: 20 };
+    expect(eligiblePhotoCategories(acquainted, context)).toContain("casual_selfie");
+    expect(eligiblePhotoCategories(acquainted, { ...context, boundary: "selfies" })).toEqual(["object"]);
+    expect(eligiblePhotoCategories(acquainted, { ...context, enabled: false })).toEqual([]);
+    expect(willingPhotoAllowed({
+      type: "casual_selfie", willing: false, contextual: true, framing: "ordinary",
+      eligible: ["casual_selfie"], state: acquainted, context,
+    })).toBe(false);
+    expect(eligiblePhotoCategories({ ...acquainted, irritation: 20 }, context)).toEqual(["object"]);
+  });
+  it("treats dressed-up public selfies as ordinary rather than romantic rewards", () => {
+    const dressedUp = { ...SEED_STATE, comfort: 55, trust: 35,
+      romantic_attraction: 0, romantic_intent: 0 };
+    expect(eligiblePhotos(dressedUp).map((p) => p.id)).toContain("selfie-out");
+    expect(eligiblePhotoCategories(dressedUp, { ...context, matureEnabled: true })).not.toContain("mature_romantic");
+    expect(eligiblePhotoCategories(dressedUp, { ...context, matureEnabled: true })).not.toContain("suggestive");
+  });
   it("close platonic friendship permits personal photography", () => {
     expect(eligiblePhotoCategories(close, context)).toContain("personal_selfie");
   });
