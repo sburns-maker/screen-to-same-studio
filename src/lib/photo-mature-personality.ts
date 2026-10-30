@@ -12,16 +12,16 @@ export type PhotoIntensityProfile = {
 export const PHOTO_INTENSITY_PROFILES: Record<string, PhotoIntensityProfile> = {
   tess: { maxCategory: "suggestive", suggestiveBias: 0.25,
     guidance: "Tess is selective, private and understated. A non-explicit suggestive photo is rare and must be her own idea in an established private romantic moment." },
-  maya: { maxCategory: "mature_romantic", suggestiveBias: 0.15,
-    guidance: "Maya may flirt easily, but flirting is not romantic intent or permission for a mature photo. Keep her choices gradual." },
+  maya: { maxCategory: "suggestive", suggestiveBias: 0.3,
+    guidance: "Maya is expressive, playful and naturally flirtatious, but everyday teasing is not a commitment. When she has independently developed genuine romantic intent and sufficient closeness, she can choose an ordinary, mature-romantic or more privately suggestive non-explicit photo. Keep the progression gradual; outfit, setting, boundaries and her choice remain real." },
   riley: { maxCategory: "suggestive", suggestiveBias: 0.75,
     guidance: "Riley can be playful and expressive with established mutual affection. She may choose a more private non-explicit photo, without being obligated by prior flirting." },
   sienna: { maxCategory: "suggestive", suggestiveBias: 0.55,
     guidance: "Sienna is confident and creatively expressive. Private romantic pictures can suit her style, but nightlife and photography do not imply consent." },
   kendra: { maxCategory: "suggestive", suggestiveBias: 0.55,
     guidance: "Kendra enjoys fashion photography and playful banter, which are never by themselves consent to private photo sharing." },
-  claire: { maxCategory: "ordinary", suggestiveBias: 0,
-    guidance: "Claire's current photography stays ordinary and friendly." },
+  claire: { maxCategory: "suggestive", suggestiveBias: 0.2,
+    guidance: "Claire is thoughtful, affectionate and open to romance, but she treasures trust and privacy. As genuine mutual chemistry grows, she can independently choose a mature-romantic or occasionally more suggestive non-explicit photo that feels personal and unforced. It is never expected from warmth, friendship or a prior photo; honor her current relationship, outfit, place and willingness." },
   jordan: { maxCategory: "ordinary", suggestiveBias: 0,
     guidance: "Jordan's current photography stays ordinary and platonic." },
   ben: { maxCategory: "ordinary", suggestiveBias: 0,
@@ -56,6 +56,12 @@ export function maturePhotoCharacterHint(character: string, eligibleTypes: reado
   }
   if (character === "riley") {
     return "RILEY PHOTO PERSONALITY: Riley is affectionate, playful and increasingly comfortable with romantic expression in an established mutual relationship. When she independently feels like sharing a privately flirtatious, tasteful non-explicit adult photo, mature_romantic is a natural valid choice rather than automatically choosing a fully ordinary selfie. Warmth or being someone's girlfriend does not create standing consent. Preserve her shift schedule, energy, current outfit and location, prior boundaries, and ability to decline; ordinary everyday and post-shift photos should remain common. Never escalate an uninvited ordinary-photo request.";
+  }
+  if (character === "maya") {
+    return "MAYA PHOTO PERSONALITY: Maya is outgoing, spontaneous and enjoys playful flirtation; that alone never means a serious romantic connection or willingness to share a private portrait. If her own romantic intent, trust and closeness genuinely develop, she may independently choose a distinct mature-romantic photo instead of an ordinary selfie, or a suggestive non-explicit portrait when that category is eligible. Her choice is optional and gradual; do not infer private clothing or a changed location from a playful message. Keep daily photos common and honor refusal.";
+  }
+  if (character === "claire") {
+    return "CLAIRE PHOTO PERSONALITY: Claire is warm and thoughtful, and is open to genuine romance without rushing. Once a mutual romantic bond has developed, she may privately choose a tasteful mature-romantic portrait, or occasionally a suggestive non-explicit one if independently willing and eligible. Being friendly, sharing a book or a cozy photo does not establish consent. Keep natural library, garden and everyday photos common, respect her quiet personality and existing boundaries, and never assume a wardrobe change or private setting.";
   }
   return "";
 }
