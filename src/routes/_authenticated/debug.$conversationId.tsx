@@ -59,6 +59,8 @@ type Snapshot = {
   photo: { eligible: boolean; reason: string; curatedCount: number; generatedTypes: string[] };
   latencyReason: string | null;
   recentMemories: { memory_type: string; summary: string; importance: number; created_at: string }[];
+  mindReflection: { text: string; generatedAt: string; sourceKind: string; context: string | null } | null;
+  mindReflectionStatus: "ready" | "unavailable";
 };
 
 function Section({ title, children, collapsible = false }: { title: string; children: React.ReactNode; collapsible?: boolean }) {
@@ -253,12 +255,24 @@ function Debug() {
             </div>}
 
             {activeTab === "mind" && <Section title="Character mind · relationship intelligence">
-              <p className="text-xs text-muted-foreground">Based on saved game state, changes from the latest evaluated turn, and dated memories. This is a simulation diagnostic, not secret thoughts or certainty about motives.</p>
+              <p className="text-xs text-muted-foreground">Character-written reflections come from actual saved conversation evaluations. Score interpretations below are separate diagnostics, not the character's private words or hidden model reasoning.</p>
+              <div className="mt-3 rounded-xl border bg-background p-3" aria-label="Latest saved character reflection">
+                <h4 className="font-semibold">Latest generated inner reflection</h4>
+                {snap.mindReflection ? <>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                    <span>Saved {new Date(snap.mindReflection.generatedAt).toLocaleString([],{month:"short",day:"numeric",hour:"numeric",minute:"2-digit",timeZone:"America/New_York"})} ET</span>
+                    <span>· {snap.mindReflection.sourceKind.replace(/_/g," ")}</span>
+                  </div>
+                  <blockquote className="mt-3 border-l-2 border-primary pl-3 text-sm italic whitespace-pre-line">{snap.mindReflection.text}</blockquote>
+                  <p className="mt-2 text-xs text-muted-foreground">Written by {snap.character.name}'s fictional character model during an actual interaction and saved with that evaluation. Not a prediction of what she thinks today, and not private model reasoning.</p>
+                </> : <p role="status" className="mt-2 text-sm text-muted-foreground">{snap.mindReflectionStatus==="unavailable" ? "Saved reflections cannot be loaded. Check that the relationship evaluation table is available and the current user can read its records." : "No character-generated reflection has been saved for this conversation yet. A future evaluated reply may create one; this screen does not invent a thought."}</p>}
+              </div>
               <div className="mt-3 rounded-xl border bg-background p-3">
                 <p className="text-xs text-muted-foreground">Current relationship stage</p>
                 <strong className="text-lg">{snap.stage}</strong>
                 <p className="mt-1 text-xs text-muted-foreground">Latest observed tone: {snap.lastTone ?? "not recorded"}</p>
-                <div className="mt-3 space-y-2">
+                <h4 className="mt-3 text-xs font-semibold text-muted-foreground">Score-based interpretation · not generated inner speech</h4>
+                <div className="mt-2 space-y-2">
                   {mindSummary(s,snap.stage,snap.character.key).notes.map((note,i)=><p key={i} className="text-sm">• {note}</p>)}
                 </div>
               </div>
