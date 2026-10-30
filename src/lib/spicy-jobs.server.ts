@@ -135,11 +135,14 @@ export const submitSpicyPhoto = createServerOnlyFn(async function submitSpicyPho
       .eq("action_id", action)
       .eq("user_id", user)
       .eq("status", "submitting");
-    throw new Error(
-      e instanceof SpicyHttpFailure
-        ? `SpicyAPI rejected the request (HTTP ${e.status}); no automatic retry was made.`
-        : "SpicyAPI submission could not be confirmed; no automatic retry was made.",
-    );
+    // Preserve only safe structured details (HTTP status, provider code,
+    // request ID) for the photo lab. Never expose provider bodies, signed URLs
+    // or prompts. Unknown submissions remain reserved and are NEVER retried.
+    if (e instanceof SpicyHttpFailure) {
+      e.stage = "submission";
+      throw e;
+    }
+    throw new Error("spicy_submission_unknown");
   }
   throw new PendingPhotoTask(action);
 });
