@@ -9,7 +9,7 @@ export type PhotoDef = {
   min: Partial<TessState>;
 };
 
-/** Selfies unlock as comfort/trust grow; the most personal ones need real warmth. */
+/** Ordinary selfies need only basic familiarity; private/affectionate ones need deeper trust. */
 export const PHOTOS: PhotoDef[] = [
   { id: "mabel-sock", selfie: false, about: "Mabel guarding a stolen sock", min: {} },
   { id: "mabel-walk", selfie: false, about: "Mabel on a fall trail walk", min: {} },
@@ -17,9 +17,9 @@ export const PHOTOS: PhotoDef[] = [
   { id: "trivia-sheet", selfie: false, about: "trivia answer sheet full of wrong answers", min: {} },
   { id: "coffee", selfie: false, about: "latte at an indie coffee shop next to a terrible gas-station snack", min: {} },
   { id: "roadside", selfie: false, about: "giant coffee pot roadside attraction", min: { comfort: 48 } },
-  { id: "selfie-work", selfie: true, about: "tired deadpan selfie at work with coffee", min: { comfort: 52, trust: 35 } },
-  { id: "selfie-snow", selfie: true, about: "selfie in the snow in a winter coat and beanie", min: { comfort: 55, trust: 38 } },
-  { id: "selfie-out", selfie: true, about: "selfie dressed up a bit at a bar", min: { comfort: 58, trust: 42, romantic_attraction: 40 } },
+  { id: "selfie-work", selfie: true, about: "tired deadpan selfie at work with coffee", min: { comfort: 45, trust: 20 } },
+  { id: "selfie-snow", selfie: true, about: "selfie in the snow in a winter coat and beanie", min: { comfort: 48, trust: 25 } },
+  { id: "selfie-out", selfie: true, about: "selfie dressed up a bit at a bar", min: { comfort: 55, trust: 35 } },
   { id: "selfie-couch", selfie: true, about: "no-makeup cozy couch selfie at night", min: { comfort: 65, trust: 55, emotional_intimacy: 35 } },
 ];
 
@@ -46,8 +46,10 @@ export type GeneratedType = (typeof GENERATED_TYPES)[number];
 
 const GENERATED_MIN: Record<GeneratedType, Partial<TessState>> = {
   object: {},
-  tess_candid: { comfort: 50, trust: 32 },
-  casual_selfie: { comfort: 52, trust: 35 },
+  // Ordinary candid portraits and quick selfies are not romantic milestones.
+  tess_candid: { comfort: 45, trust: 20 },
+  casual_selfie: { comfort: 45, trust: 20 },
+  // Personal/affectionate photos retain the deeper connection thresholds.
   personal_selfie: { comfort: 60, trust: 45 },
   intimate_selfie: { comfort: 65, trust: 55, emotional_intimacy: 40 },
 };
