@@ -168,12 +168,19 @@ export async function generatePhotoLabTest(
       ? await currentCanonical(db, user, def.key as CharacterKey)
       : undefined;
     const key = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
-    if (!key) throw new Error("Image provider not configured");
+    // The suggestive category uses SpicyAPI, not OpenAI. It must work without
+    // an OpenAI key, and an unavailable SpicyAPI must fail before spending budget.
+    if (!key && generationType !== "suggestive") throw new Error("Image provider not configured");
     requireVisualScreen();
+    const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(
+      db, user, def.key as CharacterKey, generationType, lovableGatewayProvider(key ?? ""),
+      id, conversation,
+      {scene, expression: null, delivery: "lab", type: generationType === "suggestive" ? "suggestive" : "mature_romantic"},
+    );
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
-      provider: await (await import("./photo-provider-router.server")).configuredPhotoProvider(db,user,def.key as CharacterKey,generationType,lovableGatewayProvider(key),id,conversation,{scene,expression:null,delivery:"lab",type:generationType === "suggestive" ? "suggestive" : "mature_romantic"}),
+      provider,
       canonical,
       type: generationType,
       scene,
@@ -232,6 +239,14 @@ export async function generatePhotoLabTest(
       "Photo test scene rejected",
       "Image attempt budget exhausted",
       "Image provider not configured",
+      "Suggestive photos require SpicyAPI to be enabled",
+      "Enable SpicyAPI for this character to test suggestive photos",
+      "SpicyAPI server secret missing",
+      "Unsupported SpicyAPI model",
+      "Configure SpicyAPI spending reservations",
+      "Verify usable SpicyAPI account credit before enabling live calls",
+      "SpicyAPI migration or preferences unavailable",
+      "Adult non-nude romantic photo eligibility required",
       "Photo test upload failed",
       "Photo test result was not committed; check history",
     ];
