@@ -46,6 +46,27 @@ describe("independent contextual photo opportunities", () => {
     expect(repeatsPhotoComposition(style, [{ ...style, camera_angle: "Front Camera" }])).toBe(true);
     expect(repeatsPhotoComposition({ setting: "clinic office" }, [style])).toBe(false);
   });
+  it("offers an ordinary work selfie at early acquaintance levels without forcing delivery", () => {
+    const state = { ...SEED_STATE, comfort: 52, trust: 24,
+      romantic_attraction: 0, romantic_intent: 0 };
+    const def = CHARACTERS.kendra;
+    const eligibleTypes = eligiblePhotoCategories(state, {
+      age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
+      supported: def.photoTypes, matureEnabled: true, boundary: "none",
+    });
+    expect(eligibleTypes).toContain("casual_selfie");
+    expect(eligibleTypes).not.toContain("personal_selfie");
+    const result = photoOpportunity({
+      ...base, character: "kendra", state, eligibleTypes,
+      context: "A quick selfie from work during a quiet break",
+      preview: true,
+    });
+    expect(result.eligible).toBe(true);
+    expect(result.selected).toBe(true);
+    expect(result.hint).toContain("Respect eligibility and your independent willingness");
+    expect(photoOpportunity({ ...base, character: "kendra", state, eligibleTypes: [],
+      preview: true }).eligible).toBe(false);
+  });
   it("allows a clinic selfie opportunity without using attraction or rewarding flirting", () => {
     const result = photoOpportunity({
       ...base,
