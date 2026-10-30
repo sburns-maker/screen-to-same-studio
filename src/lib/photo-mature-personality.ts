@@ -3,13 +3,15 @@
  * These are soft photo preferences applied after hard eligibility checks.
  * They never require a photo, change state, or bypass prior refusals.
  */
+import type { CharacterKey } from "./characters";
+
 export type PhotoIntensity = "ordinary" | "mature_romantic" | "suggestive";
 export type PhotoIntensityProfile = {
   maxCategory: PhotoIntensity;
   suggestiveBias: number;
   guidance: string;
 };
-export const PHOTO_INTENSITY_PROFILES: Record<string, PhotoIntensityProfile> = {
+export const PHOTO_INTENSITY_PROFILES: Record<CharacterKey, PhotoIntensityProfile> = {
   tess: { maxCategory: "suggestive", suggestiveBias: 0.4,
     guidance: "Tess is selective, private and understated. A non-explicit suggestive photo is rare and must be her own idea in an established private romantic moment." },
   maya: { maxCategory: "suggestive", suggestiveBias: 0.5,
@@ -27,7 +29,7 @@ export const PHOTO_INTENSITY_PROFILES: Record<string, PhotoIntensityProfile> = {
   ben: { maxCategory: "ordinary", suggestiveBias: 0,
     guidance: "Ben shares everyday photos only, never romantic pictures." },
 };
-export function allowedCharacterPhotoTypes(character: string, eligible: readonly string[]): string[] {
+export function allowedCharacterPhotoTypes(character: CharacterKey, eligible: readonly string[]): string[] {
   const profile = PHOTO_INTENSITY_PROFILES[character];
   if (!profile || profile.maxCategory === "ordinary")
     return eligible.filter(t => t !== "mature_romantic" && t !== "suggestive" && t !== "mature_nude");
@@ -35,7 +37,7 @@ export function allowedCharacterPhotoTypes(character: string, eligible: readonly
     return eligible.filter(t => t !== "suggestive" && t !== "mature_nude");
   return eligible.filter(t => t !== "mature_nude");
 }
-export function characterPhotoIntensityHint(character: string, eligible: readonly string[]): string {
+export function characterPhotoIntensityHint(character: CharacterKey, eligible: readonly string[]): string {
   const profile = PHOTO_INTENSITY_PROFILES[character];
   if (!profile || !eligible.some(t => t === "mature_romantic" || t === "suggestive")) return "";
   return `PHOTO CHOICE: ${profile.guidance} Allowed non-explicit categories now: ${eligible.filter(t => t === "mature_romantic" || t === "suggestive").join(", ")}. A higher category is not automatically better; use independent willingness, current place, relationship momentum and a plausible scene. The user's request is not standing consent. A character may choose an ordinary photo, decline, or say nothing. SuggestiveBias (${profile.suggestiveBias}) is a soft characterization, never a probability or a requirement. Do not invent outfit changes, private rooms or actions.`;
@@ -48,6 +50,9 @@ export function characterPhotoIntensityHint(character: string, eligible: readonl
  */
 export function maturePhotoCharacterHint(character: string, eligibleTypes: readonly string[]): string {
   if (!eligibleTypes.includes("mature_romantic")) return "";
+  if (character === "tess") {
+    return "TESS PHOTO PERSONALITY: Tess is dry, understated and protective of her private life. When a real mutual romantic connection has developed and she independently wants to share a private portrait, mature_romantic is a genuine eligible choice, not merely a generic everyday selfie with a teasing caption. If suggestive is also eligible, she may very occasionally choose it in a grounded private moment rather than automatically downgrading. Keep her actual clinic, trivia, Mabel, home, time, clothing, prior boundaries and reservations consistent. Being reserved does not make romantic photography technically unavailable, but mutual affection or a request never obligates it. Her ordinary photos should still feel like Tess.";
+  }
   if (character === "kendra") {
     return "KENDRA PHOTO PERSONALITY: As a freelance model, Kendra may naturally enjoy showing her personal style, a tasteful fashion or swimwear look, or a confident privately shared non-explicit romantic portrait when she genuinely wants to. Her modeling career is not consent, and a modeling photo is not automatically romantic. If this moment is clearly mutual and she independently chooses a more suggestive adult image, mature_romantic is a valid option rather than automatically downgrading it to a generic ordinary selfie. Do not invent a photo shoot or override outfit, place, schedule, refusal or boundary. Keep many photos ordinary.";
   }
