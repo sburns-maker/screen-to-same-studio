@@ -168,15 +168,17 @@ export async function generatePhotoLabTest(
       ? await currentCanonical(db, user, def.key as CharacterKey)
       : undefined;
     const key = process.env["OPENAI_API_KEY"] || process.env["LOVABLE_API_KEY"];
-    // The suggestive category uses SpicyAPI, not OpenAI. It must work without
-    // an OpenAI key, and an unavailable SpicyAPI must fail before spending budget.
+    // Select the generation provider first, so missing SpicyAPI configuration
+    // fails with a specific error without reserving paid image-attempt budget.
+    // OpenAI is NOT a suggestive generation fallback. The separate visual
+    // quality screen may still need an OpenAI key before any generation begins.
     if (!key && generationType !== "suggestive") throw new Error("Image provider not configured");
-    requireVisualScreen();
     const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(
       db, user, def.key as CharacterKey, generationType, lovableGatewayProvider(key ?? ""),
       id, conversation,
       {scene, expression: null, delivery: "lab", type: generationType === "suggestive" ? "suggestive" : "mature_romantic"},
     );
+    requireVisualScreen();
     if (!(await reserveImageBudget(db, id, conversation, user)))
       throw new Error("Image attempt budget exhausted");
     const image = await generateTessImage({
