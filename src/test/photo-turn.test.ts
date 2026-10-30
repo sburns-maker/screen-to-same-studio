@@ -195,6 +195,29 @@ describe("normal spontaneous photo turn pipeline", () => {
     expect(mocks.generate.mock.calls.at(-1)![0].photoHint).toContain('Captions are separate messages');
   });
 
+  it("offers the photo decision on a selected ordinary chat turn without forcing a generated image", async () => {
+    const original = opportunities.photoOpportunity;
+    vi.spyOn(opportunities, "photoOpportunity").mockImplementation((args) => ({
+      ...original(args),
+      eligible: true,
+      selected: true,
+      reason: "contextual photo opportunity",
+      hint: "PHOTO OPPORTUNITY (optional, not an obligation): ordinary current scene. Respect eligibility and your independent willingness",
+    }));
+    const reply = await mocks.generate();
+    mocks.generate.mockClear().mockResolvedValue({ ...reply, photo: null });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const { runTurn } = await import("@/lib/tess.functions");
+    const result = await runTurn(client, uid, cid, "America/New_York");
+    expect(result.count).toBe(1);
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.generate.mock.calls[0]![0].photoMomentSelected).toBe(true);
+    expect(mocks.generate.mock.calls[0]![0].photoHint).toContain("PHOTO OPPORTUNITY");
+    expect(mocks.prepare.mock.calls[0]![4].generated).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("uses delivered styles outside the chat window, varies the final capture and persists it once", async () => {
     const reply = await mocks.generate();
     historyRows = [{ sender:"tess", created_at:new Date(Date.now()-600000).toISOString(),
