@@ -26,7 +26,7 @@ describe("character-aware mature photo guidance", () => {
     expect(PHOTO_INTENSITY_PROFILES["kendra"]?.maxCategory).toBe("suggestive");
     expect(PHOTO_INTENSITY_PROFILES["kendra"]?.suggestiveBias).toBe(0.8);
     const eligible = ["casual_selfie", "mature_romantic", "suggestive"];
-    for (const character of ["sienna", "kendra"]) {
+    for (const character of ["sienna", "kendra"] as const) {
       expect(allowedCharacterPhotoTypes(character, eligible)).toEqual(eligible);
       const hint = characterPhotoIntensityHint(character, eligible);
       expect(hint).toContain("favor");
@@ -92,7 +92,7 @@ describe("character-aware mature photo guidance", () => {
     expect(characterPhotoIntensityHint("jordan", ["casual_selfie"])).toBe("");
   });
   it("never expands a character's hard eligibility list", () => {
-    for (const character of ["maya", "claire"]) {
+    for (const character of ["maya", "claire"] as const) {
       expect(allowedCharacterPhotoTypes(character, ["casual_selfie"])).toEqual(["casual_selfie"]);
       expect(allowedCharacterPhotoTypes(character, [])).toEqual([]);
     }
