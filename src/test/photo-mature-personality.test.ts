@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maturePhotoCharacterHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory, allowedCharacterPhotoTypes, characterPhotoIntensityHint } from "@/lib/photo-mature-personality";
+import { PHOTO_INTENSITY_PROFILES, maturePhotoCharacterHint, deliveredPhotoContextLabel, deliveredRomanticPhotoMemory, allowedCharacterPhotoTypes, characterPhotoIntensityHint } from "@/lib/photo-mature-personality";
 import { photoDecisionRules } from "@/lib/tess.server";
 
 describe("character-aware mature photo guidance", () => {
@@ -15,6 +15,24 @@ describe("character-aware mature photo guidance", () => {
     expect(hint).toContain("late-shift");
     expect(hint).toContain("non-explicit");
     expect(hint).toContain("never imply consent");
+  });
+  it("favors appropriately grounded suggestive choices for Sienna and Kendra", () => {
+    expect(PHOTO_INTENSITY_PROFILES.sienna?.maxCategory).toBe("suggestive");
+    expect(PHOTO_INTENSITY_PROFILES.sienna?.suggestiveBias).toBe(0.7);
+    expect(PHOTO_INTENSITY_PROFILES.kendra?.maxCategory).toBe("suggestive");
+    expect(PHOTO_INTENSITY_PROFILES.kendra?.suggestiveBias).toBe(0.8);
+    const eligible = ["casual_selfie", "mature_romantic", "suggestive"];
+    for (const character of ["sienna", "kendra"]) {
+      expect(allowedCharacterPhotoTypes(character, eligible)).toEqual(eligible);
+      const hint = characterPhotoIntensityHint(character, eligible);
+      expect(hint).toContain("favor");
+      expect(hint).toContain("independently");
+      expect(hint).toContain("not standing consent");
+      expect(allowedCharacterPhotoTypes(character, ["casual_selfie"])).toEqual(["casual_selfie"]);
+    }
+    expect(characterPhotoIntensityHint("sienna", eligible)).toContain("candid");
+    expect(characterPhotoIntensityHint("kendra", eligible)).toContain("intentional pose");
+    expect(PHOTO_INTENSITY_PROFILES.kendra!.suggestiveBias).toBeGreaterThan(PHOTO_INTENSITY_PROFILES.sienna!.suggestiveBias);
   });
   it("supports Riley without implying standing consent", () => {
     expect(maturePhotoCharacterHint("riley", ["casual_selfie"])).toBe("");
