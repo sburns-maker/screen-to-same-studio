@@ -115,9 +115,9 @@ describe("casual phone realism preserves identity and explicit scene", () => {
     expect(p).toContain("Unless explicit scene/camera directions say otherwise");
     expect(p).toContain("Do not change curls, cut, color or hairstyle");
   });
-  it("retains non-explicit mature restrictions while sharing phone realism", () => {
+  it("retains mature category provider boundaries while sharing phone realism", () => {
     const p = buildImagePrompt("mature_romantic", "an adult in opaque sleepwear at home", null);
-    expect(p).toContain("No nudity");
+    expect(p).toContain("No explicit sexual activity");
     expect(p).toContain("CASUAL PHONE CAPTURE");
     expect(p).toContain("PORTRAIT DETAIL");
   });
