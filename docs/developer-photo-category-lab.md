@@ -35,7 +35,7 @@ SpicyAPI-only** and requires enabled SpicyAPI, per-character adult confirmation
 and explicit opt-in, valid provider configuration, verified funds and approved
 references. It never falls back to OpenAI/the ordinary image provider. If the
 SpicyAPI prerequisites are unavailable, the test fails with an explanation
-before consuming image-attempt budget. No unscreened output is used. Original image bytes stay in private `tess-photos` storage at an
+before consuming image-attempt budget. Suggestive photos do not pass through an additional OpenAI or Sightengine visual inspection; SpicyAPI's own content rules apply and its PNG output is validated for MIME/signature and integrity. This does not independently verify the pictured character's facial match or that every image meets the requested content boundaries. Original image bytes stay in private `tess-photos` storage at an
 owner/test-specific path; signed preview links expire after 120 seconds and can
 be refreshed without another generation. Images failing checks are not previewed
 as successful results. Missing provider/approved identity fails safely.
