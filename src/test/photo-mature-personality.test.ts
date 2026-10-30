@@ -17,7 +17,7 @@ describe("character-aware mature photo guidance", () => {
   it("gives Sienna distinct contextual, adult non-explicit framing", () => {
     const hint = maturePhotoCharacterHint("sienna", ["mature_romantic"]);
     expect(hint).toContain("late-shift");
-    expect(hint).toContain("non-explicit");
+    expect(hint).toContain("tasteful, flirtatious, adult portrait");
     expect(hint).toContain("never imply consent");
   });
   it("favors appropriately grounded suggestive choices for Sienna and Kendra", () => {
@@ -48,14 +48,14 @@ describe("character-aware mature photo guidance", () => {
     const hint = maturePhotoCharacterHint("maya", ["mature_romantic"]);
     expect(hint).toContain("playful flirtation");
     expect(hint).toContain("romantic intent");
-    expect(hint).toContain("suggestive non-explicit");
+    expect(hint).toContain("a suggestive portrait");
     expect(maturePhotoCharacterHint("maya", ["casual_selfie"])).toBe("");
   });
   it("lets Claire make private romantic choices without equating warmth with consent", () => {
     const hint = maturePhotoCharacterHint("claire", ["mature_romantic"]);
     expect(hint).toContain("open to genuine romance");
     expect(hint).toContain("consent");
-    expect(hint).toContain("suggestive non-explicit");
+    expect(hint).toContain("a suggestive one");
     expect(maturePhotoCharacterHint("claire", ["casual_selfie"])).toBe("");
   });
   it("keeps unmodified or platonic characters out of the romantic-photo guidance", () => {
