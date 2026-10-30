@@ -92,10 +92,10 @@ export function providerHttps(raw: string) {
   return u;
 }
 export function buildSpicyRequest(model: string, prompt: string, images: string[]) {
+  if (prompt.length > 5000) throw new Error("spicy_prompt_too_long");
   if (
     !(SPICY_MODELS as readonly string[]).includes(model) ||
     !prompt.trim() ||
-    prompt.length > 12000 ||
     images.length < 1 ||
     images.length > 3
   )
@@ -200,7 +200,8 @@ export const quoteSpicyRequest = createServerOnlyFn(async function quoteSpicyReq
     }
     if (e instanceof Error && /^spicy_response_(?:invalid|too_large)$/.test(e.message))
       throw new SpicyQuoteFailure("spicy_quote_response_invalid");
-    throw e;
+    // Network failures do not mean a job was submitted: this is the free quote endpoint.
+    throw new SpicyQuoteFailure("spicy_quote_transport_failed");
   }
   const q = envelope?.data;
   const cost = typeof q?.estimatedCost === "string" ? q.estimatedCost : "";
@@ -249,7 +250,7 @@ function spicyQuoteRule(
 /** Local quote rejection; carries only the stable rule code. */
 export class SpicyQuoteFailure extends Error {
   readonly stage = "quote";
-  constructor(readonly rule: SpicyQuoteRule | "spicy_quote_budget_exceeded" | "spicy_quote_response_invalid") {
+  constructor(readonly rule: SpicyQuoteRule | "spicy_quote_budget_exceeded" | "spicy_quote_response_invalid" | "spicy_quote_transport_failed") {
     super(rule);
   }
 }

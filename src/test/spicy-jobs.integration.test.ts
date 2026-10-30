@@ -159,7 +159,7 @@ it("handles concurrent submissions with one winner and keeps unknown charges res
 });
 it("a lost POST response is not resubmitted and does not release its reservation", async () => {
   fetcher.mockRejectedValue(new Error("network lost"));
-  await expect(submit()).rejects.toThrow("could not be confirmed");
+  await expect(submit()).rejects.toThrow("spicy_submission_unknown");
   await expect(submit()).rejects.toThrow("already_reserved");
   expect(fetcher).toHaveBeenCalledTimes(1);
   const row = (
