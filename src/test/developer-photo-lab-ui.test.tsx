@@ -1,12 +1,18 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { PHOTO_LAB_TYPES, PHOTO_LAB_PRESETS, type PhotoLabResult } from "@/lib/developer-photo-lab";
-const mocks = vi.hoisted(() => ({ command: vi.fn(), results: [] as PhotoLabResult[] }));
+const mocks = vi.hoisted(() => ({ command: vi.fn(), connectivity: vi.fn(), results: [] as PhotoLabResult[] }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (f: unknown) => f }));
-vi.mock("@/lib/developer-photo-lab.functions", () => ({ developerPhotoLab: mocks.command }));
+vi.mock("@/lib/developer-photo-lab.functions", () => ({
+  developerPhotoLab: mocks.command,
+  checkDeveloperSpicyConnection: mocks.connectivity,
+}));
 import { DeveloperPhotoLab } from "@/components/DeveloperPhotoLab";
 beforeEach(() => {
   mocks.results = [];
+  mocks.connectivity.mockReset().mockResolvedValue({
+    status: "transport_error", httpStatus: null, transportCode: "dns_retry",
+  });
   mocks.command.mockReset().mockImplementation(async ({ data }) => {
     if (data.action === "generate") {
       const result: PhotoLabResult = {
@@ -38,6 +44,14 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("offers a free SpicyAPI connection check without making a generation call", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  const button = await screen.findByRole("button", { name: "Check SpicyAPI connection (free)" });
+  fireEvent.click(button);
+  expect(await screen.findByText(/dns_retry/)).toBeInTheDocument();
+  expect(mocks.connectivity).toHaveBeenCalledWith({ data: { conversationId: "riley-conversation" } });
+  expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
+});
 it("has a separate button for each exact category and does not generate on opening", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   const button = await screen.findByRole("button", {
