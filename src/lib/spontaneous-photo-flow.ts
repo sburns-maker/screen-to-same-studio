@@ -29,3 +29,10 @@ export function spontaneousPhotoQueue(rows: readonly PendingReply[], now: Date) 
 export function spontaneousPhotoTask(name: string) {
   return `TASK: ${name} is considering sharing a spontaneous photograph from the actual current moment. Decide about the photo first, then write any natural caption. If you independently want to share and an allowed category fits, return a complete photo request with willing=true, contextual=true, an allowed type and a concrete scene; attach the photo rather than merely saying you could send one. An ordinary selfie or everyday view is enough. Do not require a special event, flirt, joke or user request. If you do not want to share, photo=null is valid; an ordinary text or silence is also valid. Never promise an attachment you did not choose, invent an activity, override a boundary or treat scores as consent. This photo-specific task replaces the usual default of writing a text and normally leaving photo=null.`;
 }
+
+/** An authenticated developer opportunity checks the character's actual choice,
+ * not whether a separate spontaneous-photo scheduler happened to fire.
+ * Context is hypothetical grounding, never an incoming player message. */
+export function controlledPhotoTask(name: string) {
+  return `TASK: Controlled photo opportunity for ${name}. The supplied context describes a POSSIBLE current photo-sharing moment; it is NOT a new message from the player, not a request you must obey, and not proof of consent or a change of clothes or location. Decide whether you independently want to send an eligible photo in this established moment BEFORE composing any text. If yes, return a complete photo action with willing=true, contextual=true, the chosen eligible type, actual scene and honest framing; let the provider generate and attach the photo rather than merely promising one. If not, photo=null is valid and no photo should be recorded. You may decline or say nothing. This explicitly focused photo decision replaces the generic "Usually null" default for this controlled opportunity, without overriding character boundaries, eligibility, your own preferences or schedule.`;
+}
