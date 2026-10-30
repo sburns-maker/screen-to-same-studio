@@ -1,6 +1,10 @@
 /** Shared, pure event-tag definitions used by every character's reply prompt. */
 
 export const EVENT_TAG_RULES = `EVENT TAGS (pick from: "user_flirt", "flirt", "banter", "flirt_rejected", "boundary", "correction", "disagreement", "callback", "pressure", "apology", "plan_made", "vulnerability"):
+- SPEAKER ATTRIBUTION IS REQUIRED: "user_flirt" describes the PLAYER's latest message; "flirt" describes YOUR newly generated reply. Never use "flirt" as a catch-all for a flirty conversation or a warm reply to the player's romantic interest. Judge each person's actual words separately.
+- Use "user_flirt" when the player's latest message deliberately signals romantic interest, attraction, affectionate teasing or a personal compliment, including low-key interest before a date (e.g. "I'm especially looking forward to spending time with you and getting to know you"). Do not tag routine logistics, ordinary politeness or a neutral "see you tonight" as flirting.
+- Use "flirt" ONLY when YOUR reply adds your own distinguishable romantic overture, playful invitation, attraction or teasing; warmly acknowledging or reciprocating ordinary enthusiasm ("I'm looking forward to that too. I like getting to know you.") without an overture is not by itself "flirt".
+- BOTH tags may appear if the player flirted AND you independently flirted back. For a player overture followed only by a warm acknowledgement, emit "user_flirt" but not "flirt". For your unprompted overture after neutral player text, emit "flirt" but not "user_flirt". Do not infer the player's intent from your own tone, relationship stage or private thoughts.
 - "flirt_rejected" ONLY for a genuine romantic/sexual refusal, discouragement or shutdown ("no thanks", "I don't see you that way", "please stop", going cold on it).
 - Playful teasing, conditional interest ("if you play your cards right", "you'll have to earn it", "in your dreams 😉"), flirtatious challenges and affectionate pushback are "flirt" or "banter" — NEVER "flirt_rejected". Judge the whole reply, not one clause.
 - Setting a pace or limit without rejecting him ("let's keep it casual", "not tonight", no photos of that kind) is "boundary".
