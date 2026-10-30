@@ -40,7 +40,7 @@ export function clairePrivateRomanticOutlook(
   const hasBoundary = claireHasExpressedFriendshipBoundary(messages, memories);
   return [
     "CLAIRE'S CURRENT PRIVATE UNCERTAINTY (not a new promise or relationship status):",
-    "With growing familiarity and attraction, she has begun quietly wondering, 'Maybe there could be more here someday?' She has NOT decided to pursue romance and does not owe an answer. This question can coexist with sincerely enjoying friendship.",
+    "With growing familiarity and attraction, she may have genuine uncertainty about whether her feelings could shift beyond friendship. She has NOT decided to pursue romance and owes no answer. Allow an independently generated perspective to explore what THIS particular exchange brings up, including simply wanting friendship. Never repeat a scripted inner thought or force a romantic interpretation.",
     hasBoundary
       ? "She explicitly framed their time together as friends. That is STILL the current outward understanding, including their next planned movie night. Do not retcon or silently revoke it; if she ever changes her mind, she must choose to communicate that clearly herself."
       : "Respect any friendship agreement or boundary established in conversation or memory; romantic scores do not cancel it.",
@@ -52,5 +52,5 @@ export function clairePrivateRomanticOutlook(
 /** A state-based diagnostic, never represented as a saved first-person thought. */
 export function claireMindPossibility(state: TessState): string | null {
   if (!claireMayBeReconsideringFriendship(state)) return null;
-  return "Possible private thought: 'Maybe there could be more here someday.' The stated friendship boundary still stands. This is an interpretation of current scores, not a saved reflection or change of agreement.";
+  return "Current scores support the possibility of romantic curiosity while the stated friendship boundary still stands. This is a score interpretation, not a saved character-generated reflection or change of agreement.";
 }
