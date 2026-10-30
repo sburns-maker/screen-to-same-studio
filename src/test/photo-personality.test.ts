@@ -274,4 +274,11 @@ describe("typed character photography", () => {
     expect(d.promptComponents).toContain("approved canonical reference pixels");
     expect(d.scenarioCandidates).not.toContain("venue_update");
   });
+  it("differentiates suggestive non-explicit portraits from ordinary self-taken photos", () => {
+    const identity = { key: "riley", name: "Riley", age: 30, pronouns: "she/her", appearance: "canonical" };
+    const prompt = buildImagePrompt("suggestive", "adult relaxing at home in established clothes", "playful", null, identity);
+    expect(prompt).toContain("SUGGESTIVE PERSONAL PORTRAIT");
+    expect(prompt).toContain("no exposed nipples or genitals");
+    expect(prompt).not.toContain("Nothing revealing or suggestive");
+  });
 });
