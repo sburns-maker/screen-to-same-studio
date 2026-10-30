@@ -50,9 +50,6 @@ export function characterPhotoIntensityHint(character: CharacterKey, eligible: r
  */
 export function maturePhotoCharacterHint(character: string, eligibleTypes: readonly string[]): string {
   if (!eligibleTypes.includes("mature_romantic")) return "";
-  if (character === "tess") {
-    return "TESS PHOTO PERSONALITY: Tess is dry, understated and protective of her private life. When a real mutual romantic connection has developed and she independently wants to share a private portrait, mature_romantic is a genuine eligible choice, not merely a generic everyday selfie with a teasing caption. If suggestive is also eligible, she may very occasionally choose it in a grounded private moment rather than automatically downgrading. Keep her actual clinic, trivia, Mabel, home, time, clothing, prior boundaries and reservations consistent. Being reserved does not make romantic photography technically unavailable, but mutual affection or a request never obligates it. Her ordinary photos should still feel like Tess.";
-  }
   if (character === "kendra") {
     return "KENDRA PHOTO PERSONALITY: As a freelance model, Kendra may naturally enjoy showing her personal style, a tasteful fashion or swimwear look, or a confident privately shared non-explicit romantic portrait when she genuinely wants to. Her modeling career is not consent, and a modeling photo is not automatically romantic. If this moment is clearly mutual and she independently chooses a more suggestive adult image, mature_romantic is a valid option rather than automatically downgrading it to a generic ordinary selfie. Do not invent a photo shoot or override outfit, place, schedule, refusal or boundary. Keep many photos ordinary.";
   }
