@@ -64,18 +64,33 @@ it("classifies only known network causes without leaking raw exception messages"
   }))).toBe("timeout");
   expect(spicyTransportCode(new TypeError("private error"))).toBe("fetch_failed");
 });
-it("probes connectivity with one authenticated free GET, without creating tasks", async () => {
+it("probes three fixed endpoints with only one authenticated request and no task creation", async () => {
   vi.stubEnv("SPICY_ENABLED", "true");
   vi.stubEnv("SPICY_API_KEY", "server-secret");
   const f = vi.fn().mockResolvedValue(Response.json({ code: 200, data: [] }));
   vi.stubGlobal("fetch", f);
   expect(await spicyConnectionProbe()).toEqual({
     status: "reachable", httpStatus: 200, transportCode: null,
+    checks: {
+      publicCatalog: { status: "reachable", httpStatus: 200, transportCode: null },
+      internet: { status: "reachable", httpStatus: 200, transportCode: null },
+    },
   });
-  expect(f).toHaveBeenCalledTimes(1);
-  expect(f.mock.calls[0]![0]).toBe("https://api.spicyapi.ai/api/v1/models");
-  expect(f.mock.calls[0]![1]).toMatchObject({ method: "GET", redirect: "error" });
-  expect(f.mock.calls[0]![1].body).toBeUndefined();
+  expect(f).toHaveBeenCalledTimes(3);
+  expect(f.mock.calls.map((c) => c[0])).toEqual([
+    "https://api.spicyapi.ai/api/v1/models",
+    "https://api.spicyapi.ai/console/v1/catalog/models?strict=1",
+    "https://example.com/",
+  ]);
+  expect(f.mock.calls[0]![1]).toMatchObject({
+    method: "GET", redirect: "error", headers: { Authorization: "Bearer server-secret" },
+  });
+  for (const call of f.mock.calls) {
+    expect(call[1].body).toBeUndefined();
+  }
+  for (const call of f.mock.calls.slice(1)) {
+    expect(call[1].headers).toBeUndefined();
+  }
 });
 it("reports a blocked network with no raw hostnames, prompts or keys", async () => {
   vi.stubEnv("SPICY_ENABLED", "true");
@@ -86,8 +101,47 @@ it("reports a blocked network with no raw hostnames, prompts or keys", async () 
   const report = await spicyConnectionProbe();
   expect(report).toEqual({
     status: "transport_error", httpStatus: null, transportCode: "dns_retry",
+    checks: {
+      publicCatalog: { status: "transport_error", httpStatus: null, transportCode: "dns_retry" },
+      internet: { status: "transport_error", httpStatus: null, transportCode: "dns_retry" },
+    },
   });
   expect(JSON.stringify(report)).not.toMatch(/secret|example|token/);
+});
+it("distinguishes a provider-only connection failure from working public internet", async () => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "private-key");
+  vi.stubGlobal("fetch", vi.fn()
+    .mockRejectedValueOnce(new TypeError("private auth URL"))
+    .mockRejectedValueOnce(new TypeError("private public URL"))
+    .mockResolvedValueOnce(new Response("ok", { status: 200 })));
+  const result = await spicyConnectionProbe();
+  expect(result.status).toBe("transport_error");
+  expect(result.checks?.publicCatalog.status).toBe("transport_error");
+  expect(result.checks?.internet.status).toBe("reachable");
+  expect(JSON.stringify(result)).not.toContain("private-key");
+});
+it("reports an authenticated request failure distinct from a reachable public API", async () => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "private-key");
+  vi.stubGlobal("fetch", vi.fn()
+    .mockRejectedValueOnce(new TypeError("private auth URL"))
+    .mockResolvedValueOnce(new Response("ok", { status: 200 }))
+    .mockResolvedValueOnce(new Response("ok", { status: 200 })));
+  const result = await spicyConnectionProbe();
+  expect(result.status).toBe("transport_error");
+  expect(result.checks?.publicCatalog.status).toBe("reachable");
+  expect(result.checks?.internet.status).toBe("reachable");
+});
+it("returns unconfigured without attempting outbound requests", async () => {
+  vi.stubEnv("SPICY_ENABLED", "false");
+  vi.stubEnv("SPICY_API_KEY", "private-key");
+  const f = vi.fn();
+  vi.stubGlobal("fetch", f);
+  expect(await spicyConnectionProbe()).toEqual({
+    status: "not_configured", httpStatus: null, transportCode: null, checks: null,
+  });
+  expect(f).not.toHaveBeenCalled();
 });
 it("reports safe quote transport failures without leaking network messages", async () => {
   vi.stubEnv("SPICY_API_KEY", "test");
