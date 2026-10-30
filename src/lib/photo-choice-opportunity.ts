@@ -17,8 +17,8 @@ export function photoChoiceInstruction(args: {
   const types = eligibleTypes.join(", ");
   const profile = PHOTO_INTENSITY_PROFILES[character];
   const privateMoment =
-    /\\b(?:at home|home relaxing|home alone|at (?:her|his|my) (?:house|apartment|place)|in (?:her|his|my) (?:bedroom|living room)|townhouse|private residence|on (?:her|his|my) couch)\\b/i.test(currentSetting) &&
-    !/\\b(?:clinic|hospital|work|working|office|public|restaurant|store|errands|shift|customers|venue)\\b/i.test(currentSetting);
+    /\b(?:at home|home relaxing|home alone|at (?:her|his|my) (?:house|apartment|place)|in (?:her|his|my) (?:bedroom|living room)|townhouse|private residence|on (?:her|his|my) couch)\b/i.test(currentSetting) &&
+    !/\b(?:clinic|hospital|work|working|office|public|restaurant|store|errands|shift|customers|venue)\b/i.test(currentSetting);
   const allowedSuggestive = eligibleTypes.includes("suggestive") && profile?.maxCategory === "suggestive";
   return [
     "ACTIVE PHOTO OPPORTUNITY: Before writing a text, make a fresh independent choice: (a) an image you genuinely want to share from the current moment, with an appropriate eligible category and a brief caption; (b) ordinary text only; or (c) no message. photo=null is a complete, valid choice. Do not choose a photo just because the app offered this moment.",
