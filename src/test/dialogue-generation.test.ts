@@ -179,6 +179,32 @@ describe("travel uses the same character language without a second persona", () 
   });
 });
 
+it.each(["tess", "riley"] as const)("gives %s a focused controlled-photo decision without treating the context as a new message", async key => {
+  const request = {
+    ...args,
+    generateTypes: ["casual_selfie", "mature_romantic", "suggestive"],
+    initiation: { gapHours: 0, developerPhoto: "deliver" as const },
+    initiationReason: "Character is home and might independently consider a playful photo while the player is at work",
+  };
+  if (key === "tess") await generateTessReply(request);
+  else await generateContactReply({ ...request, character: CHARACTERS[key] });
+  const [, system, input] = model.run.mock.calls[0]!;
+  expect(input).toContain("Controlled photo opportunity for");
+  expect(input).toContain("NOT a new message from the player");
+  expect(input).toContain("photo=null is valid");
+  expect(input).toContain("Current context: Character is home");
+  expect(system).toContain("This is a controlled photo decision");
+  expect(system).not.toContain("- photo: Usually null.");
+  expect(model.run).toHaveBeenCalledTimes(1);
+});
+it.each(["tess", "riley"] as const)("keeps %s ordinary non-photo turns on the usual default", async key => {
+  if (key === "tess") await generateTessReply(args);
+  else await generateContactReply({ ...args, character: CHARACTERS[key] });
+  const [, system, input] = model.run.mock.calls[0]!;
+  expect(system).toContain("- photo: Usually null.");
+  expect(input).not.toContain("Controlled photo opportunity");
+});
+
 it.each(["tess","maya"] as const)("gives %s a photo-first task for a selected spontaneous opportunity without forcing consent",async key=>{
  const request={...args,generateTypes:["casual_selfie"],initiation:{gapHours:0,spontaneousPhoto:true as const},initiationReason:"Current quiet break"};
  if(key==="tess")await generateTessReply(request);else await generateContactReply({...request,character:CHARACTERS[key]});
