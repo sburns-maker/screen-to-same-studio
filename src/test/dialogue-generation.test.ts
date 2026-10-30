@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const model = vi.hoisted(() => ({ run: vi.fn() }));
 vi.mock("@/lib/text-ai.server", () => ({ runStructured: model.run }));
-import { generateTessReply, generateContactReply, CHARACTER_BIBLE } from "@/lib/tess.server";
+import { generateTessReply, generateContactReply, CHARACTER_BIBLE, photoDecisionRules } from "@/lib/tess.server";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
 import { SEED_STATE, deriveStage } from "@/lib/tess-logic";
 import { DIALOGUE_PROFILES } from "@/lib/dialogue-personality";
@@ -203,6 +203,13 @@ it.each(["tess", "riley"] as const)("keeps %s ordinary non-photo turns on the us
   const [, system, input] = model.run.mock.calls[0]!;
   expect(system).toContain("- photo: Usually null.");
   expect(input).not.toContain("Controlled photo opportunity");
+});
+
+it("describes photo scenes using observed visual attributes", () => {
+  const guidance = photoDecisionRules();
+  expect(guidance).toContain("PHOTO SCENE OUTPUT");
+  expect(guidance).toContain("current physical location");
+  expect(guidance).toContain("camera framing");
 });
 
 it.each(["tess","maya"] as const)("gives %s a photo-first task for a selected spontaneous opportunity without forcing consent",async key=>{
