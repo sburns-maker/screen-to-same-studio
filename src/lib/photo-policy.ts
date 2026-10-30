@@ -88,6 +88,27 @@ export function nextPhotoBoundary(current: PhotoBoundary, decision: "unchanged" 
   return decision;
 }
 
+/** Categorize a withheld photo request without exposing a private scene or prompt. */
+export type PhotoSceneBoundaryIssue = { field: string; rule: "photo.scene_content_boundary" };
+export function photoSceneBoundaryIssue(fields: Readonly<Record<string, unknown>>): PhotoSceneBoundaryIssue | null {
+  for (const [field, value] of Object.entries(fields)) {
+    if (typeof value === "string" && !safePhotoScene(value))
+      return { field, rule: "photo.scene_content_boundary" };
+  }
+  // Defense in depth: preserve the historical combined-value check.
+  const combined = Object.values(fields).filter((v): v is string => typeof v === "string").join(" ");
+  return safePhotoScene(combined) ? null : { field: "combined", rule: "photo.scene_content_boundary" };
+}
+export class PhotoSceneBoundaryError extends Error {
+  readonly field: string;
+  readonly failedRule = "photo.scene_content_boundary";
+  constructor(field: string) {
+    super("photo scene outside supported boundaries");
+    this.name = "PhotoSceneBoundaryError";
+    this.field = field;
+  }
+}
+
 /** Allow adult non-nude lingerie styling; provider moderation remains authoritative. */
 export function safePhotoScene(scene: string): boolean {
   return !/\b(nud(?:e|ity)|naked|topless|bottomless|genitals?|nipples?|porn(?:ographic)?|sex(?:ual)?\s+act(?:ivity)?|intercourse|masturbat\w*|see[ -]?through|sheer|schoolgirl|schoolboy|teen(?:ager)?|underage|child|minor)\b/i.test(scene);
