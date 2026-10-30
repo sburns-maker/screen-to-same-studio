@@ -1285,6 +1285,23 @@ export const debugSnapshot = createServerFn({ method: "POST" })
         .limit(8),
     ]);
     const state = pickState(stateRow ?? {}, def.seedState);
+    // Unlike score-derived guesses, this is a first-person fictional reflection
+    // the model actually authored and the conversation evaluation actually saved.
+    // Read it only from this user's conversation; never generate a thought when
+    // opening debug or use a sample sentence as a stand-in for persisted data.
+    const reflectionResult = await supabase.from("relationship_evaluations" as "memories")
+      .select("character_perspective,evaluated_at,source_kind,context_summary")
+      .eq("user_id", userId).eq("conversation_id", conv.id)
+      .not("character_perspective", "is", null)
+      .lte("evaluated_at", nowIso)
+      .order("evaluated_at", { ascending: false }).limit(10);
+    const latestReflection = reflectionResult.error ? null : (reflectionResult.data ?? [])
+      .find(row => typeof row.character_perspective === "string" && row.character_perspective.trim().length > 0);
+    const mindReflection = latestReflection
+      ? { text: latestReflection.character_perspective.trim(), generatedAt: latestReflection.evaluated_at,
+          sourceKind: latestReflection.source_kind, context: latestReflection.context_summary }
+      : null;
+    const mindReflectionStatus = reflectionResult.error ? "unavailable" : "ready";
     const { getWeatherContext } = await import("./tess-weather.server");
     const weather = await getWeatherContext(def.zip);
     const lifeEvent = isTess
@@ -1417,5 +1434,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
       },
       latencyReason: lastLatency,
       recentMemories: mems ?? [],
+      mindReflection,
+      mindReflectionStatus,
     };
   });
