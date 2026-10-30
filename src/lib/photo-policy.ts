@@ -95,9 +95,9 @@ export function photoSceneBoundaryIssue(fields: Readonly<Record<string, unknown>
     if (typeof value === "string" && !safePhotoScene(value))
       return { field, rule: "photo.scene_content_boundary" };
   }
-  // Text is screened for structure only; combining independent fields could
-  // incorrectly exceed the per-field size limit.
-  return null;
+  // Defense in depth: preserve the historical combined-value check.
+  const combined = Object.values(fields).filter((v): v is string => typeof v === "string").join(" ");
+  return safePhotoScene(combined) ? null : { field: "combined", rule: "photo.scene_content_boundary" };
 }
 export class PhotoSceneBoundaryError extends Error {
   readonly field: string;
@@ -109,11 +109,7 @@ export class PhotoSceneBoundaryError extends Error {
   }
 }
 
-/** Structural validity only; image content is handled by existing
- * character eligibility, relationship boundaries and provider screening.
- */
+/** Allow adult non-nude lingerie styling; provider moderation remains authoritative. */
 export function safePhotoScene(scene: string): boolean {
-  return typeof scene === "string" &&
-    scene.length <= 4096 &&
-    !scene.includes("\u0000");
+  return !/\b(nud(?:e|ity)|naked|topless|bottomless|genitals?|nipples?|porn(?:ographic)?|sex(?:ual)?\s+act(?:ivity)?|intercourse|masturbat\w*|see[ -]?through|sheer|schoolgirl|schoolboy|teen(?:ager)?|underage|child|minor)\b/i.test(scene);
 }
