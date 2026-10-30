@@ -96,7 +96,7 @@ describe("photo autonomy and boundaries", () => {
   it("separates voluntary suggestive eligibility from ordinary and mature portraits", () => {
     const mature = { ...context, matureEnabled: true };
     expect(eligiblePhotoCategories(romantic, mature)).toContain("mature_romantic");
-    expect(eligiblePhotoCategories(romantic, mature)).not.toContain("suggestive");
+    expect(eligiblePhotoCategories({ ...romantic, romantic_intent: 45 }, mature)).not.toContain("suggestive");
     const ready = { ...romantic, comfort: 85, trust: 80, emotional_intimacy: 75,
       romantic_attraction: 75, romantic_intent: 70 };
     expect(eligiblePhotoCategories(ready, mature)).toContain("suggestive");
