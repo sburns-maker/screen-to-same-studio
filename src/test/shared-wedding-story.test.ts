@@ -64,7 +64,7 @@ describe("independent relationship reflection for each woman", () => {
       const prompt = weddingReflectionGuidance({ character: key, moments: saved, state });
       expect(prompt).toContain(CHARACTERS[key].preferredName.toUpperCase());
       expect(prompt).toContain("ONE honest");
-      expect(prompt).toContain("not a reward");
+      expect(prompt).toContain("make anyone engaged or married automatically");
       expect(prompt.toLowerCase()).toContain("actual commitments");
     }
     expect(weddingReflectionGuidance({ character: "claire", moments: saved, state })).toContain("friendship");
