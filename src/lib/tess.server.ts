@@ -229,7 +229,7 @@ export async function generateTessReply(args: {
   photoBoundary?: PhotoBoundary;
   photoHint?: string;
   photoMomentSelected?: boolean;
-  experience?: { at: string; instruction: string };
+  experience?: { at: string; instruction: string; kind?: "turn" | "finish" | "automatic" };
   deliveryChannel?: "text" | "voice";
   operationId?: string;
   worldKnowledge?: string[];
@@ -308,7 +308,7 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(tessLines, args.initiation ? "" : lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", { operationId: args.operationId, interactiveScene: args.experience?.kind === "turn" });
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
@@ -390,7 +390,7 @@ export async function generateContactReply(args: {
   photoHint?: string;
   photoMomentSelected?: boolean;
   directOrdinaryPhotoRequest?: boolean;
-  experience?: { at: string; instruction: string };
+  experience?: { at: string; instruction: string; kind?: "turn" | "finish" | "automatic" };
   deliveryChannel?: "text" | "voice";
   operationId?: string;
   worldKnowledge?: string[];
@@ -481,7 +481,7 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${system}\n${HOUSING_ACTION_RULES}\n${supportsRelationshipCommitment(c.key) ? COMMITMENT_ACTION_RULES : "- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this platonic contact."}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const reply = await runStructured(replySchema, `${system}\n${HOUSING_ACTION_RULES}\n${supportsRelationshipCommitment(c.key) ? COMMITMENT_ACTION_RULES : "- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this platonic contact."}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`, args.initiation ? "autonomous" : "reply", { operationId: args.operationId, interactiveScene: args.experience?.kind === "turn" });
   if (!supportsRelationshipCommitment(c.key)) reply.commitment_action = { action: null, kind: null, quote: null, proposalId: null };
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
