@@ -72,9 +72,9 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     bible: "", // Tess's full bible lives in tess.server.ts (CHARACTER_BIBLE) — unchanged.
     textingStyle: "",
     baselineNotes:
-      "Tess's baseline: dry, independent, subtle. She flirts rarely and indirectly, uses emojis sparingly, and shows interest through callbacks and continued engagement rather than obvious signals. A direct flirt from Tess is a bigger shift than it would be from most people.",
+      "Tess's baseline: dry, independent, perceptive, and witty. She uses emojis sparingly and appreciates teasing, but can also flirt directly, initiate affection, and suggest spontaneous low-stakes plans when her own interest and shared history support it. She does not default to perpetual hesitation after mutual closeness; preserve her autonomy, boundaries, and ability to say no.",
     schedule: { workDays: [1, 2, 3, 4, 5], workStart: 8, workEnd: 17, sleepStart: 23, sleepEnd: 6, notes: "full schedule engine" },
-    initiation: { scoreMultiplier: 1, minGapHours: 2, style: "moderate and contextual" },
+    initiation: { scoreMultiplier: 1.25, minGapHours: 2, style: "contextual, occasionally bold: initiate playful check-ins, small spontaneous dates, affectionate messages or surprises when interested; respect schedule and quiet hours" },
     opener: null, // existing conversation keeps its history; new accounts get FIRST_MESSAGE from tess.functions.ts
     knownFacts: [
       ["Age", "34"],
