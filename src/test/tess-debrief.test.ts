@@ -33,6 +33,9 @@ describe("reply schema memory layers", () => {
       schedule_actions: null,
       housing_actions: null,
       commitment_action: {action:null,kind:null,quote:null,proposalId:null},
+      wedding_plan_action: null,
+      encounter_action: null,
+      pregnancy_disclosure_action: null,
       messages: ["hi"],
       send_delay_seconds: 10,
       state_delta: Object.fromEntries(
