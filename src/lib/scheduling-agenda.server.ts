@@ -77,7 +77,7 @@ export async function schedulingAgenda(db: Client, user: string, now = new Date(
         ...p,
         residentialReview:
           /^(home:|residence:)/.test(p.place_key ?? "") &&
-          !homes.some((h) => h.key === p.place_key && h.canPlan) &&
+          !homes.some((h) => h.key === p.place_key) &&
           !["completed", "cancelled", "declined", "missed"].includes(p.status)
             ? "This residence needs a new invitation or venue review; the original plan has been preserved."
             : undefined,
