@@ -6,7 +6,7 @@ import { deriveStage } from "@/lib/tess-logic";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { changeRelationshipCommitment } from "@/lib/relationship-commitments.functions";
-import { planWedding } from "@/lib/family-life.functions";
+import { planWedding, loadWeddingPlans } from "@/lib/family-life.functions";
 import { useRelationshipCommitments } from "@/lib/use-relationship-commitments";
 import { RelationshipMilestones } from "./RelationshipMilestones";
 import { supportsRelationshipCommitment, relationshipDraftKey, resolveCommitmentStatus, type CommitmentEvent } from "@/lib/relationship-commitments";
@@ -21,6 +21,8 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
   const connectionStage = state.data ? deriveStage(state.data) : undefined;
   const change = useServerFn(changeRelationshipCommitment);
   const plan = useServerFn(planWedding);
+  const listWeddings = useServerFn(loadWeddingPlans);
+  const [weddingPlans,setWeddingPlans]=useState<Array<{id:string;venue:string;startsAt:string;characterResponse:string;userResponse:string}>>([]);
   const [weddingDate,setWeddingDate]=useState("");
   const [weddingVenue,setWeddingVenue]=useState("");
   const cache = useQueryClient();
@@ -69,6 +71,10 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
   );
   const pending = query.data.events.filter((e) => e.status === "pending");
   const commitmentStatus = resolveCommitmentStatus(query.data.events);
+  async function refreshWeddingPlans(){
+    try{const plans=await listWeddings({data:{characterKey:characterKey as "tess"|"maya"|"riley"|"sienna"|"kendra"|"claire"|"jordan"}});setWeddingPlans(plans);}
+    catch{setFeedback("Wedding plans unavailable until the family database migration is applied.");}
+  }
   async function propose(kind: "exclusive" | "partnership" | "engagement" | "marriage") {
     setBusy(true);
     setFeedback("");
@@ -106,6 +112,12 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
           <label className="block text-sm">Proposed venue
             <input type="text" maxLength={200} className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2" value={weddingVenue} onChange={e=>setWeddingVenue(e.target.value)} placeholder="Where would you like to celebrate?" />
           </label>
+          <button type="button" className="min-h-11 rounded-xl border px-4 text-sm" disabled={busy}
+            onClick={()=>void refreshWeddingPlans()}>Show saved wedding plans</button>
+          {weddingPlans.map(w=><p key={w.id} className="rounded-lg border p-2 text-sm">
+            {w.venue} · {new Date(w.startsAt).toLocaleString()} ·
+            {w.characterResponse === "accepted" ? " Mutually accepted" : w.characterResponse === "declined" ? " Declined" : " Awaiting character response"}
+          </p>)}
           <button type="button" disabled={busy || !weddingDate || !weddingVenue.trim()}
             className="min-h-11 rounded-xl border px-4 text-sm disabled:opacity-50"
             onClick={()=>{
@@ -114,7 +126,7 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
               setBusy(true);setFeedback("");
               void plan({data:{characterKey: characterKey as "tess" | "maya" | "riley" | "sienna" | "kendra" | "claire" | "jordan",
                 requestId:crypto.randomUUID(),startsAt:date.toISOString(),venue:weddingVenue.trim()}})
-                .then(()=>setFeedback("Your wedding plan proposal was saved. Discuss it in messages; agreement and ceremony are still separate steps."))
+                .then(async()=>{await refreshWeddingPlans();setFeedback("Your wedding plan proposal was saved. Discuss it in messages; agreement and ceremony are still separate steps.");})
                 .catch(e=>setFeedback(e instanceof Error?e.message:"Wedding plan unavailable"))
                 .finally(()=>setBusy(false));
             }}>Save proposed wedding plan</button>
