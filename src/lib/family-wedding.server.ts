@@ -54,15 +54,39 @@ export async function proposeWeddingPlan(db:Db,input:{
  if(error || !data)throw new Error("Wedding plan could not be saved");
  return parseWedding(data as Record<string,unknown>);
 }
-/** Only called by verified world actions, never directly from the player API. */
+/**
+ * Trusted character wedding-plan decision. An actual, visible message from
+ * this same conversation is required; a source ID supplied by model prose or
+ * the player is never sufficient. The caller must invoke this only after
+ * extracting a genuine unambiguous character decision.
+ */
 export async function recordCharacterWeddingDecision(db:Db,input:{
  userId:string;characterKey:string;planId:string;accepted:boolean;
  verifiedSourceId:string;
 }) {
- if(!input.verifiedSourceId)throw new Error("Verified character decision required");
- const {data,error}=await table(db).update({character_response:input.accepted?"accepted":"declined"} as never)
+ const {data:plan,error:planError}=await table(db).select("*")
+  .eq("id",input.planId).eq("user_id",input.userId)
+  .eq("character_key",input.characterKey).maybeSingle();
+ if(planError || !plan) throw new Error("Wedding proposal unavailable");
+ if(plan.character_response!=="pending")throw new Error("Wedding proposal already resolved");
+ const {data:conversation,error:conversationError}=await db.from("conversations")
+  .select("id,character:characters(key)").eq("user_id",input.userId)
+  .eq("character_id", await characterDatabaseId(db,input.characterKey)).maybeSingle();
+ if(conversationError || !conversation)throw new Error("Character conversation unavailable");
+ const {data:source,error:sourceError}=await db.from("messages").select("id,sender,visible_at,created_at")
+  .eq("id",input.verifiedSourceId).eq("conversation_id",conversation.id)
+  .eq("user_id",input.userId).eq("sender","tess").maybeSingle();
+ if(sourceError || !source || Date.parse(source.visible_at)>Date.now() ||
+    Date.parse(source.created_at)<Date.parse(plan.created_at))
+   throw new Error("Wedding response must originate from a visible, later character message");
+ const {data,error}=await table(db).update({character_response:input.accepted?"accepted":"declined"})
   .eq("id",input.planId).eq("user_id",input.userId).eq("character_key",input.characterKey)
   .eq("character_response","pending").select("*").maybeSingle();
- if(error || !data)throw new Error("Wedding plan decision unavailable or already resolved");
+ if(error || !data)throw new Error("Wedding decision changed or already resolved");
  return parseWedding(data as Record<string,unknown>);
+}
+async function characterDatabaseId(db:Db,key:string) {
+ const {data,error}=await db.from("characters").select("id").eq("key",key).single();
+ if(error || !data)throw new Error("Unknown character");
+ return data.id;
 }
