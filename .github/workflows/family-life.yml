@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bunx vitest run src/lib/family-life.test.ts src/lib/family-wedding-actions.test.ts
+      - run: bunx vitest run src/lib/family-life.test.ts src/lib/family-wedding-actions.test.ts src/lib/family-wedding-ceremony.test.ts src/lib/family-encounter-actions.test.ts
       - if: success() || failure()
         run: bunx tsc --noEmit
       - if: success() || failure()
