@@ -615,7 +615,7 @@ async function runTurnUnlocked(
         const { listWeddingPlans } = await import("./family-wedding.server");
         return (await listWeddingPlans(configuredPhotoAdmin,userId,def.key))
           .filter(p=>p.characterResponse==="pending").slice(0,3);
-      }catch{return [] as Awaited<ReturnType<typeof import("./family-wedding.server").listWeddingPlans>>;}})()
+      }catch{return [];}})()
     : [];
   const pendingWeddingIds = pendingWeddingPlans.map(p=>p.id);
   const weddingPlanContext = pendingWeddingPlans.map(p=>
