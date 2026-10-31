@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { photoOpportunity } from "./photo-opportunities";
-import { CHARACTERS, type CharacterKey } from "./characters";
 
 const characters = ["tess", "riley", "claire", "kendra", "maya", "sienna"] as const;
 const now = new Date("2026-10-30T19:00:00.000Z");
