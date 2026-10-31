@@ -16,8 +16,17 @@ export function HomeMoments({ home, snapshot, character }: {
   const [opening, setOpening] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const [rent, setRent] = useState("");
+  const [utilities, setUtilities] = useState("");
+  const [groceries, setGroceries] = useState("");
+  const [notes, setNotes] = useState("");
   const moments = useMemo(() => homeMoments(home, snapshot, character), [home, snapshot, character]);
   const chosen = moments.find((moment) => moment.id === selected);
+  const numeric = (value: string) => Math.max(0, Number(value) || 0);
+  const totals = numeric(rent) + numeric(utilities) + numeric(groceries);
+  const proposalText = chosen?.id === "roommate"
+    ? `${chosen.suggestion}${totals > 0 ? ` For a starting estimate: rent ${numeric(rent).toFixed(2)}, utilities ${numeric(utilities).toFixed(2)}, shared groceries ${numeric(groceries).toFixed(2)} per month. That totals ${totals.toFixed(2)}, or roughly ${(totals / 2).toFixed(2)} each with an equal split (we can negotiate).` : ""}${notes.trim() ? ` Other things to discuss: ${notes.trim().slice(0, 800)}` : ""}`
+    : chosen?.suggestion ?? "";
   async function openDraft() {
     if (!chosen || opening) return;
     setOpening(true);
@@ -30,7 +39,7 @@ export function HomeMoments({ home, snapshot, character }: {
       // Same-tab temporary draft, scoped to this exact existing conversation.
       // No message is sent and the plan/calendar isn't changed.
       sessionStorage.setItem("home-moment-draft:" + tess.id, JSON.stringify({
-        text: chosen.suggestion,
+        text: proposalText,
         homeKey: home.key,
         activity: chosen.id,
       }));
@@ -53,7 +62,7 @@ export function HomeMoments({ home, snapshot, character }: {
           <button key={moment.id} type="button" aria-pressed={selected === moment.id}
             onClick={() => { setSelected(moment.id); setCopyStatus(""); }}
             className={`min-h-28 rounded-xl border p-3 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${selected === moment.id ? "border-primary bg-primary/10" : "border-border/70 bg-background/85 hover:bg-accent"}`}>
-            <span aria-hidden="true" className="text-xl">{({ coffee: "☕", movie: "🎬", cook: "🍳", mabel: "🐾", photo: "📸", invite: "💌", myphoto: "🪴" } as const)[moment.id]}</span>
+            <span aria-hidden="true" className="text-xl">{({ coffee: "☕", movie: "🎬", cook: "🍳", mabel: "🐾", photo: "📸", invite: "💌", myphoto: "🪴", roommate: "🧾" } as const)[moment.id]}</span>
             <span className="mt-2 block text-sm font-semibold">{moment.title}</span>
             <span className="mt-1 block text-xs text-muted-foreground">{moment.description}</span>
           </button>
@@ -62,7 +71,16 @@ export function HomeMoments({ home, snapshot, character }: {
       {chosen && (
         <div className="space-y-2 rounded-xl border border-border/70 bg-background/90 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Conversation starter</p>
-          <p className="text-sm">{chosen.suggestion}</p>
+          <p className="text-sm">{proposalText}</p>
+          {chosen.id === "roommate" && <div className="space-y-3 rounded-xl border p-3" aria-label="Roommate budget worksheet">
+            <p className="text-sm font-semibold">Optional monthly budget worksheet</p>
+            <p className="text-xs text-muted-foreground">Draft estimates only. No expenses or agreements are saved to the household until you both decide.</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {([{ label: "Rent", value: rent, set: setRent }, { label: "Utilities", value: utilities, set: setUtilities }, { label: "Shared groceries", value: groceries, set: setGroceries }] as const).map(item => <label key={item.label} className="text-xs">{item.label}<input className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3" type="number" min="0" step="0.01" value={item.value} onChange={e => item.set(e.target.value)} placeholder="0.00" /></label>)}
+            </div>
+            <p className="text-sm">Estimated shared monthly total: <strong>${totals.toFixed(2)}</strong> · 50/50 share: <strong>${(totals / 2).toFixed(2)} each</strong></p>
+            <label className="block text-xs">Space, privacy, Mabel, chores, guests, and exit plan<textarea className="mt-1 min-h-20 w-full rounded-xl border bg-background p-3" value={notes} onChange={e => setNotes(e.target.value)} maxLength={800} placeholder="Questions and ideas for Tess; no agreement implied" /></label>
+          </div>}
           <div className="flex flex-wrap gap-2">
             <button type="button" className="min-h-11 rounded-xl bg-primary px-4 text-sm text-primary-foreground"
               onClick={() => {
@@ -70,7 +88,7 @@ export function HomeMoments({ home, snapshot, character }: {
                   setCopyStatus("Copy unavailable in this browser. Select the text above instead.");
                   return;
                 }
-                void navigator.clipboard.writeText(chosen.suggestion)
+                void navigator.clipboard.writeText(proposalText)
                   .then(() => setCopyStatus("Copied. Paste into your conversation when you're ready."))
                   .catch(() => setCopyStatus("Copy failed. Select the text above instead."));
               }}>
