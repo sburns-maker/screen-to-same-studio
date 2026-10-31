@@ -69,6 +69,8 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   if (!Object.prototype.hasOwnProperty.call(CHARACTERS, characterKey)) {
     throw new Error("Unknown contact");
   }
+  try { const {reconcileVisibleWeddingDecisions}=await import("./family-wedding.server"); await reconcileVisibleWeddingDecisions(db,userId,characterKey,now); }
+  catch(error){ console.warn("[family-wedding] pending response reconciliation unavailable",error); }
   const { commitmentSnapshot } = await import("./relationship-commitments.server");
   const commitments = await commitmentSnapshot(db, userId, characterKey);
   const { familyCommitmentStatus } = await import("./family-life");
