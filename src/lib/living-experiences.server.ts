@@ -338,6 +338,7 @@ export async function generateExperience(
       worldKnowledge: [
         ...await (await import("./call-history-context.server")).recentCallContext(db, user, conv, def.key, new Date(experienceClock(scene, moments))),
         await (await import("./housing.server")).housingContext(db,user,def.key,now),
+        ...relationshipFacts,
         ...calendar
           .filter(
             (x) =>
