@@ -124,9 +124,11 @@ const deltaSchema = z.object({
 
 import {housingActionsSchema,HOUSING_ACTION_RULES} from "./housing";
 import { commitmentActionSchema, COMMITMENT_ACTION_RULES } from "./relationship-commitments";
+import { weddingPlanActionSchema, WEDDING_PLAN_ACTION_RULES } from "./family-wedding-actions";
 export const replySchema = z.object({
   housing_actions: housingActionsSchema,
   commitment_action: commitmentActionSchema,
+  wedding_plan_action: weddingPlanActionSchema,
   schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
@@ -306,7 +308,8 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = topicGuidance(tessLines, args.initiation ? "" : lastUser);
-  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const reply = await runStructured(replySchema, `${SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}
+${WEDDING_PLAN_ACTION_RULES}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = enforceTessVoice(reply.messages, { maxBubbles: 2, recentTess });
   // If filtering removed everything, fall back to her first bubble with only emoji/exclamations toned down.
