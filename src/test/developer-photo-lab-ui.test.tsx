@@ -46,6 +46,22 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("sends a stored developer image to chat only after explicit action without visible label", async () => {
+  mocks.command.mockImplementation(async ({data}) => data.action === "deliver_stored"
+    ? {result:null,snapshot:null,delivery:{delivered:true,replayed:false,messageId:"test-msg"}}
+    : {result:null,snapshot:{character:"Riley",types:PHOTO_LAB_TYPES.map(type=>({type,label:PHOTO_LAB_PRESETS[type].label,supported:true})),results:[{
+      id:"00000000-0000-4000-8000-000000000123",requestId:"00000000-0000-4000-8000-000000000124",
+      category:"casual_selfie",status:"ready",startedAt:new Date().toISOString(),recoverable:false,url:"https://private.test/photo.png",reason:null,diagnostics:null,
+    }]}});
+  render(<DeveloperPhotoLab conversationId="00000000-0000-4000-8000-000000000125"/>);
+  const send = await screen.findByRole("button",{name:"Send stored test photo to chat"});
+  fireEvent.click(send);
+  await waitFor(()=>expect(mocks.command).toHaveBeenCalledWith({data:{
+    action:"deliver_stored",conversationId:"00000000-0000-4000-8000-000000000125",
+    id:"00000000-0000-4000-8000-000000000123",confirmation:"DELIVER DEVELOPER PHOTO TO CHAT",
+  }}));
+  expect(await screen.findByText(/Photo attached to this conversation/)).toBeTruthy();
+});
 it("offers a free SpicyAPI connection check without making a generation call", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   const button = await screen.findByRole("button", { name: "Check SpicyAPI connection (free)" });
