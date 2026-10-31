@@ -145,3 +145,12 @@ it("shows loading instead of disappearing", () => {
   render(<ContactRelationshipStory characterKey="claire" characterName="Claire" />);
   expect(screen.getByRole("status")).toHaveTextContent("Loading relationship history");
 });
+
+it("offers a genuine engagement proposal without implying a completed wedding", async () => {
+  render(<ContactRelationshipStory characterKey="sienna" characterName="Sienna" conversationId="sienna-chat" />);
+  fireEvent.click(screen.getByRole("button", { name: "Propose marriage (engagement)" }));
+  expect(state.change).toHaveBeenCalledWith({ data: expect.objectContaining({
+    characterKey: "sienna", kind: "engagement", action: "propose", eventId: null,
+  }) });
+  expect(screen.getByText(/engagement is not a completed wedding/)).toBeInTheDocument();
+});
