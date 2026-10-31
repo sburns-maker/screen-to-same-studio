@@ -62,6 +62,7 @@ beforeAll(async () => {
     "0042_calendar_scene_privileges",
     "0043_verify_migration_catchup",
     "0044_manual_calendar_control",
+    "0045_residences_households",
   ]) {
     if (file === "0044_manual_calendar_control") {
       await db.exec(`INSERT INTO conversations(id,user_id,character_id) SELECT '${conv}','${other}',id FROM characters WHERE key='tess';
@@ -259,6 +260,29 @@ it("updates the same plan after explicit agreement without generating a message"
     (await db.query("SELECT time_local,status FROM social_plans WHERE id=$1", [p.id])).rows[0],
   ).toEqual({ time_local: "16:00", status: "accepted" });
   expect((await db.query("SELECT count(*)::int n FROM messages")).rows[0]).toEqual({ n: 0 });
+});
+
+it("saves a plan at the player's own home without any guest invitation message", async () => {
+  const seeded = await client().rpc("housing_seed" as never, { p_user: user } as never);
+  expect(seeded.error).toBeNull();
+  const home = (
+    await db.query<{ place_key: string }>(
+      "SELECT r.place_key FROM housing_memberships m JOIN housing_residences r ON r.id=m.residence_id WHERE m.user_id=$1 AND m.person_key='user' AND m.kind='primary' AND m.ended_at IS NULL",
+      [user],
+    )
+  ).rows[0];
+  expect(home?.place_key).toMatch(/^home:/);
+  const p = await add({
+    title: "Board games at my place",
+    category: "meetup",
+    place: home!.place_key,
+    date: "2026-11-02",
+    time: "12:00",
+  });
+  expect(p.status).toBe("accepted");
+  expect(
+    (await db.query("SELECT place_key FROM social_plans WHERE id=$1", [p.id])).rows[0],
+  ).toEqual({ place_key: home!.place_key });
 });
 
 it("preserves existing plan rows and memories during migration", () => {

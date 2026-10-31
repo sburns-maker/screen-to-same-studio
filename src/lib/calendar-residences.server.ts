@@ -143,6 +143,9 @@ export async function prepareResidentialManualSave(
   const homes = (await housingSnapshot(db, user)).homes;
   const home = homes.find((h) => h.key === plan.place);
   if (!home) throw new Error("Unknown private calendar location");
+  // The player is the resident host of their own home; hosting a guest there
+  // never requires the guest to have invited the player anywhere.
+  if (home.primaryFor.includes("user")) return { planId, version };
   const invitation = await savedHomeInvitation(db, user, input.conversationId, home.key, now);
   if (!invitation) throw new Error("A current resident invitation is required");
   if (!sameHomeActivity(plan.title ?? "", invitation.title)) return { planId, version };
