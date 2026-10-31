@@ -1,5 +1,8 @@
 name: Family life foundation verification
 on:
+  push:
+    branches:
+      - feature/family-life-foundation
   pull_request:
     paths:
       - 'src/lib/family-*'
