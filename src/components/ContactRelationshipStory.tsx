@@ -94,11 +94,11 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
       {supportsRelationshipCommitment(characterKey) && pending.length === 0 && (
         <section aria-label="Discuss a relationship commitment" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
           <h3 className="font-semibold">Where do we stand?</h3>
-          <p className="mt-1 text-sm text-muted-foreground">Discuss relationship milestones together. {characterName} makes her own decision; a proposal alone does not change your status.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Discuss relationship milestones together. {characterName} makes her own decision; a proposal alone does not change your status, and an engagement is not a completed wedding.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={() => void propose("exclusive")} className="min-h-11 rounded-xl border px-4 text-sm">Ask about exclusivity</button>
             <button type="button" disabled={busy} onClick={() => void propose("partnership")} className="min-h-11 rounded-xl border px-4 text-sm">Discuss a relationship</button>
-            {commitmentStatus !== "engaged" && commitmentStatus !== "married" && <button type="button" disabled={busy} onClick={() => void propose("engagement")} className="min-h-11 rounded-xl border px-4 text-sm">Discuss engagement</button>}
+            {commitmentStatus !== "engaged" && commitmentStatus !== "married" && <button type="button" disabled={busy} onClick={() => void propose("engagement")} className="min-h-11 rounded-xl border px-4 text-sm">Propose marriage (engagement)</button>}
           </div>
         </section>
       )}

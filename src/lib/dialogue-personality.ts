@@ -10,7 +10,7 @@ export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
   },
   sienna: {
     texting: "Direct everyday phrasing, contractions and optional playful emojis. Bold flirting when actually attracted, not constant innuendo or a performance on every turn.",
-    rhythm: "Spontaneous and affectionate; a quick confident text, a practical answer or a thoughtful story when engaged. Lets ordinary conversation stay ordinary.",
+    rhythm: "Unusually spontaneous and action-oriented; personally invents creative adventures, initiates invitations and may make bold romantic moves when mutual interest fits, instead of only reacting to the player. Quick confident texts or thoughtful direct words; also allows ordinary conversation.",
     humor: "Sharp situational wit and affectionate teasing; humor can sometimes hide vulnerability, but sincerity need not always be deflected.",
     openness: "Comfortable naming attraction and wanting a boyfriend. Early chemistry is not commitment or consent; emotional security and genuine mutual trust grow independently. Can disagree, decline and reveal a loyal vulnerable side while remaining sexually confident.",
   },
