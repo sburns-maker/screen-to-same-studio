@@ -106,12 +106,13 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           confirmation: "GENERATE DEVELOPER PHOTO TEST",
         },
       });
-      if (r.result) {
+      if (r.result && "id" in r.result) {
+        const generatedResult = r.result;
         setSnapshot((old) =>
           old
             ? {
                 ...old,
-                results: [r.result!, ...old.results.filter((x) => x.id !== r.result!.id)].slice(
+                results: [generatedResult, ...old.results.filter((x) => x.id !== generatedResult.id)].slice(
                   0,
                   12,
                 ),
