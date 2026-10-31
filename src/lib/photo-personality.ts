@@ -1,5 +1,6 @@
 import { ordinaryWardrobeChoice, sceneOutfit } from "./photo-wardrobe";
 import {physicalPhotoContext} from "./calendar-commitment";
+import { photoActivityBlock } from "./photo-activity";
 import type { CharacterKey } from "./characters";
 import type { PhotoStyle } from "./tess-photos";
 import type { TessActivity } from "./tess-life";
@@ -9,6 +10,7 @@ export const PHOTO_SCENARIOS = [
   "dog_walk",
   "venue_update",
   "coffee_break",
+  "work_moment",
   "outdoor_walk",
   "playful_reply",
   "reaction_selfie",
@@ -51,14 +53,14 @@ export const PHOTOGRAPHY_PROFILES = {
     key: "sienna",
     styles: ["observant lifestyle framing", "natural spontaneous front-camera snapshots"],
     expressions: ["confident unforced smile", "playful when genuinely amused", "thoughtful or tired when appropriate"],
-    settings: ["current cocktail bar break", "apartment", "actual photography outing", "local cafe"],
+    settings: ["at her actual cocktail bar during a pause between customers", "current cocktail bar break", "apartment", "actual photography outing", "local cafe"],
     wardrobe: ["established practical bar-shift clothing", "casual fitted tee and jeans", "season-appropriate road-trip layers"],
     hairstyles: ["reference-compatible loose copper-red hair", "practical tied-back hair when established"],
     selfies: ["natural front camera", "confident outfit check", "a photographic detail from her actual surroundings"],
     captionVoice: "Direct, witty and affectionate when earned; not every caption flirts. Client privacy and her own boundaries remain intact.",
     spontaneity: 0.75, hours: 6, messages: 3,
-    subjects: "photography, ordinary home life, cocktails without client details, music, actual outings and confident natural selfies",
-    scenarios: { outfit_check: 1.5, playful_reply: 1.4, post_work: 1.3, thinking_of_you: 1.3 },
+    subjects: "photography, ordinary home life, quick workday selfies between bar duties, harmless cocktail tools and coffee without patrons or payment details, music, actual outings and confident natural selfies",
+    scenarios: { work_moment: 2.1, outfit_check: 1.5, playful_reply: 1.4, post_work: 1.3, thinking_of_you: 1.3 },
   },
   riley: {
     key: "riley",
@@ -237,6 +239,8 @@ export function photoLocation(text: string): PhotoLocation | null {
     )
   )
     return "home";
+  // Being on duty behind the bar is work, not an ordinary bar outing.
+  if (/\b(?:at work|working (?:a |the |her |my )?shift|on (?:a |the |her |my )?shift|bartending|behind (?:the |a )?bar|working (?:at|in) (?:a |the )?bar)\b/i.test(text)) return "work";
   if (/\b(?:at|in|inside) (?:a |the )?(?:bar|pub|restaurant|trivia night|dinner date)\b|\b(?:bar trivia|trivia team|night out|book club gathering)\b/i.test(text)) return "social";
   if (/\b(?:coffee shop|cafe|café)\b/i.test(text)) return "coffee_shop";
   if (/\b(?:at|in|inside) (?:the |her |his )?library\b/i.test(text)) return "library";
@@ -291,16 +295,19 @@ export function planPhotography(args: {
     location = photoLocation(text),
     candidates: PhotoScenario[] = [];
   const user = args.userText ?? "";
-  const available =
-    args.schedule.availability !== "asleep" &&
-    args.schedule.availability !== "busy" &&
-    !/\b(?:driv(?:e|es|ing)|surgery|emergency|patients?|phone (?:down|away))\b/i.test(text);
+  // Busy does not make the camera disappear: an ordinary work moment can fit between tasks.
+  // Specific incompatible work (driving, patients, emergency, private/client work) is still blocked.
+  const atWork = location === "work" || location === "clinic" || location === "venue";
+  const available = args.schedule.availability !== "asleep" &&
+    (args.schedule.availability !== "busy" || atWork) &&
+    !photoActivityBlock(args.schedule);
   if (available) {
     if (location === "home") candidates.push("at_home");
     if (location === "home" && /after work|after (?:an? |the )?event|post.work/i.test(text))
       candidates.push("post_work");
     if (location === "outdoors" && /\b(?:Mabel|dog)\b/i.test(text)) candidates.push("dog_walk");
     if (location === "venue") candidates.push("venue_update");
+    if (args.character === "sienna" && location === "work") candidates.push("work_moment");
     if (/\b(?:coffee break|coffee shop|cafe|café)\b/i.test(text)) candidates.push("coffee_break");
     if (location === "outdoors" || location === "garden") candidates.push("outdoor_walk");
     if (/\b(?:cooking|baking|making dinner)\b/i.test(text)) candidates.push("cooking");
