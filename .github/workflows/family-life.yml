@@ -16,5 +16,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx vitest run src/lib/family-life.test.ts src/test/housing.integration.test.ts
-      - run: bunx tsc --noEmit
-      - run: bun run build
+      - if: success() || failure()
+        run: bunx tsc --noEmit
+      - if: success() || failure()
+        run: bun run build
