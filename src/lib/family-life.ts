@@ -64,6 +64,31 @@ export function mayDiscussEngagement(events: readonly CommitmentEvent[]): boolea
   return status !== "married" && status !== "engaged";
 }
 
+/**
+ * A wedding plan is a proposal for a future ceremony, never evidence of
+ * a completed marriage. Use existing calendar events for time and venue.
+ */
+export const weddingPlanSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  characterKey: z.string().min(1),
+  calendarEventId: z.string().uuid().nullable(),
+  startsAt: z.string().datetime({ offset: true }),
+  venue: z.string().min(1).max(200),
+  userResponse: z.enum(["pending", "accepted", "declined"]),
+  characterResponse: z.enum(["pending", "accepted", "declined"]),
+  ceremonyCompletedAt: z.string().datetime({ offset: true }).nullable(),
+});
+export type WeddingPlan = z.infer<typeof weddingPlanSchema>;
+export function weddingPlanStatus(plan: WeddingPlan, commitments: readonly CommitmentEvent[], at: Date) {
+  if (!mayPlanWedding(commitments)) return "not_engaged" as const;
+  if (plan.userResponse === "declined" || plan.characterResponse === "declined") return "declined" as const;
+  if (plan.userResponse !== "accepted" || plan.characterResponse !== "accepted") return "awaiting_agreement" as const;
+  if (!plan.ceremonyCompletedAt || at.getTime() < Date.parse(plan.startsAt)
+    || at.getTime() < Date.parse(plan.ceremonyCompletedAt)) return "scheduled" as const;
+  return "ceremony_recorded" as const;
+}
+
 export const pregnancyEventSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
