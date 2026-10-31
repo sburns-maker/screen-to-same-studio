@@ -10,8 +10,6 @@ import { CHARACTERS, type CharacterKey } from "./characters";
 
 type Client = SupabaseClient<Database>;
 type DbRecord = Record<string, unknown>;
-const table = (db: Client, name: "family_pregnancy_events" | "family_household_events") =>
-  db.from(name);
 
 /** Display model deliberately excludes the random outcome and probability. */
 export type PublicPregnancy = {
@@ -47,7 +45,7 @@ function publicPregnancy(event: PregnancyEvent, now: Date): PublicPregnancy {
  */
 export async function settleDuePregnancyEvents(db: Client, userId: string, characterKey: string, now = new Date()) {
   if (!Object.prototype.hasOwnProperty.call(CHARACTERS, characterKey)) throw new Error("Unknown contact");
-  const { data, error } = await table(db, "family_pregnancy_events")
+  const { data, error } = await db.from("family_pregnancy_events")
     .select("*").eq("user_id", userId).eq("character_key", characterKey)
     .eq("status", "pending").lte("reveal_at", now.toISOString()).limit(100);
   if (error) throw new Error("Pregnancy event settlement unavailable");
@@ -56,7 +54,7 @@ export async function settleDuePregnancyEvents(db: Client, userId: string, chara
     const event = pregnancyFromRow(row as DbRecord);
     const result = resolvePregnancyEvent(event, now);
     if (result.status === "pending") continue;
-    const update = await table(db, "family_pregnancy_events")
+    const update = await db.from("family_pregnancy_events")
       .update({ status: result.status } as never).eq("id", event.id)
       .eq("user_id", userId).eq("character_key", characterKey)
       .eq("status", "pending");
@@ -77,9 +75,9 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   const commitment = commitments.available ? familyCommitmentStatus(commitments.events) : null;
   await settleDuePregnancyEvents(db, userId, characterKey, now);
   const [houses, pregnancies] = await Promise.all([
-    table(db, "family_household_events").select("*").eq("user_id", userId)
+    db.from("family_household_events").select("*").eq("user_id", userId)
       .eq("character_key", characterKey).order("occurred_at", { ascending: true }).limit(200),
-    table(db, "family_pregnancy_events").select("*").eq("user_id", userId)
+    db.from("family_pregnancy_events").select("*").eq("user_id", userId)
       .eq("character_key", characterKey).order("occurred_at", { ascending: false }).limit(100),
   ]);
   if (houses.error || pregnancies.error) return { available: false, household: "separate" as const, commitment, pregnancies: [] as PublicPregnancy[] };
@@ -124,7 +122,7 @@ export async function recordVerifiedPregnancyOpportunity(db: Client, encounter: 
       encounter.probability < 0 || encounter.probability > 1) {
     throw new Error("Invalid configured probability");
   }
-  const existing = await table(db, "family_pregnancy_events").select("id")
+  const existing = await db.from("family_pregnancy_events").select("id")
     .eq("user_id", encounter.userId).eq("character_key", encounter.characterKey)
     .eq("encounter_id", encounter.encounterId).maybeSingle();
   if (existing.error) throw new Error("Pregnancy event lookup unavailable");
@@ -139,10 +137,10 @@ export async function recordVerifiedPregnancyOpportunity(db: Client, encounter: 
     pregnancy_possible: true, probability: event.probability, random_roll: event.randomRoll,
     occurred_at: event.occurredAt, reveal_at: event.revealAt, status: "pending",
   };
-  const inserted = await table(db, "family_pregnancy_events").insert(payload as never);
+  const inserted = await db.from("family_pregnancy_events").insert(payload as never);
   if (inserted.error) {
     if (inserted.error.code === "23505") {
-      const winner = await table(db, "family_pregnancy_events").select("id")
+      const winner = await db.from("family_pregnancy_events").select("id")
         .eq("user_id", encounter.userId).eq("character_key", encounter.characterKey)
         .eq("encounter_id", encounter.encounterId).single();
       if (!winner.error && winner.data) return { id: String(winner.data.id), created: false };
