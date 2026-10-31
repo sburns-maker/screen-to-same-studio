@@ -18,5 +18,11 @@ describe("verified fictional encounter and privacy",()=>{
   expect(validPregnancyDisclosure(disclosure,disclosure.quote,[id])).toBe(true);
   expect(validPregnancyDisclosure(disclosure,disclosure.quote,[])).toBe(false);
   expect(validPregnancyDisclosure(disclosure,"Hello!",[id])).toBe(false);
+  const positive={eventId:id,quote:"I’m pregnant."};
+  const negative={eventId:id,quote:"The test came back negative."};
+  expect(validPregnancyDisclosure(positive,positive.quote,[id],"positive")).toBe(false); // curly apostrophe is not an ASCII contraction
+  expect(validPregnancyDisclosure({eventId:id,quote:"I am pregnant."},"I am pregnant.",[id],"positive")).toBe(true);
+  expect(validPregnancyDisclosure(negative,negative.quote,[id],"negative")).toBe(true);
+  expect(validPregnancyDisclosure(negative,negative.quote,[id],"positive")).toBe(false);
  });
 });
