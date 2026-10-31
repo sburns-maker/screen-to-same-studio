@@ -4,6 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { CHARACTERS } from "./characters";
 import { weddingPlanSchema, mayPlanWedding, type WeddingPlan } from "./family-life";
 import { commitmentSnapshot } from "./relationship-commitments.server";
+import { weddingPlanActionSchema, validateWeddingAction } from "./family-wedding-actions";
 type Db = SupabaseClient<Database>;
 const table = (db:Db)=>db.from("family_wedding_plans");
 
@@ -73,11 +74,14 @@ export async function recordCharacterWeddingDecision(db:Db,input:{
   .select("id,character:characters(key)").eq("user_id",input.userId)
   .eq("character_id", await characterDatabaseId(db,input.characterKey)).maybeSingle();
  if(conversationError || !conversation)throw new Error("Character conversation unavailable");
- const {data:source,error:sourceError}=await db.from("messages").select("id,sender,visible_at,created_at")
+ const {data:source,error:sourceError}=await db.from("messages").select("id,sender,visible_at,created_at,body,metadata")
   .eq("id",input.verifiedSourceId).eq("conversation_id",conversation.id)
   .eq("user_id",input.userId).eq("sender","tess").maybeSingle();
+ const parsed = weddingPlanActionSchema.safeParse((source?.metadata as Record<string,unknown>|null)?.["wedding_plan_action"]);
  if(sourceError || !source || Date.parse(source.visible_at)>Date.now() ||
-    Date.parse(source.created_at)<Date.parse(plan.created_at))
+    Date.parse(source.created_at)<Date.parse(plan.created_at) || !parsed.success ||
+    !validateWeddingAction(parsed.data,source.body,[input.planId]) ||
+    parsed.data?.action !== (input.accepted ? "accept" : "decline"))
    throw new Error("Wedding response must originate from a visible, later character message");
  const {data,error}=await table(db).update({character_response:input.accepted?"accepted":"declined"})
   .eq("id",input.planId).eq("user_id",input.userId).eq("character_key",input.characterKey)
@@ -89,4 +93,43 @@ async function characterDatabaseId(db:Db,key:string) {
  const {data,error}=await db.from("characters").select("id").eq("key",key).single();
  if(error || !data)throw new Error("Unknown character");
  return data.id;
+}
+
+/** Reconcile actual visible, structured character replies against their own
+ * pending wedding plans. Never infer agreement from message sentiment or jokes.
+ */
+export async function reconcileVisibleWeddingDecisions(
+ db:Db,userId:string,characterKey:string,now=new Date(),
+) {
+ const plans=(await listWeddingPlans(db,userId,characterKey)).filter(p=>p.characterResponse==="pending");
+ if(!plans.length)return {accepted:0,declined:0};
+ const cid=await characterDatabaseId(db,characterKey);
+ const {data:conversation,error:conversationError}=await db.from("conversations")
+  .select("id").eq("user_id",userId).eq("character_id",cid).maybeSingle();
+ if(conversationError || !conversation)return {accepted:0,declined:0};
+ const {data:messages,error}=await db.from("messages").select("id,body,metadata,created_at")
+  .eq("user_id",userId).eq("conversation_id",conversation.id).eq("sender","tess")
+  .lte("visible_at",now.toISOString()).order("created_at",{ascending:false}).limit(100);
+ if(error)throw new Error("Wedding decision messages unavailable");
+ let accepted=0,declined=0;
+ for(const plan of plans){
+  const source=(messages??[]).find(message=>{
+   if(Date.parse(message.created_at)<Date.parse(plan.startsAt)-365*24*3600*1000)return false;
+   const md=message.metadata;
+   const parsed=weddingPlanActionSchema.safeParse(md && typeof md==="object" && !Array.isArray(md)
+     ? (md as Record<string,unknown>)["wedding_plan_action"] : null);
+   return parsed.success && validateWeddingAction(parsed.data,message.body,[plan.id]);
+  });
+  if(!source)continue;
+  const md=source.metadata as Record<string,unknown>;
+  const action=weddingPlanActionSchema.parse(md["wedding_plan_action"]);
+  if(!action?.action)continue;
+  try {
+   await recordCharacterWeddingDecision(db,{
+    userId,characterKey,planId:plan.id,accepted:action.action==="accept",verifiedSourceId:source.id,
+   });
+   if(action.action==="accept")accepted++;else declined++;
+  }catch(e){console.warn("[family-wedding] pending decision could not be saved",e);}
+ }
+ return {accepted,declined};
 }
