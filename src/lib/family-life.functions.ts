@@ -55,3 +55,15 @@ export const planWedding = createServerFn({ method:"POST" })
    requestId:data.requestId,startsAt:data.startsAt,venue:data.venue,
   });
  });
+
+/** Read previously saved proposed wedding plans. No new approvals are inferred. */
+export const loadWeddingPlans = createServerFn({ method:"POST" })
+ .middleware([requireSupabaseAuth])
+ .inputValidator((value:unknown)=>z.object({
+   characterKey:z.enum(["tess","maya","riley","sienna","kendra","claire","jordan"]),
+ }).parse(value))
+ .handler(async({context,data})=>{
+   const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+   const {listWeddingPlans}=await import("./family-wedding.server");
+   return listWeddingPlans(supabaseAdmin,context.userId,data.characterKey);
+ });
