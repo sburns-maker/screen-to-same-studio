@@ -338,7 +338,7 @@ export function CalendarBoard() {
               <option value="">Undecided</option>
               {[...PLACE_REGISTRY.filter((p) => p.public), ...(q.data?.residences ?? [])].map(
                 (p) => (
-                  <option key={p.key} value={p.key} disabled={"canPlan" in p && (!p.canPlan || (p.characters.length > 0 && !p.characters.includes(q.data?.contacts.find(c=>c.id===contact)?.key ?? "")))}>
+                  <option key={p.key} value={p.key} disabled={"canPlan" in p && !p.canPlan}>
                     {"canPlan" in p ? "⌂ " : ""}{p.label}{"canPlan" in p && !p.canPlan ? " · Invitation required" : ""}
                   </option>
                 ),
@@ -563,7 +563,7 @@ export function CalendarBoard() {
             </div>
             {editing === e.id && (
               <PlanEditor
-                residences={(q.data?.residences ?? []).filter(h=>!h.characters?.length||h.characters.includes(e.organizer)).map(h=>({...h,canPlan:h.existingPermission ?? h.canPlan}))}
+                residences={(q.data?.residences ?? []).map(h=>({...h,canPlan:h.existingPermission ?? h.canPlan}))}
                 manual={q.data.manual}
                 plan={e}
                 onCancel={() => setEditing("")}

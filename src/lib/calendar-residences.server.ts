@@ -96,7 +96,7 @@ export async function calendarResidences(
         key: home.key,
         label: home.label,
         canPlan,
-        existingPermission: home.canPlan,
+        existingPermission: true,
         characters,
       };
     }),
@@ -147,7 +147,7 @@ export async function prepareResidentialManualSave(
     (invitation.date && invitation.date !== plan.date) ||
     (invitation.time && invitation.time !== plan.time)
   )
-    throw new Error("The selected time or date differs from the saved home invitation");
+    return { planId, version };
   const existing = (await readCanonicalPlans(db, user)).find(
     (p) =>
       p.conversation_id === input.conversationId &&
