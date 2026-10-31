@@ -197,11 +197,12 @@ it.each(["tess", "riley"] as const)("gives %s a focused controlled-photo decisio
   expect(system).not.toContain("- photo: Usually null.");
   expect(model.run).toHaveBeenCalledTimes(1);
 });
-it.each(["tess", "riley"] as const)("keeps %s ordinary non-photo turns on the usual default", async key => {
+it.each(["tess", "riley"] as const)("allows %s ordinary turns without forcing photos", async key => {
   if (key === "tess") await generateTessReply(args);
   else await generateContactReply({ ...args, character: CHARACTERS[key] });
   const [, system, input] = model.run.mock.calls[0]!;
-  expect(system).toContain("- photo: Usually null.");
+  expect(system).toContain("photo=null");
+  expect(system).not.toContain("- photo: Usually null.");
   expect(input).not.toContain("Controlled photo opportunity");
 });
 

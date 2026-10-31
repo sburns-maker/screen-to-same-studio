@@ -1,8 +1,9 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { PHOTO_LAB_TYPES, PHOTO_LAB_PRESETS, type PhotoLabResult } from "@/lib/developer-photo-lab";
-const mocks = vi.hoisted(() => ({ command: vi.fn(), connectivity: vi.fn(), results: [] as PhotoLabResult[] }));
+const mocks = vi.hoisted(() => ({ command: vi.fn(), connectivity: vi.fn(), batch: vi.fn(), results: [] as PhotoLabResult[] }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (f: unknown) => f }));
+vi.mock("@/lib/photo-decision-batch.functions", () => ({ evaluatePhotoDecisionBatch: mocks.batch }));
 vi.mock("@/lib/developer-photo-lab.functions", () => ({
   developerPhotoLab: mocks.command,
   checkDeveloperSpicyConnection: mocks.connectivity,
@@ -10,6 +11,7 @@ vi.mock("@/lib/developer-photo-lab.functions", () => ({
 import { DeveloperPhotoLab } from "@/components/DeveloperPhotoLab";
 beforeEach(() => {
   mocks.results = [];
+  mocks.batch.mockReset().mockResolvedValue({character:"riley",at:"2026-10-31T00:00:00Z",mode:"text_model_only_no_generation_no_delivery",repetitionsPerCategory:2,scenarios:[],limitations:"No images created."});
   mocks.connectivity.mockReset().mockResolvedValue({
     status: "transport_error", httpStatus: null, transportCode: "dns_retry",
   });
@@ -44,6 +46,22 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("sends a stored developer image to chat only after explicit action without visible label", async () => {
+  mocks.command.mockImplementation(async ({data}) => data.action === "deliver_stored"
+    ? {result:null,snapshot:null,delivery:{delivered:true,replayed:false,messageId:"test-msg"}}
+    : {result:null,snapshot:{character:"Riley",types:PHOTO_LAB_TYPES.map(type=>({type,label:PHOTO_LAB_PRESETS[type].label,supported:true})),results:[{
+      id:"00000000-0000-4000-8000-000000000123",requestId:"00000000-0000-4000-8000-000000000124",
+      category:"casual_selfie",status:"ready",startedAt:new Date().toISOString(),recoverable:false,url:"https://private.test/photo.png",reason:null,diagnostics:null,
+    }]}});
+  render(<DeveloperPhotoLab conversationId="00000000-0000-4000-8000-000000000125"/>);
+  const send = await screen.findByRole("button",{name:"Send stored test photo to chat"});
+  fireEvent.click(send);
+  await waitFor(()=>expect(mocks.command).toHaveBeenCalledWith({data:{
+    action:"deliver_stored",conversationId:"00000000-0000-4000-8000-000000000125",
+    id:"00000000-0000-4000-8000-000000000123",confirmation:"DELIVER DEVELOPER PHOTO TO CHAT",
+  }}));
+  expect(await screen.findByText(/Photo attached to this conversation/)).toBeTruthy();
+});
 it("offers a free SpicyAPI connection check without making a generation call", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   const button = await screen.findByRole("button", { name: "Check SpicyAPI connection (free)" });
@@ -117,4 +135,20 @@ it("offers a suggestive test with a private custom scene without messaging the c
       customScene: "Confident adult at home, warm lighting, playful eye contact and a realistic phone photo",
     }),
   });
+});
+
+it("runs the GPT photo-choice batch separately from image generation", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Run photo-choice batch (no images)" }));
+  await waitFor(() => expect(mocks.batch).toHaveBeenCalledWith({data:{conversationId:"riley-conversation",repetitions:2,mode:"spontaneous_initiation"}}));
+  expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
+  expect(await screen.findByText(/Text-model decisions only/)).toBeTruthy();
+});
+
+it("compares photo medium after a character has already decided to communicate", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.change(screen.getByLabelText("Photo decision diagnostic mode"), { target: { value: "medium_after_initiation" } });
+  fireEvent.click(await screen.findByRole("button", { name: "Run photo-choice batch (no images)" }));
+  await waitFor(() => expect(mocks.batch).toHaveBeenCalledWith({data:{conversationId:"riley-conversation",repetitions:2,mode:"medium_after_initiation"}}));
+  expect(mocks.command.mock.calls.every(c=>c[0].data.action!=="generate")).toBe(true);
 });

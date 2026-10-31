@@ -1,0 +1,136 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { characterFor, characterAvailability } from "./characters";
+import { STATE_KEYS, type TessState } from "./tess-logic";
+import { eligiblePhotoCategories, type PhotoBoundary } from "./photo-policy";
+import { summarizePhotoDecisionBatch, type PhotoChoiceOutcome } from "./spontaneous-photo-flow";
+import { runStructured } from "./text-ai.server";
+
+/** A diagnostic decision is not a photo action. Separate initiating, medium and category. */
+export const photoIntentDecisionSchema = z.object({
+  initiate: z.boolean(),
+  medium: z.enum(["none","text","photo","photo_with_caption"]),
+  reason: z.enum(["no_natural_impulse","busy_or_tired","privacy","outfit_or_scene_mismatch","relationship_boundary","personal_preference","ordinary_moment","playful_connection","sharing_a_memory","other"]),
+  explanation: z.string().max(180),
+  category: z.enum(["object","tess_candid","casual_selfie","personal_selfie","intimate_selfie","mature_romantic","suggestive"]).nullable(),
+  captionIdea: z.string().max(160).nullable(),
+});
+export function interpretPhotoIntent(decision: z.infer<typeof photoIntentDecisionSchema>, allowed: readonly string[]) {
+  if (!decision.initiate) return {action:"silence" as const, validation:null};
+  if (decision.medium === "none") return {action:"unexplained_silence" as const, validation:"initiation_yes_medium_none"};
+  if (decision.medium === "text") return {action:"text_only" as const, validation:null};
+  if (!decision.category || !allowed.includes(decision.category))
+    return {action:"invalid_photo_action" as const, validation:"category_not_eligible"};
+  return {action:"photo" as const,validation:null};
+}
+const requestSchema = z.object({
+  conversationId: z.string().uuid(),
+  repetitions: z.number().int().min(1).max(4).default(2),
+  mode: z.enum(["spontaneous_initiation","medium_after_initiation"]).default("spontaneous_initiation"),
+});
+type Category = "ordinary_object" | "personal_selfie" | "romantic_portrait";
+const categories: { id: Category; types: readonly string[]; description: string }[] = [
+  { id: "ordinary_object", types: ["object"], description: "A plausible everyday object, meal, pet (only if known), or view based on current schedule and location; minor unspecified visual details may be filled naturally" },
+  { id: "personal_selfie", types: ["casual_selfie", "personal_selfie", "intimate_selfie"], description: "An ordinary selfie with a plausible everyday outfit and background consistent with the current schedule; exact outfit need not be previously recorded" },
+  { id: "romantic_portrait", types: ["mature_romantic", "suggestive"], description: "A tasteful non-explicit romantic portrait when private context, adult relationship and comfort make it appropriate; a reasonable unstated outfit or room detail need not block a choice" },
+];
+
+/**
+ * Explicit developer-only experiment. Calls the text LLM but NEVER image generation,
+ * writes no messages, schedules no notification and changes no relationship state.
+ * Up to 12 paid text evaluations per user action. Respect real category eligibility.
+ */
+export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) => requestSchema.parse(value))
+  .handler(async ({ context, data }) => {
+    const { developerPhotosAllowed } = await import("./spontaneous-photo.server");
+    if (!developerPhotosAllowed(context.userId)) throw new Error("Developer photo diagnostics disabled");
+    const db = context.supabase;
+    const { data: conv, error: convErr } = await db.from("conversations")
+      .select("id,difficulty,photo_boundary,mature_photography,character:characters(key)")
+      .eq("user_id", context.userId).eq("id", data.conversationId).single();
+    if (convErr || !conv) throw new Error("Owned conversation required");
+    const characterKey = conv.character?.key;
+    if (!characterKey) throw new Error("Character unavailable");
+    const def = characterFor(characterKey);
+    if (!def.photosEnabled || def.age < 18) throw new Error("Photo diagnostics require an enabled adult contact");
+
+    const [{ data: stateRow, error: stateErr }, { data: dialogue, error: msgErr }, { data: memories, error: memoryErr }] = await Promise.all([
+      db.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
+      db.from("messages").select("sender,body,created_at").eq("user_id",context.userId)
+        .eq("conversation_id",conv.id).lte("visible_at",new Date().toISOString())
+        .order("created_at",{ascending:false}).limit(20),
+      db.from("memories").select("summary").eq("conversation_id",conv.id)
+        .order("created_at",{ascending:false}).limit(30),
+    ]);
+    if (stateErr || msgErr || memoryErr) throw new Error("Saved photo decision context unavailable");
+    const state = { ...def.seedState } as TessState;
+    const row = stateRow as Record<string, unknown> | null;
+    for (const key of STATE_KEYS) {
+      const raw = row?.[key];
+      if (typeof raw === "number" && Number.isFinite(raw)) state[key] = raw;
+    }
+    const boundary = (["none","selfies","all_photos","mature"].includes(conv.photo_boundary ?? "")
+      ? conv.photo_boundary : "all_photos") as PhotoBoundary;
+    const allowed = eligiblePhotoCategories(state, {
+      age:def.age, enabled:def.photosEnabled, romanticCapable:def.romanticCapable,
+      supported:def.photoTypes, matureEnabled:!!conv.mature_photography, boundary,
+    });
+    const now = new Date();
+    const activity = characterAvailability(def,now);
+    const transcript = (dialogue ?? []).slice().reverse().map(m => ({
+      sender:m.sender, body:m.body, created_at:m.created_at,
+    }));
+    const memoryLines = (memories ?? []).map(m=>m.summary);
+
+    const scenarios = [];
+    for (const category of categories) {
+      const available = category.types.filter(t=>allowed.includes(t as typeof allowed[number]));
+      if (!available.length) {
+        scenarios.push({category:category.id,eligible:false,availableTypes:[],reasons:["ineligible_under_saved_relationship_and_photo_boundaries"],total:0,counts:null});
+        continue;
+      }
+      const results: Array<{action:string;photoType:string|null;reason:string|null;rawPhotoAction?:string|null;willing?:boolean|null;contextual?:boolean|null}> = [];
+      for(let i=0;i<data.repetitions;i++) {
+        try {
+          const instructions = [
+            `You are making a private, developer-only communication decision for ${def.preferredName}, an adult fictional person. Follow the personality and current circumstances below. This is not a request from the player and nothing will be delivered. Use established setting, schedule and boundaries; where ordinary outfit, room, or object details were never specified, choose plausible low-stakes details rather than treating missing specificity as grounds to reject all images. Do not contradict established facts, introduce people, disclose private records or invent a significant event. No outcome is expected; choose authentically.`,
+            `Character personality: ${def.bible.slice(0,2800)}`,
+            `Texting style: ${def.textingStyle.slice(0,900)}`,
+            data.mode === "medium_after_initiation"
+              ? "DIAGNOSTIC CONDITION: The character has already independently decided to send a message in this hypothetical interaction. Set initiate=true. Decide only the medium: text, photo, or photo_with_caption. Do not reconsider whether to initiate. Select photos when contextually appropriate and eligible; absence of an exact outfit, specific prop or precise room description alone is not a reason to reject. Text remains an equally valid outcome. Explain the medium choice briefly."
+              : "DECISION: Independently decide whether to initiate contact now. If yes, choose text, photo, or photo with caption; if photo, select one eligible category. State a brief concrete explanation for your choice, including silence. Privacy and relationship boundaries remain authoritative.",
+            `Eligible photo categories in THIS test: ${available.join(", ")}. A photo outside this list cannot be selected.`,
+          ].join("\n");
+          const context = [
+            `Moment: ${now.toISOString()}. Character schedule: ${activity.detail}. Scenario: ${category.description}.`,
+            `Current relationship state: comfort ${state.comfort}, trust ${state.trust}, romantic intent ${state.romantic_intent}, emotional intimacy ${state.emotional_intimacy}.`,
+            `Recent conversation:\n${transcript.slice(-12).map(m=>`${m.sender}: ${m.body.slice(0,300)}`).join("\n") || "(none)"}`,
+            `Recent memories:\n${memoryLines.slice(0,6).map(m=>m.slice(0,160)).join("\n") || "(none)"}`,
+            `Independent sample ${i+1} of ${data.repetitions} for ${category.id}. Mode: ${data.mode}. ${data.mode === "medium_after_initiation" ? "Assume a decision to communicate has already been made; choose the medium without inventing a new player message." : "Decide whether to contact the player at all."}`,
+          ].join("\n\n");
+          const decision = await runStructured(photoIntentDecisionSchema,instructions,context,"autonomous");
+          const interpreted = interpretPhotoIntent(decision,available);
+          results.push({
+            action:interpreted.action,photoType:decision.category,
+            rawPhotoAction:decision.medium,willing:decision.initiate,
+            contextual:interpreted.validation===null,
+            reason:interpreted.validation ?? `${decision.reason}: ${decision.explanation}`,
+          });
+        } catch(error) {
+          results.push({action:"decision_error",photoType:null,reason:error instanceof Error ? error.message.slice(0,180):"model_request_failed"});
+        }
+      }
+      const counted = results.filter(r=>r.action!=="decision_error" && r.action!=="invalid_photo_action" && r.action!=="unexplained_silence").map(r=>r.action as PhotoChoiceOutcome);
+      scenarios.push({
+        category:category.id,eligible:true,availableTypes:available,total:results.length,
+        counts:{...summarizePhotoDecisionBatch(counted).counts,decision_error:results.filter(r=>r.action==="decision_error").length,invalid_photo_action:results.filter(r=>r.action==="invalid_photo_action").length,unexplained_silence:results.filter(r=>r.action==="unexplained_silence").length},
+        reasons:results.map(r=>r.reason).filter(Boolean), choices:results,
+      });
+    }
+    return { character:def.key,at:now.toISOString(),mode:data.mode,transport:"text_model_only_no_generation_no_delivery",
+      repetitionsPerCategory:data.repetitions,scenarios,
+      limitations:"A no-photo model response has no authoritative internal reason unless the model explicitly provided one. These trials do not test image providers, identities or delivery." };
+  });

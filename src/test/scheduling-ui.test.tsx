@@ -229,7 +229,7 @@ it("lists private homes with invitation status and restricts them to the selecte
   fireEvent.change(screen.getByLabelText('Contact'),{target:{value:'contact'}});
   expect(screen.getByRole('option',{name:"⌂ Maya's home"})).not.toBeDisabled();
   expect(screen.getByRole('option',{name:"⌂ Claire's home · Invitation required"})).toBeDisabled();
-  expect(screen.getByRole('option',{name:"⌂ Riley's home"})).toBeDisabled();
+  expect(screen.getByRole('option',{name:"⌂ Riley's home"})).not.toBeDisabled();
   expect(screen.getByRole('option',{name:'⌂ My Home'})).not.toBeDisabled();
   expect(mocks.create).not.toHaveBeenCalled();
 });

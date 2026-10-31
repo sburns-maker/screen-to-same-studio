@@ -30,3 +30,9 @@ it("does not treat an unrelated 'don't' as refusing Claire's confirmed plan", ()
   expect(homeInvitationActivity("I don’t have a street address I can send you here, but Friday at 7 at my place is still the plan. You can put it down as Claire’s home for now.")).not.toBeNull();
   expect(sameHomeActivity("Movie night", "Visit at home")).toBe(true);
 });
+it("treats Tess's 'come cook' reply as a home invitation that covers breakfast", () => {
+  const a = homeInvitationActivity("If you want to come cook, you can. I’m still in pajamas, so expectations are very low.");
+  expect(a).not.toBeNull();
+  expect(sameHomeActivity("Breakfast at Tess's", a!.title)).toBe(true);
+  expect(homeInvitationActivity("If you want to come by the bar later, you can.")).toBeNull();
+});

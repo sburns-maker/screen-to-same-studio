@@ -10,6 +10,12 @@ on:
       - "src/lib/text-ai.server.ts"
       - "src/lib/experience-failure.ts"
       - "src/lib/living-experiences.server.ts"
+      - "src/lib/living-experiences.ts"
+      - "src/lib/in-person-output-rules.ts"
+      - "src/lib/tess.server.ts"
+      - "src/test/in-person-output-rules.test.ts"
+      - "src/test/experience-guidance.test.ts"
+      - "src/test/experience-history-window.test.ts"
       - "src/test/text-ai.test.ts"
       - "src/test/experience-failure.test.ts"
       - "src/test/experience-ui.test.tsx"
@@ -23,6 +29,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bunx vitest run src/test/experience-provider-check.test.ts src/test/experience-provider-check-ui.test.tsx src/test/text-ai.test.ts src/test/experience-failure.test.ts src/test/experience-ui.test.tsx src/test/experience-lifecycle.test.ts src/test/living-experiences.integration.test.ts
+      - run: bunx vitest run src/test/experience-provider-check.test.ts src/test/experience-provider-check-ui.test.tsx src/test/text-ai.test.ts src/test/experience-failure.test.ts src/test/experience-ui.test.tsx src/test/experience-lifecycle.test.ts src/test/living-experiences.integration.test.ts src/test/experience-guidance.test.ts src/test/experience-history-window.test.ts src/test/in-person-output-rules.test.ts
       - run: bunx tsc --noEmit
       - run: bun run build

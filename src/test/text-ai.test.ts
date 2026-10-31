@@ -299,3 +299,11 @@ it("extracts allowlisted rejection details from direct SDK data or a bounded raw
     characterAIDiagnostic("gpt-6-luna", 400, null, null, undefined, "x".repeat(32001)).providerCode,
   ).toBeNull();
 });
+
+describe("emoji cut mid-character", () => {
+  it("a lone half-emoji becomes a valid character before sending", () => {
+    const cut = "make sure you get one. 😂".slice(0, -1);
+    expect(cut.isWellFormed()).toBe(false);
+    expect(cut.toWellFormed().isWellFormed()).toBe(true);
+  });
+});

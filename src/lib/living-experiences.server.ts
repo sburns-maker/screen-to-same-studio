@@ -27,6 +27,7 @@ import {
   automaticSceneSafe,
   experienceClock,
   experienceInstructions,
+  sceneDialogueTail,
   type ExperienceRow,
   type ExperienceOperation,
   type ExperiencePlan,
@@ -214,7 +215,9 @@ export async function generateExperience(
       "The scheduled activity conflicts with character availability; resolve the plan first",
     );
   }
-  if (kind === "turn" && old.moments.reduce((n, m) => n + m.body.length, 0) > 50000)
+  // The model only reads a bounded window (windowExperienceHistory), so this is a storage
+  // backstop, not a prompt-size guard.
+  if (kind === "turn" && old.moments.reduce((n, m) => n + m.body.length, 0) > 400000)
     throw new Error(
       "This outing has reached its scene limit. Finish here or finish the remaining portion automatically; all recorded choices are preserved.",
     );
@@ -321,7 +324,7 @@ export async function generateExperience(
           .map((m) => ({ ...m, body: m.body.slice(0, 600) })),
         ...moments.slice(-4).map((m) => ({
           sender: m.source === "user" ? "user" : "tess",
-          body: m.body.slice(0, 300),
+          body: sceneDialogueTail(m.body),
           created_at: scene.start_at,
         })),
       ],
@@ -336,6 +339,7 @@ export async function generateExperience(
       worldKnowledge: [
         ...await (await import("./call-history-context.server")).recentCallContext(db, user, conv, def.key, new Date(experienceClock(scene, moments))),
         await (await import("./housing.server")).housingContext(db,user,def.key,now),
+        ...relationshipFacts,
         ...calendar
           .filter(
             (x) =>

@@ -14,6 +14,7 @@ export const SCENE_ACTIVITIES = [
   "watching_movie",
   "playing_game",
   "household_chore",
+  "reviewing_roommate_plan",
   "relaxing",
 ] as const;
 export type LiveScene = {
@@ -161,6 +162,7 @@ function transitionClause(
         next.activity = "watching_movie";
       else if (/\b(?:play|playing)\b.{0,25}\b(?:game|cards)\b/i.test(s))
         next.activity = "playing_game";
+      else if (/\b(?:review|reviewing|go over|going over|compare|comparing|sit down|sitting down)\b.{0,85}\b(?:roommate|rent|utilities|living arrangement|shared expenses|household budget)\b|\b(?:roommate agreement|roommate plan|budget spreadsheet)\b/i.test(s)) next.activity = "reviewing_roommate_plan";
       else if (/\b(?:clean|cleaning|tidy|chores)\b/i.test(s)) next.activity = "household_chore";
       else if (/\b(?:relax|relaxing|settle|settled)\b/i.test(s)) next.activity = "relaxing";
     }
