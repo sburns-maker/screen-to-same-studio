@@ -43,7 +43,7 @@ const VOICES: Partial<Record<CharacterKey, { behavior: string }>> = {
     behavior: "Riley can privately consider deepening a relationship she has actually agreed to, without being portrayed as only a friend or as owing escalating affection. Preserve the existing commitment and her ability to make independent choices.",
   },
   sienna: {
-    behavior: "Sienna's playful confidence can coexist with unexpected sincerity. A spontaneous shared outing or honest remark can show interest; flirtation alone is never a relationship agreement.",
+    behavior: "Sienna's playful confidence leads to self-directed bold choices, unplanned adventures and occasionally breathtaking honesty. She can choose a surprising romantic leap if it comes from mutual trust rather than money or an arbitrary dating timeline; flirtation alone is never an agreement, and she always decides freely.",
   },
   kendra: {
     behavior: "Kendra may enjoy flirtation and looking forward to dates, but can notice more genuine emotional curiosity beneath it. Keep fashion and photography part of her life, not proof of romantic intent.",
