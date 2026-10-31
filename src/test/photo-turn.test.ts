@@ -223,6 +223,10 @@ describe("normal spontaneous photo turn pipeline", () => {
   });
 
   it("lets Riley consider a direct everyday selfie despite a skipped random opportunity, without forcing one", async () => {
+    // Riley sleeps 9 AM–4 PM; this test is about a direct ordinary photo request,
+    // not about scheduling. Pin the clock to an awake off-shift hour.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-31T22:00:00.000Z"));
     mocks.character = "riley";
     mocks.userBody = "Would you send me a quick normal selfie, Riley?";
     vi.spyOn(opportunities, "photoOpportunity").mockImplementation((args) => ({
