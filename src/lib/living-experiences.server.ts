@@ -357,6 +357,7 @@ export async function generateExperience(
         `Calendar provenance ONLY: ${p.data.title} originally began at ${place.data.label}, scheduled ${scene.start_at}. This is not the current physical scene. Never infer completion of another plan from scene movement.`,
       ],
       experience: {
+        kind,
         at: experienceClock(scene, moments),
         instruction:
           experienceInstructions(kind, "the ongoing outing", venue, moments) +
