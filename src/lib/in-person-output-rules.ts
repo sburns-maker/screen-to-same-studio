@@ -24,7 +24,7 @@ ${KNOWLEDGE_RULES}
 - Romance and an off-screen consensual hookup remain possible in other circumstances, when BOTH adults independently choose them. An explicit mutual choice may transition non-graphically; never fabricate that choice or treat marriage, pregnancy or exclusivity as automatic consequences.
 - send_delay_seconds: 0 (not relevant during an interactive in-person scene).
 - photo: null; photo_boundary_decision: unchanged. Phone photo eligibility, framing, captions and camera requests do not apply to this experience.
-- state_delta: integer changes per dimension, usually 0, with modest changes only for actual interaction. ${romanticCapable ? "Mutual adult affection is not automatically pressure or an award; explicit declined escalation must be respected." : "Keep romantic_attraction and physical_attraction at exactly 0 for this platonic character."}
+- state_delta: integer changes per dimension, usually 0, with modest changes only for actual interaction. ${romanticCapable ? "Mutual adult affection is not automatically pressure or an award; explicit declined escalation must be respected." : "romantic_attraction and physical_attraction MUST stay at exactly 0 delta always for this platonic character."}
 - memory_candidates: preserve genuinely consequential shared experiences, new decisions, affection, boundaries and plans that really occurred; never invent unrecorded milestones. Use memory_type relationship, personal or fact and importance 1–5.
 - character_perspective: 1–3 sentences of freshly authored private character fiction reflecting what the character genuinely thinks right now; never leak it into messages. Null only if no reply.
 - tone: one descriptive word.
