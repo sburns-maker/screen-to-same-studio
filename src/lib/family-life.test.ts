@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createPendingPregnancyEvent, disclosePregnancyEvent, pregnancyRevealTime,
-  resolveHouseholdStatus, resolvePregnancyEvent, visiblePregnancyOutcome
+  resolveHouseholdStatus, resolvePregnancyEvent, visiblePregnancyOutcome,
+  familyCommitmentStatus, mayPlanWedding, mayCompleteWedding, mayDiscussEngagement
 } from "./family-life";
 
 const uuid = "00000000-0000-4000-8000-000000000001";
@@ -48,5 +49,37 @@ describe("family life domain", () => {
     const disclosed = disclosePregnancyEvent(event, at);
     expect(disclosed.status).toBe("negative");
     expect(disclosePregnancyEvent(disclosed, new Date("2026-11-03T00:00:00Z"))).toEqual(disclosed);
+  });
+});
+
+
+describe("engagement and wedding integration", () => {
+  const base = {
+    id: uuid, userId: uuid, characterKey: "tess", kind: "engagement" as const,
+    proposedBy: "user" as const, status: "pending" as const,
+    userResponse: "accepted" as const, characterResponse: "pending" as const,
+    occurredAt: start, sourceId: "message-1", sourceType: "message" as const, note: null,
+  };
+  it("does not turn a proposal or a character joke into engagement", () => {
+    expect(familyCommitmentStatus([base])).toBe("none");
+    expect(mayPlanWedding([base])).toBe(false);
+  });
+  it("permits wedding planning only after mutual engagement", () => {
+    const agreed = {...base,status:"accepted" as const,characterResponse:"accepted" as const};
+    expect(familyCommitmentStatus([agreed])).toBe("engaged");
+    expect(mayPlanWedding([agreed])).toBe(true);
+    expect(mayDiscussEngagement([agreed])).toBe(false);
+    expect(mayCompleteWedding([agreed], {
+      adultPlayer:true,adultCharacter:true,playerAgreed:true,
+      characterAgreed:true,ceremonyOccurred:false,
+    })).toBe(false);
+    expect(mayCompleteWedding([agreed], {
+      adultPlayer:true,adultCharacter:true,playerAgreed:true,
+      characterAgreed:true,ceremonyOccurred:true,
+    })).toBe(true);
+    expect(mayCompleteWedding([agreed], {
+      adultPlayer:true,adultCharacter:true,playerAgreed:true,
+      characterAgreed:false,ceremonyOccurred:true,
+    })).toBe(false);
   });
 });
