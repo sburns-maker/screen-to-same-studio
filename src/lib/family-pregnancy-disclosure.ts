@@ -13,6 +13,6 @@ export function validPregnancyDisclosure(
  if(!status)return true;
  const text=body.toLowerCase();
  return status==="positive"
-   ? /\b(?:i(?:'m| am) pregnant|we(?:'re| are) expecting|pregnancy test (?:was |is )?positive|test (?:came back|was) positive)\b/.test(text)
+   ? /\b(?:i(?:['’]m| am) pregnant|we(?:['’]re| are) expecting|pregnancy test (?:was |is )?positive|test (?:came back|was) positive)\b/.test(text)
    : /\b(?:not pregnant|pregnancy test (?:was |is )?negative|test (?:came back|was) negative)\b/.test(text);
 }
