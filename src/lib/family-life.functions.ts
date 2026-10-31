@@ -67,5 +67,8 @@ export const loadWeddingPlans = createServerFn({ method:"POST" })
    const {listWeddingPlans,reconcileVisibleWeddingDecisions}=await import("./family-wedding.server");
    try{await reconcileVisibleWeddingDecisions(supabaseAdmin,context.userId,data.characterKey);}
    catch(error){console.warn("[family-wedding] readback reconciliation deferred",error);}
+   try{const {reconcileCompletedWeddingCeremonies}=await import("./family-wedding.server");
+     await reconcileCompletedWeddingCeremonies(supabaseAdmin,context.userId,data.characterKey);}
+   catch(error){console.warn("[family-wedding] ceremony verification deferred",error);}
    return listWeddingPlans(supabaseAdmin,context.userId,data.characterKey);
  });
