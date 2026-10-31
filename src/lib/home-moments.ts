@@ -1,7 +1,7 @@
 import type { HousingHome, HousingSnapshot } from "./housing";
 
 export type HomeMoment = {
-  id: "coffee" | "movie" | "cook" | "mabel" | "photo" | "invite" | "myphoto";
+  id: "coffee" | "movie" | "cook" | "mabel" | "photo" | "invite" | "myphoto" | "roommate";
   title: string;
   description: string;
   suggestion: string;
@@ -43,6 +43,12 @@ export function homeMoments(
       id: "invite", title: "Invite Tess over",
       description: "Offer a visit to your own home—she decides whether to accept.",
       suggestion: "Would you like to come over to my place sometime?",
+      category: "shared",
+    });
+    moments.push({
+      id: "roommate", title: "Review roommate plan",
+      description: "Compare actual costs, space, privacy, chores and Mabel's needs. No move is implied.",
+      suggestion: "Tess, would you like to set aside some time at my place to sit down and review the actual roommate numbers together? We can compare rent and utilities, make a plan for space and privacy, talk through Mabel and chores, and figure out an exit plan if it ever doesn't work. This is only a discussion, not a decision to move in.",
       category: "shared",
     });
     moments.push({
