@@ -956,11 +956,13 @@ async function runTurnUnlocked(
       try {
         const {reconcileVisibleWeddingDecisions}=await import("./family-wedding.server");
         await reconcileVisibleWeddingDecisions(configuredPhotoAdmin,userId,def.key);
-        if(duePregnancyIds.length) {
-          const {reconcileVisiblePregnancyDisclosures}=await import("./family-life.server");
-          await reconcileVisiblePregnancyDisclosures(configuredPhotoAdmin,userId,def.key);
-        }
       }catch(error){console.warn("[family-wedding] reconciliation deferred",error);}
+    }
+    if(configuredPhotoAdmin && duePregnancyIds.length) {
+      try {
+        const {reconcileVisiblePregnancyDisclosures}=await import("./family-life.server");
+        await reconcileVisiblePregnancyDisclosures(configuredPhotoAdmin,userId,def.key);
+      }catch(error){console.warn("[family-life] disclosure reconciliation deferred",error);}
     }
 
     try {
