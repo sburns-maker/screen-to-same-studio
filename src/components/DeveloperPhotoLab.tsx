@@ -36,6 +36,8 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
   const [batchResult, setBatchResult] = useState<Awaited<ReturnType<typeof evaluatePhotoDecisionBatch>> | null>(null);
   const [spicyStatus, setSpicyStatus] = useState<Awaited<ReturnType<typeof checkDeveloperSpicyConnection>> | null>(null);
   const [checkingSpicy, setCheckingSpicy] = useState(false);
+  const [deliveredIds, setDeliveredIds] = useState<string[]>([]);
+  const [deliveryStatus, setDeliveryStatus] = useState("");
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -315,6 +317,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           Release expired test reservation
         </button>
       )}
+      {deliveryStatus && <p role="status" className="text-sm">{deliveryStatus}</p>}
       {snapshot?.results.map((r) => (
         <article key={r.id} className="space-y-2 rounded-xl border p-3">
           <p>
@@ -331,6 +334,25 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
               className="max-h-[65dvh] w-full rounded-xl object-contain"
               loading="lazy"
             />
+          )}
+          {(r.status === "ready" || r.status === "stored") && (
+            <button type="button" disabled={busy || deliveredIds.includes(r.id)}
+              className="min-h-11 rounded-xl border px-3 py-2 text-sm disabled:opacity-50"
+              onClick={() => {
+                setBusy(true);
+                setError("");
+                setDeliveryStatus("");
+                void command({data:{action:"deliver_stored",conversationId,id:r.id,confirmation:"DELIVER DEVELOPER PHOTO TO CHAT"}})
+                  .then(result => {
+                    if (result.delivery?.delivered) {
+                      setDeliveredIds(ids => [...ids,r.id]);
+                      setDeliveryStatus("Photo attached to this conversation. Open Messages to verify it.");
+                    }
+                  }).catch(e => setError(e instanceof Error ? e.message : "Chat photo delivery failed"))
+                  .finally(() => setBusy(false));
+              }}>
+              {deliveredIds.includes(r.id) ? "Sent to chat" : "Send stored test photo to chat"}
+            </button>
           )}
           <details>
             <summary className="min-h-11 cursor-pointer text-xs">Test details</summary>

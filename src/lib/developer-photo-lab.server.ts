@@ -114,6 +114,39 @@ export async function photoLabHistory(db: Client, user: string, conversation: st
     results: await Promise.all((r.data ?? []).map((j) => present(db, j, user, conversation))),
   };
 }
+/**
+ * Explicit second-stage developer delivery test. Attaches an already generated
+ * lab image to this user's chat; developer provenance is tracked in metadata.
+ * The deterministic message ID makes client retries safe.
+ */
+export async function deliverStoredPhotoLabTest(db: Client, user: string, conversation: string, id: string) {
+  await authorize(db, user, conversation);
+  const { data: job, error } = await db.from("job_runs").select("*").eq("id", id).eq("job", jobName(conversation)).maybeSingle();
+  if (error || !job) throw new Error("Photo test not found");
+  const detail = record(job, user, conversation);
+  if (job.status !== "ok") throw new Error("Photo test image is not yet stored; refresh the status before sending");
+  const path = detail["path"];
+  if (typeof path !== "string" || path !== `${user}/developer-photo-tests/${id}.png`)
+    throw new Error("Photo test storage does not match this account");
+  const messageId = await photoActionId(`developer-photo-message:${user}:${conversation}:${id}`);
+  const { data: existing, error: existingError } = await db.from("messages").select("id").eq("id",messageId).eq("user_id",user).eq("conversation_id",conversation).maybeSingle();
+  if (existingError) throw new Error("Photo delivery history unavailable");
+  if (existing) return { delivered:true, replayed:true, messageId };
+  const { error: insertError } = await db.from("messages").insert({
+    id: messageId, user_id:user, conversation_id:conversation, sender:"tess",
+    body:"",
+    metadata:{
+      generated_path:path, photo_type:detail["category"] as string,
+      photo_source:"developer_pipeline_test", developer_photo_test:true,
+      developer_photo_job_id:id, photo_consent_claim:false,
+    },
+  });
+  if (insertError) {
+    if (insertError.code === "23505") return { delivered:true, replayed:true, messageId };
+    throw new Error("Developer test photo was stored but chat attachment failed");
+  }
+  return { delivered:true, replayed:false, messageId };
+}
 /** Isolated rendering test, never a character turn or evidence of character consent. */
 export async function generatePhotoLabTest(
   db: Client,

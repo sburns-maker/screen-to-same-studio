@@ -18,12 +18,14 @@ export const developerPhotoLab = createServerFn({ method: "POST" })
           confirmation: z.literal("GENERATE DEVELOPER PHOTO TEST"),
         }),
         z.object({ action: z.literal("release"), conversationId, id: z.string().uuid() }),
+        z.object({ action: z.literal("deliver_stored"), conversationId, id: z.string().uuid(), confirmation: z.literal("DELIVER DEVELOPER PHOTO TO CHAT") }),
       ])
       .parse(v),
   )
   .handler(async ({ context, data }) => {
     const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
     const lab = await import("./developer-photo-lab.server");
+    if (data.action === "deliver_stored") return { snapshot: null, result: null, delivery: await lab.deliverStoredPhotoLabTest(db, context.userId, data.conversationId, data.id) };
     if (data.action === "generate")
       return {
         snapshot: null,
