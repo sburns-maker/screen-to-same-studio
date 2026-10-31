@@ -83,7 +83,10 @@ afterAll(async () => {
 });
 beforeEach(async () => {
   vi.stubEnv("LIVING_EXPERIENCES_ENABLED", "true");
-  await db.exec(`TRUNCATE conversations CASCADE; TRUNCATE world_places CASCADE; UPDATE experience_settings SET enabled=true,installed_at='2026-10-24T00:00Z';
+  // Reset the housing initialization registry along with its dependent homes.
+  // world_places CASCADE removes residences, but not housing_people.initialized.
+  // Keeping that flag would make subsequent housing_seed calls skip missing homes.
+  await db.exec(`TRUNCATE conversations CASCADE; TRUNCATE world_places CASCADE; TRUNCATE housing_people CASCADE; UPDATE experience_settings SET enabled=true,installed_at='2026-10-24T00:00Z';
     INSERT INTO conversations(id,user_id,character_id) SELECT '${conv}','${user}',id FROM characters WHERE key='maya';
     INSERT INTO tess_state(user_id,conversation_id) VALUES('${user}','${conv}');`);
 });
