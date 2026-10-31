@@ -100,14 +100,14 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
             `Texting style: ${def.textingStyle.slice(0,900)}`,
             "Decision order: (1) decide whether to initiate contact in this actual moment; (2) if yes, choose text, photo, or photo with caption; (3) for a photo choose only one available category. State a brief, concrete decision explanation in your own words, including for silence. A photo is as ordinary as a text when it fits the moment. Privacy and relationship boundaries remain authoritative.",
             `Eligible photo categories in THIS test: ${available.join(", ")}. A photo outside this list cannot be selected.`,
-          ].join("\\n");
+          ].join("\n");
           const context = [
             `Moment: ${now.toISOString()}. Character schedule: ${activity.detail}. Scenario: ${category.description}.`,
             `Current relationship state: comfort ${state.comfort}, trust ${state.trust}, romantic intent ${state.romantic_intent}, emotional intimacy ${state.emotional_intimacy}.`,
-            `Recent conversation:\\n${transcript.slice(-12).map(m=>`${m.sender}: ${m.body.slice(0,300)}`).join("\\n") || "(none)"}`,
-            `Recent memories:\\n${memoryLines.slice(0,6).map(m=>m.slice(0,160)).join("\\n") || "(none)"}`,
+            `Recent conversation:\n${transcript.slice(-12).map(m=>`${m.sender}: ${m.body.slice(0,300)}`).join("\n") || "(none)"}`,
+            `Recent memories:\n${memoryLines.slice(0,6).map(m=>m.slice(0,160)).join("\n") || "(none)"}`,
             `Independent sample ${i+1} of ${data.repetitions} for ${category.id}. Decide sincerely; not every moment needs an outgoing message.`,
-          ].join("\\n\\n");
+          ].join("\n\n");
           const decision = await runStructured(photoIntentDecisionSchema,instructions,context,"autonomous");
           const interpreted = interpretPhotoIntent(decision,available);
           results.push({
