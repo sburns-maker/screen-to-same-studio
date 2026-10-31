@@ -322,3 +322,52 @@ export async function releasePhotoLabTest(
   if (r.error) throw new Error("Photo test release failed");
   return photoLabHistory(db, user, conversation);
 }
+
+/** Developer-confirmed chat attachment from an already generated lab image.
+ * Provenance is private metadata; the message remains visually a normal photo.
+ * Does not imply that the character selected or sent it autonomously.
+ */
+export async function deliverPhotoLabTest(
+  db: Client, user: string, conversation: string, id: string,
+) {
+  await authorize(db, user, conversation);
+  const lookup = await db.from("job_runs").select("*").eq("id",id).maybeSingle();
+  if (lookup.error || !lookup.data) throw new Error("Photo test not found");
+  const detail = record(lookup.data,user,conversation);
+  if (lookup.data.status !== "ok" || detail["phase"] !== "stored")
+    throw new Error("Generate and store the image successfully before delivery");
+  const path = detail["path"];
+  if (typeof path !== "string" || path !== `${user}/developer-photo-tests/${id}.png`)
+    throw new Error("Invalid developer photo storage path");
+  // A deterministic UUID makes repeated taps and network retries idempotent.
+  const messageId = await photoActionId(`developer-photo-message:${user}:${conversation}:${id}`);
+  const {data: existing,error: checkError} = await db.from("messages")
+    .select("id").eq("id",messageId).eq("conversation_id",conversation)
+    .eq("user_id",user).maybeSingle();
+  if (checkError) throw new Error("Developer photo chat delivery lookup failed");
+  if (!existing) {
+    // Verify that the object exists; never post a broken gallery link.
+    const signed = await db.storage.from("tess-photos").createSignedUrl(path,120);
+    if (signed.error || !signed.data?.signedUrl)
+      throw new Error("Stored test image is unavailable for chat delivery");
+    const at = new Date().toISOString();
+    const {error} = await db.from("messages").insert({
+      id:messageId, user_id:user,conversation_id:conversation,sender:"tess",
+      body:"",created_at:at,visible_at:at,
+      metadata:{
+        generated_path:path,
+        photo_type:detail["category"],
+        photo_source:"developer",
+        developer_test:{version:1,photoLabJobId:id,characterInitiated:false},
+        push_primary:false,
+      },
+    });
+    if (error && error.code !== "23505")
+      throw new Error("Developer photo chat insertion failed");
+  }
+  const result = await db.from("messages").select("id,visible_at,metadata")
+    .eq("id",messageId).eq("user_id",user).eq("conversation_id",conversation).maybeSingle();
+  if (result.error || !result.data) throw new Error("Photo attachment not visible in message history");
+  return { delivered:true,messageId:result.data.id,visibleAt:result.data.visible_at,
+    category:detail["category"],photoLabJobId:id };
+}
