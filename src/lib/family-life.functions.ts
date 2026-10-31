@@ -36,3 +36,22 @@ export const changeHousehold = createServerFn({ method: "POST" })
     if (!data.eventId) throw new Error("Select an existing proposal");
     return { id: await respondToHousehold(supabaseAdmin, context.userId, data.characterKey, data.eventId, data.action === "accept") };
   });
+
+/** Player can request wedding planning only after an accepted engagement.
+ * Character consent and the ceremony are separate verified world actions. */
+export const planWedding = createServerFn({ method:"POST" })
+ .middleware([requireSupabaseAuth])
+ .inputValidator((value:unknown)=>z.object({
+  characterKey:z.enum(["tess","maya","riley","sienna","kendra","claire","jordan"]),
+  requestId:z.string().uuid(),
+  startsAt:z.string().datetime({offset:true}),
+  venue:z.string().min(1).max(200),
+ }).parse(value))
+ .handler(async({context,data})=>{
+  const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+  const {proposeWeddingPlan}=await import("./family-wedding.server");
+  return proposeWeddingPlan(supabaseAdmin,{
+   userId:context.userId,characterKey:data.characterKey,
+   requestId:data.requestId,startsAt:data.startsAt,venue:data.venue,
+  });
+ });
