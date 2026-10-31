@@ -31,6 +31,18 @@ describe("long outing prompt windowing", () => {
     expect(prompt).toContain("earlier moments of this same outing");
   });
 
+  it("retains earlier real affection and boundaries when a long outing is windowed", () => {
+    const h = long(80, 300);
+    h[9] = { ...h[9]!, body: "Tess leans in and kisses me, smiling." };
+    h[10] = { ...h[10]!, body: "I kiss her back as we watch the movie." };
+    h[20] = { ...h[20]!, body: "Tess asks to slow down and we stay on the couch." };
+    const window = windowExperienceHistory("turn", h);
+    expect(window.some((m) => m.body.includes("Tess leans in and kisses me"))).toBe(true);
+    expect(window.some((m) => m.body.includes("asks to slow down"))).toBe(true);
+    expect(window.some((m) => m.body.includes("not permission for new contact"))).toBe(true);
+    expect(window.some((m) => m.body.includes("moment 40 "))).toBe(false);
+  });
+
   it("never splits an emoji when clipping", () => {
     const h = long(60, 2000);
     const json = JSON.stringify(windowExperienceHistory("turn", h));
