@@ -64,7 +64,7 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
     </section>
   );
   const pending = query.data.events.filter((e) => e.status === "pending");
-  async function propose(kind: "exclusive" | "partnership") {
+  async function propose(kind: "exclusive" | "partnership" | "engagement") {
     setBusy(true);
     setFeedback("");
     try {
@@ -83,10 +83,11 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
       {supportsRelationshipCommitment(characterKey) && pending.length === 0 && (
         <section aria-label="Discuss a relationship commitment" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
           <h3 className="font-semibold">Where do we stand?</h3>
-          <p className="mt-1 text-sm text-muted-foreground">You can bring up exclusivity or a committed relationship. {characterName} decides for herself; proposing is not acceptance.</p>
+          <p className="mt-1 text-sm text-muted-foreground">You can bring up exclusivity, a relationship or an engagement. {characterName} decides for herself; proposing is not acceptance, and an engagement is not a completed wedding.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={() => void propose("exclusive")} className="min-h-11 rounded-xl border px-4 text-sm">Ask about exclusivity</button>
             <button type="button" disabled={busy} onClick={() => void propose("partnership")} className="min-h-11 rounded-xl border px-4 text-sm">Discuss a relationship</button>
+            <button type="button" disabled={busy} onClick={() => void propose("engagement")} className="min-h-11 rounded-xl border px-4 text-sm">Propose marriage (engagement)</button>
           </div>
         </section>
       )}
