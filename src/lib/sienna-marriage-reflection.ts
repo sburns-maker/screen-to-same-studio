@@ -25,6 +25,11 @@ export function siennaMarriageReflectionGuidance(args: {
   const after = history.slice(listingIndex + 1);
   const characterTurns = after.filter((m) => m.source !== "user");
   if (characterTurns.length < 4) return ""; // Let the real dinner unfold first.
+  // This arc only reopens *an actual earlier hesitation*. Don't tell the
+  // character she said something she has not said in another playthrough.
+  const hesitation = characterTurns.some((m) =>
+    /\b(?:not ready|not making a promise|not ready to promise|different (?:answer|question) from (?:saying|a) yes|don't want to pretend.*settled)\b/i.test(m.body));
+  if (!hesitation) return "";
   const last = history.at(-1);
   if (!last) return "";
   if (last.source === "user" &&
