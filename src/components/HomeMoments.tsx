@@ -30,12 +30,12 @@ export function HomeMoments({ home, snapshot, character }: {
       const saved = sessionStorage.getItem("roommate-review:" + home.key);
       if (!saved) return;
       const data = JSON.parse(saved) as Record<string, unknown>;
-      if (typeof data.rent === "string") setRent(data.rent);
-      if (typeof data.utilities === "string") setUtilities(data.utilities);
-      if (typeof data.groceries === "string") setGroceries(data.groceries);
-      if (typeof data.notes === "string") setNotes(data.notes);
-      if (typeof data.date === "string") setReviewDate(data.date);
-      if (typeof data.time === "string") setReviewTime(data.time);
+      if (typeof data['rent'] === "string") setRent(data['rent']);
+      if (typeof data['utilities'] === "string") setUtilities(data['utilities']);
+      if (typeof data['groceries'] === "string") setGroceries(data['groceries']);
+      if (typeof data['notes'] === "string") setNotes(data['notes']);
+      if (typeof data['date'] === "string") setReviewDate(data['date']);
+      if (typeof data['time'] === "string") setReviewTime(data['time']);
     } catch { /* optional draft recovery */ }
   }, [home.key, character]);
   useEffect(() => {
