@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { createPlanDraft } from "@/lib/scheduling.functions";
 import { inboxOverview, ensureConversations } from "@/lib/tess.functions";
 import { homeMoments } from "@/lib/home-moments";
 import type { HousingHome, HousingSnapshot } from "@/lib/housing";
@@ -13,6 +14,9 @@ export function HomeMoments({ home, snapshot, character }: {
   const navigate = useNavigate();
   const overview = useServerFn(inboxOverview);
   const ensure = useServerFn(ensureConversations);
+  const scheduleReview = useServerFn(createPlanDraft);
+  const [reviewDate, setReviewDate] = useState("");
+  const [reviewTime, setReviewTime] = useState("");
   const [opening, setOpening] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [copyStatus, setCopyStatus] = useState("");
@@ -27,6 +31,28 @@ export function HomeMoments({ home, snapshot, character }: {
   const proposalText = chosen?.id === "roommate"
     ? `${chosen.suggestion}${totals > 0 ? ` For a starting estimate: rent ${numeric(rent).toFixed(2)}, utilities ${numeric(utilities).toFixed(2)}, shared groceries ${numeric(groceries).toFixed(2)} per month. That totals ${totals.toFixed(2)}, or roughly ${(totals / 2).toFixed(2)} each with an equal split (we can negotiate).` : ""}${notes.trim() ? ` Other things to discuss: ${notes.trim().slice(0, 800)}` : ""}`
     : chosen?.suggestion ?? "";
+  async function createReviewInvitation() {
+    if (opening || !reviewDate || !reviewTime) { setCopyStatus("Choose a date and time first."); return; }
+    setOpening(true);
+    try {
+      await ensure();
+      const threads = await overview({});
+      const tess = threads.find(thread => thread.characterKey === "tess");
+      if (!tess) throw new Error("Tess's conversation is unavailable.");
+      await scheduleReview({ data: {
+        id: crypto.randomUUID(), conversationId: tess.id, confirmed: false,
+        plan: {
+          action: "invite", planId: null, parentPlanId: null,
+          title: "Review Roommate Plan", description: proposalText.slice(0, 600),
+          category: "meetup", date: reviewDate, time: reviewTime,
+          timeHint: null, timeZone: "America/New_York", place: home.key,
+          durationMinutes: 90, userQuote: null,
+        },
+      } });
+      setCopyStatus("Meeting invitation saved. Tess still needs to agree; this is not a move-in.");
+    } catch (error) { setCopyStatus(error instanceof Error ? error.message : "Couldn't save the meeting invitation."); }
+    finally { setOpening(false); }
+  }
   async function openDraft() {
     if (!chosen || opening) return;
     setOpening(true);
@@ -81,6 +107,7 @@ export function HomeMoments({ home, snapshot, character }: {
             <p className="text-sm">Estimated shared monthly total: <strong>${totals.toFixed(2)}</strong> · 50/50 share: <strong>${(totals / 2).toFixed(2)} each</strong></p>
             <label className="block text-xs">Space, privacy, Mabel, chores, guests, and exit plan<textarea className="mt-1 min-h-20 w-full rounded-xl border bg-background p-3" value={notes} onChange={e => setNotes(e.target.value)} maxLength={800} placeholder="Questions and ideas for Tess; no agreement implied" /></label>
           </div>}
+          {chosen.id === "roommate" && <div className="grid grid-cols-2 gap-2"><label className="text-xs">Meeting date<input type="date" className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2" value={reviewDate} onChange={e => setReviewDate(e.target.value)} /></label><label className="text-xs">Meeting time<input type="time" className="mt-1 min-h-11 w-full rounded-xl border bg-background p-2" value={reviewTime} onChange={e => setReviewTime(e.target.value)} /></label><button type="button" className="col-span-2 min-h-11 rounded-xl border px-3" disabled={opening || !reviewDate || !reviewTime} onClick={() => void createReviewInvitation()}>Invite Tess to review the plan</button></div>}
           <div className="flex flex-wrap gap-2">
             <button type="button" className="min-h-11 rounded-xl bg-primary px-4 text-sm text-primary-foreground"
               onClick={() => {
