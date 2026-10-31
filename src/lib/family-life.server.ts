@@ -71,6 +71,8 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   }
   try { const {reconcileVisibleWeddingDecisions}=await import("./family-wedding.server"); await reconcileVisibleWeddingDecisions(db,userId,characterKey,now); }
   catch(error){ console.warn("[family-wedding] pending response reconciliation unavailable",error); }
+  try { const {reconcileCompletedWeddingCeremonies}=await import("./family-wedding.server"); await reconcileCompletedWeddingCeremonies(db,userId,characterKey,now); }
+  catch(error){ console.warn("[family-wedding] ceremony reconciliation deferred",error); }
   const { commitmentSnapshot } = await import("./relationship-commitments.server");
   const commitments = await commitmentSnapshot(db, userId, characterKey);
   const { familyCommitmentStatus } = await import("./family-life");
