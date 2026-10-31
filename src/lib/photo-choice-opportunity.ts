@@ -25,7 +25,13 @@ export function photoChoiceInstruction(args: {
       "If busy, uncomfortable or maintaining a real photo boundary, photo=null is valid. Answer plainly and briefly; do not manufacture a rejection ritual or treat the mere request as misconduct. Repeated requests after an actual refusal can warrant firmer boundaries.",
     ].join("\n");
   }
-  if (!opportunitySelected || eligibleTypes.length === 0) return "Usually null.";
+  if (!eligibleTypes.length) return "No permitted photograph right now; photo=null.";
+  if (!opportunitySelected) return [
+    "ORDINARY PHOTO CHOICE: Without a special event or user request, you may independently share an ordinary image of your actual outfit, a pet, dinner, purchase, interesting object, or view.",
+    "Evaluate photo, photo with a short contextual caption, ordinary text, and silence as separate valid options. Never fabricate a moment, force a photo, or bypass cost, privacy and relationship safeguards.",
+    `Available types: ${eligibleTypes.join(", ")}. Use only the categories and present location actually available. An object or scene photo is normal communication; no romantic context is needed.`,
+    "A photo is optional; photo=null remains a genuine character decision, not a generation failure.",
+  ].join("\n");
   const types = eligibleTypes.join(", ");
   const profile = PHOTO_INTENSITY_PROFILES[character];
   const privateMoment =
