@@ -7,7 +7,7 @@ type Db = SupabaseClient<Database>;
 
 /** Player proposes; character decision remains a separate trusted operation. */
 export async function proposeHousehold(db: Db, userId: string, characterKey: string, requestId: string, kind: "move_in" | "move_out" | "share_home" | "separate_home") {
-  const table = db.from("family_household_events" as never);
+  const table = db.from("family_household_events");
   const existing = await table.select("*").eq("user_id", userId).eq("character_key", characterKey)
     .eq("source_id", requestId).eq("kind", kind).maybeSingle();
   if (existing.error) throw new Error("Household request unavailable");
@@ -27,7 +27,7 @@ export async function proposeHousehold(db: Db, userId: string, characterKey: str
 
 /** Player answers a character-authored pending proposal; cannot choose for the character. */
 export async function respondToHousehold(db: Db, userId: string, characterKey: string, eventId: string, accept: boolean) {
-  const table = db.from("family_household_events" as never);
+  const table = db.from("family_household_events");
   const found = await table.select("*").eq("id", eventId).eq("user_id", userId)
     .eq("character_key", characterKey).single();
   if (found.error || !found.data) throw new Error("Household proposal unavailable");
