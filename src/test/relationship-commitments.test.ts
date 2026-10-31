@@ -92,3 +92,9 @@ it("separates draft keys, validates them, and leaves Ben platonic", () => {
   expect(readRelationshipDraft(JSON.stringify({character:"tess",kind:"partnership",eventId:"invalid"}), "tess")).toBeNull();
   expect(relationshipDiscussionDraft("exclusive")).toContain("exclusively");
 });
+
+it("drafts a real engagement proposal separately from a completed marriage", () => {
+  expect(relationshipDiscussionDraft("engagement")).toContain("Will you marry me?");
+  expect(relationshipDiscussionDraft("marriage")).toContain("actually getting married");
+  expect(resolveCommitmentStatus([{ ...example, kind: "engagement", status: "accepted", userResponse: "accepted" }])).toBe("engaged");
+});
