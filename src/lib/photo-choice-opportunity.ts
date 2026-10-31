@@ -14,22 +14,26 @@ export function photoChoiceInstruction(args: {
   directOrdinaryRequest?: boolean;
 }): string {
   const { character, opportunitySelected, eligibleTypes, currentSetting } = args;
+  const siennaAtWork = character === "sienna" && /\b(?:at work|workplace|bartend\w*|bar shift|working (?:at|in) (?:the |a )?bar|behind the bar)\b/i.test(currentSetting);
+  const workPhotoGuidance = siennaAtWork ? "SIENNA AT WORK: An ordinary quick selfie or snapshot between bar duties is possible while she stays at work. She is a photographer and can choose to capture a natural moment without needing to wait until her shift ends. Do not include patrons, coworkers, private client work, payment terminals, receipts or sensitive screens. Keep her current shift clothes and actual bar location; she may still choose photo=null if genuinely occupied or uninterested." : "";
   if (args.directOrdinaryRequest) {
     const ordinary = eligibleTypes.filter(type => !["mature_romantic", "suggestive", "mature_nude"].includes(type));
     if (!ordinary.length) return "No ordinary photograph is permitted right now. photo=null; answer honestly without promising an attachment.";
     return [
       "DIRECT EVERYDAY PHOTO REQUEST: The player asked for an ordinary picture. This is a normal question, not automatically an intimacy test, romantic escalation, pressure or reason to tease/deflect.",
       `You CAN take and send a fresh photograph right now if comfortable, using only these currently allowed ordinary types: ${ordinary.join(", ")}. Honor known outfit and scene details; if unspecified, ordinary plausible clothes and a simple consistent background are fine. If the request is for your face, consider a casual selfie or candid if allowed; if it is for an object or place, an object photo is fine.`,
+      workPhotoGuidance,
       "Make a genuine choice before drafting the response. If happy to share, return a complete generated photo action with willing=true, contextual=true, framing=ordinary, an eligible ordinary type and a specific present-moment scene, plus a short natural caption. Do not merely say you might send one later.",
       "An ordinary selfie does not require new romantic feelings or suggestive framing. Do NOT escalate an ordinary-photo request into a mature or suggestive photo, even when those categories are independently eligible.",
       "If busy, uncomfortable or maintaining a real photo boundary, photo=null is valid. Answer plainly and briefly; do not manufacture a rejection ritual or treat the mere request as misconduct. Repeated requests after an actual refusal can warrant firmer boundaries.",
-    ].join("\n");
+    ].filter(Boolean).join("\n");
   }
   if (!eligibleTypes.length) return "No permitted photograph right now; photo=null.";
   if (!opportunitySelected) return [
     "ORDINARY PHOTO CHOICE: Without a special event or user request, you may independently share an ordinary image of your actual outfit, a pet, dinner, purchase, interesting object, or view.",
     "Evaluate photo, photo with a short contextual caption, ordinary text, and silence as separate valid options. Never fabricate a moment, force a photo, or bypass cost, privacy and relationship safeguards.",
     `Available types: ${eligibleTypes.join(", ")}. Use only eligible categories and a location consistent with schedule; mundane unspecified outfits, objects and background details can be filled plausibly. An object or scene photo is normal communication; no romantic context is needed.`,
+    workPhotoGuidance,
     "A photo is optional; photo=null remains a genuine character decision, not a generation failure.",
   ].join("\n");
   const types = eligibleTypes.join(", ");
@@ -46,6 +50,7 @@ export function photoChoiceInstruction(args: {
       : allowedSuggestive
         ? "Although suggestive is technically eligible, this current setting does not establish a private photo moment. For this opportunity favor an ordinary context-appropriate image or no photo rather than inventing privacy, a new location or an outfit change."
         : "Do not choose a romantic or suggestive photo category unless it appears in the eligible list; an ordinary image or photo=null can be the right answer.",
+    workPhotoGuidance,
     "If you do choose an image, return the actual complete photo action (willing=true, contextual=true, accurate framing, permitted type, concrete scene); do not merely promise a future photo. If you decline, return photo=null without inventing one. Do not alter your boundaries or the relationship to make a category eligible.",
   ].join("\n");
 }
