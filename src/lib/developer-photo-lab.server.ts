@@ -116,7 +116,7 @@ export async function photoLabHistory(db: Client, user: string, conversation: st
 }
 /**
  * Explicit second-stage developer delivery test. Attaches an already generated
- * lab image to this user's chat without attributing any willingness to the NPC.
+ * lab image to this user's chat; developer provenance is tracked in metadata.
  * The deterministic message ID makes client retries safe.
  */
 export async function deliverStoredPhotoLabTest(db: Client, user: string, conversation: string, id: string) {
@@ -134,7 +134,7 @@ export async function deliverStoredPhotoLabTest(db: Client, user: string, conver
   if (existing) return { delivered:true, replayed:true, messageId };
   const { error: insertError } = await db.from("messages").insert({
     id: messageId, user_id:user, conversation_id:conversation, sender:"tess",
-    body:"[Developer photo pipeline test — generated and delivered by the developer, not independently sent by this character.]",
+    body:"",
     metadata:{
       generated_path:path, photo_type:detail["category"] as string,
       photo_source:"developer_pipeline_test", developer_photo_test:true,
