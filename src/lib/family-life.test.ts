@@ -17,8 +17,8 @@ describe("family life domain", () => {
   it("requires explicit agreement before sharing a home", () => {
     const base = { id: uuid, userId: uuid, characterKey: "tess", kind: "move_in" as const,
       proposedBy: "character" as const, occurredAt: start, sourceId: "msg-1" };
-    expect(resolveHouseholdStatus([{...base, userResponse: "pending", characterResponse: "accepted"}])).toBe("separate");
-    expect(resolveHouseholdStatus([{...base, userResponse: "accepted", characterResponse: "accepted"}])).toBe("shared");
+    expect(resolveHouseholdStatus([{...base, userResponse: "pending" as const, characterResponse: "accepted" as const}])).toBe("separate");
+    expect(resolveHouseholdStatus([{...base, userResponse: "accepted" as const, characterResponse: "accepted" as const}])).toBe("shared");
   });
   it("does not accept an ineligible encounter", () => {
     expect(() => createPendingPregnancyEvent({
