@@ -32,6 +32,7 @@ import { claimMessagePush, messagePushBody } from "./message-notifications.serve
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { characterFor } from "./characters";
+import { fairWorldConversationGroups } from "./world-conversation-queue";
 import { activeLifeEvent, decideInitiation, weatherFlavor } from "./tess-life";
 import { deriveStage, type TessState, STATE_KEYS, SEED_STATE } from "./tess-logic";
 import { sendWebPush, type PushTarget } from "./webpush.server";
@@ -374,13 +375,11 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       },
       updated_at: nowIso,
     });
-    const byUser = new Map<string, typeof convRows>();
-    for (const c of convRows ?? []) {
-      const list = byUser.get(c.user_id) ?? [];
-      if (list.length < 5) list.push(c);
-      byUser.set(c.user_id, list);
-    }
-    const users = [...byUser.entries()].slice(0, MAX_USERS_PER_RUN);
+    // Do not silently discard the sixth/eighth character for an account:
+    // when this page has <MAX_USERS_PER_RUN rows, its cursor resets to zero.
+    // Rotate the full page deterministically across tick windows so a shared
+    // four-call AI budget cannot perpetually favor the same characters.
+    const users = fairWorldConversationGroups(convRows ?? [], now, TICK_INTERVAL_MINUTES);
     report.users = users.length;
 
     const { getWeatherContext } = await import("./tess-weather.server");
