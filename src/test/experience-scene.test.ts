@@ -58,6 +58,26 @@ describe("grounded live scene continuity", () => {
       ),
     ).toBeNull();
   });
+  it("does not reset Sienna's dinner to the dining room after they leave", () => {
+    const restaurant = initialScene("sienna", "diner:valley", "Valley Table");
+    const outdoors = transitionScene(
+      restaurant,
+      "I settle the check. I walk with her out of the restaurant, slipping my arm around her waist as we turn right.",
+      "sienna", "Sienna",
+    );
+    expect(outdoors).toMatchObject({
+      locationKey: "diner:valley", locationKind: "restaurant", area: "outside", activity: "walking",
+    });
+    expect(sceneContradiction(outdoors!, "I smile at you and we keep walking down the sidewalk.")).toBe(false);
+    expect(sceneContradiction(outdoors!, "I turn back to the server. The server sets our dessert on the table.")).toBe(true);
+    expect(sceneContradiction(outdoors!, "I glance around Valley Table looking for another suspect.")).toBe(true);
+    expect(transitionScene(outdoors!, "We continue walking right.", "sienna", "Sienna")).toBeNull();
+  });
+  it("keeps planned exits as mere invitations", () => {
+    const restaurant = initialScene("sienna", "diner:valley", "Valley Table");
+    expect(transitionScene(restaurant, "Let's go outside after dessert.", "sienna", "Sienna")).toBeNull();
+    expect(transitionScene(restaurant, "We will walk out of the restaurant later.", "sienna", "Sienna")).toBeNull();
+  });
   it("permits an explicit real return to the park", () => {
     const home = { ...initialScene("riley", "home:riley", "Riley's home"), locationKind: "home" };
     expect(
