@@ -14,6 +14,7 @@ describe("roommate proposal contracts", () => {
       },
     });
     expect(request.command).toBe("propose_move");
+    if (request.command !== "propose_move") throw new Error("Wrong command");
     expect(request.payload.movers).toContain("tess");
   });
 
