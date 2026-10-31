@@ -181,6 +181,7 @@ beforeEach(() => {
   client = { from, storage } as unknown as typeof client;
 });
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
