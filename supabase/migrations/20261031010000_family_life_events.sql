@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.family_pregnancy_events (
   probability double precision NOT NULL CHECK(probability >= 0 AND probability <= 1),
   random_roll double precision NOT NULL CHECK(random_roll >= 0 AND random_roll < 1),
   occurred_at timestamptz NOT NULL,
-  reveal_at timestamptz GENERATED ALWAYS AS (occurred_at + interval '12 hours') STORED,
+  reveal_at timestamptz NOT NULL,\n  CONSTRAINT correct_reveal_time CHECK(reveal_at = occurred_at + interval '12 hours'),
   status text NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','positive','negative')),
   disclosed_at timestamptz,
   CONSTRAINT disclosure_after_reveal CHECK(disclosed_at IS NULL OR disclosed_at >= reveal_at),
