@@ -25,10 +25,10 @@ async function barDb(userId: string) {
   const presence = await db.from("town_presence").select("place_key,arrives_at").eq("user_id", userId).maybeSingle();
   if (presence.error || presence.data?.place_key !== PLACE || !presence.data.arrives_at || Date.parse(presence.data.arrives_at) > Date.now())
     throw new Error("Arrive at Copper Lens before interacting with the bar.");
-  return db;
+  return { db, visitKey: presence.data.arrives_at };
 }
-async function latestState(db: Awaited<ReturnType<typeof barDb>>, userId: string) {
-  const r = await db.from("world_events").select("payload").eq("user_id", userId).eq("kind", "copper_lens_bar_state").order("created_at", { ascending: false }).limit(1);
+async function latestState(db: Awaited<ReturnType<typeof barDb>>["db"], userId: string, visitKey: string) {
+  const r = await db.from("world_events").select("payload").eq("user_id", userId).eq("kind", "copper_lens_bar_state").contains("payload", { visit_key: visitKey }).order("created_at", { ascending: false }).limit(1);
   if (r.error) throw new Error("Bar visit state is unavailable.");
   return stateFrom(r.data?.[0] as EventRow | undefined);
 }
@@ -40,8 +40,8 @@ function bartenderState() {
 }
 export const copperLensState = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const db = await barDb(context.userId);
-    return { ...await latestState(db, context.userId), bartender: bartenderState() };
+    const { db, visitKey } = await barDb(context.userId);
+    return { ...await latestState(db, context.userId, visitKey), bartender: bartenderState() };
   });
 export const copperLensAction = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({
@@ -50,11 +50,11 @@ export const copperLensAction = createServerFn({ method: "POST" }).middleware([r
     drink: z.string().trim().max(100).optional(),
   }).parse(input))
   .handler(async ({ context, data }) => {
-    const db = await barDb(context.userId);
-    const prior = await db.from("world_events").select("payload").eq("user_id", context.userId).eq("kind", "copper_lens_bar_state").contains("payload", { requestId: data.requestId }).limit(1);
+    const { db, visitKey } = await barDb(context.userId);
+    const prior = await db.from("world_events").select("payload").eq("user_id", context.userId).eq("kind", "copper_lens_bar_state").contains("payload", { requestId: data.requestId, visit_key: visitKey }).limit(1);
     if (prior.error) throw new Error("Could not verify bar action.");
     if (prior.data?.length) return { ...stateFrom(prior.data[0] as EventRow), bartender: bartenderState() };
-    const previous = await latestState(db, context.userId);
+    const previous = await latestState(db, context.userId, visitKey);
     const next: BarState = { ...previous, interruption: "" };
     if (data.action === "seat") next.seated = true;
     if (data.action === "menu") next.houseReply = "Tonight’s menu includes an old fashioned and other classic cocktails. What can I get you?";
@@ -87,7 +87,7 @@ export const copperLensAction = createServerFn({ method: "POST" }).middleware([r
       conversation_id: conversation.id,
       kind: "copper_lens_bar_state",
       summary: "Fictional Copper Lens bar activity",
-      payload: { ...next, requestId: data.requestId, action: data.action, place_key: PLACE },
+      payload: { ...next, requestId: data.requestId, action: data.action, place_key: PLACE, visit_key: visitKey },
     });
     if (event.error) throw new Error("Could not save bar activity.");
     return { ...next, bartender: bartenderState() };
