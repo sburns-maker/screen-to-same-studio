@@ -24,6 +24,8 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
     expect(guide(history.slice(1))).toBe("");
     expect(guide(history, "riley")).toBe("");
     expect(guide(history.slice(0, 4))).toBe("");
+    expect(guide(history.map(m => m.body.startsWith("I'm intrigued")
+      ? { ...m, body: "I'm excited about you, and I'd like to enjoy dinner." } : m))).toBe("");
   });
 
   it("gives Sienna a way to reopen the conversation herself after her honest hesitation", () => {
