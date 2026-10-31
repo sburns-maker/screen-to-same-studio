@@ -231,7 +231,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
               <p className="text-xs text-muted-foreground">Available: {scenario.availableTypes.join(", ") || "none"}</p>
               {scenario.counts && <p className="mt-1 text-xs">
                 Photo: {scenario.counts.photo} · Text only: {scenario.counts.text_only} ·
-                Silence: {scenario.counts.silence} · Invalid photo actions: {scenario.counts.invalid_photo_action} · Decision errors: {scenario.counts.decision_error}
+                Silence: {scenario.counts.silence} · Invalid photo actions: {scenario.counts.invalid_photo_action} · Unexplained silence: {scenario.counts.unexplained_silence} · Decision errors: {scenario.counts.decision_error}
               </p>}
               {"choices" in scenario && scenario.choices && <details className="mt-1 text-xs"><summary>Individual model decisions</summary><pre className="whitespace-pre-wrap">{JSON.stringify(scenario.choices,null,2)}</pre></details>}
               {scenario.reasons.length > 0 && <details className="mt-1 text-xs">
