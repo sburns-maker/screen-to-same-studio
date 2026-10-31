@@ -95,10 +95,11 @@ export function windowExperienceHistory(
   const rest = all.slice(HISTORY_OPENING_MOMENTS);
   const recent: { source: string; body: string }[] = [];
   let used = size(opening);
-  for (let i = rest.length - 1; i >= 0 && recent.length < HISTORY_RECENT_MOMENTS; i--) {
-    const body = clip(rest[i].body, 1500);
+  for (const m of [...rest].reverse()) {
+    if (recent.length >= HISTORY_RECENT_MOMENTS) break;
+    const body = clip(m.body, 1500);
     if (recent.length >= 4 && used + body.length > HISTORY_CHAR_BUDGET) break;
-    recent.unshift({ source: rest[i].source, body });
+    recent.unshift({ source: m.source, body });
     used += body.length;
   }
   const middle = rest.slice(0, rest.length - recent.length);
@@ -112,8 +113,9 @@ export function windowExperienceHistory(
   // A finishing summary needs the arc of the whole outing, so sample short milestones from the middle.
   if (kind !== "turn") {
     const step = Math.max(1, Math.ceil(middle.length / 12));
-    for (let i = 0; i < middle.length; i += step)
-      bridge.push({ source: middle[i].source, body: clip(middle[i].body, 240) });
+    middle.forEach((m, i) => {
+      if (i % step === 0) bridge.push({ source: m.source, body: clip(m.body, 240) });
+    });
   }
   return [...opening, ...bridge, ...recent];
 }
