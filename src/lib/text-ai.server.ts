@@ -15,11 +15,14 @@ let inFlight = 0;
 
 export async function runStructured<T>(
   schema: z.ZodType<T>,
-  instructions: string,
-  input: string,
+  rawInstructions: string,
+  rawInput: string,
   operation: "reply" | "autonomous" | "debrief" | "unspecified" = "unspecified",
   context?: { operationId: string },
 ): Promise<T> {
+  // Truncating text mid-emoji leaves a lone surrogate, which the provider rejects as invalid JSON (HTTP 400).
+  const instructions = rawInstructions.toWellFormed();
+  const input = rawInput.toWellFormed();
   const operationId = context?.operationId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(context.operationId) ? context.operationId : undefined;
   const apiKey = process.env["OPENAI_API_KEY"];
   if (!apiKey) throw new Error("Character AI is not configured");
