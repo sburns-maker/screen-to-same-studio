@@ -25,6 +25,21 @@ describe("experience scene agency guardrails", () => {
     expect(prompt).toContain("neither future sex nor exclusivity");
   });
 
+  it("addresses the current direct in-person question before older travel memories", () => {
+    const historyWithKiss = [
+      ...history,
+      { ...history[0]!, id: "m2", ordinal: 2, source: "character", body: "Tess holds him close while the movie plays." },
+      { ...history[0]!, id: "m3", ordinal: 3, body: "I pause the movie, pull her closer, and kiss her. Still think we need the movie?" },
+    ];
+    const prompt = experienceInstructions("turn", "Saturday at Tess's", "Tess's home", historyWithKiss);
+    expect(prompt).toContain("IMMEDIATE SCENE RELEVANCE");
+    expect(prompt).toContain("CURRENT PLAYER SCENE TURN");
+    expect(prompt).toContain("Still think we need the movie?");
+    expect(prompt).toContain("do not abruptly pivot to old saved goals, travel fantasies");
+    expect(prompt).toContain("If the character wants to continue the movie");
+    expect(prompt).not.toContain("she must deepen the kiss");
+  });
+
   it("does not license invented romance in automatic completion", () => {
     const prompt = experienceInstructions("automatic", "Dinner", "Fanelli's", history);
     expect(prompt).toContain("Automatic completion must not establish any new intimate milestone");

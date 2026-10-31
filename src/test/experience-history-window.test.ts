@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { experienceInstructions, windowExperienceHistory } from "@/lib/living-experiences";
+import { experienceInstructions, windowExperienceHistory, sceneDialogueTail } from "@/lib/living-experiences";
 
 const moment = (i: number, body: string) => ({
   user_id: "u",
@@ -41,6 +41,20 @@ describe("long outing prompt windowing", () => {
     expect(window.some((m) => m.body.includes("asks to slow down"))).toBe(true);
     expect(window.some((m) => m.body.includes("not permission for new contact"))).toBe(true);
     expect(window.some((m) => m.body.includes("moment 40 "))).toBe(false);
+  });
+
+  it("retains a late question after a long physical-scene description", () => {
+    const body = "I lean in and kiss her, then give her a moment to respond. ".repeat(13)
+      + "Still think we need the movie? ❤️";
+    expect(body.length).toBeGreaterThan(600);
+    const recent = sceneDialogueTail(body, 300);
+    expect(recent).toContain("Still think we need the movie?");
+    expect(recent).toContain("[Earlier portion");
+    expect(Array.from(recent).length).toBeLessThanOrEqual(300);
+    const h = [moment(1, "Let's watch together"), moment(3, body)];
+    const prompt = experienceInstructions("turn", "Breakfast", "Tess's home", h);
+    expect(prompt).toContain("CURRENT PLAYER SCENE TURN");
+    expect(prompt).toContain("Still think we need the movie?");
   });
 
   it("never splits an emoji when clipping", () => {
