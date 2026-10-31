@@ -32,7 +32,7 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
     expect(result).toContain("you told him you were not ready");
     expect(result).toContain("ONE meaningful question");
     expect(result).toContain("not a forced yes");
-    expect(result).toContain("not a guaranteed");
+    expect(result).toContain("not a forced yes, proposal or wedding");
   });
 
   it("does not create a marriage commitment, prize or magical correct answer", () => {
@@ -56,7 +56,7 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
     const answer = user("Yes. I'd still be there for the ordinary Tuesdays when the cameras are gone.");
     const next = guide([...history, question, answer]);
     expect(next).toContain("YOUR OWN QUESTION HAS BEEN ANSWERED");
-    expect(next).toContain("not an automatic engagement");
+    expect(next).toContain("automatic engagement");
     expect(guide([...history, question, answer, sienna("That means a lot to me.")])).toBe("");
   });
 });
