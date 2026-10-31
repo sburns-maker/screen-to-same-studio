@@ -274,7 +274,7 @@ it("saves a plan at the player's own home without any guest invitation message",
   expect(home?.place_key).toMatch(/^home:/);
   const p = await add({
     title: "Board games at my place",
-    category: "games",
+    category: "meetup",
     place: home!.place_key,
     date: "2026-11-02",
     time: "12:00",
