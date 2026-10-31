@@ -213,6 +213,9 @@ describe("correlated structured provider diagnostics", () => {
     const full = {
       housing_actions: null,
       commitment_action: {action:null,kind:null,quote:null,proposalId:null},
+      wedding_plan_action: null,
+      encounter_action: null,
+      pregnancy_disclosure_action: null,
       schedule_actions: null,
       continuity: null,
       messages: ["Yes, let's continue the afternoon there."],
