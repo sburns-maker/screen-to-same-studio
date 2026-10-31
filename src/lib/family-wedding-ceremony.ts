@@ -5,7 +5,7 @@ export type CeremonyMoment={source:string;body:string;confirmed:boolean;created_
 export function isExplicitVow(text:string) {
  const s=text.trim().replace(/[“”]/g,'"').toLowerCase();
  if(/\b(?:don't|do not|wouldn't|would|won't|if|maybe|someday|not ready|just kidding|hypothetical|pretend)\b/.test(s))return false;
- return /(?:^|[.?!\s"'—-])i\s+do(?:[.!?,\s"'—-]|$)/.test(s) ||
+ return /\bi\s+do(?:[.!](?:\s|$)|$|,\s*(?:too|yes)\b)/.test(s) ||
    /\bi\s+take\s+you\b/.test(s);
 }
 export function hasMutualVows(moments:readonly CeremonyMoment[],at:Date) {
