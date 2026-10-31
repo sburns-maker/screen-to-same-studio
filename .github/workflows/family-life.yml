@@ -23,3 +23,21 @@ jobs:
         run: bunx tsc --noEmit
       - if: success() || failure()
         run: bun run build
+
+  merge-rehearsal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check merge against current main without changing the branch
+        shell: bash
+        run: |
+          git fetch origin main
+          if ! git -c user.name=merge-check -c user.email=merge-check@example.invalid merge --no-commit --no-ff origin/main; then
+            echo "::error::The family-life branch conflicts with main. Resolve these paths:"
+            git diff --name-only --diff-filter=U
+            git merge --abort || true
+            exit 1
+          fi
+          git merge --abort || true
