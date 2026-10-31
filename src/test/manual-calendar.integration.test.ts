@@ -263,7 +263,8 @@ it("updates the same plan after explicit agreement without generating a message"
 });
 
 it("saves a plan at the player's own home without any guest invitation message", async () => {
-  await client().rpc("housing_seed" as never, { p_user: user } as never);
+  const seeded = await client().rpc("housing_seed" as never, { p_user: user } as never);
+  expect(seeded.error).toBeNull();
   const home = (
     await db.query<{ place_key: string }>(
       "SELECT r.place_key FROM housing_memberships m JOIN housing_residences r ON r.id=m.residence_id WHERE m.user_id=$1 AND m.person_key='user' AND m.kind='primary' AND m.ended_at IS NULL",
