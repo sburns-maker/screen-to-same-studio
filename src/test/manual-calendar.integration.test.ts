@@ -62,6 +62,7 @@ beforeAll(async () => {
     "0042_calendar_scene_privileges",
     "0043_verify_migration_catchup",
     "0044_manual_calendar_control",
+    "0045_residences_households",
   ]) {
     if (file === "0044_manual_calendar_control") {
       await db.exec(`INSERT INTO conversations(id,user_id,character_id) SELECT '${conv}','${other}',id FROM characters WHERE key='tess';
