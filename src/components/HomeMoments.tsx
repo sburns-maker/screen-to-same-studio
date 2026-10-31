@@ -29,7 +29,7 @@ export function HomeMoments({ home, snapshot, character }: {
   const numeric = (value: string) => Math.max(0, Number(value) || 0);
   const totals = numeric(rent) + numeric(utilities) + numeric(groceries);
   const proposalText = chosen?.id === "roommate"
-    ? `${chosen.suggestion}${totals > 0 ? ` For a starting estimate: rent ${numeric(rent).toFixed(2)}, utilities ${numeric(utilities).toFixed(2)}, shared groceries ${numeric(groceries).toFixed(2)} per month. That totals ${totals.toFixed(2)}, or roughly ${(totals / 2).toFixed(2)} each with an equal split (we can negotiate).` : ""}${notes.trim() ? ` Other things to discuss: ${notes.trim().slice(0, 800)}` : ""}`
+    ? `${chosen.suggestion}${totals > 0 ? ` For a starting estimate: rent $${numeric(rent).toFixed(2)}, utilities $${numeric(utilities).toFixed(2)}, shared groceries $${numeric(groceries).toFixed(2)} per month. That totals $${totals.toFixed(2)}, or roughly $${(totals / 2).toFixed(2)} each with an equal split (we can negotiate).` : ""}${notes.trim() ? ` Other things to discuss: ${notes.trim().slice(0, 800)}` : ""}`
     : chosen?.suggestion ?? "";
   async function createReviewInvitation() {
     if (opening || !reviewDate || !reviewTime) { setCopyStatus("Choose a date and time first."); return; }
