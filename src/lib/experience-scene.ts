@@ -143,14 +143,22 @@ function transitionClause(
     }
   }
   if (next.locationKind === "restaurant" || next.locationKind === "cafe") {
-    if (
-      /\b(?:finished|finish|done with)\b.{0,35}\b(?:dinner|meal|food|eating)\b|\b(?:paid|pay) (?:the |our )?bill\b/i.test(
-        s,
+    // Leaving a restaurant need not involve a second named destination. Keep the
+    // grounded venue for orientation but move the physical scene OUTSIDE; the
+    // next character turn must not send them back to the table or server.
+    const walkedOut = /\b(?:i|we|she|he)\s+(?:walk|walked|step|stepped|head|headed|go|went|exit|exited|leave|left)\b.{0,65}\b(?:out(?:side)?(?:\s+of)?|through (?:the )?door)\b/i.test(s) ||
+      /\b(?:i|we|she|he)\s+(?:exit|exited|leave|left)\b.{0,35}\b(?:restaurant|cafe|café|diner|bar)\b/i.test(s);
+    if (walkedOut && !/\b(?:walk|step|go)\s+(?:back\s+)?(?:in(?:side|to)?|into)\b/i.test(s)) {
+      next.area = "outside";
+      next.activity = "walking";
+    } else if (next.area !== "outside") {
+      if (
+        /\b(?:finished|finish|done with)\b.{0,35}\b(?:dinner|meal|food|eating)\b|\b(?:paid|pay) (?:the |our )?bill\b/i.test(s)
       )
-    )
-      next.activity = "finished_meal";
-    else if (/\b(?:order|ordered)\b/i.test(s)) next.activity = "ordering";
-    else if (/\b(?:eat|eating|dining|food arrives)\b/i.test(s)) next.activity = "dining";
+        next.activity = "finished_meal";
+      else if (/\b(?:order|ordered)\b/i.test(s)) next.activity = "ordering";
+      else if (/\b(?:eat|eating|dining|food arrives)\b/i.test(s)) next.activity = "dining";
+    }
   }
   if (next.locationKind === "home" && !/\b(?:front door|doorstep|porch)\b/i.test(s)) {
     if (/\b(?:we|i) (?:enter|entered|step inside|stepped inside|go inside|went inside)\b/i.test(s))
@@ -184,7 +192,7 @@ export function transitionScene(
   return JSON.stringify(scene) === JSON.stringify(current) ? null : scene;
 }
 export function liveSceneInstructions(scene: LiveScene) {
-  return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside. Old places may be remembered, never silently resumed.`;
+  return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. If area is outside at a restaurant or cafe, you have ALREADY left the dining room: no server, seated table, dessert or interior mini-game remains unless you actually re-enter. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside. Old places may be remembered, never silently resumed.`;
 }
 /** Reject clear present-scene relocations, not memories or ordinary outdoor surroundings. */
 export function sceneContradiction(scene: LiveScene, text: string) {
@@ -197,6 +205,12 @@ export function sceneContradiction(scene: LiveScene, text: string) {
         ),
     );
   return clauses.some((s) => {
+    // An already-performed restaurant exit cannot be contradicted by suddenly
+    // ordering more dessert or returning to the dining room without re-entry.
+    if ((scene.locationKind === "restaurant" || scene.locationKind === "cafe") && scene.area === "outside" &&
+      !/\b(?:walk|step|go|head|return)(?:ed|s)?\s+(?:back\s+)?(?:in(?:side|to)?|into)\b/i.test(s) &&
+      /\b(?:server|waiter|waitress)\b.{0,65}\b(?:sets|brings|serves|asks|takes|arrives)\b|\b(?:glance|look)\s+around\s+(?:the\s+)?(?:room|dining room|valley table)\b|\b(?:seated|sitting)\s+at\s+(?:our|the)\s+table\b/i.test(s))
+      return true;
     if (
       scene.locationKind !== "park" &&
       /\b(?:we (?:walk|are walking|stroll)|(?:she|he|riley|tess|maya|claire|jordan|sienna|kendra) (?:walks|strolls)|you (?:walk|stroll)|(?:the|our) (?:park )?path (?:winds|stretches))\b.{0,65}\b(?:park|trail|path|juniper commons)\b|\b(?:back at|still at|here at|around us at) (?:the )?(?:park|juniper commons)\b/i.test(
