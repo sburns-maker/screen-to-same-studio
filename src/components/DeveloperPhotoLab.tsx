@@ -36,6 +36,8 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
   const [batchResult, setBatchResult] = useState<Awaited<ReturnType<typeof evaluatePhotoDecisionBatch>> | null>(null);
   const [spicyStatus, setSpicyStatus] = useState<Awaited<ReturnType<typeof checkDeveloperSpicyConnection>> | null>(null);
   const [checkingSpicy, setCheckingSpicy] = useState(false);
+  const [deliveringId,setDeliveringId] = useState<string | null>(null);
+  const [deliveredIds,setDeliveredIds] = useState<Record<string,boolean>>({});
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -124,6 +126,17 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
     } finally {
       setBusy(false);
     }
+  }
+  async function deliverStoredPhoto(id: string) {
+    if (busy || deliveringId) return;
+    setDeliveringId(id);
+    setError("");
+    try {
+      const result = await command({ data: {action:"deliver",conversationId,id,confirmation:"DELIVER DEVELOPER TEST PHOTO TO CHAT"} });
+      if (!result.result || !("delivered" in result.result) || !result.result.delivered) throw new Error("Photo delivery was not confirmed");
+      setDeliveredIds(old=>({...old,[id]:true}));
+    } catch(e) { setError(e instanceof Error ? e.message : "Photo delivery failed"); }
+    finally {setDeliveringId(null);}
   }
   async function check(release?: string) {
     setBusy(true);
@@ -323,6 +336,17 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {r.reason && <p className="text-sm">{r.reason}</p>}
           {r.status === "stored" && (
             <p>Image stored. Refresh its private preview link; no regeneration is needed.</p>
+          )}
+          {(r.status === "ready" || r.status === "stored") && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">Guaranteed pipeline delivery check</p>
+              <p className="text-xs text-muted-foreground">The generated image can be attached directly to this chat without another AI choice. This explicitly authorized developer action is recorded in private metadata; the chat photo has no visible test badge or caption.</p>
+              <button type="button" disabled={busy || !!deliveringId || deliveredIds[r.id]}
+                className="min-h-11 rounded-xl border px-3 disabled:opacity-50"
+                onClick={()=>void deliverStoredPhoto(r.id)}>
+                {deliveringId===r.id ? "Delivering photo…" : deliveredIds[r.id] ? "Photo delivered to chat" : "Deliver stored photo to chat"}
+              </button>
+            </div>
           )}
           {r.url && (
             <img
