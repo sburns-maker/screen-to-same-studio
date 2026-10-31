@@ -85,6 +85,8 @@ export const RELATIONSHIP_PILOT = {
 export function relationshipDiscussionDraft(kind: CommitmentKind): string {
   if (kind === "exclusive") return "I'd like us to date exclusively. How do you feel about that?";
   if (kind === "partnership") return "I'd like us to be in a committed relationship. How do you feel about that?";
+  if (kind === "engagement") return "I want to marry you someday. Will you marry me?";
+  if (kind === "marriage") return "I'd like to talk about us actually getting married. Is that what you want too?";
   return "I'd like to talk about our pending relationship decision. How are you feeling about it?";
 }
 export function relationshipDraftKey(conversationId: string): string {
