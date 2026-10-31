@@ -31,6 +31,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
   const checkSpicy = useServerFn(checkDeveloperSpicyConnection);
   const batchDecision = useServerFn(evaluatePhotoDecisionBatch);
   const [batchRuns, setBatchRuns] = useState(2);
+  const [batchMode, setBatchMode] = useState<"spontaneous_initiation" | "medium_after_initiation">("spontaneous_initiation");
   const [batchBusy, setBatchBusy] = useState(false);
   const [batchResult, setBatchResult] = useState<Awaited<ReturnType<typeof evaluatePhotoDecisionBatch>> | null>(null);
   const [spicyStatus, setSpicyStatus] = useState<Awaited<ReturnType<typeof checkDeveloperSpicyConnection>> | null>(null);
@@ -204,6 +205,12 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           No SpicyAPI images are generated, no chat is sent, and no character state changes.
           Text-model calls may incur charges.
         </p>
+        <label className="block text-sm">Diagnostic mode
+          <select aria-label="Photo decision diagnostic mode" className="ml-2 rounded-xl border bg-background p-2" value={batchMode} onChange={e => setBatchMode(e.target.value as "spontaneous_initiation" | "medium_after_initiation")} disabled={batchBusy}>
+            <option value="spontaneous_initiation">Would they initiate?</option>
+            <option value="medium_after_initiation">Already initiating: text or photo?</option>
+          </select>
+        </label>
         <label className="block text-sm">
           Repeats per eligible scenario
           <select className="ml-2 rounded-xl border bg-background p-2" value={batchRuns}
@@ -216,7 +223,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
             setBatchBusy(true);
             setBatchResult(null);
             setError("");
-            void batchDecision({ data: { conversationId, repetitions: batchRuns } })
+            void batchDecision({ data: { conversationId, repetitions: batchRuns, mode: batchMode } })
               .then(setBatchResult)
               .catch(e => setError(e instanceof Error ? e.message : "Batch photo decision test failed"))
               .finally(() => setBatchBusy(false));
@@ -224,7 +231,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           {batchBusy ? "Evaluating independent photo choices…" : "Run photo-choice batch (no images)"}
         </button>
         {batchResult && <div role="status" className="space-y-2">
-          <p className="text-xs">Character: {batchResult.character}. Text-model decisions only; no provider or delivery calls.</p>
+          <p className="text-xs">Character: {batchResult.character}. Mode: {batchResult.mode === "medium_after_initiation" ? "Already initiating — medium choice" : "Spontaneous initiation"}. Text-model decisions only; no provider or delivery calls.</p>
           {batchResult.scenarios.map(scenario =>
             <div key={scenario.category} className="rounded-lg border p-3 text-sm">
               <p className="font-medium">{scenario.category.replaceAll("_"," ")} · {scenario.eligible ? "eligible" : "not eligible"}</p>
