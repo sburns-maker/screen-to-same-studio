@@ -5,6 +5,9 @@ import { z } from "zod";
 
 // Recognized by @ai-sdk/openai's Responses model catalog. No gateway fallback.
 export const TEXT_MODEL = "gpt-6-luna";
+// Higher-fidelity interactive in-person dialogue only. Ordinary texts, background
+// messages and automatic experience completion retain Luna's lower price.
+export const INTERACTIVE_EXPERIENCE_MODEL = "gpt-6.1-terra";
 const MAX_OUTPUT_TOKENS = 4096;
 const MAX_INPUT_CHARACTERS = 100_000;
 // Conservative process-local circuit breaker, not a substitute for project billing limits.
@@ -18,9 +21,10 @@ export async function runStructured<T>(
   rawInstructions: string,
   rawInput: string,
   operation: "reply" | "autonomous" | "debrief" | "unspecified" = "unspecified",
-  context?: { operationId: string },
+  context?: { operationId?: string; interactiveScene?: boolean },
 ): Promise<T> {
   // Truncating text mid-emoji leaves a lone surrogate, which the provider rejects as invalid JSON (HTTP 400).
+  const selectedModel = context?.interactiveScene ? INTERACTIVE_EXPERIENCE_MODEL : selectedModel;
   const instructions = rawInstructions.toWellFormed();
   const input = rawInput.toWellFormed();
   const operationId = context?.operationId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(context.operationId) ? context.operationId : undefined;
@@ -37,7 +41,7 @@ export async function runStructured<T>(
   const reservation = characters + MAX_OUTPUT_TOKENS;
   if (inFlight >= 4 || reservedTokens + reservation > HOURLY_RESERVED_TOKENS) {
     console.warn("[character-ai]", {
-      provider: "openai", model: TEXT_MODEL, status: "blocked", operation, operationId,
+      provider: "openai", model: selectedModel, status: "blocked", operation, operationId,
       failureKind: inFlight >= 4 ? "concurrency_limit" : "capacity_limit",
       reservedTokens, requestedReservation: reservation,
     });
@@ -50,7 +54,7 @@ export async function runStructured<T>(
   try {
     const provider = createOpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
     const result = await generateText({
-      model: provider.responses(TEXT_MODEL),
+      model: provider.responses(selectedModel),
       instructions,
       messages: [{ role: "user", content: input }],
       output: Output.object({ schema }),
@@ -67,11 +71,11 @@ export async function runStructured<T>(
       reservedTokens = Math.max(0, reservedTokens + actualTokens - reservation);
     }
     // Validate before callers persist messages, memories, or state.
-    if (result.finishReason !== "stop") throw new CharacterAIError("Incomplete character response", characterAIDiagnostic(TEXT_MODEL, null, null, null, result.finishReason === "length" ? "output_limit" : "invalid_response"));
+    if (result.finishReason !== "stop") throw new CharacterAIError("Incomplete character response", characterAIDiagnostic(selectedModel, null, null, null, result.finishReason === "length" ? "output_limit" : "invalid_response"));
     const output = schema.parse(result.output);
     console.info("[character-ai]", {
       provider: "openai",
-      model: TEXT_MODEL,
+      model: selectedModel,
       status: "ok",
       operation,
       operationId,
@@ -87,14 +91,14 @@ export async function runStructured<T>(
   } catch (error) {
     const apiError = APICallError.isInstance(error) ? error : null;
     const diagnostic = error instanceof CharacterAIError ? error.diagnostic : characterAIDiagnostic(
-      TEXT_MODEL, apiError?.statusCode ?? null, apiError?.data,
+      selectedModel, apiError?.statusCode ?? null, apiError?.data,
       apiError?.responseHeaders?.["x-request-id"],
       apiError ? undefined : error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name) ? "timeout" : "invalid_response",
       apiError?.responseBody,
     );
     // No raw SDK errors: those can contain keys, request bodies or private dialogue.
     console.warn("[character-ai]", {
-      provider: "openai", model: TEXT_MODEL, status: "failed", operation, operationId,
+      provider: "openai", model: selectedModel, status: "failed", operation, operationId,
       durationMs: Date.now() - started,
       statusCode: diagnostic.statusCode,
       failureKind: apiError ? "provider_http" : diagnostic.code === "timeout" ? "timeout" : "invalid_or_incomplete_response",
