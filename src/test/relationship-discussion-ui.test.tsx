@@ -39,7 +39,10 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/lib/relationship-commitments.functions", () => ({
   changeRelationshipCommitment: state.change,
 }));
-vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@tanstack/react-start", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-start")>()),
+  useServerFn: (fn: unknown) => fn,
+}));
 vi.mock("@/components/RelationshipMilestones", () => ({ RelationshipMilestones: () => null }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
