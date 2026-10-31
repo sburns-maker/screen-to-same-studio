@@ -2,10 +2,28 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { characterFor, characterAvailability } from "./characters";
-import { deriveStage, STATE_KEYS, type TessState } from "./tess-logic";
+import { STATE_KEYS, type TessState } from "./tess-logic";
 import { eligiblePhotoCategories, type PhotoBoundary } from "./photo-policy";
-import { summarizePhotoDecisionBatch, classifyPhotoChoice } from "./spontaneous-photo-flow";
+import { summarizePhotoDecisionBatch, type PhotoChoiceOutcome } from "./spontaneous-photo-flow";
+import { runStructured } from "./text-ai.server";
 
+/** A diagnostic decision is not a photo action. Separate initiating, medium and category. */
+export const photoIntentDecisionSchema = z.object({
+  initiate: z.boolean(),
+  medium: z.enum(["none","text","photo","photo_with_caption"]),
+  reason: z.enum(["no_natural_impulse","busy_or_tired","privacy","outfit_or_scene_mismatch","relationship_boundary","personal_preference","ordinary_moment","playful_connection","sharing_a_memory","other"]),
+  explanation: z.string().max(180),
+  category: z.enum(["object","tess_candid","casual_selfie","personal_selfie","intimate_selfie","mature_romantic","suggestive"]).nullable(),
+  captionIdea: z.string().max(160).nullable(),
+});
+export function interpretPhotoIntent(decision: z.infer<typeof photoIntentDecisionSchema>, allowed: readonly string[]) {
+  if (!decision.initiate) return {action:"silence" as const, validation:null};
+  if (decision.medium === "none") return {action:"unexplained_silence" as const, validation:"initiation_yes_medium_none"};
+  if (decision.medium === "text") return {action:"text_only" as const, validation:null};
+  if (!decision.category || !allowed.includes(decision.category))
+    return {action:"invalid_photo_action" as const, validation:"category_not_eligible"};
+  return {action:"photo" as const,validation:null};
+}
 const requestSchema = z.object({
   conversationId: z.string().uuid(),
   repetitions: z.number().int().min(1).max(4).default(2),
@@ -65,7 +83,7 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
       sender:m.sender, body:m.body, created_at:m.created_at,
     }));
     const memoryLines = (memories ?? []).map(m=>m.summary);
-    const { generateContactReply, generateTessReply } = await import("./tess.server");
+
     const scenarios = [];
     for (const category of categories) {
       const available = category.types.filter(t=>allowed.includes(t as typeof allowed[number]));
@@ -75,46 +93,37 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
       }
       const results: Array<{action:string;photoType:string|null;reason:string|null;rawPhotoAction?:string|null;willing?:boolean|null;contextual?:boolean|null}> = [];
       for(let i=0;i<data.repetitions;i++) {
-        const situation = `CONTROLLED NO-DELIVERY TEST (${i+1}/${data.repetitions}), ${category.id}: ${category.description}. Established activity: ${activity.detail}. Do not fabricate props, clothes, private location, intimacy or a past conversation. Independently choose whether to photograph something actually grounded here. No messages or images will be delivered from this diagnostic.`;
         try {
-          const args = {
-            state, stage:deriveStage(state), difficulty:conv.difficulty ?? "realistic",
-            messages:transcript, memories:memoryLines, tz:"America/New_York",
-            initiation:{gapHours:2,developerPhoto:"deliver" as const},
-            initiationReason:situation, availabilityDetail:activity.detail,
-            generateTypes:available, photoMomentSelected:true,
-            photoHint:situation, photoBoundary:boundary,
-          };
-          const reply = def.key === "tess"
-            ? await generateTessReply({...args, difficulty:args.difficulty as import("./tess-logic").Difficulty, photos:[],photoFrequency:"normal"})
-            : await generateContactReply({...args, difficulty:args.difficulty as import("./tess-logic").Difficulty,character:def});
-          const candidate = reply.photo;
-          const selected = candidate?.action === "generate" && !!candidate.type &&
-            available.includes(candidate.type) && candidate.willing && candidate.contextual;
-          const invalidReason = candidate && !selected
-            ? candidate.action !== "generate" ? "unsupported_photo_action_for_generation_test"
-              : !candidate.type || !available.includes(candidate.type) ? "photo_category_outside_test_eligibility"
-              : !candidate.willing ? "model_photo_action_not_willing"
-              : !candidate.contextual ? "model_photo_action_not_contextual"
-              : "incomplete_photo_action"
-            : null;
-          const action = candidate && !selected ? "invalid_photo_action"
-            : classifyPhotoChoice({evaluated:true,eligible:true,photoSelected:!!selected,hasText:reply.messages.some(m=>!!m.trim())});
+          const instructions = [
+            `You are making a private, developer-only communication decision for ${def.preferredName}, an adult fictional person. Follow the personality and current circumstances below. This is not a request from the player and nothing will be delivered. Do not invent an outfit, object or new scene. No outcome is expected; choose authentically.`,
+            `Character personality: ${def.bible.slice(0,2800)}`,
+            `Texting style: ${def.textingStyle.slice(0,900)}`,
+            "Decision order: (1) decide whether to initiate contact in this actual moment; (2) if yes, choose text, photo, or photo with caption; (3) for a photo choose only one available category. State a brief, concrete decision explanation in your own words, including for silence. A photo is as ordinary as a text when it fits the moment. Privacy and relationship boundaries remain authoritative.",
+            `Eligible photo categories in THIS test: ${available.join(", ")}. A photo outside this list cannot be selected.`,
+          ].join("\\n");
+          const context = [
+            `Moment: ${now.toISOString()}. Character schedule: ${activity.detail}. Scenario: ${category.description}.`,
+            `Current relationship state: comfort ${state.comfort}, trust ${state.trust}, romantic intent ${state.romantic_intent}, emotional intimacy ${state.emotional_intimacy}.`,
+            `Recent conversation:\\n${transcript.slice(-12).map(m=>`${m.sender}: ${m.body.slice(0,300)}`).join("\\n") || "(none)"}`,
+            `Recent memories:\\n${memoryLines.slice(0,6).map(m=>m.slice(0,160)).join("\\n") || "(none)"}`,
+            `Independent sample ${i+1} of ${data.repetitions} for ${category.id}. Decide sincerely; not every moment needs an outgoing message.`,
+          ].join("\\n\\n");
+          const decision = await runStructured(photoIntentDecisionSchema,instructions,context,"autonomous");
+          const interpreted = interpretPhotoIntent(decision,available);
           results.push({
-            action, photoType:candidate?.type ?? null,
-            rawPhotoAction:candidate?.action ?? null, willing:candidate?.willing ?? null,
-            contextual:candidate?.contextual ?? null,
-            reason:invalidReason ?? candidate?.reason ?? null,
+            action:interpreted.action,photoType:decision.category,
+            rawPhotoAction:decision.medium,willing:decision.initiate,
+            contextual:interpreted.validation===null,
+            reason:interpreted.validation ?? `${decision.reason}: ${decision.explanation}`,
           });
         } catch(error) {
-          // No invented refusal: a model or schema failure is neither a decline nor provider failure.
           results.push({action:"decision_error",photoType:null,reason:error instanceof Error ? error.message.slice(0,180):"model_request_failed"});
         }
       }
-      const counted = results.filter(r=>r.action!=="decision_error" && r.action!=="invalid_photo_action").map(r=>r.action as import("./spontaneous-photo-flow").PhotoChoiceOutcome);
+      const counted = results.filter(r=>r.action!=="decision_error" && r.action!=="invalid_photo_action" && r.action!=="unexplained_silence").map(r=>r.action as PhotoChoiceOutcome);
       scenarios.push({
         category:category.id,eligible:true,availableTypes:available,total:results.length,
-        counts:{...summarizePhotoDecisionBatch(counted).counts,decision_error:results.filter(r=>r.action==="decision_error").length,invalid_photo_action:results.filter(r=>r.action==="invalid_photo_action").length},
+        counts:{...summarizePhotoDecisionBatch(counted).counts,decision_error:results.filter(r=>r.action==="decision_error").length,invalid_photo_action:results.filter(r=>r.action==="invalid_photo_action").length,unexplained_silence:results.filter(r=>r.action==="unexplained_silence").length},
         reasons:results.map(r=>r.reason).filter(Boolean), choices:results,
       });
     }
