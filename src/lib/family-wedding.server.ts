@@ -114,7 +114,6 @@ export async function reconcileVisibleWeddingDecisions(
  let accepted=0,declined=0;
  for(const plan of plans){
   const source=(messages??[]).find(message=>{
-   if(Date.parse(message.created_at)<Date.parse(plan.startsAt)-365*24*3600*1000)return false;
    const md=message.metadata;
    const parsed=weddingPlanActionSchema.safeParse(md && typeof md==="object" && !Array.isArray(md)
      ? (md as Record<string,unknown>)["wedding_plan_action"] : null);
