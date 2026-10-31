@@ -586,9 +586,11 @@ async function runTurnUnlocked(
   // The character evaluates a selected opportunity in normal chat as well as
   // in autonomous photo ticks. No automatic willingness or category selection.
   const photoMomentSelected = !voice && !!generateTypes.length && opportunity.eligible && opportunity.selected;
+  const ordinaryPhotoEvaluation = !voice && opportunity.eligible && !!generateTypes.length && !photoMomentSelected;
+
   const photoHint = [directRileyOrdinaryPhotoRequest
     ? "RILEY ORDINARY PHOTO REQUEST: Answer the specific everyday photo question directly. A first respectful request is not by itself pressure or romantic escalation; you can genuinely send a casual photo when comfortable, or decline without performative deflection. Do not invent a photo or imply you cannot send images."
-    : photoMomentSelected ? opportunity.hint : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
+    : photoMomentSelected ? opportunity.hint : ordinaryPhotoEvaluation ? "Ordinary visual context is available: choose text, a context-appropriate photo with or without caption, or silence independently. No special occasion required. Do not force a photo." : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
     ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []),
     characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
   if (initiation && !initiation.developerPhoto && !initiation.budgetReserved && worldReady && !await reserveWorldAi(photoAdmin!, userId)) return { count: 0, lastVisibleAt: null, reason: "daily autonomous AI limit reached" };
@@ -652,7 +654,7 @@ async function runTurnUnlocked(
   if (!isTess && (!def.photosEnabled || (reply.photo && reply.photo.action !== "generate"))) reply.photo = null;
   if (initiation?.spontaneousPhoto && !reply.photo && !reply.messages.some((line)=>line.trim()))
     return { count: 0, lastVisibleAt: null, photoSent:false, imageRequested:false, reason: "Character chose not to send a photo or message for this moment." };
-  if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character did not select a photo for this opportunity", photoDecision: { result: "no_photo_action", eligibleTypes: generateTypes, proposedText: reply.messages.some((line) => line.trim().length > 0) } };
+  if (initiation?.developerPhoto && !reply.photo) return { count: 0, lastVisibleAt: null, reason: "character did not select a photo for this opportunity", photoDecision: { result: "no_photo_action", evaluated: true, characterAction: reply.messages.some((line) => line.trim().length > 0) ? "text_only" : "silence", decisionReason: "model_returned_no_photo_action", providerAttempted: false, deliveryAttempted: false, opportunity, photoPacing: pacing.reason, photoCategories: generateTypes, proposedText: reply.messages.some((line) => line.trim().length > 0), proposedTextMeaning: "true means model proposed nonempty text; false means it proposed no text, not that image generation failed", eligibleTypes: generateTypes } };
 
   if (voice) { reply.photo=null;reply.photo_boundary_decision="unchanged";await (await import("./phone-calls.server")).guardVoiceTurn(supabase,userId,conv.id,voice); }
   const scheduleActions = await (await import("./calendar-coordinator.server")).prepareScheduleActions(
@@ -846,6 +848,15 @@ async function runTurnUnlocked(
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
+          evaluated: !voice && opportunity.eligible,
+          opportunityKey: opportunity.key, opportunitySelected: opportunity.selected,
+          eligibleTypes: generateTypes, contextualReason: opportunity.reason,
+          pacing: { allowed:pacing.allowed, reason:pacing.reason, minutes:pacing.minutes, messages:pacing.messages },
+          currentAvailability: schedule.availability,
+          selectedAction: pendingPhoto ? 'photo_pending' : photo || generated ? 'photo' : 'text_only',
+          generationAttempted: imageRequested,
+          providerResult: generated ? 'generated' : imageRequested ? 'not_delivered_or_failed' : 'not_attempted',
+          deliveryResult: pendingPhoto ? 'queued' : photo || generated ? 'message_queued' : 'not_applicable',
           decision:pendingPhoto ? 'queued' : photo || generated ? 'chosen' : 'not_selected',
           reason:pendingPhoto ? 'character_selected_photo_pending' : photo || generated ? 'character_selected_eligible_photo' : photoRejectionReason ?? (opportunity.eligible ? 'character_did_not_select_photo' : opportunity.reason) } } : {}),
         latency: latency.reason,

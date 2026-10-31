@@ -73,8 +73,10 @@ describe("character-driven spontaneous photo choices", () => {
     expect(blocked).toContain("photo=null");
     expect(blocked).toContain("No ordinary photograph is permitted");
   });
-  it("retains the normal no-photo default for skipped opportunities and disabled photos", () => {
-    expect(choice("maya", "at home", ready, false)).toBe("Usually null.");
-    expect(choice("maya", "at home", [], true)).toBe("Usually null.");
+  it("allows an ordinary optional photo choice when not selected, but blocks disabled photos", () => {
+    const everyday = choice("maya", "at home", ready, false);
+    expect(everyday).toContain("ORDINARY PHOTO CHOICE");
+    expect(everyday).toContain("photo=null");
+    expect(choice("maya", "at home", [], true)).toContain("No permitted photograph");
   });
 });
