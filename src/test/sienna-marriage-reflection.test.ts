@@ -28,7 +28,7 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
 
   it("gives Sienna a way to reopen the conversation herself after her honest hesitation", () => {
     const result = guide();
-    expect(result).toContain("YOU can bring the real question back yourself");
+    expect(result).toContain("take the lead on the unresolved idea");
     expect(result).toContain("you told him you were not ready");
     expect(result).toContain("ONE meaningful question");
     expect(result).toContain("not a forced yes");
