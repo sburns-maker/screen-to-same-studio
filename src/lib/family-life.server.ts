@@ -45,13 +45,17 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   if (!Object.prototype.hasOwnProperty.call(CHARACTERS, characterKey)) {
     throw new Error("Unknown contact");
   }
+  const { commitmentSnapshot } = await import("./relationship-commitments.server");
+  const commitments = await commitmentSnapshot(db, userId, characterKey);
+  const { familyCommitmentStatus } = await import("./family-life");
+  const commitment = commitments.available ? familyCommitmentStatus(commitments.events) : null;
   const [houses, pregnancies] = await Promise.all([
     table(db, "family_household_events").select("*").eq("user_id", userId)
       .eq("character_key", characterKey).order("occurred_at", { ascending: true }).limit(200),
     table(db, "family_pregnancy_events").select("*").eq("user_id", userId)
       .eq("character_key", characterKey).order("occurred_at", { ascending: false }).limit(100),
   ]);
-  if (houses.error || pregnancies.error) return { available: false, household: "separate" as const, pregnancies: [] as PublicPregnancy[] };
+  if (houses.error || pregnancies.error) return { available: false, household: "separate" as const, commitment, pregnancies: [] as PublicPregnancy[] };
   const home = (houses.data ?? []).map(row => householdActionSchema.parse({
     id: row.id, userId: row.user_id, characterKey: row.character_key,
     kind: row.kind, proposedBy: row.proposed_by, userResponse: row.user_response,
@@ -65,6 +69,7 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   return {
     available: true,
     household: resolveHouseholdStatus(home),
+    commitment,
     pregnancies: events.map(e => publicPregnancy(e, now)),
   };
 }
