@@ -97,7 +97,7 @@ export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:stri
    const parsed=pregnancyDisclosureActionSchema.safeParse(
      md && typeof md==="object" && !Array.isArray(md)
       ? (md as Record<string,unknown>)["pregnancy_disclosure_action"]:null);
-   return parsed.success && validPregnancyDisclosure(parsed.data,m.body,[result.id]);
+   return parsed.success && validPregnancyDisclosure(parsed.data,m.body,[result.id],result.status);
   });
   if(!matched)continue;
   const {error:updateError}=await db.from("family_pregnancy_events")
