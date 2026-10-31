@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { createPlanDraft } from "@/lib/scheduling.functions";
@@ -24,6 +24,28 @@ export function HomeMoments({ home, snapshot, character }: {
   const [utilities, setUtilities] = useState("");
   const [groceries, setGroceries] = useState("");
   const [notes, setNotes] = useState("");
+  useEffect(() => {
+    if (character) return;
+    try {
+      const saved = sessionStorage.getItem("roommate-review:" + home.key);
+      if (!saved) return;
+      const data = JSON.parse(saved) as Record<string, unknown>;
+      if (typeof data.rent === "string") setRent(data.rent);
+      if (typeof data.utilities === "string") setUtilities(data.utilities);
+      if (typeof data.groceries === "string") setGroceries(data.groceries);
+      if (typeof data.notes === "string") setNotes(data.notes);
+      if (typeof data.date === "string") setReviewDate(data.date);
+      if (typeof data.time === "string") setReviewTime(data.time);
+    } catch { /* optional draft recovery */ }
+  }, [home.key, character]);
+  useEffect(() => {
+    if (character) return;
+    try {
+      sessionStorage.setItem("roommate-review:" + home.key, JSON.stringify({
+        rent, utilities, groceries, notes, date: reviewDate, time: reviewTime,
+      }));
+    } catch { /* private browsing can prevent draft storage */ }
+  }, [home.key, character, rent, utilities, groceries, notes, reviewDate, reviewTime]);
   const moments = useMemo(() => homeMoments(home, snapshot, character), [home, snapshot, character]);
   const chosen = moments.find((moment) => moment.id === selected);
   const numeric = (value: string) => Math.max(0, Number(value) || 0);
