@@ -180,6 +180,9 @@ export function physicalStoryAllowed(
 /** Photo moments must match where the character actually is. */
 export function physicalPhotoContext(text: string): string {
   return text
+    // Schedule biography is not evidence of the current physical task. In particular,
+    // a bartending shift may mention unrelated private photography clients.
+    .replace(/\([^()]*\bschedule\s*:[^()]*\)/gi, "")
     .replace(/;\s*ongoing situation:[\s\S]*$/i, "")
     .replace(
       /\b(?:even though|although|despite)\b[^.!?]*\b(?:storyline|workplace|staffing problem)\b[^.!?]*/gi,
