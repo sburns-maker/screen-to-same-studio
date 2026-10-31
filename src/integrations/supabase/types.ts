@@ -14,132 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      family_household_events: {
-        Row: {
-          id: string
-          user_id: string
-          character_key: string
-          kind: string
-          proposed_by: string
-          user_response: string
-          character_response: string
-          occurred_at: string
-          source_id: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          character_key: string
-          kind: string
-          proposed_by: string
-          user_response?: string
-          character_response?: string
-          occurred_at?: string
-          source_id: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          character_key?: string
-          kind?: string
-          proposed_by?: string
-          user_response?: string
-          character_response?: string
-          occurred_at?: string
-          source_id?: string
-        }
-        Relationships: []
-      }
-      family_pregnancy_events: {
-        Row: {
-          id: string
-          user_id: string
-          character_key: string
-          encounter_id: string
-          adult_eligible: boolean
-          mutually_agreed: boolean
-          pregnancy_possible: boolean
-          probability: number
-          random_roll: number
-          occurred_at: string
-          reveal_at: string
-          status: string
-          disclosed_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          character_key: string
-          encounter_id: string
-          adult_eligible: boolean
-          mutually_agreed: boolean
-          pregnancy_possible: boolean
-          probability: number
-          random_roll: number
-          occurred_at: string
-          reveal_at: string
-          status?: string
-          disclosed_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          character_key?: string
-          encounter_id?: string
-          adult_eligible?: boolean
-          mutually_agreed?: boolean
-          pregnancy_possible?: boolean
-          probability?: number
-          random_roll?: number
-          occurred_at?: string
-          reveal_at?: string
-          status?: string
-          disclosed_at?: string | null
-        }
-        Relationships: []
-      }
-      family_wedding_plans: {
-        Row: {
-          id: string
-          user_id: string
-          character_key: string
-          request_id: string
-          calendar_event_id: string | null
-          starts_at: string
-          venue: string
-          user_response: string
-          character_response: string
-          ceremony_completed_at: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          character_key: string
-          request_id: string
-          calendar_event_id?: string | null
-          starts_at: string
-          venue: string
-          user_response?: string
-          character_response?: string
-          ceremony_completed_at?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          character_key?: string
-          request_id?: string
-          calendar_event_id?: string | null
-          starts_at?: string
-          venue?: string
-          user_response?: string
-          character_response?: string
-          ceremony_completed_at?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
       api18_jobs: {
         Row: {
           action_id: string
@@ -908,6 +782,132 @@ export type Database = {
           installed_at?: string
           singleton?: boolean
           window_hours?: number
+        }
+        Relationships: []
+      }
+      family_household_events: {
+        Row: {
+          character_key: string
+          character_response: string
+          id: string
+          kind: string
+          occurred_at: string
+          proposed_by: string
+          source_id: string
+          user_id: string
+          user_response: string
+        }
+        Insert: {
+          character_key: string
+          character_response?: string
+          id?: string
+          kind: string
+          occurred_at?: string
+          proposed_by: string
+          source_id: string
+          user_id: string
+          user_response?: string
+        }
+        Update: {
+          character_key?: string
+          character_response?: string
+          id?: string
+          kind?: string
+          occurred_at?: string
+          proposed_by?: string
+          source_id?: string
+          user_id?: string
+          user_response?: string
+        }
+        Relationships: []
+      }
+      family_pregnancy_events: {
+        Row: {
+          adult_eligible: boolean
+          character_key: string
+          disclosed_at: string | null
+          encounter_id: string
+          id: string
+          mutually_agreed: boolean
+          occurred_at: string
+          pregnancy_possible: boolean
+          probability: number
+          random_roll: number
+          reveal_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          adult_eligible: boolean
+          character_key: string
+          disclosed_at?: string | null
+          encounter_id: string
+          id?: string
+          mutually_agreed: boolean
+          occurred_at: string
+          pregnancy_possible: boolean
+          probability: number
+          random_roll: number
+          reveal_at: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          adult_eligible?: boolean
+          character_key?: string
+          disclosed_at?: string | null
+          encounter_id?: string
+          id?: string
+          mutually_agreed?: boolean
+          occurred_at?: string
+          pregnancy_possible?: boolean
+          probability?: number
+          random_roll?: number
+          reveal_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      family_wedding_plans: {
+        Row: {
+          calendar_event_id: string | null
+          ceremony_completed_at: string | null
+          character_key: string
+          character_response: string
+          created_at: string
+          id: string
+          request_id: string
+          starts_at: string
+          user_id: string
+          user_response: string
+          venue: string
+        }
+        Insert: {
+          calendar_event_id?: string | null
+          ceremony_completed_at?: string | null
+          character_key: string
+          character_response?: string
+          created_at?: string
+          id?: string
+          request_id: string
+          starts_at: string
+          user_id: string
+          user_response?: string
+          venue: string
+        }
+        Update: {
+          calendar_event_id?: string | null
+          ceremony_completed_at?: string | null
+          character_key?: string
+          character_response?: string
+          created_at?: string
+          id?: string
+          request_id?: string
+          starts_at?: string
+          user_id?: string
+          user_response?: string
+          venue?: string
         }
         Relationships: []
       }
