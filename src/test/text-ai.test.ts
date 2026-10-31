@@ -57,6 +57,23 @@ describe("direct OpenAI structured character generation", () => {
     expect(logs).not.toMatch(/test-only-secret|private canon|private transcript|Absolutely not/);
   });
 
+  it("routes only opted-in interactive in-person turns to Terra; texts stay on Luna", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response());
+    vi.stubGlobal("fetch", fetchMock);
+    const { runStructured, TEXT_MODEL, INTERACTIVE_EXPERIENCE_MODEL } = await import("@/lib/text-ai.server");
+    expect(TEXT_MODEL).toBe("gpt-6-luna");
+    expect(INTERACTIVE_EXPERIENCE_MODEL).toBe("gpt-6.1-terra");
+    await runStructured(schema, "canon", "normal SMS", "reply");
+    await runStructured(schema, "canon", "in person", "reply", { interactiveScene: true });
+    await runStructured(schema, "canon", "automatic ending", "reply", { interactiveScene: false });
+    const payloads = fetchMock.mock.calls.map(([, init]) => JSON.parse(init.body));
+    expect(payloads.map((p) => p.model)).toEqual(["gpt-6-luna", "gpt-6.1-terra", "gpt-6-luna"]);
+    for (const p of payloads) {
+      expect(p.store).toBe(false);
+      expect(p.text.format.strict).toBe(true);
+    }
+  });
+
   it.each(["not JSON", '{"messages":[],"delta":"invalid"}'])(
     "rejects invalid structured output without retry: %s",
     async (text) => {
