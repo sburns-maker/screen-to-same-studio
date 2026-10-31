@@ -17,7 +17,7 @@ export function RelationshipHistoryPanel({conversationId,state,stage}:{conversat
  const [error,setError]=useState<string|null>(null);
  const [selected,setSelected]=useState(()=>localDay(new Date().toISOString()));
  const [showPerspective,setShowPerspective]=useState(true);
- useEffect(()=>{let alive=true;void get({data:{conversationId}}).then(r=>{if(alive){setData(r as {evaluations:Evaluation[];events:Event[];plans:Plan[];historyUnavailable:boolean});setError(null);}}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"History unavailable");});return()=>{alive=false;};},[get,conversationId]);
+ useEffect(()=>{let alive=true;void get({data:{conversationId}}).then(r=>{if(alive){setData({...r,calls:r.calls??[]});setError(null);}}).catch(e=>{if(alive)setError(e instanceof Error?e.message:"History unavailable");});return()=>{alive=false;};},[get,conversationId]);
  const dates=useMemo(()=>{
   if(!data)return [];
   const all=[...data.evaluations.map(e=>localDay(e.evaluated_at)),...data.events.map(e=>localDay(e.occurs_at)),...data.calls.map(c=>localDay(c.offered_at)),...data.plans.map(p=>p.date_local??(p.starts_at?localDay(p.starts_at):""))].filter(Boolean);
