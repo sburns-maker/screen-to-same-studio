@@ -127,9 +127,15 @@ const deltaSchema = z.object({
 
 import {housingActionsSchema,HOUSING_ACTION_RULES} from "./housing";
 import { commitmentActionSchema, COMMITMENT_ACTION_RULES } from "./relationship-commitments";
+import { weddingPlanActionSchema, WEDDING_PLAN_ACTION_RULES } from "./family-wedding-actions";
+import { encounterActionSchema, ENCOUNTER_ACTION_RULES } from "./family-encounter-actions";
+import { pregnancyDisclosureActionSchema, PREGNANCY_DISCLOSURE_RULES } from "./family-pregnancy-disclosure";
 export const replySchema = z.object({
   housing_actions: housingActionsSchema,
   commitment_action: commitmentActionSchema,
+  wedding_plan_action: weddingPlanActionSchema.nullable(),
+  encounter_action: encounterActionSchema.nullable(),
+  pregnancy_disclosure_action: pregnancyDisclosureActionSchema.nullable(),
   schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
