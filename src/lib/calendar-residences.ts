@@ -16,8 +16,13 @@ export function homeInvitationActivity(
     )
   )
     return null;
-  if (!/\b(?:my (?:house|home|place|apartment)|at mine)\b/i.test(s)) return null;
+  // "If you want to come cook, you can" is the resident inviting the player over.
+  const comeOver =
+    /\b(?:if you want to|you can|feel free to) come (?:over|by|cook|make)\b[^.?!]*(?:,? you can\b)?/i.test(s) &&
+    !/\b(?:my (?:office|work|studio|shop)|the (?:bar|park|cafe|restaurant))\b/i.test(s);
+  if (!comeOver && !/\b(?:my (?:house|home|place|apartment)|at mine)\b/i.test(s)) return null;
   if (
+    !comeOver &&
     !/\b(?:come (?:over|round|to)|want to|would you|how about|you['’]re invited|you are invited|let['’]s|we (?:could|should)|i['’]d (?:love|like)|(?:my (?:house|home|place|apartment)|mine) (?:is|works|sounds) (?:fine|good|great|perfect)|(?:is|it['’]s) (?:still )?the plan|put (?:it|us|that) down|works for me|see you (?:then|there|at))\b/i.test(
       s,
     )
@@ -25,6 +30,7 @@ export function homeInvitationActivity(
     return null;
   if (/\b(?:movies?|film)\b/i.test(s)) return { title: "Movie night", category: "meetup" };
   if (/\b(?:games?|game night)\b/i.test(s)) return { title: "Game night", category: "meetup" };
+  if (/\b(?:breakfast|brunch)\b/i.test(s)) return { title: "Breakfast together", category: "dinner" };
   if (/\b(?:cook|cooking|dinner)\b/i.test(s))
     return { title: "Dinner together", category: "dinner" };
   return { title: "Visit at home", category: "meetup" };
@@ -35,7 +41,7 @@ export function sameHomeActivity(a: string, b: string) {
       ? "movie"
       : /\bgame/i.test(s)
         ? "game"
-        : /\b(?:cook|dinner)/i.test(s)
+        : /\b(?:cook|dinner|breakfast|brunch)/i.test(s)
           ? "dinner"
           : s.trim().toLowerCase();
   // A general home visit invitation covers ordinary home activities like a movie.
