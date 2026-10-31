@@ -124,7 +124,15 @@ it("offers a suggestive test with a private custom scene without messaging the c
 it("runs the GPT photo-choice batch separately from image generation", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   fireEvent.click(await screen.findByRole("button", { name: "Run photo-choice batch (no images)" }));
-  await waitFor(() => expect(mocks.batch).toHaveBeenCalledWith({data:{conversationId:"riley-conversation",repetitions:2}}));
+  await waitFor(() => expect(mocks.batch).toHaveBeenCalledWith({data:{conversationId:"riley-conversation",repetitions:2,mode:"spontaneous_initiation"}}));
   expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
   expect(await screen.findByText(/Text-model decisions only/)).toBeTruthy();
+});
+
+it("compares photo medium after a character has already decided to communicate", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.change(screen.getByLabelText("Photo decision diagnostic mode"), { target: { value: "medium_after_initiation" } });
+  fireEvent.click(await screen.findByRole("button", { name: "Run photo-choice batch (no images)" }));
+  await waitFor(() => expect(mocks.batch).toHaveBeenCalledWith({data:{conversationId:"riley-conversation",repetitions:2,mode:"medium_after_initiation"}}));
+  expect(mocks.command.mock.calls.every(c=>c[0].data.action!=="generate")).toBe(true);
 });

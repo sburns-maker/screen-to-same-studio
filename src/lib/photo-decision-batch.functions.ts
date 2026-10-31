@@ -27,6 +27,7 @@ export function interpretPhotoIntent(decision: z.infer<typeof photoIntentDecisio
 const requestSchema = z.object({
   conversationId: z.string().uuid(),
   repetitions: z.number().int().min(1).max(4).default(2),
+  mode: z.enum(["spontaneous_initiation","medium_after_initiation"]).default("spontaneous_initiation"),
 });
 type Category = "ordinary_object" | "personal_selfie" | "romantic_portrait";
 const categories: { id: Category; types: readonly string[]; description: string }[] = [
@@ -98,7 +99,9 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
             `You are making a private, developer-only communication decision for ${def.preferredName}, an adult fictional person. Follow the personality and current circumstances below. This is not a request from the player and nothing will be delivered. Do not invent an outfit, object or new scene. No outcome is expected; choose authentically.`,
             `Character personality: ${def.bible.slice(0,2800)}`,
             `Texting style: ${def.textingStyle.slice(0,900)}`,
-            "Decision order: (1) decide whether to initiate contact in this actual moment; (2) if yes, choose text, photo, or photo with caption; (3) for a photo choose only one available category. State a brief, concrete decision explanation in your own words, including for silence. A photo is as ordinary as a text when it fits the moment. Privacy and relationship boundaries remain authoritative.",
+            data.mode === "medium_after_initiation"
+              ? "DIAGNOSTIC CONDITION: The character has already independently decided to send a message in this hypothetical interaction. Set initiate=true. Decide only the medium: text, photo, or photo_with_caption. Do not reconsider whether to initiate. Select photos only when authentic, grounded and eligible; text remains an equally valid outcome. Explain the medium choice briefly."
+              : "DECISION: Independently decide whether to initiate contact now. If yes, choose text, photo, or photo with caption; if photo, select one eligible category. State a brief concrete explanation for your choice, including silence. Privacy and relationship boundaries remain authoritative.",
             `Eligible photo categories in THIS test: ${available.join(", ")}. A photo outside this list cannot be selected.`,
           ].join("\n");
           const context = [
@@ -106,7 +109,7 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
             `Current relationship state: comfort ${state.comfort}, trust ${state.trust}, romantic intent ${state.romantic_intent}, emotional intimacy ${state.emotional_intimacy}.`,
             `Recent conversation:\n${transcript.slice(-12).map(m=>`${m.sender}: ${m.body.slice(0,300)}`).join("\n") || "(none)"}`,
             `Recent memories:\n${memoryLines.slice(0,6).map(m=>m.slice(0,160)).join("\n") || "(none)"}`,
-            `Independent sample ${i+1} of ${data.repetitions} for ${category.id}. Decide sincerely; not every moment needs an outgoing message.`,
+            `Independent sample ${i+1} of ${data.repetitions} for ${category.id}. Mode: ${data.mode}. ${data.mode === "medium_after_initiation" ? "Assume a decision to communicate has already been made; choose the medium without inventing a new player message." : "Decide whether to contact the player at all."}`,
           ].join("\n\n");
           const decision = await runStructured(photoIntentDecisionSchema,instructions,context,"autonomous");
           const interpreted = interpretPhotoIntent(decision,available);
@@ -127,7 +130,7 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
         reasons:results.map(r=>r.reason).filter(Boolean), choices:results,
       });
     }
-    return { character:def.key,at:now.toISOString(),mode:"text_model_only_no_generation_no_delivery",
+    return { character:def.key,at:now.toISOString(),mode:data.mode,transport:"text_model_only_no_generation_no_delivery",
       repetitionsPerCategory:data.repetitions,scenarios,
       limitations:"A no-photo model response has no authoritative internal reason unless the model explicitly provided one. These trials do not test image providers, identities or delivery." };
   });
