@@ -187,7 +187,7 @@ export function residencePlace(home: HousingHome) {
     public: false,
     addressStatus: home.exact ? "Fictional address shared" : "Approximate neighborhood only",
     address: home.address ?? undefined,
-    activities: ["look", "seat", "wait", "cook", "movie", "games", "chores", "relax"],
+    activities: ["look", "seat", "wait", "cook", "movie", "games", "chores", "relax", "review_roommate_plan"],
     opens: 0,
     closes: 24,
     categories: ["meetup", "dinner", "date"],
