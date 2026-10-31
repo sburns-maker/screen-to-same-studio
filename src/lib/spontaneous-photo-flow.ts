@@ -33,6 +33,36 @@ export function spontaneousPhotoTask(name: string) {
 /** An authenticated developer opportunity checks the character's actual choice,
  * not whether a separate spontaneous-photo scheduler happened to fire.
  * Context is hypothetical grounding, never an incoming player message. */
+/**
+ * Diagnostic-only classification. It does not alter character decisions.
+ * Test UI can distinguish a declined photo from a provider or delivery failure.
+ */
+export type PhotoChoiceOutcome = "photo" | "text_only" | "silence" | "ineligible" | "generation_failed" | "delivery_failed";
+export function classifyPhotoChoice(input: {
+  evaluated: boolean;
+  eligible: boolean;
+  photoSelected: boolean;
+  hasText: boolean;
+  generationAttempted?: boolean;
+  generationSucceeded?: boolean;
+  deliveryAttempted?: boolean;
+  deliverySucceeded?: boolean;
+}): PhotoChoiceOutcome {
+  if (!input.eligible || !input.evaluated) return "ineligible";
+  if (!input.photoSelected) return input.hasText ? "text_only" : "silence";
+  if (input.generationAttempted && input.generationSucceeded === false) return "generation_failed";
+  if (input.deliveryAttempted && input.deliverySucceeded === false) return "delivery_failed";
+  return "photo";
+}
+
+export function summarizePhotoDecisionBatch(results: readonly PhotoChoiceOutcome[]) {
+  const counts: Record<PhotoChoiceOutcome, number> = {
+    photo: 0, text_only: 0, silence: 0, ineligible: 0, generation_failed: 0, delivery_failed: 0,
+  };
+  for (const result of results) counts[result]++;
+  return { total: results.length, counts, photoChoiceRate: results.length ? counts.photo / results.length : 0 };
+}
+
 export function controlledPhotoTask(name: string) {
   return `TASK: Controlled photo opportunity for ${name}. The supplied context describes a POSSIBLE current photo-sharing moment; it is NOT a new message from the player, not a request you must obey, and not proof of consent or a change of clothes or location. Decide whether you independently want to send an eligible photo in this established moment BEFORE composing any text. If yes, return a complete photo action with willing=true, contextual=true, the chosen eligible type, actual scene and honest framing; let the provider generate and attach the photo rather than merely promising one. If not, photo=null is valid and no photo should be recorded. You may decline or say nothing. This explicitly focused photo decision replaces the generic "Usually null" default for this controlled opportunity, without overriding character boundaries, eligibility, your own preferences or schedule.`;
 }

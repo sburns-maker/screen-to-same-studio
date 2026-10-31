@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { developerPhotoLab, checkDeveloperSpicyConnection } from "@/lib/developer-photo-lab.functions";
+import { evaluatePhotoDecisionBatch } from "@/lib/photo-decision-batch.functions";
 import {
   PHOTO_LAB_PRESETS,
   type PhotoLabType,
@@ -28,6 +29,10 @@ type Snapshot = {
 export function DeveloperPhotoLab({ conversationId }: { conversationId: string }) {
   const command = useServerFn(developerPhotoLab);
   const checkSpicy = useServerFn(checkDeveloperSpicyConnection);
+  const batchDecision = useServerFn(evaluatePhotoDecisionBatch);
+  const [batchRuns, setBatchRuns] = useState(2);
+  const [batchBusy, setBatchBusy] = useState(false);
+  const [batchResult, setBatchResult] = useState<Awaited<ReturnType<typeof evaluatePhotoDecisionBatch>> | null>(null);
   const [spicyStatus, setSpicyStatus] = useState<Awaited<ReturnType<typeof checkDeveloperSpicyConnection>> | null>(null);
   const [checkingSpicy, setCheckingSpicy] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null),
@@ -191,6 +196,52 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           </button>
         ))}
       </div>
+      <section className="space-y-3 rounded-xl border p-3" aria-label="Autonomous photo choice batch diagnostic">
+        <h3 className="font-medium">Autonomous photo decision comparison</h3>
+        <p className="text-xs text-muted-foreground">
+          Repeats GPT character-only decisions for an everyday object, a casual/personal selfie,
+          and an eligible non-explicit romantic portrait. Uses the saved character state and chat.
+          No SpicyAPI images are generated, no chat is sent, and no character state changes.
+          Text-model calls may incur charges.
+        </p>
+        <label className="block text-sm">
+          Repeats per eligible scenario
+          <select className="ml-2 rounded-xl border bg-background p-2" value={batchRuns}
+            onChange={e => setBatchRuns(Number(e.target.value))} disabled={batchBusy}>
+            {[1,2,3,4].map(n => <option key={n} value={n}>{n} (up to {n * 3} GPT calls)</option>)}
+          </select>
+        </label>
+        <button type="button" disabled={batchBusy || busy} className="min-h-11 rounded-xl bg-primary px-4 text-primary-foreground disabled:opacity-50"
+          onClick={() => {
+            setBatchBusy(true);
+            setBatchResult(null);
+            setError("");
+            void batchDecision({ data: { conversationId, repetitions: batchRuns } })
+              .then(setBatchResult)
+              .catch(e => setError(e instanceof Error ? e.message : "Batch photo decision test failed"))
+              .finally(() => setBatchBusy(false));
+          }}>
+          {batchBusy ? "Evaluating independent photo choices…" : "Run photo-choice batch (no images)"}
+        </button>
+        {batchResult && <div role="status" className="space-y-2">
+          <p className="text-xs">Character: {batchResult.character}. Text-model decisions only; no provider or delivery calls.</p>
+          {batchResult.scenarios.map(scenario =>
+            <div key={scenario.category} className="rounded-lg border p-3 text-sm">
+              <p className="font-medium">{scenario.category.replaceAll("_"," ")} · {scenario.eligible ? "eligible" : "not eligible"}</p>
+              <p className="text-xs text-muted-foreground">Available: {scenario.availableTypes.join(", ") || "none"}</p>
+              {scenario.counts && <p className="mt-1 text-xs">
+                Photo: {scenario.counts.photo} · Text only: {scenario.counts.text_only} ·
+                Silence: {scenario.counts.silence} · Decision errors: {scenario.counts.decision_error}
+              </p>}
+              {scenario.reasons.length > 0 && <details className="mt-1 text-xs">
+                <summary>Reasons / diagnostic notes</summary>
+                <pre className="whitespace-pre-wrap">{JSON.stringify(scenario.reasons,null,2)}</pre>
+              </details>}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">{batchResult.limitations}</p>
+        </div>}
+      </section>
       <section className="space-y-2 rounded-xl border p-3" aria-label="SpicyAPI connectivity">
         <p className="text-sm font-medium">SpicyAPI server connection</p>
         <p className="text-xs text-muted-foreground">
