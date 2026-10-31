@@ -90,9 +90,12 @@ export async function calendarResidences(
   return Promise.all(
     snapshot.homes.map(async (home) => {
       const characters = home.primaryFor.includes("user") ? [] : home.primaryFor;
-      const canPlan = home.primaryFor.includes("user") || await Promise.any(
-        (contacts.data ?? []).filter(c => home.primaryFor.includes((c.character as { key?: string } | null)?.key ?? "")).map(async c => Boolean(await savedHomeInvitation(db, user, c.id, home.key, now))),
-      ).catch(() => false);
+      const invitations = await Promise.all(
+        (contacts.data ?? [])
+          .filter(c => home.primaryFor.includes((c.character as { key?: string } | null)?.key ?? ""))
+          .map(c => savedHomeInvitation(db, user, c.id, home.key, now)),
+      );
+      const canPlan = home.primaryFor.includes("user") || invitations.some(Boolean);
       return {
         key: home.key,
         label: home.label,
