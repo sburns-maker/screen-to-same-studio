@@ -21,7 +21,7 @@ describe("recorded wedding ceremony verification",()=>{
   ],at)).toBe(false);
  });
  it("does not treat a refusal or hypothetical as a vow",()=>{
-  for(const phrase of ["I don't.","I do not.","I would say I do someday.","Just kidding, I do."]){
+  for(const phrase of ["I don't.","I do not.","I would say I do someday.","Just kidding, I do.","I do hope we get married someday."]){
    expect(isExplicitVow(phrase)).toBe(false);
   }
  });
