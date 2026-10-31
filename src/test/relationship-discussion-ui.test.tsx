@@ -39,7 +39,10 @@ vi.mock("@tanstack/react-query", () => ({
 vi.mock("@/lib/relationship-commitments.functions", () => ({
   changeRelationshipCommitment: state.change,
 }));
-vi.mock("@tanstack/react-start", () => ({ useServerFn: (fn: unknown) => fn }));
+vi.mock("@tanstack/react-start", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-start")>()),
+  useServerFn: (fn: unknown) => fn,
+}));
 vi.mock("@/components/RelationshipMilestones", () => ({ RelationshipMilestones: () => null }));
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
@@ -145,7 +148,6 @@ it("shows loading instead of disappearing", () => {
   render(<ContactRelationshipStory characterKey="claire" characterName="Claire" />);
   expect(screen.getByRole("status")).toHaveTextContent("Loading relationship history");
 });
-
 it("offers a genuine engagement proposal without implying a completed wedding", async () => {
   render(<ContactRelationshipStory characterKey="sienna" characterName="Sienna" conversationId="sienna-chat" />);
   fireEvent.click(screen.getByRole("button", { name: "Propose marriage (engagement)" }));

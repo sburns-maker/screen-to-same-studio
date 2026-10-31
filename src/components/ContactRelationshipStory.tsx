@@ -6,9 +6,10 @@ import { deriveStage } from "@/lib/tess-logic";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { changeRelationshipCommitment } from "@/lib/relationship-commitments.functions";
+import { planWedding, loadWeddingPlans } from "@/lib/family-life.functions";
 import { useRelationshipCommitments } from "@/lib/use-relationship-commitments";
 import { RelationshipMilestones } from "./RelationshipMilestones";
-import { supportsRelationshipCommitment, relationshipDraftKey, type CommitmentEvent } from "@/lib/relationship-commitments";
+import { supportsRelationshipCommitment, relationshipDraftKey, resolveCommitmentStatus, type CommitmentEvent } from "@/lib/relationship-commitments";
 
 export function ContactRelationshipStory({ characterKey, characterName, conversationId }: {
   characterKey: string;
@@ -19,6 +20,11 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
   const state = useQuery(stateQuery(conversationId));
   const connectionStage = state.data ? deriveStage(state.data) : undefined;
   const change = useServerFn(changeRelationshipCommitment);
+  const plan = useServerFn(planWedding);
+  const listWeddings = useServerFn(loadWeddingPlans);
+  const [weddingPlans,setWeddingPlans]=useState<Array<{id:string;venue:string;startsAt:string;characterResponse:string;userResponse:string}>>([]);
+  const [weddingDate,setWeddingDate]=useState("");
+  const [weddingVenue,setWeddingVenue]=useState("");
   const cache = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -64,7 +70,12 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
     </section>
   );
   const pending = query.data.events.filter((e) => e.status === "pending");
-  async function propose(kind: "exclusive" | "partnership" | "engagement") {
+  const commitmentStatus = resolveCommitmentStatus(query.data.events);
+  async function refreshWeddingPlans(){
+    try{const plans=await listWeddings({data:{characterKey:characterKey as "tess"|"maya"|"riley"|"sienna"|"kendra"|"claire"|"jordan"}});setWeddingPlans(plans);}
+    catch{setFeedback("Wedding plans unavailable until the family database migration is applied.");}
+  }
+  async function propose(kind: "exclusive" | "partnership" | "engagement" | "marriage") {
     setBusy(true);
     setFeedback("");
     try {
@@ -83,12 +94,43 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
       {supportsRelationshipCommitment(characterKey) && pending.length === 0 && (
         <section aria-label="Discuss a relationship commitment" className="rounded-2xl border border-border bg-background p-4 shadow-sm">
           <h3 className="font-semibold">Where do we stand?</h3>
-          <p className="mt-1 text-sm text-muted-foreground">You can bring up exclusivity, a relationship or an engagement. {characterName} decides for herself; proposing is not acceptance, and an engagement is not a completed wedding.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Discuss relationship milestones together. {characterName} makes her own decision; a proposal alone does not change your status, and an engagement is not a completed wedding.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" disabled={busy} onClick={() => void propose("exclusive")} className="min-h-11 rounded-xl border px-4 text-sm">Ask about exclusivity</button>
             <button type="button" disabled={busy} onClick={() => void propose("partnership")} className="min-h-11 rounded-xl border px-4 text-sm">Discuss a relationship</button>
-            <button type="button" disabled={busy} onClick={() => void propose("engagement")} className="min-h-11 rounded-xl border px-4 text-sm">Propose marriage (engagement)</button>
+            {commitmentStatus !== "engaged" && commitmentStatus !== "married" && <button type="button" disabled={busy} onClick={() => void propose("engagement")} className="min-h-11 rounded-xl border px-4 text-sm">Propose marriage (engagement)</button>}
           </div>
+        </section>
+      )}
+      {commitmentStatus === "engaged" && (
+        <section aria-label="Plan a wedding" className="space-y-3 rounded-2xl border bg-background p-4">
+          <h3 className="font-semibold">Plan a ceremony together</h3>
+          <p className="text-xs text-muted-foreground">After your date is mutually accepted, schedule a matching event titled “Wedding ceremony” in your regular Plans/calendar. The family system links a matching accepted event rather than inventing a reservation or completed wedding.</p>
+          <p className="text-sm text-muted-foreground">Suggest a date and place. This only saves your proposed plan; it does not book a venue, obtain the other person's agreement, or declare you married.</p>
+          <label className="block text-sm">Proposed date and time
+            <input type="datetime-local" className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2" value={weddingDate} onChange={e=>setWeddingDate(e.target.value)} />
+          </label>
+          <label className="block text-sm">Proposed venue
+            <input type="text" maxLength={200} className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2" value={weddingVenue} onChange={e=>setWeddingVenue(e.target.value)} placeholder="Where would you like to celebrate?" />
+          </label>
+          <button type="button" className="min-h-11 rounded-xl border px-4 text-sm" disabled={busy}
+            onClick={()=>void refreshWeddingPlans()}>Show saved wedding plans</button>
+          {weddingPlans.map(w=><p key={w.id} className="rounded-lg border p-2 text-sm">
+            {w.venue} · {new Date(w.startsAt).toLocaleString()} ·
+            {w.characterResponse === "accepted" ? " Mutually accepted" : w.characterResponse === "declined" ? " Declined" : " Awaiting character response"}
+          </p>)}
+          <button type="button" disabled={busy || !weddingDate || !weddingVenue.trim()}
+            className="min-h-11 rounded-xl border px-4 text-sm disabled:opacity-50"
+            onClick={()=>{
+              const date=new Date(weddingDate);
+              if(!Number.isFinite(date.getTime())){setFeedback("Choose a valid date.");return;}
+              setBusy(true);setFeedback("");
+              void plan({data:{characterKey: characterKey as "tess" | "maya" | "riley" | "sienna" | "kendra" | "claire" | "jordan",
+                requestId:crypto.randomUUID(),startsAt:date.toISOString(),venue:weddingVenue.trim()}})
+                .then(async()=>{await refreshWeddingPlans();setFeedback("Your wedding plan proposal was saved. Discuss it in messages; agreement and ceremony are still separate steps.");})
+                .catch(e=>setFeedback(e instanceof Error?e.message:"Wedding plan unavailable"))
+                .finally(()=>setBusy(false));
+            }}>Save proposed wedding plan</button>
         </section>
       )}
       {pending.map((event) => (

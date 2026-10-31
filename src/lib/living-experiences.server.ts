@@ -426,7 +426,7 @@ export async function generateExperience(
       ]),
     );
     phase = "commit";
-    return await experienceCommand(
+    const committed = await experienceCommand(
       db,
       user,
       plan,
@@ -442,6 +442,23 @@ export async function generateExperience(
       },
       now,
     );
+    // Explicit, independently acknowledged adult encounter: the persistent
+    // experience turn is already committed before any pregnancy event can exist.
+    if(kind==="turn" && lastUser?.confirmed && def.age>=18 && def.romanticCapable) {
+      try {
+        const {verifyEncounterAction}=await import("./family-encounter-actions");
+        if(verifyEncounterAction(reply.encounter_action,reply.messages.join("\n"),lastUser.body)) {
+          const {recordVerifiedPregnancyOpportunity}=await import("./family-life.server");
+          const configured=Number(process.env["FAMILY_PREGNANCY_PROBABILITY"] ?? "0.2");
+          await recordVerifiedPregnancyOpportunity(db,{
+            userId:user,characterKey:def.key,encounterId:lastUser.id,
+            occurredAt:now.toISOString(),adultEligible:true,mutuallyAgreed:true,
+            pregnancyPossible:true,probability:configured,
+          });
+        }
+      }catch(error){console.warn("[family-life] verified encounter processing deferred",error);}
+    }
+    return committed;
   } catch (error) {
     const failure = experienceFailure(error, phase);
     console.warn("[living-experience]", { operationId: id, ...failure });

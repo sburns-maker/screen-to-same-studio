@@ -610,8 +610,28 @@ async function runTurnUnlocked(
   }
   // Generate before making any database changes; an impossible past-tense account
   // of a future canonical outing must never become a message or relationship memory.
+  // Only character-owned, unresolved wedding plans enter the private model context.
+  // No migration or plan must never block normal conversations.
+  const pendingWeddingPlans = configuredPhotoAdmin && def.romanticCapable && def.age >= 18
+    ? await (async()=>{try{
+        const { listWeddingPlans } = await import("./family-wedding.server");
+        return (await listWeddingPlans(configuredPhotoAdmin,userId,def.key))
+          .filter(p=>p.characterResponse==="pending").slice(0,3);
+      }catch{return [];}})()
+    : [];
+  const duePregnancyResults = configuredPhotoAdmin && def.romanticCapable && def.age>=18
+    ? await (async()=>{try{
+        const {dueUndisclosedPregnancyResults}=await import("./family-life.server");
+        return await dueUndisclosedPregnancyResults(configuredPhotoAdmin,userId,def.key);
+      }catch{return [];}})() : [];
+  const duePregnancyIds=duePregnancyResults.map(e=>e.id);
+  const pregnancyResultContext=duePregnancyResults.map(e=>
+    `PRIVATE CHARACTER KNOWLEDGE ONLY (FICTIONAL): Due pregnancy event ${e.id} has outcome ${e.status}. The player does NOT know yet. You may decide independently when to share it in a visible message. If you do, use pregnancy_disclosure_action with this exact eventId and a contiguous quote from your own words. Never disclose the probability or secret random roll.`);
+  const pendingWeddingIds = pendingWeddingPlans.map(p=>p.id);
+  const weddingPlanContext = pendingWeddingPlans.map(p=>
+    `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
   const generateReply = (extraChronology: string[] = []) => {
-    const groundedKnowledge = [...extraChronology, ...worldKnowledge];
+    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...worldKnowledge];
     return isTess
       ? generateTessReply({
           deliveryChannel: voice ? "voice" : "text",
@@ -845,6 +865,8 @@ async function runTurnUnlocked(
         ...(!initiation && !voice && recent.find(m => m.sender === "user")?.id ? { in_reply_to: recent.find(m => m.sender === "user")!.id } : {}),
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         ...(i === 0 && supportsRelationshipCommitment(def.key) && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
+        ...(i === 0 && reply.wedding_plan_action?.action && reply.wedding_plan_action.planId && reply.wedding_plan_action.quote && pendingWeddingIds.includes(reply.wedding_plan_action.planId) && body.includes(reply.wedding_plan_action.quote) ? { wedding_plan_action: reply.wedding_plan_action } : {}),
+        ...(i === 0 && reply.pregnancy_disclosure_action?.eventId && reply.pregnancy_disclosure_action.quote && duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId) && body.includes(reply.pregnancy_disclosure_action.quote) ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
@@ -941,6 +963,19 @@ async function runTurnUnlocked(
   if (rows.length) {
     const { error } = await supabase.from("messages").insert(rows);
     if (error) throw new Error("Could not save reply");
+    if(configuredPhotoAdmin && pendingWeddingIds.length){
+      try {
+        const {reconcileVisibleWeddingDecisions}=await import("./family-wedding.server");
+        await reconcileVisibleWeddingDecisions(configuredPhotoAdmin,userId,def.key);
+      }catch(error){console.warn("[family-wedding] reconciliation deferred",error);}
+    }
+    if(configuredPhotoAdmin && duePregnancyIds.length) {
+      try {
+        const {reconcileVisiblePregnancyDisclosures}=await import("./family-life.server");
+        await reconcileVisiblePregnancyDisclosures(configuredPhotoAdmin,userId,def.key);
+      }catch(error){console.warn("[family-life] disclosure reconciliation deferred",error);}
+    }
+
     try {
       const { reconcileGiftReceipts } = await import("./gift-handoff-reconcile.server");
       await reconcileGiftReceipts(userId, conv.id, def.key, rows

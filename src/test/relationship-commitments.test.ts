@@ -95,6 +95,6 @@ it("separates draft keys, validates them, and leaves Ben platonic", () => {
 
 it("drafts a real engagement proposal separately from a completed marriage", () => {
   expect(relationshipDiscussionDraft("engagement")).toContain("Will you marry me?");
-  expect(relationshipDiscussionDraft("marriage")).toContain("actually getting married");
+  expect(relationshipDiscussionDraft("marriage")).toContain("wedding we\'d both genuinely want");
   expect(resolveCommitmentStatus([{ ...example, kind: "engagement", status: "accepted", userResponse: "accepted" }])).toBe("engaged");
 });
