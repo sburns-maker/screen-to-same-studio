@@ -133,9 +133,9 @@ import { pregnancyDisclosureActionSchema, PREGNANCY_DISCLOSURE_RULES } from "./f
 export const replySchema = z.object({
   housing_actions: housingActionsSchema,
   commitment_action: commitmentActionSchema,
-  wedding_plan_action: weddingPlanActionSchema,
-  encounter_action: encounterActionSchema,
-  pregnancy_disclosure_action: pregnancyDisclosureActionSchema,
+  wedding_plan_action: weddingPlanActionSchema.nullable(),
+  encounter_action: encounterActionSchema.nullable(),
+  pregnancy_disclosure_action: pregnancyDisclosureActionSchema.nullable(),
   schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
