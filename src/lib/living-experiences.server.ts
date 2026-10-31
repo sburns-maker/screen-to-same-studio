@@ -27,6 +27,7 @@ import {
   automaticSceneSafe,
   experienceClock,
   experienceInstructions,
+  sceneDialogueTail,
   type ExperienceRow,
   type ExperienceOperation,
   type ExperiencePlan,
@@ -323,7 +324,7 @@ export async function generateExperience(
           .map((m) => ({ ...m, body: m.body.slice(0, 600) })),
         ...moments.slice(-4).map((m) => ({
           sender: m.source === "user" ? "user" : "tess",
-          body: m.body.slice(0, 300),
+          body: sceneDialogueTail(m.body),
           created_at: scene.start_at,
         })),
       ],
