@@ -5,7 +5,7 @@ import { CHARACTERS } from "./characters";
 import { weddingPlanSchema, mayPlanWedding, type WeddingPlan } from "./family-life";
 import { commitmentSnapshot } from "./relationship-commitments.server";
 type Db = SupabaseClient<Database>;
-const table = (db:Db)=>db.from("family_wedding_plans" as never);
+const table = (db:Db)=>db.from("family_wedding_plans");
 
 function parseWedding(row:Record<string,unknown>):WeddingPlan {
  return weddingPlanSchema.parse({
