@@ -12,5 +12,5 @@ export function verifyEncounterAction(action:EncounterAction,characterText:strin
  if(!action?.quote || !characterText.includes(action.quote))return false;
  const player=userText.toLowerCase().trim();
  if(/\b(?:if|wish|would|might|maybe|pretend|fantasy|someday|tomorrow|later|not|don't|stop|wait)\b/.test(player))return false;
- return /\b(?:we (?:slept together|made love|had sex|hooked up)|we both agreed to spend the night together intimately)\b/.test(player);
+ return /\b(?:we (?:slept together|made love|had sex|hooked up))\b/.test(player);
 }
