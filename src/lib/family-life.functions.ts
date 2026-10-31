@@ -64,6 +64,8 @@ export const loadWeddingPlans = createServerFn({ method:"POST" })
  }).parse(value))
  .handler(async({context,data})=>{
    const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
-   const {listWeddingPlans}=await import("./family-wedding.server");
+   const {listWeddingPlans,reconcileVisibleWeddingDecisions}=await import("./family-wedding.server");
+   try{await reconcileVisibleWeddingDecisions(supabaseAdmin,context.userId,data.characterKey);}
+   catch(error){console.warn("[family-wedding] readback reconciliation deferred",error);}
    return listWeddingPlans(supabaseAdmin,context.userId,data.characterKey);
  });
