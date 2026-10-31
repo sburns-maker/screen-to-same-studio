@@ -5,6 +5,7 @@ import { CHARACTERS } from "./characters";
 import { weddingPlanSchema, mayPlanWedding, type WeddingPlan } from "./family-life";
 import { commitmentSnapshot } from "./relationship-commitments.server";
 import { weddingPlanActionSchema, validateWeddingAction } from "./family-wedding-actions";
+import { hasMutualVows } from "./family-wedding-ceremony";
 type Db = SupabaseClient<Database>;
 const table = (db:Db)=>db.from("family_wedding_plans");
 
@@ -131,4 +132,88 @@ export async function reconcileVisibleWeddingDecisions(
   }catch(e){console.warn("[family-wedding] pending decision could not be saved",e);}
  }
  return {accepted,declined};
+}
+
+/** Locate a unique, canonically accepted ceremony calendar event. Never book or
+ * change a calendar event silently; this only links an existing matching plan.
+ */
+export async function linkWeddingCalendarEvent(db:Db,userId:string,characterKey:string,planId:string) {
+ const {data:plan,error}=await table(db).select("*")
+   .eq("id",planId).eq("user_id",userId).eq("character_key",characterKey).maybeSingle();
+ if(error || !plan)throw new Error("Wedding plan unavailable");
+ if(plan.calendar_event_id)return plan.calendar_event_id;
+ const characterId=await characterDatabaseId(db,characterKey);
+ const {data:conversation,error:conversationError}=await db.from("conversations")
+   .select("id").eq("user_id",userId).eq("character_id",characterId).maybeSingle();
+ if(conversationError || !conversation)return null;
+ const startsAt=Date.parse(plan.starts_at);
+ const {data:events,error:eventsError}=await db.from("social_plans")
+   .select("id,title,description,starts_at,status").eq("user_id",userId)
+   .eq("conversation_id",conversation.id).in("status",["accepted","in_progress","completed"])
+   .gte("starts_at",new Date(startsAt-90*60000).toISOString())
+   .lte("starts_at",new Date(startsAt+90*60000).toISOString()).limit(30);
+ if(eventsError)throw new Error("Wedding calendar lookup failed");
+ const matches=(events??[]).filter(event=>/\b(?:wedding|ceremony)\b/i.test(
+   (event.title??"")+" "+(event.description??"")));
+ if(matches.length!==1)return null;
+ const {data:updated,error:updateError}=await table(db).update({calendar_event_id:matches[0]!.id})
+   .eq("id",planId).eq("user_id",userId).eq("character_key",characterKey)
+   .is("calendar_event_id",null).select("calendar_event_id").maybeSingle();
+ if(updateError)throw new Error("Wedding calendar link unavailable");
+ return updated?.calendar_event_id ?? matches[0]!.id;
+}
+
+/** Only a mutually accepted plan plus a completed canonical experience with
+ * explicit, separately authored player and character vows can create marriage.
+ * No engagement score, calendar date, auto-summary or single participant suffices.
+ */
+export async function reconcileCompletedWeddingCeremonies(
+ db:Db,userId:string,characterKey:string,now=new Date(),
+) {
+ const plans=(await listWeddingPlans(db,userId,characterKey))
+   .filter(p=>p.userResponse==="accepted" && p.characterResponse==="accepted");
+ if(!plans.length)return {completed:0};
+ let completed=0;
+ for(const plan of plans) {
+  if(Date.parse(plan.startsAt)>now.getTime())continue;
+  const linked=plan.calendarEventId ?? await linkWeddingCalendarEvent(db,userId,characterKey,plan.id);
+  if(!linked)continue;
+  const characterId=await characterDatabaseId(db,characterKey);
+  const {data:conversation}=await db.from("conversations").select("id")
+    .eq("user_id",userId).eq("character_id",characterId).maybeSingle();
+  if(!conversation)continue;
+  const {data:experience,error:experienceError}=await db.from("living_experiences")
+    .select("id,state,start_at,plan_id").eq("user_id",userId)
+    .eq("plan_id",linked).eq("conversation_id",conversation.id)
+    .eq("state","completed").maybeSingle();
+  if(experienceError || !experience)continue;
+  const {data:moments,error:momentError}=await db.from("living_experience_moments")
+    .select("source,body,confirmed,created_at").eq("user_id",userId)
+    .eq("experience_id",experience.id).order("ordinal").limit(400);
+  if(momentError || !moments || !hasMutualVows(moments,now))continue;
+  const commitments=await commitmentSnapshot(db,userId,characterKey);
+  if(!commitments.available)continue;
+  const status=commitments.events.some(event=>event.status==="accepted" &&
+    event.kind==="marriage" && event.sourceId===experience.id);
+  if(!status) {
+   if(!mayPlanWedding(commitments.events))continue;
+   const {error:insertError}=await db.from("relationship_commitment_events").insert({
+     id:randomUUID(),user_id:userId,character_key:characterKey,kind:"marriage",
+     proposed_by:"user",status:"accepted",user_response:"accepted",
+     character_response:"accepted",occurred_at:now.toISOString(),
+     source_type:"outing",source_id:experience.id,
+     note:"Mutual vows in a completed, agreed wedding experience.",
+   });
+   if(insertError && insertError.code!=="23505")
+     throw new Error("Verified wedding could not be recorded");
+  }
+  if(!plan.ceremonyCompletedAt) {
+   const {error:markError}=await table(db).update({ceremony_completed_at:now.toISOString()})
+     .eq("id",plan.id).eq("user_id",userId).eq("character_key",characterKey)
+     .is("ceremony_completed_at",null);
+   if(markError)throw new Error("Wedding completion not saved");
+   completed++;
+  }
+ }
+ return {completed};
 }
