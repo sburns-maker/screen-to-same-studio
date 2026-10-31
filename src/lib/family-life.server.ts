@@ -40,6 +40,32 @@ function publicPregnancy(event: PregnancyEvent, now: Date): PublicPregnancy {
   };
 }
 
+/**
+ * Settle due pregnancy outcomes exactly once. This changes only the server-side
+ * status; the character must independently disclose through an authenticated,
+ * committed conversation action before the user-facing snapshot reveals it.
+ */
+export async function settleDuePregnancyEvents(db: Client, userId: string, characterKey: string, now = new Date()) {
+  if (!Object.prototype.hasOwnProperty.call(CHARACTERS, characterKey)) throw new Error("Unknown contact");
+  const { data, error } = await table(db, "family_pregnancy_events")
+    .select("*").eq("user_id", userId).eq("character_key", characterKey)
+    .eq("status", "pending").lte("reveal_at", now.toISOString()).limit(100);
+  if (error) throw new Error("Pregnancy event settlement unavailable");
+  let settled = 0;
+  for (const row of data ?? []) {
+    const event = pregnancyFromRow(row as DbRecord);
+    const result = resolvePregnancyEvent(event, now);
+    if (result.status === "pending") continue;
+    const update = await table(db, "family_pregnancy_events")
+      .update({ status: result.status } as never).eq("id", event.id)
+      .eq("user_id", userId).eq("character_key", characterKey)
+      .eq("status", "pending");
+    if (update.error) throw new Error("Pregnancy event settlement failed");
+    settled++;
+  }
+  return { settled };
+}
+
 /** Only authenticated server functions use this; never expose raw rows to clients. */
 export async function familySnapshot(db: Client, userId: string, characterKey: string, now = new Date()) {
   if (!Object.prototype.hasOwnProperty.call(CHARACTERS, characterKey)) {
@@ -49,6 +75,7 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   const commitments = await commitmentSnapshot(db, userId, characterKey);
   const { familyCommitmentStatus } = await import("./family-life");
   const commitment = commitments.available ? familyCommitmentStatus(commitments.events) : null;
+  await settleDuePregnancyEvents(db, userId, characterKey, now);
   const [houses, pregnancies] = await Promise.all([
     table(db, "family_household_events").select("*").eq("user_id", userId)
       .eq("character_key", characterKey).order("occurred_at", { ascending: true }).limit(200),
