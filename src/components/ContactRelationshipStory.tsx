@@ -105,6 +105,7 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
       {commitmentStatus === "engaged" && (
         <section aria-label="Plan a wedding" className="space-y-3 rounded-2xl border bg-background p-4">
           <h3 className="font-semibold">Plan a ceremony together</h3>
+          <p className="text-xs text-muted-foreground">After your date is mutually accepted, schedule a matching event titled “Wedding ceremony” in your regular Plans/calendar. The family system links a matching accepted event rather than inventing a reservation or completed wedding.</p>
           <p className="text-sm text-muted-foreground">Suggest a date and place. This only saves your proposed plan; it does not book a venue, obtain the other person's agreement, or declare you married.</p>
           <label className="block text-sm">Proposed date and time
             <input type="datetime-local" className="mt-1 min-h-11 w-full rounded-lg border bg-background p-2" value={weddingDate} onChange={e=>setWeddingDate(e.target.value)} />
