@@ -1,8 +1,9 @@
 import { beforeEach, afterEach, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { PHOTO_LAB_TYPES, PHOTO_LAB_PRESETS, type PhotoLabResult } from "@/lib/developer-photo-lab";
-const mocks = vi.hoisted(() => ({ command: vi.fn(), connectivity: vi.fn(), results: [] as PhotoLabResult[] }));
+const mocks = vi.hoisted(() => ({ command: vi.fn(), connectivity: vi.fn(), batch: vi.fn(), results: [] as PhotoLabResult[] }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (f: unknown) => f }));
+vi.mock("@/lib/photo-decision-batch.functions", () => ({ evaluatePhotoDecisionBatch: mocks.batch }));
 vi.mock("@/lib/developer-photo-lab.functions", () => ({
   developerPhotoLab: mocks.command,
   checkDeveloperSpicyConnection: mocks.connectivity,
@@ -10,6 +11,7 @@ vi.mock("@/lib/developer-photo-lab.functions", () => ({
 import { DeveloperPhotoLab } from "@/components/DeveloperPhotoLab";
 beforeEach(() => {
   mocks.results = [];
+  mocks.batch.mockReset().mockResolvedValue({character:"riley",at:"2026-10-31T00:00:00Z",mode:"text_model_only_no_generation_no_delivery",repetitionsPerCategory:2,scenarios:[],limitations:"No images created."});
   mocks.connectivity.mockReset().mockResolvedValue({
     status: "transport_error", httpStatus: null, transportCode: "dns_retry",
   });
@@ -117,4 +119,12 @@ it("offers a suggestive test with a private custom scene without messaging the c
       customScene: "Confident adult at home, warm lighting, playful eye contact and a realistic phone photo",
     }),
   });
+});
+
+it("runs the GPT photo-choice batch separately from image generation", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Run photo-choice batch (no images)" }));
+  await waitFor(() => expect(mocks.batch).toHaveBeenCalledWith({data:{conversationId:"riley-conversation",repetitions:2}}));
+  expect(mocks.command.mock.calls.every((c) => c[0].data.action !== "generate")).toBe(true);
+  expect(await screen.findByText(/Text-model decisions only/)).toBeTruthy();
 });
