@@ -576,10 +576,10 @@ async function runTurnUnlocked(
   }
   if (initiation?.developerPhoto && !opportunity.eligible) return { count: 0, lastVisibleAt: null, reason: opportunity.reason, photoValidation:{...photoPreflight,stage:"requested_context"} };
   if (initiation && !opportunity.eligible) { generateTypes = []; photos = []; }
-  // Riley's genuine everyday-photo requests are evaluated directly, not through
-  // the lottery for unsolicited photos. Eligibility, privacy, actual willingness,
-  // boundaries, the existing scene and budgets still apply unchanged.
-  const directRileyOrdinaryPhotoRequest = def.key === "riley" && !voice && !initiation &&
+  // Sienna and Riley can directly consider an ordinary requested photo, even when
+  // the random unsolicited-photo draw is not selected. A work shift is not a
+  // camera ban; actual duties, privacy, consent, boundaries and budgets still apply.
+  const directOrdinaryPhotoRequest = (def.key === "riley" || def.key === "sienna") && !voice && !initiation &&
     generateTypes.some(type => !["mature_romantic", "suggestive", "mature_nude"].includes(type)) &&
     state.perceived_pressure < 30 && state.irritation < 20 &&
     directPhotoRequest(recent.find(m => m.sender === "user")?.body ?? "");
@@ -588,8 +588,8 @@ async function runTurnUnlocked(
   const photoMomentSelected = !voice && !!generateTypes.length && opportunity.eligible && opportunity.selected;
   const ordinaryPhotoEvaluation = !voice && opportunity.eligible && !!generateTypes.length && !photoMomentSelected;
 
-  const photoHint = [directRileyOrdinaryPhotoRequest
-    ? "RILEY ORDINARY PHOTO REQUEST: Answer the specific everyday photo question directly. A first respectful request is not by itself pressure or romantic escalation; you can genuinely send a casual photo when comfortable, or decline without performative deflection. Do not invent a photo or imply you cannot send images."
+  const photoHint = [directOrdinaryPhotoRequest
+    ? `${def.preferredName.toUpperCase()} ORDINARY PHOTO REQUEST: Consider the specific everyday photo question directly. Being at work does not itself prevent an ordinary snapshot; if there is a safe moment between duties, a quick selfie or image of her own surroundings is possible without leaving work. If working at a bar, exclude patrons, coworkers, receipts, tills, payment screens, and identifying client details; preserve the actual shift outfit and location. A first respectful request is not inherently pressure or romantic escalation. She can genuinely choose to send a photo now when comfortable and permitted, or decline without performative deflection. Do not imply she is technically unable to send a photo merely because she is working.`
     : photoMomentSelected ? opportunity.hint : ordinaryPhotoEvaluation ? "Ordinary visual context is available: choose text, a context-appropriate photo with or without caption, or silence independently. No special occasion required. Do not force a photo." : photoMomentHint({ ownSinceLastPhoto, freq, initiation: !!initiation, hasTypes: photos.length + generateTypes.length > 0 }),
     ...(photos.length + generateTypes.length > 0 ? [photographyGuidance(photography)] : []),
     characterPhotoInstructions(def.key, generateTypes)].filter(Boolean).join('\n');
@@ -648,7 +648,7 @@ async function runTurnUnlocked(
           memories: memoryList, tz, initiation, initiationReason: initiation?.reason ?? null,
           availabilityDetail: schedule.detail, weather, generateTypes, recentPhotoStyles: recentStyles.map(describeStyle),
           photoBoundary: photoContext.boundary, photoHint, photoMomentSelected,
-          directOrdinaryPhotoRequest: !!directRileyOrdinaryPhotoRequest,
+          directOrdinaryPhotoRequest: !!directOrdinaryPhotoRequest,
           worldKnowledge: groundedKnowledge,
           conversationThreads: story.topics, topicHistory,
         });

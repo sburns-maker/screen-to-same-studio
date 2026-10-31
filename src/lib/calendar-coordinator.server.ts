@@ -142,8 +142,13 @@ export async function prepareScheduleActions(
       place: a.place ?? mentionedHome(reply.messages.join(" "), "character", homes),
     }));
   }
-  if (hasCalendarSuccessClaim(reply.messages.join(" ")))
+  if (hasCalendarSuccessClaim(reply.messages.join(" "))) {
+    // A user-controlled calendar must not accept a character's claim as proof
+    // of a saved change. Ignore the proposed action; the player saves through
+    // the explicit calendar UI. Legacy automated contracts still reject claims.
+    if (manual) return [] as Json[];
     throw new Error("Unverified calendar success claim; confirm through the calendar receipt");
+  }
   const ready = await calendarContractReady(db);
   if (!ready) {
     if (proposed.length) throw new Error("Scheduling requires reviewed migration 0038");
