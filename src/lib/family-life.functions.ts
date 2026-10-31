@@ -13,3 +13,26 @@ export const loadFamilyLife = createServerFn({ method: "POST" })
     const { familySnapshot } = await import("./family-life.server");
     return familySnapshot(supabaseAdmin, context.userId, data.characterKey);
   });
+
+/** Player can make or answer household proposals; never sets character consent. */
+export const changeHousehold = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) => z.object({
+    characterKey: z.enum(["tess", "maya", "riley", "sienna", "kendra"]),
+    action: z.enum(["propose", "accept", "decline"]),
+    requestId: z.string().uuid(),
+    kind: z.enum(["move_in", "move_out", "share_home", "separate_home"]),
+    eventId: z.string().uuid().nullable(),
+  }).parse(value))
+  .handler(async ({ context, data }) => {
+    const { CHARACTERS } = await import("./characters");
+    if (CHARACTERS[data.characterKey].age < 18) throw new Error("Adult contacts only");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { proposeHousehold, respondToHousehold } = await import("./family-household.server");
+    if (data.action === "propose") {
+      if (data.eventId) throw new Error("Proposal cannot reference an existing event");
+      return { id: await proposeHousehold(supabaseAdmin, context.userId, data.characterKey, data.requestId, data.kind) };
+    }
+    if (!data.eventId) throw new Error("Select an existing proposal");
+    return { id: await respondToHousehold(supabaseAdmin, context.userId, data.characterKey, data.eventId, data.action === "accept") };
+  });
