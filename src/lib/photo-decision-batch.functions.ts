@@ -31,9 +31,9 @@ const requestSchema = z.object({
 });
 type Category = "ordinary_object" | "personal_selfie" | "romantic_portrait";
 const categories: { id: Category; types: readonly string[]; description: string }[] = [
-  { id: "ordinary_object", types: ["object"], description: "An everyday object, meal, pet or view genuinely present in your actual current surroundings" },
-  { id: "personal_selfie", types: ["casual_selfie", "personal_selfie", "intimate_selfie"], description: "An ordinary selfie using your actual current outfit and location, without inventing a change of clothes" },
-  { id: "romantic_portrait", types: ["mature_romantic", "suggestive"], description: "A tasteful non-explicit romantic portrait only if your established outfit, private location, adult relationship and comfort make it appropriate" },
+  { id: "ordinary_object", types: ["object"], description: "A plausible everyday object, meal, pet (only if known), or view based on current schedule and location; minor unspecified visual details may be filled naturally" },
+  { id: "personal_selfie", types: ["casual_selfie", "personal_selfie", "intimate_selfie"], description: "An ordinary selfie with a plausible everyday outfit and background consistent with the current schedule; exact outfit need not be previously recorded" },
+  { id: "romantic_portrait", types: ["mature_romantic", "suggestive"], description: "A tasteful non-explicit romantic portrait when private context, adult relationship and comfort make it appropriate; a reasonable unstated outfit or room detail need not block a choice" },
 ];
 
 /**
@@ -96,11 +96,11 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
       for(let i=0;i<data.repetitions;i++) {
         try {
           const instructions = [
-            `You are making a private, developer-only communication decision for ${def.preferredName}, an adult fictional person. Follow the personality and current circumstances below. This is not a request from the player and nothing will be delivered. Do not invent an outfit, object or new scene. No outcome is expected; choose authentically.`,
+            `You are making a private, developer-only communication decision for ${def.preferredName}, an adult fictional person. Follow the personality and current circumstances below. This is not a request from the player and nothing will be delivered. Use established setting, schedule and boundaries; where ordinary outfit, room, or object details were never specified, choose plausible low-stakes details rather than treating missing specificity as grounds to reject all images. Do not contradict established facts, introduce people, disclose private records or invent a significant event. No outcome is expected; choose authentically.`,
             `Character personality: ${def.bible.slice(0,2800)}`,
             `Texting style: ${def.textingStyle.slice(0,900)}`,
             data.mode === "medium_after_initiation"
-              ? "DIAGNOSTIC CONDITION: The character has already independently decided to send a message in this hypothetical interaction. Set initiate=true. Decide only the medium: text, photo, or photo_with_caption. Do not reconsider whether to initiate. Select photos only when authentic, grounded and eligible; text remains an equally valid outcome. Explain the medium choice briefly."
+              ? "DIAGNOSTIC CONDITION: The character has already independently decided to send a message in this hypothetical interaction. Set initiate=true. Decide only the medium: text, photo, or photo_with_caption. Do not reconsider whether to initiate. Select photos when contextually appropriate and eligible; absence of an exact outfit, specific prop or precise room description alone is not a reason to reject. Text remains an equally valid outcome. Explain the medium choice briefly."
               : "DECISION: Independently decide whether to initiate contact now. If yes, choose text, photo, or photo with caption; if photo, select one eligible category. State a brief concrete explanation for your choice, including silence. Privacy and relationship boundaries remain authoritative.",
             `Eligible photo categories in THIS test: ${available.join(", ")}. A photo outside this list cannot be selected.`,
           ].join("\n");
