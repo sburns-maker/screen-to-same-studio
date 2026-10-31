@@ -27,3 +27,32 @@ export function siennaShowContext(
   return `IN-WORLD CASTING FACT — not a real show outside this fictional simulation: The in-world casting registry contains a genuine listing dated ${FICTIONAL_MARRIAGE_SHOW.postedDate}: "${FICTIONAL_MARRIAGE_SHOW.title}" by ${FICTIONAL_MARRIAGE_SHOW.production}. ${FICTIONAL_MARRIAGE_SHOW.eligible} ${FICTIONAL_MARRIAGE_SHOW.offer} ${FICTIONAL_MARRIAGE_SHOW.limits}
 The user may SHOW this listing on his phone or describe its text at dinner. Only then can you react to having seen that evidence. Don't say you've seen it before he shows you; don't claim either of you applied, qualified, won, signed or collected money. His earlier example about marrying a STRANGER is a different format; you already rejected that. Being offered a genuine, person-specific proposal is a different question and you can reconsider independently. Sienna values spontaneous romance and true connection more than money: if she chooses an impulsive yes, she may say the million isn't what matters; if she doesn't want marriage, she can say no without being punished. No direct words or a joke alone creates a binding engagement or marriage; the normal explicit two-party commitment workflow still applies.`;
 }
+
+/** Public in-world casting opportunity available to each romance-capable adult
+ * woman individually. The listing is public; their private reactions are not. */
+const WILDCARD_CAST: readonly CharacterKey[] = [
+  "tess", "maya", "claire", "jordan", "riley", "sienna", "kendra",
+] as const;
+
+export function weddingShowEligible(key: CharacterKey): boolean {
+  return WILDCARD_CAST.includes(key);
+}
+
+/** Same public canon, independent private conversation per character. */
+export function weddingShowContext(
+  key: CharacterKey,
+  messages: readonly { sender: string; body: string | null }[],
+  at: Date,
+): string {
+  if (!weddingShowEligible(key) || at.getTime() < Date.UTC(2026, 9, 31)) return "";
+  if (key === "sienna") return siennaShowContext(key, messages, at);
+  const recent = messages.slice(-16).map(m => m.body ?? "").join("\n");
+  // Don't insert a reality-TV casting story merely because she mentions a
+  // family member's real wedding, a ring, or marriage in another context.
+  const showRelated = /\b(?:wildcard wedding|the leap|casting (?:listing|call|page|show)|marriage (?:show|reality show)|wedding (?:show|reality show)|tv show|reality tv)\b/i.test(recent) ||
+    /\b(?:million|\$1m|\$1,000,000)\b/i.test(recent) &&
+      /\b(?:marry|marriage|wedding|casting|show)\b/i.test(recent);
+  if (!showRelated) return "";
+  return `PUBLIC IN-WORLD CASTING OPPORTUNITY (fictional, not an actual television program): "${FICTIONAL_MARRIAGE_SHOW.title}" by ${FICTIONAL_MARRIAGE_SHOW.production} was posted ${FICTIONAL_MARRIAGE_SHOW.postedDate}. ${FICTIONAL_MARRIAGE_SHOW.eligible} ${FICTIONAL_MARRIAGE_SHOW.offer} ${FICTIONAL_MARRIAGE_SHOW.limits}
+This is a PUBLIC fictional listing that the player may show you or describe. Do not claim you personally saw the listing until it is shown or described in YOUR own conversation; do not claim you applied, were selected, received money or married. Do not mention another person's private reaction to it. You may find the idea thrilling, absurd, impractical, romantic, or unappealing depending on YOUR distinct personality, existing relationship, and past boundaries. You can bring it up on your own later if it genuinely occupies your thoughts. A spontaneous, heartfelt YES is possible, but so are not yet and no; do not force either outcome. Marriage is a major choice about life together, not a reward for answering a question, winning money or repeatedly pursuing you. An engagement requires an explicit mutually accepted proposal, and an actual wedding remains a separate milestone.`;
+}
