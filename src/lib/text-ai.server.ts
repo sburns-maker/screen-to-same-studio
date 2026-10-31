@@ -24,7 +24,7 @@ export async function runStructured<T>(
   context?: { operationId?: string; interactiveScene?: boolean },
 ): Promise<T> {
   // Truncating text mid-emoji leaves a lone surrogate, which the provider rejects as invalid JSON (HTTP 400).
-  const selectedModel = context?.interactiveScene ? INTERACTIVE_EXPERIENCE_MODEL : selectedModel;
+  const selectedModel = context?.interactiveScene ? INTERACTIVE_EXPERIENCE_MODEL : TEXT_MODEL;
   const instructions = rawInstructions.toWellFormed();
   const input = rawInput.toWellFormed();
   const operationId = context?.operationId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(context.operationId) ? context.operationId : undefined;
