@@ -38,6 +38,6 @@ describe("interactive experience channel separation", () => {
 
   it("keeps a platonic contact's attraction dimensions unchanged", () => {
     const prompt = inPersonOutputRules("Ben", false);
-    expect(prompt).toContain("Keep romantic_attraction and physical_attraction at exactly 0");
+    expect(prompt).toContain("romantic_attraction and physical_attraction MUST stay at exactly 0");
   });
 });
