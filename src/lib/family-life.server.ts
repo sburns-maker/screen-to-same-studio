@@ -11,7 +11,7 @@ import { CHARACTERS, type CharacterKey } from "./characters";
 type Client = SupabaseClient<Database>;
 type DbRecord = Record<string, unknown>;
 const table = (db: Client, name: "family_pregnancy_events" | "family_household_events") =>
-  db.from(name as never);
+  db.from(name);
 
 /** Display model deliberately excludes the random outcome and probability. */
 export type PublicPregnancy = {
@@ -21,12 +21,12 @@ export type PublicPregnancy = {
 
 function pregnancyFromRow(row: DbRecord): PregnancyEvent {
   return pregnancyEventSchema.parse({
-    id: row.id, userId: row.user_id, characterKey: row.character_key,
-    encounterId: row.encounter_id, adultEligible: row.adult_eligible,
-    mutuallyAgreed: row.mutually_agreed, pregnancyPossible: row.pregnancy_possible,
-    probability: row.probability, randomRoll: row.random_roll,
-    occurredAt: row.occurred_at, revealAt: row.reveal_at,
-    status: row.status, disclosedAt: row.disclosed_at,
+    id: row["id"], userId: row["user_id"], characterKey: row["character_key"],
+    encounterId: row["encounter_id"], adultEligible: row["adult_eligible"],
+    mutuallyAgreed: row["mutually_agreed"], pregnancyPossible: row["pregnancy_possible"],
+    probability: row["probability"], randomRoll: row["random_roll"],
+    occurredAt: row["occurred_at"], revealAt: row["reveal_at"],
+    status: row["status"], disclosedAt: row["disclosed_at"],
   });
 }
 function publicPregnancy(event: PregnancyEvent, now: Date): PublicPregnancy {
@@ -84,9 +84,9 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   ]);
   if (houses.error || pregnancies.error) return { available: false, household: "separate" as const, commitment, pregnancies: [] as PublicPregnancy[] };
   const home = (houses.data ?? []).map(row => householdActionSchema.parse({
-    id: row.id, userId: row.user_id, characterKey: row.character_key,
+    id: row["id"], userId: row["user_id"], characterKey: row["character_key"],
     kind: row.kind, proposedBy: row.proposed_by, userResponse: row.user_response,
-    characterResponse: row.character_response, occurredAt: row.occurred_at, sourceId: row.source_id,
+    characterResponse: row.character_response, occurredAt: row["occurred_at"], sourceId: row.source_id,
   })) as HouseholdAction[];
   const events = (pregnancies.data ?? []).map(row => pregnancyFromRow(row as DbRecord));
   if (home.some(e => e.userId !== userId || e.characterKey !== characterKey) ||
