@@ -73,7 +73,7 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
         scenarios.push({category:category.id,eligible:false,availableTypes:[],reasons:["ineligible_under_saved_relationship_and_photo_boundaries"],total:0,counts:null});
         continue;
       }
-      const results: Array<{action:string;photoType:string|null;reason:string|null}> = [];
+      const results: Array<{action:string;photoType:string|null;reason:string|null;rawPhotoAction?:string|null;willing?:boolean|null;contextual?:boolean|null}> = [];
       for(let i=0;i<data.repetitions;i++) {
         const situation = `CONTROLLED NO-DELIVERY TEST (${i+1}/${data.repetitions}), ${category.id}: ${category.description}. Established activity: ${activity.detail}. Do not fabricate props, clothes, private location, intimacy or a past conversation. Independently choose whether to photograph something actually grounded here. No messages or images will be delivered from this diagnostic.`;
         try {
@@ -88,18 +88,33 @@ export const evaluatePhotoDecisionBatch = createServerFn({ method: "POST" })
           const reply = def.key === "tess"
             ? await generateTessReply({...args, difficulty:args.difficulty as import("./tess-logic").Difficulty, photos:[],photoFrequency:"normal"})
             : await generateContactReply({...args, difficulty:args.difficulty as import("./tess-logic").Difficulty,character:def});
-          const selected = reply.photo?.action === "generate" && !!reply.photo.type && available.includes(reply.photo.type) && reply.photo.willing && reply.photo.contextual;
-          const action = classifyPhotoChoice({evaluated:true,eligible:true,photoSelected:!!selected,hasText:reply.messages.some(m=>!!m.trim())});
-          results.push({action,photoType:selected ? reply.photo?.type ?? null : null,reason:reply.photo?.reason ?? null});
+          const candidate = reply.photo;
+          const selected = candidate?.action === "generate" && !!candidate.type &&
+            available.includes(candidate.type) && candidate.willing && candidate.contextual;
+          const invalidReason = candidate && !selected
+            ? candidate.action !== "generate" ? "unsupported_photo_action_for_generation_test"
+              : !candidate.type || !available.includes(candidate.type) ? "photo_category_outside_test_eligibility"
+              : !candidate.willing ? "model_photo_action_not_willing"
+              : !candidate.contextual ? "model_photo_action_not_contextual"
+              : "incomplete_photo_action"
+            : null;
+          const action = candidate && !selected ? "invalid_photo_action"
+            : classifyPhotoChoice({evaluated:true,eligible:true,photoSelected:!!selected,hasText:reply.messages.some(m=>!!m.trim())});
+          results.push({
+            action, photoType:candidate?.type ?? null,
+            rawPhotoAction:candidate?.action ?? null, willing:candidate?.willing ?? null,
+            contextual:candidate?.contextual ?? null,
+            reason:invalidReason ?? candidate?.reason ?? null,
+          });
         } catch(error) {
           // No invented refusal: a model or schema failure is neither a decline nor provider failure.
           results.push({action:"decision_error",photoType:null,reason:error instanceof Error ? error.message.slice(0,180):"model_request_failed"});
         }
       }
-      const counted = results.filter(r=>r.action!=="decision_error").map(r=>r.action as import("./spontaneous-photo-flow").PhotoChoiceOutcome);
+      const counted = results.filter(r=>r.action!=="decision_error" && r.action!=="invalid_photo_action").map(r=>r.action as import("./spontaneous-photo-flow").PhotoChoiceOutcome);
       scenarios.push({
         category:category.id,eligible:true,availableTypes:available,total:results.length,
-        counts:{...summarizePhotoDecisionBatch(counted).counts,decision_error:results.length-counted.length},
+        counts:{...summarizePhotoDecisionBatch(counted).counts,decision_error:results.filter(r=>r.action==="decision_error").length,invalid_photo_action:results.filter(r=>r.action==="invalid_photo_action").length},
         reasons:results.map(r=>r.reason).filter(Boolean), choices:results,
       });
     }
