@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { CommitmentEvent } from "./relationship-commitments";
-import { resolveCommitmentStatus } from "./relationship-commitments";
+import { resolveCommitmentStatus, type CommitmentStatus } from "./relationship-commitments";
 
 /**
  * Family-life domain rules for fictional adult characters.
@@ -37,6 +37,31 @@ export function resolveHouseholdStatus(actions: readonly HouseholdAction[]): Hou
 export function mayProposeMarriage(events: readonly CommitmentEvent[]): boolean {
   // Proposals can be spontaneous, but cannot themselves change commitment state.
   return resolveCommitmentStatus(events) !== "married";
+}
+
+/**
+ * Engagement and marriage use the existing canonical commitment ledger.
+ * A proposed ceremony is not a wedding; characters and player must both accept.
+ */
+export function familyCommitmentStatus(events: readonly CommitmentEvent[]): CommitmentStatus {
+  return resolveCommitmentStatus(events);
+}
+export function mayPlanWedding(events: readonly CommitmentEvent[]): boolean {
+  return familyCommitmentStatus(events) === "engaged";
+}
+export function mayCompleteWedding(events: readonly CommitmentEvent[], options: {
+  adultPlayer: boolean;
+  adultCharacter: boolean;
+  characterAgreed: boolean;
+  playerAgreed: boolean;
+  ceremonyOccurred: boolean;
+}): boolean {
+  return mayPlanWedding(events) && options.adultPlayer && options.adultCharacter &&
+    options.characterAgreed && options.playerAgreed && options.ceremonyOccurred;
+}
+export function mayDiscussEngagement(events: readonly CommitmentEvent[]): boolean {
+  const status = familyCommitmentStatus(events);
+  return status !== "married" && status !== "engaged";
 }
 
 export const pregnancyEventSchema = z.object({
