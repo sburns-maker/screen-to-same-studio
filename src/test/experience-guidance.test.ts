@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { experienceInstructions } from "@/lib/living-experiences";
+import { inPersonOutputRules } from "@/lib/in-person-output-rules";
 
 describe("experience scene agency guardrails", () => {
   const history = [
@@ -38,6 +39,40 @@ describe("experience scene agency guardrails", () => {
     expect(prompt).toContain("do not abruptly pivot to old saved goals, travel fantasies");
     expect(prompt).toContain("If the character wants to continue the movie");
     expect(prompt).not.toContain("she must deepen the kiss");
+  });
+
+  it("replays Riley's redirect without turning a specific limit into a blanket refusal", () => {
+    const rileyHistory = [
+      { ...history[0]!, id: "kiss", ordinal: 2, source: "character", body: "You can definitely kiss me properly, love. The movie can survive a minute without us." },
+      { ...history[0]!, id: "advance", ordinal: 3, body: "I kiss her and my hand moves from her waist toward her chest." },
+      { ...history[0]!, id: "boundary", ordinal: 4, source: "character", body: "I kiss you back, then catch your hand gently before it moves higher and guide it back to my waist. Keep kissing me, though—I'm very happy with your attention right here." },
+      { ...history[0]!, id: "next", ordinal: 5, body: "I keep my hand at her waist, return her kiss, and let her choose what happens next." },
+    ];
+    const prompt = experienceInstructions("turn", "Sleep over", "My Home", rileyHistory);
+    const systemRules = inPersonOutputRules("Riley", true);
+    expect(prompt).toContain("Keep kissing me, though");
+    expect(prompt).toContain("Respect the exact scope of a boundary");
+    expect(prompt).toContain("do not repeat or work around that touch in this scene");
+    expect(prompt).toContain("not automatically a blanket refusal");
+    expect(systemRules).toContain("Keep the redirected hand where she chose");
+    expect(systemRules).toContain("not automatically every form of affection");
+    expect(systemRules).toContain("An interested adult character can also take meaningful initiative");
+    expect(systemRules).toContain("Her interest, not the player's persistence, determines her choice");
+  });
+
+  it("retains an explicit tonight-wide no while permitting independently chosen adult romance", () => {
+    const stopped = [
+      ...history,
+      { ...history[0]!, id: "stop", ordinal: 2, source: "character", body: "I don't want to go further tonight. Let's just watch the movie." },
+    ];
+    const prompt = experienceInstructions("turn", "Sleep over", "My Home", stopped);
+    const systemRules = inPersonOutputRules("Riley", true);
+    expect(prompt).toContain("If they explicitly decline further intimacy for tonight");
+    expect(prompt).toContain("honor that broader boundary throughout the scene");
+    expect(prompt).toContain("I don't want to go further tonight");
+    expect(systemRules).toContain("maintain that broader boundary for the scene");
+    expect(systemRules).toContain("Never treat repeated invitations");
+    expect(systemRules).toContain("BOTH adults independently choose");
   });
 
   it("does not license invented romance in automatic completion", () => {
