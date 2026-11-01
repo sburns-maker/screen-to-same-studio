@@ -75,6 +75,21 @@ describe("experience scene agency guardrails", () => {
     expect(systemRules).toContain("BOTH adults independently choose");
   });
 
+  it("detects Riley's repeated engagement refrain from the full scene instead of disabling topic checks", () => {
+    const relationshipHistory = [
+      { ...history[0]!, id: "opening", ordinal: 1, body: "We are already engaged and enjoying a sleepover." },
+      { ...history[0]!, id: "yes1", ordinal: 2, source: "character", body: "I still want to marry you, fiancé." },
+      { ...history[0]!, id: "yes2", ordinal: 3, source: "character", body: "I'm still choosing you every day." },
+      { ...history[0]!, id: "morning", ordinal: 4, source: "user", body: "Come help me cook breakfast." },
+    ];
+    const prompt = experienceInstructions("turn", "Sleep over", "My Home", relationshipHistory, "riley");
+    expect(prompt).toContain("SCENE TOPIC REPETITION");
+    expect(prompt).toContain("repeated reassurances about an already discussed commitment");
+    expect(prompt).toContain("Come help me cook breakfast.");
+    expect(experienceInstructions("automatic", "Sleep over", "My Home", relationshipHistory, "riley"))
+      .not.toContain("SCENE TOPIC REPETITION");
+  });
+
   it("does not license invented romance in automatic completion", () => {
     const prompt = experienceInstructions("automatic", "Dinner", "Fanelli's", history);
     expect(prompt).toContain("Automatic completion must not establish any new intimate milestone");
