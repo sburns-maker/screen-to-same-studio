@@ -24,6 +24,20 @@ describe("tess topic guard", () => {
     expect(g).toContain("Mabel stealing socks");
     expect(g).toContain("YOUR life");
   });
+  it("detects repeated commitment confirmation and whole-day promises across characters", () => {
+    const lines = [
+      "And yes, I still want to marry you, fiancé.",
+      "I'm still choosing you, every day.",
+      "I mean it when I say I want to marry you.",
+    ];
+    expect(saturatedMotifs(lines, 8, 2, "riley")).toContain("commitment_reassurance");
+    const guidance = topicGuidance(lines, "Coffee first, then breakfast!", "riley");
+    expect(guidance).toContain("repeated reassurances");
+    const dateLines = ["An entire day with you sounds pretty damn good.", "I'd love a whole day together."];
+    expect(saturatedMotifs(dateLines, 8, 2, "sienna")).toContain("all_day_date");
+    expect(topicGuidance(dateLines, "Good morning!", "sienna")).toContain("spending a whole day");
+  });
+
   it("adds nothing for ordinary turns so she can initiate freely", () => {
     expect(topicGuidance(["Long day at the clinic."], "how was work")).toBe("");
   });
