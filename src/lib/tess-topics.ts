@@ -12,7 +12,19 @@ const COFFEE_MOTIF = {
 };
 // Shared subjects must not evade saturation just because another contact uses
 // a different drink name. Character-specific motifs stay independent.
-const EVERYDAY_MOTIFS: MotifSet = { coffee: COFFEE_MOTIF };
+const EVERYDAY_MOTIFS: MotifSet = {
+  coffee: COFFEE_MOTIF,
+  // Repeated reassurance isn't new relationship progress. This detects character
+  // dialogue only; it never changes commitment status or suppresses a requested answer.
+  commitment_reassurance: {
+    re: /\b(?:i (?:still )?want to marry you|i(?:'m| am) still choosing you|i (?:still )?choose you|i(?:'m| am) still saying yes|i (?:still )?accept(?: your proposal)?|i meant (?:my yes|it when i said yes)|yes[,.!—\s]+i (?:still )?want to marry you)\b/i,
+    label: "repeated reassurances about an already discussed commitment",
+  },
+  all_day_date: {
+    re: /\b(?:(?:an? |the |that |our )?(?:entire|whole|full) day (?:together|with you)|spend(?:ing)? (?:an? |the )?(?:entire|whole|full) day (?:together|with you))\b/i,
+    label: "repeated anticipation of spending a whole day together",
+  },
+};
 
 export const CHARACTER_MOTIFS: Record<string, MotifSet> = {
   kendra: {
