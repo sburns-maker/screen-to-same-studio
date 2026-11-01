@@ -186,6 +186,17 @@ function Chat({ conversationId }: { conversationId: string }) {
 
   const refetch = useCallback(() => qc.invalidateQueries({ queryKey: ["messages", convId] }), [qc, convId]);
 
+  // Unsend: removes only the user's own message row (RLS limits deletes to the owner).
+  const unsend = useCallback(async (messageId: string) => {
+    if (!convId) return;
+    const { error } = await supabase.from("messages").delete()
+      .eq("id", messageId).eq("conversation_id", convId).eq("sender", "user");
+    if (error) { toast.error("Couldn't unsend that message"); return; }
+    toast.success("Message unsent");
+    await refetch();
+    void qc.invalidateQueries({ queryKey: ["inbox"] });
+  }, [convId, refetch, qc]);
+
   // Opening the thread marks it read.
   useEffect(() => {
     if (!convId) return;
@@ -633,6 +644,7 @@ function Chat({ conversationId }: { conversationId: string }) {
                     mine={mine}
                     timestamp={fmtTime(t)}
                     body={m.body}
+                    onUnsend={mine ? () => void unsend(m.id) : undefined}
                   />}
                   </div>
                 </div>
