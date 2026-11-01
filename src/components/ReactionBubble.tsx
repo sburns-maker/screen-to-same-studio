@@ -25,7 +25,7 @@ export function ReactionBubble({
   mine: boolean;
   timestamp: string;
   body: string;
-  onUnsend?: () => void;
+  onUnsend?: (() => void) | undefined;
 }) {
   const key = reactionStorageKey(conversationId, messageId);
   const [reaction, setReaction] = useState<string | null>(() => {
