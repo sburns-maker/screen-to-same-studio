@@ -290,11 +290,10 @@ export async function generateExperience(
       STATE_KEYS.map((k) => [k, stateR.data[k] ?? def.seedState[k]]),
     ) as TessState;
     const difficulty = (conversation.data.difficulty ?? "realistic") as Difficulty;
-    // The full saved outing survives the narrow recent-message prompt window.
-    // Only Sienna may independently revisit the casting conversation from her
-    // own lived history; this is dialogue guidance, never a status mutation.
-    const siennaMarriageReflection = kind === "turn" && def.key === "sienna"
-      ? (await import("./sienna-marriage-reflection")).siennaMarriageReflectionGuidance({
+    // Shared public casting listing, but each woman must encounter it in HER
+    // own saved outing before she can reflect on it. No status mutation here.
+    const marriageReflection = kind === "turn"
+      ? (await import("./shared-wedding-reflection")).weddingReflectionGuidance({
           character: def.key,
           moments,
           state,
@@ -372,7 +371,7 @@ export async function generateExperience(
           experienceInstructions(kind, "the ongoing outing", venue, moments) +
           "\n" +
           liveInstructions +
-          (siennaMarriageReflection ? "\n" + siennaMarriageReflection : "") +
+          (marriageReflection ? "\n" + marriageReflection : "") +
           (kind === "finish" && body === "close_now"
             ? "\nCLOSE NOW: summarize only the recorded experience. Do not generate additional remaining activities. The user explicitly chose to end here."
             : ""),

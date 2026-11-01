@@ -37,7 +37,8 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
 
   it("does not create a marriage commitment, prize or magical correct answer", () => {
     const result = guide();
-    expect(result).toContain('not an automatic "correct password"');
+    expect(result).toContain("make his answer an automatic");
+    expect(result).toContain("correct password");
     expect(result).toContain("million-dollar prize");
     expect(result).toContain("Never imply");
     expect(result).toContain("marital status");
@@ -55,7 +56,7 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
     expect(guide([...history, question])).toBe("");
     const answer = user("Yes. I'd still be there for the ordinary Tuesdays when the cameras are gone.");
     const next = guide([...history, question, answer]);
-    expect(next).toContain("YOUR OWN QUESTION HAS BEEN ANSWERED");
+    expect(next).toContain("OWN QUESTION HAS BEEN ANSWERED");
     expect(next).toContain("automatic engagement");
     expect(guide([...history, question, answer, sienna("That means a lot to me.")])).toBe("");
   });
