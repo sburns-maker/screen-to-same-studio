@@ -30,7 +30,9 @@ describe("interactive experience channel separation", () => {
 
   it("honors today's refusal without permanently blocking consensual adult choices", () => {
     const prompt = inPersonOutputRules("Tess", true);
-    expect(prompt).toContain("maintain that boundary for today's scene");
+    expect(prompt).toContain("maintain that broader boundary for the scene");
+    expect(prompt).toContain("Keep the redirected hand where she chose");
+    expect(prompt).toContain("Do not reinterpret a narrow redirect as this broader refusal");
     expect(prompt).toContain("BOTH adults independently choose them");
     expect(prompt).toContain("may transition non-graphically");
     expect(prompt).toContain("never fabricate that choice");
