@@ -368,7 +368,7 @@ export async function generateExperience(
       experience: {
         at: experienceClock(scene, moments),
         instruction:
-          experienceInstructions(kind, "the ongoing outing", venue, moments) +
+          experienceInstructions(kind, "the ongoing outing", venue, moments, def.key) +
           "\n" +
           liveInstructions +
           (marriageReflection ? "\n" + marriageReflection : "") +

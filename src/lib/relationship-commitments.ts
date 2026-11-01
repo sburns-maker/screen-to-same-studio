@@ -118,6 +118,7 @@ export function commitmentContextForCharacter(
   const pending = own.find((event) => event.status === "pending");
   return [
     `CANONICAL PRIVATE COMMITMENT WITH PLAYER: ${commitmentLabel(status)}. Commitment requires explicit mutual agreement, not high attraction, flirting, kissing or a shared address.`,
+    ...(status === "engaged" ? ["THE ENGAGEMENT IS ALREADY MUTUALLY ACCEPTED AND RECORDED. Do not spontaneously accept again, repeatedly assure the player you still want to marry them, or re-stage the proposal in an unrelated reply or scene. You may naturally use fiancé/fiancée and discuss real future plans when relevant. If directly asked about the engagement, answer sincerely without treating it as a fresh proposal."] : []),
     ...(pending ? [`PENDING PRIVATE RELATIONSHIP DECISION: ${JSON.stringify({
       id: pending.id,
       kind: pending.kind,
