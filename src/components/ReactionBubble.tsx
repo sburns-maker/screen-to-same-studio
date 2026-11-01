@@ -18,12 +18,14 @@ export function ReactionBubble({
   mine,
   timestamp,
   body,
+  onUnsend,
 }: {
   messageId: string;
   conversationId: string;
   mine: boolean;
   timestamp: string;
   body: string;
+  onUnsend?: () => void;
 }) {
   const key = reactionStorageKey(conversationId, messageId);
   const [reaction, setReaction] = useState<string | null>(() => {
@@ -101,7 +103,7 @@ export function ReactionBubble({
         <DropdownMenuContent
           align={mine ? "end" : "start"}
           side="top"
-          className="flex min-w-0 gap-1 rounded-full p-1.5"
+          className="flex min-w-0 flex-wrap items-center gap-1 rounded-full p-1.5"
         >
           {REACTION_EMOJIS.map((emoji) => (
             <DropdownMenuItem
@@ -113,6 +115,16 @@ export function ReactionBubble({
               {emoji}
             </DropdownMenuItem>
           ))}
+          {mine && onUnsend && (
+            <DropdownMenuItem
+              onSelect={() => {
+                if (window.confirm("Unsend this message? It will be removed from the chat.")) onUnsend();
+              }}
+              className="h-10 cursor-pointer rounded-full px-3 text-sm font-medium text-destructive focus:bg-destructive/10 focus:text-destructive"
+            >
+              Unsend
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       {reaction && (
