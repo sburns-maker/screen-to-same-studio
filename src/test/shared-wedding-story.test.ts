@@ -26,7 +26,7 @@ describe("shared Wildcard Wedding listing", () => {
       expect(weddingShowEligible(key)).toBe(true);
       const prompt = weddingShowContext(key, [{ sender: "user", body: listing }], at);
       expect(prompt).toContain("Wildcard Wedding");
-      expect(prompt).toContain("million");
+      expect(prompt).toContain("$1,000,000");
       expect(prompt).not.toContain("already married");
     }
     expect(weddingShowEligible("ben")).toBe(false);
@@ -43,7 +43,7 @@ describe("shared Wildcard Wedding listing", () => {
 
   it("describes an open listing, not selection, money credited, or an actual wedding", () => {
     const prompt = weddingShowContext("kendra", [{ sender: "user", body: listing }], at);
-    expect(prompt).toContain("public");
+    expect(prompt).toContain("PUBLIC");
     expect(prompt).toContain("not an actual television program");
     expect(prompt).toContain("do not claim you applied");
     expect(prompt).toContain("actual wedding remains a separate milestone");
