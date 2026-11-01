@@ -37,7 +37,8 @@ describe("Sienna's independent proposal reflection in interactive scenes", () =>
 
   it("does not create a marriage commitment, prize or magical correct answer", () => {
     const result = guide();
-    expect(result).toContain('an automatic "correct password"');
+    expect(result).toContain("make his answer an automatic");
+    expect(result).toContain("correct password");
     expect(result).toContain("million-dollar prize");
     expect(result).toContain("Never imply");
     expect(result).toContain("marital status");
