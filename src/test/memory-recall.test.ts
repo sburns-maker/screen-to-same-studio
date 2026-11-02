@@ -35,7 +35,8 @@ describe("memory recall", () => {
       summary: "Our board game date became a romantic intimate evening",
       memory_type: "relationship", importance: 5, created_at: daysAgo(90),
     };
-    const out = recallMemories([...filler(70), event], "how is the equipment check going?", now);
+    const unrelated = Array.from({ length: 70 }, (_, i) => ({ summary: `Routine equipment check update ${i}`, memory_type: "relationship", importance: 5, created_at: daysAgo(1) }));
+    const out = recallMemories([...unrelated, event], "how is the equipment check going?", now);
     expect(out).not.toContain(event);
   });
   it("caps total recalled memories", () => {
