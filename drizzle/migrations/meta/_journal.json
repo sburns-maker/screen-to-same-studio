@@ -442,6 +442,13 @@
       "when": 1793584517384,
       "tag": "0062_unlock_all_residences",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793655529655,
+      "tag": "0063_pregnancy_lifecycle",
+      "breakpoints": true
     }
   ]
 }
