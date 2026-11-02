@@ -123,7 +123,7 @@ export function selectPhotoComposition(
       .map((frame, index) => ({
         frame,
         index,
-        score: recent.slice(0, POSE_HISTORY_WINDOW).reduce(
+        score: recent.reduce(
           (n, old, i) =>
             n +
             (compositionValue(old.camera_angle) === compositionValue(frame.camera_angle) &&
