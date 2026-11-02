@@ -90,12 +90,9 @@ export async function calendarResidences(
   return Promise.all(
     snapshot.homes.map(async (home) => {
       const characters = home.primaryFor.includes("user") ? [] : home.primaryFor;
-      const invitations = await Promise.all(
-        (contacts.data ?? [])
-          .filter(c => home.primaryFor.includes((c.character as { key?: string } | null)?.key ?? ""))
-          .map(c => savedHomeInvitation(db, user, c.id, home.key, now)),
-      );
-      const canPlan = home.primaryFor.includes("user") || invitations.some(Boolean);
+      // Homes are universally unlocked; invitations are no longer required to plan.
+      void now;
+      const canPlan = true;
       return {
         key: home.key,
         label: home.label,
@@ -143,11 +140,10 @@ export async function prepareResidentialManualSave(
   const homes = (await housingSnapshot(db, user)).homes;
   const home = homes.find((h) => h.key === plan.place);
   if (!home) throw new Error("Unknown private calendar location");
-  // The player is the resident host of their own home; hosting a guest there
-  // never requires the guest to have invited the player anywhere.
+  // All registered homes are selectable; an invitation only links the plan to its source message.
   if (home.primaryFor.includes("user")) return { planId, version };
   const invitation = await savedHomeInvitation(db, user, input.conversationId, home.key, now);
-  if (!invitation) throw new Error("A current resident invitation is required");
+  if (!invitation) return { planId, version };
   if (!sameHomeActivity(plan.title ?? "", invitation.title)) return { planId, version };
   if (!input.confirmed) throw new Error("Confirm that you both agreed to this home visit");
   if (
