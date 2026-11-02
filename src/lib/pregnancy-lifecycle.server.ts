@@ -156,7 +156,7 @@ export async function reconcileCharacterPregnancyActions(
  if(convError||!conv)return {processed:0};
  const {data:rows,error:messageError}=await db.from("messages")
   .select("id,body,metadata,visible_at,sender").eq("user_id",userId)
-  .eq("conversation_id",conv.id).eq("sender",characterKey)
+  .eq("conversation_id",conv.id).eq("sender","tess")
   .lte("visible_at",now.toISOString()).order("created_at",{ascending:false}).limit(100);
  if(messageError) throw new Error("Pregnancy message reconciliation unavailable");
  const {data:lifecycles,error:lifeError}=await db.from("family_pregnancy_lifecycles" as never)
