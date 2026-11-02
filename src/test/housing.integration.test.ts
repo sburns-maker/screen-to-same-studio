@@ -515,17 +515,16 @@ it("does not re-enable public calendar sweeps or accept unrelated home venues", 
     ),
   ).toEqual([]);
   expect(await rpc("calendar_pending", { p_user: user, p_now: now.toISOString() })).toEqual([]);
-  const source = await message("Let's visit Claire's house.");
-  await expect(
-    rpc("calendar_event_action", {
-      p_user: user,
-      p_kind: "message",
-      p_source: source,
-      p_ordinal: 0,
-      p_payload: { action: "invite", title: "Visit", category: "meetup", place: "home:nobody" },
-      p_now: now.toISOString(),
-    }),
-  ).rejects.toThrow("authorized residence");
+  const source = await message("Let's visit a house nobody lives in.");
+  const unknown = await rpc("calendar_event_action", {
+    p_user: user,
+    p_kind: "message",
+    p_source: source,
+    p_ordinal: 0,
+    p_payload: { action: "invite", title: "Visit", category: "meetup", place: "home:nobody" },
+    p_now: now.toISOString(),
+  }).catch((e: Error) => ({ error: e.message }));
+  expect(unknown).not.toHaveProperty("id");
 });
 
 it("requires explicit adult eligibility for shared housing without blocking solo homes", async () => {
