@@ -72,6 +72,7 @@ beforeAll(async () => {
     "0043_verify_migration_catchup",
     "0044_manual_calendar_control",
     "0045_residences_households",
+    "0062_unlock_all_residences",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
   await db.exec(readFileSync("docs/sql/20261024_riley_night_shift.sql", "utf8"));
@@ -727,7 +728,7 @@ it("lists Claire's home and records an explicitly saved movie invitation without
   await rpc("housing_seed",{p_user:user});
   const at=new Date(Date.now()+2000),created=new Date(at.getTime()-1).toISOString(),message=id();
   const before=await calendarResidences(client(),user,at);
-  expect(before.find(h=>h.key==='home:claire')).toMatchObject({canPlan:false});
+  expect(before.find(h=>h.key==='home:claire')).toMatchObject({canPlan:true});
   await db.query("INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess',$4,$5,$5)",[message,user,claire,"Would you like to come over to my house for a movie night?",created]);
   const choices=await calendarResidences(client(),user,at);
   expect(choices.find(h=>h.key==='home:claire')).toMatchObject({canPlan:true,characters:['claire']});
