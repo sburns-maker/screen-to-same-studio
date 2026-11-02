@@ -188,3 +188,40 @@ export async function reconcileCharacterPregnancyActions(
  }
  return {processed};
 }
+
+/** Character-private appointments are included only in the private generation
+ * context. Public-facing views may read only after character disclosure.
+ */
+export async function pregnancyMedicalContext(
+ db:SupabaseClient<Database>,userId:string,characterKey:string,now=new Date(),
+) {
+ const query=await db.from("family_pregnancy_lifecycles" as never)
+  .select("*").eq("user_id",userId).eq("character_key",characterKey)
+  .eq("status","pregnant").limit(5);
+ if(query.error) throw new Error("Pregnancy medical context unavailable");
+ const result:Array<{lifecycleId:string;gestationalWeek:number;appointments:Array<{kind:string;at:string;status:string}>}>=[];
+ for(const life of (query.data??[]) as unknown as Array<{id:string;started_at:string}>) {
+  const appointments=await db.from("family_pregnancy_appointments" as never)
+   .select("kind,scheduled_at,status").eq("lifecycle_id",life.id)
+   .gte("scheduled_at",new Date(now.getTime()-7*86400000).toISOString())
+   .order("scheduled_at",{ascending:true}).limit(20);
+  if(appointments.error)throw new Error("Pregnancy appointments unavailable");
+  result.push({lifecycleId:life.id,
+   gestationalWeek:pregnancyProgress(life.started_at,now).gestationalWeek,
+   appointments:((appointments.data??[]) as unknown as Array<{kind:string;scheduled_at:string;status:string}>)
+    .map(a=>({kind:a.kind,at:a.scheduled_at,status:a.status}))});
+ }
+ return result;
+}
+/** Query existing children without inventing a birth or age milestone. */
+export async function characterChildrenContext(
+ db:SupabaseClient<Database>,userId:string,characterKey:string,now=new Date(),
+) {
+ const query=await db.from("family_children" as never)
+  .select("id,name,born_at,lifecycle_id").eq("user_id",userId)
+  .eq("parent_character_key",characterKey).limit(30);
+ if(query.error)throw new Error("Family children unavailable");
+ const {postpartumProgress}=await import("./pregnancy-lifecycle");
+ return ((query.data??[]) as unknown as Array<{id:string;name:string|null;born_at:string;lifecycle_id:string}>)
+  .map(c=>({id:c.id,name:c.name,age:postpartumProgress(c.born_at,now),bornAt:c.born_at}));
+}
