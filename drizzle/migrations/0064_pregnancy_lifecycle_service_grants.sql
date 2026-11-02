@@ -1,0 +1,2 @@
+GRANT ALL ON public.family_pregnancy_lifecycles, public.family_pregnancy_milestones, public.family_pregnancy_appointments, public.family_children TO service_role;
+GRANT EXECUTE ON FUNCTION public.finalize_family_pregnancy(uuid,text,uuid,text,text,timestamptz,text) TO service_role;
