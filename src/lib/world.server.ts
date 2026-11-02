@@ -388,6 +388,18 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
 
     let probeAttempted = false;
     for (const [userId, convs] of users) {
+      // Advance all character pregnancies even when no conversation is opened.
+      // No AI, no public pregnancy disclosure, and no outcome rerolls.
+      try {
+        const { syncPregnancyLifecycles } = await import("./pregnancy-lifecycle.server");
+        const keys = [...new Set(convs.map((conv) => String(conv.character_key ?? "")).filter(Boolean))];
+        for (const key of keys) {
+          await syncPregnancyLifecycles(admin, userId, key, now);
+        }
+      } catch (error) {
+        report.errors.push(`pregnancy: ${(error instanceof Error ? error.message : String(error)).slice(0, 140)}`);
+      }
+
       const { data: profile } = await admin
         .from("user_profile")
         .select("value")
