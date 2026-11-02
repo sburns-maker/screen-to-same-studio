@@ -35,9 +35,12 @@ export type ArmPose = "extended_selfie" | "mirror" | "propped" | "other_person" 
 
 /** Coarse head orientation read from the planned pose text. Unstated = level/straight. */
 export function headPose(style: PhotoStyle): HeadPose {
-  const t = `${style.pose_type ?? ""} ${style.camera_angle ?? ""}`.toLowerCase();
+  // A chosen variant is appended after ";" and is authoritative over the model's base text.
+  const pose = (style.pose_type ?? "").toLowerCase();
+  const t = `${pose.includes(";") ? pose.slice(pose.lastIndexOf(";") + 1) : pose} ${style.camera_angle ?? ""}`
+    .replace(/\b(?:no|not|without)(?: a| any)?(?: head)? tilt(?:ed)?/g, "");
   if (/over (?:her|his|the|their)? ?shoulder/.test(t)) return "over_shoulder";
-  if (/profile|side view|side angle/.test(t)) return "profile";
+  if (/profile|side view|side angle|three-quarter turn of the head/.test(t)) return "profile";
   if (/\btilt|cocked|tipped (?:to|sideways)/.test(t)) return "tilted";
   if (/looking (?:away|down|off|out)|glanc|gaze (?:away|down)|eyes (?:down|away)/.test(t))
     return "looking_away";
@@ -73,9 +76,9 @@ export function repeatsPoseSignature(style: PhotoStyle, recent: PhotoStyle[]): b
 const SELFIE_VARIANTS: { head: HeadPose; text: string }[] = [
   { head: "level", text: "head level and square to the lens, chin slightly down, shoulders turned a little away, phone arm out of frame" },
   { head: "looking_away", text: "glancing off to the side mid-moment, head upright, one shoulder closer to the camera, free hand busy with what she is doing" },
-  { head: "level", text: "camera held low near chest height, head upright, relaxed shoulders, direct eye contact, no head tilt" },
+  { head: "level", text: "camera held low near chest height, head upright, relaxed shoulders, direct eye contact" },
   { head: "profile", text: "three-quarter turn of the head toward the window or room, upright neck, phone held close rather than at full arm's length" },
-  { head: "looking_away", text: "looking down at something in her hands, head upright not tilted, phone slightly above, shoulders relaxed" },
+  { head: "looking_away", text: "looking down at something in her hands, head upright, phone slightly above, shoulders relaxed" },
 ];
 const OTHER_VARIANTS: { head: HeadPose; text: string }[] = [
   { head: "level", text: "body angled three-quarters to the camera, head upright, hands occupied with the current activity" },
@@ -102,7 +105,9 @@ export function selectPhotoComposition(
     );
   if (explicit) return { style: { ...proposed }, decision: "preserved" };
   const complete = !!(proposed.camera_angle && proposed.crop_type && proposed.selfie_type);
-  const frameRepeat = !complete || repeatsCapture(proposed, recent.slice(0, 5));
+  // Framing repeat ignores pose text (checked separately), so appended pose variants can't mask it.
+  const noPose = (x: PhotoStyle) => ({ ...x, pose_type: null });
+  const frameRepeat = !complete || repeatsCapture(noPose(proposed), recent.slice(0, 3).map(noPose));
   const poseRepeat = repeatsPoseSignature(proposed, recent);
   if (!frameRepeat && !poseRepeat) return { style: { ...proposed }, decision: "preserved" };
 
@@ -145,8 +150,9 @@ export function selectPhotoComposition(
       .map((v, index) => ({ v, index, score: used(v.head) + (window.some((o) => (o.pose_type ?? "").includes(v.text)) ? 100 : 0) }))
       .sort((a, b) => a.score - b.score || a.index - b.index)[0]!.v;
     const base = (style.pose_type ?? "").replace(/,?\s*(?:with )?(?:a |her |his )?(?:head )?(?:slight |gentle )?(?:head )?tilt(?:ed|ing)?(?: to the (?:side|left|right))?(?: head)?/gi, "").trim();
-    style = { ...style, pose_type: base ? `${base}; ${pick.text}` : pick.text };
-    return { style, decision: "varied_repeated_pose" };
+    const body = selfie ? base.replace(/,?\s*(?:with )?(?:her |his |one )?arm (?:extended|outstretched|out)(?: holding (?:the )?phone)?|,?\s*at arm.s length/gi, "").trim() : base;
+    style = { ...style, pose_type: body ? `${body}; ${pick.text}` : pick.text };
+    return { style, decision: frameRepeat && complete ? "avoided_recent_capture" : "varied_repeated_pose" };
   }
   return { style, decision: complete ? "avoided_recent_capture" : "filled_missing_capture" };
 }
