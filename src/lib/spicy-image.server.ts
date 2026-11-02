@@ -116,17 +116,11 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
   const dailyCents = positive("SPICY_DAILY_BUDGET_CENTS", 100000);
   const monthlyCents = positive("SPICY_MONTHLY_BUDGET_CENTS", 1000000);
   const budgetsConfigured = jobCents > 0 && dailyCents >= jobCents && monthlyCents >= dailyCents;
-  const verified = Date.parse(process.env["SPICY_ACCOUNT_CREDITS_VERIFIED_AT"] ?? "");
-  const creditsVerified =
-    Number.isFinite(verified) &&
-    Date.now() - verified >= -300000 &&
-    Date.now() - verified < 86400000;
   const ready =
     enabled &&
     keyPresent &&
     modelValid &&
-    budgetsConfigured &&
-    creditsVerified;
+    budgetsConfigured;
   return {
     enabled,
     keyPresent,
@@ -136,7 +130,6 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
     dailyCents,
     monthlyCents,
     budgetsConfigured,
-    creditsVerified,
     ready,
     reason: !enabled
       ? "SpicyAPI disabled"
@@ -146,9 +139,7 @@ export const spicyConfiguration = createServerOnlyFn(function spicyConfiguration
           ? "Unsupported SpicyAPI model"
           : !budgetsConfigured
             ? "Configure SpicyAPI spending reservations"
-            : !creditsVerified
-              ? "Verify usable SpicyAPI account credit before enabling live calls"
-              : "SpicyAPI configured; live visual testing remains required",
+            : "SpicyAPI configured; live visual testing remains required",
   };
 });
 /**

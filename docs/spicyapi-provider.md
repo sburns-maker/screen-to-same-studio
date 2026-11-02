@@ -93,8 +93,9 @@ while waiting prevents delivery. A server-only hash receipt records successfully
    `SPICY_JOB_RESERVATION_CENTS` submits nothing, otherwise the quoted cents are reserved
    against daily/monthly caps and `createTask` sends `quoteId` + `expectedCost` with the
    persisted idempotency key (both stored in the job payload).
-   Set `SPICY_ACCOUNT_CREDITS_VERIFIED_AT` only after checking usable API credit.
-   Verification expires after 24 hours. No invented balance or quote endpoint is called.
+   No recurring account-credit verification timestamp is required. The legacy
+   `SPICY_ACCOUNT_CREDITS_VERIFIED_AT` secret is ignored; provider authentication,
+   free per-request quotes and durable daily/monthly spending caps still apply.
 6. Keep normal OpenAI, storage, world worker, call settings and visual-screen credentials
    unchanged. Enable `SPICY_ENABLED=true` only in authorized staging after these checks.
 7. In the existing Settings reference library, review references and explicitly opt in

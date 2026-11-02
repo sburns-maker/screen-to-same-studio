@@ -24,6 +24,21 @@ it("defaults to Flash and config exposes no secret", () => {
   expect(spicyConfiguration()).toMatchObject({ model: SPICY_MODELS[0], ready: false });
   expect(JSON.stringify(spicyConfiguration())).not.toContain("test-private-value");
 });
+it.each([undefined, "2020-01-01T00:00:00Z"])("requires no recurring credit verification (%s)", (verification) => {
+  vi.stubEnv("SPICY_ENABLED", "true");
+  vi.stubEnv("SPICY_API_KEY", "test-private-value");
+  vi.stubEnv("SPICY_MODEL", SPICY_MODELS[0]);
+  vi.stubEnv("SPICY_JOB_RESERVATION_CENTS", "10");
+  vi.stubEnv("SPICY_DAILY_BUDGET_CENTS", "100");
+  vi.stubEnv("SPICY_MONTHLY_BUDGET_CENTS", "1000");
+  vi.stubEnv("SPICY_ACCOUNT_CREDITS_VERIFIED_AT", verification);
+  expect(spicyConfiguration().ready).toBe(true);
+  vi.stubEnv("SPICY_JOB_RESERVATION_CENTS", "0");
+  expect(spicyConfiguration()).toMatchObject({ ready: false, budgetsConfigured: false });
+  vi.stubEnv("SPICY_JOB_RESERVATION_CENTS", "10");
+  vi.stubEnv("SPICY_API_KEY", "");
+  expect(spicyConfiguration()).toMatchObject({ ready: false, keyPresent: false });
+});
 it.each(SPICY_MODELS)("constructs only verified edit inputs for %s", (model) => {
   const request = buildSpicyRequest(model, "One fictional adult", [
     "https://storage.example.com/canon?token=private",
