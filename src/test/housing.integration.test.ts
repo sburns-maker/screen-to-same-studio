@@ -72,6 +72,7 @@ beforeAll(async () => {
     "0043_verify_migration_catchup",
     "0044_manual_calendar_control",
     "0045_residences_households",
+    "0062_unlock_all_residences",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${f}.sql`, "utf8"));
   await db.exec(readFileSync("docs/sql/20261024_riley_night_shift.sql", "utf8"));
@@ -514,17 +515,16 @@ it("does not re-enable public calendar sweeps or accept unrelated home venues", 
     ),
   ).toEqual([]);
   expect(await rpc("calendar_pending", { p_user: user, p_now: now.toISOString() })).toEqual([]);
-  const source = await message("Let's visit Claire's house.");
-  await expect(
-    rpc("calendar_event_action", {
-      p_user: user,
-      p_kind: "message",
-      p_source: source,
-      p_ordinal: 0,
-      p_payload: { action: "invite", title: "Visit", category: "meetup", place: "home:claire" },
-      p_now: now.toISOString(),
-    }),
-  ).rejects.toThrow("authorized residence");
+  const source = await message("Let's visit a house nobody lives in.");
+  const unknown = await rpc("calendar_event_action", {
+    p_user: user,
+    p_kind: "message",
+    p_source: source,
+    p_ordinal: 0,
+    p_payload: { action: "invite", title: "Visit", category: "meetup", place: "home:nobody" },
+    p_now: now.toISOString(),
+  }).catch((e: Error) => ({ error: e.message }));
+  expect(unknown).not.toHaveProperty("id");
 });
 
 it("requires explicit adult eligibility for shared housing without blocking solo homes", async () => {
@@ -727,7 +727,7 @@ it("lists Claire's home and records an explicitly saved movie invitation without
   await rpc("housing_seed",{p_user:user});
   const at=new Date(Date.now()+2000),created=new Date(at.getTime()-1).toISOString(),message=id();
   const before=await calendarResidences(client(),user,at);
-  expect(before.find(h=>h.key==='home:claire')).toMatchObject({canPlan:false});
+  expect(before.find(h=>h.key==='home:claire')).toMatchObject({canPlan:true});
   await db.query("INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess',$4,$5,$5)",[message,user,claire,"Would you like to come over to my house for a movie night?",created]);
   const choices=await calendarResidences(client(),user,at);
   expect(choices.find(h=>h.key==='home:claire')).toMatchObject({canPlan:true,characters:['claire']});
@@ -747,9 +747,9 @@ it("lists Claire's home and records an explicitly saved movie invitation without
   // An older unsaved invitation must not reopen a subsequently cancelled visit.
   await db.query("INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess','Come over to my house for a movie night.',$4,$4)",[id(),user,claire,new Date(at.getTime()-10).toISOString()]);
   await db.query("UPDATE social_plans SET status='cancelled' WHERE user_id=$1 AND id=$2",[user,result.id]);
-  expect((await calendarResidences(client(),user,at)).find(h=>h.key==='home:claire')?.canPlan).toBe(false);
+  expect((await calendarResidences(client(),user,at)).find(h=>h.key==='home:claire')?.canPlan).toBe(true);
 });
-it("does not authorize a home from a player's claim, another character's invitation or a hidden message",async()=>{
+it("lets the player plan at any character's home without an invitation",async()=>{
   const claire=id();
   await db.query("INSERT INTO conversations(id,user_id,character_id) SELECT $1,$2,id FROM characters WHERE key='claire'",[claire,user]);
   await rpc('housing_seed',{p_user:user});
@@ -757,12 +757,12 @@ it("does not authorize a home from a player's claim, another character's invitat
   for(const [conversation,sender,visible] of [[claire,'user',clock],[conv,'tess',clock],[claire,'tess',new Date(at.getTime()+60000).toISOString()]]){
     await db.query("INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,$4,'Come over to my house for a movie night.',$5,$6)",[id(),user,conversation,sender,clock,visible]);
   }
-  expect((await calendarResidences(client(),user,at)).find(h=>h.key==='home:claire')?.canPlan).toBe(false);
-  await expect(saveManualCalendar(client(),user,{id:id(),conversationId:claire,confirmed:true,plan:{action:'invite',planId:null,parentPlanId:null,title:'Movie night',description:null,category:'meetup',date:resolveDate('tomorrow',at),time:'19:00',timeHint:null,timeZone:'America/New_York',place:'home:claire',durationMinutes:120,userQuote:null}},at)).rejects.toThrow(/invitation/);
+  expect((await calendarResidences(client(),user,at)).find(h=>h.key==='home:claire')?.canPlan).toBe(true);
+  expect((await saveManualCalendar(client(),user,{id:id(),conversationId:claire,confirmed:true,plan:{action:'invite',planId:null,parentPlanId:null,title:'Movie night',description:null,category:'meetup',date:resolveDate('tomorrow',at),time:'19:00',timeHint:null,timeZone:'America/New_York',place:'home:claire',durationMinutes:120,userQuote:null}},at)).status).toBe('accepted');
 });
 
-it("does not turn an earlier invitation into permission after the resident withdraws it",async()=>{
+it("keeps a home selectable even after the resident withdraws an invitation",async()=>{
   const at=new Date(Date.now()+3000);
   await db.query("INSERT INTO messages(id,user_id,conversation_id,sender,body,created_at,visible_at) VALUES($1,$2,$3,'tess','Come over to my house for a movie night.',$4,$4),($5,$2,$3,'tess','I cannot host tonight.',$6,$6)",[id(),user,conv,new Date(at.getTime()-1000).toISOString(),id(),new Date(at.getTime()-500).toISOString()]);
-  expect((await calendarResidences(client(),user,at)).find(h=>h.key==='home:tess')?.canPlan).toBe(false);
+  expect((await calendarResidences(client(),user,at)).find(h=>h.key==='home:tess')?.canPlan).toBe(true);
 });

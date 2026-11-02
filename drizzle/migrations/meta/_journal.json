@@ -435,6 +435,13 @@
       "when": 1793581344597,
       "tag": "0061_performance_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793584517384,
+      "tag": "0062_unlock_all_residences",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+CREATE OR REPLACE FUNCTION public.housing_plan_venue_allowed(p_user uuid,p_place text,p_character text,p_at timestamptz) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$SELECT EXISTS(SELECT 1 FROM housing_residences r WHERE r.user_id=p_user AND r.place_key=p_place)$$;
