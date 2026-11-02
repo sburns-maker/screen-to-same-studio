@@ -91,3 +91,30 @@ export async function schedulePregnancyAppointment(
   if(result.error) throw new Error("Could not schedule pregnancy appointment");
   return {created:true};
 }
+
+/** Public-safe progress only for pregnancies already disclosed to the player.
+ * No hidden pregnancy or secret decision is exposed to client views.
+ */
+export async function disclosedPregnancyProgress(
+ db: SupabaseClient<Database>, userId:string, characterKey:string, now=new Date(),
+) {
+ const query=await db.from("family_pregnancy_events")
+  .select("id,disclosed_at,status").eq("user_id",userId)
+  .eq("character_key",characterKey).eq("status","positive").not("disclosed_at","is",null)
+  .lte("disclosed_at",now.toISOString());
+ if(query.error) throw new Error("Disclosed pregnancy lookup failed");
+ const results: Array<{pregnancyEventId:string;gestationalWeek:number;trimester:number;
+  dueAt:string;status:string;choice:string}> = [];
+ for(const event of query.data??[]) {
+  const lifecycleQuery=await db.from("family_pregnancy_lifecycles" as never)
+   .select("*").eq("pregnancy_event_id",event.id).eq("user_id",userId)
+   .eq("character_key",characterKey).maybeSingle();
+  if(lifecycleQuery.error) throw new Error("Pregnancy progress unavailable");
+  if(!lifecycleQuery.data) continue;
+  const life=lifecycleQuery.data as unknown as {started_at:string;status:string;choice:string};
+  const progress=pregnancyProgress(life.started_at,now);
+  results.push({pregnancyEventId:event.id,gestationalWeek:progress.gestationalWeek,
+   trimester:progress.trimester,dueAt:progress.dueAt,status:life.status,choice:life.choice});
+ }
+ return results;
+}
