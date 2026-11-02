@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRecordPregnancyChoice, canResolvePregnancy, duePregnancyMilestones, postpartumProgress, pregnancyProgress } from "./pregnancy-lifecycle";
+import { canRecordPregnancyChoice, canResolvePregnancy, characterPregnancySymptoms, pregnancySymptomOptions, duePregnancyMilestones, postpartumProgress, pregnancyProgress } from "./pregnancy-lifecycle";
 
 const start = "2026-11-01T19:00:00-05:00";
 const later = (days: number) => new Date(Date.parse(start) + days * 86400000);
@@ -31,6 +31,13 @@ describe("60-day pregnancy lifecycle", () => {
   expect(postpartumProgress(start,later(0)).stage).toBe("newborn");
   expect(postpartumProgress(start,later(31)).stage).toBe("infant");
   expect(postpartumProgress(start,later(92)).stage).toBe("toddler");
+ });
+
+ it("offers stage-specific symptoms without requiring any", () => {
+  expect(pregnancySymptomOptions(3)).toEqual([]);
+  expect(pregnancySymptomOptions(8)).toContain("nausea");
+  expect(pregnancySymptomOptions(34)).toContain("sleep_disruption");
+  expect(characterPregnancySymptoms(8,123)).toEqual(characterPregnancySymptoms(8,123));
  });
 
 });
