@@ -128,6 +128,7 @@ const deltaSchema = z.object({
 });
 
 import {housingActionsSchema,HOUSING_ACTION_RULES} from "./housing";
+import { fitPromptContext, type PromptBudget } from "./character-prompt-budget";
 import { commitmentActionSchema, COMMITMENT_ACTION_RULES } from "./relationship-commitments";
 import { weddingPlanActionSchema, WEDDING_PLAN_ACTION_RULES } from "./family-wedding-actions";
 import { encounterActionSchema, ENCOUNTER_ACTION_RULES } from "./family-encounter-actions";
@@ -256,7 +257,7 @@ export async function generateTessReply(args: {
     latestUser: latestUserForFocus, autonomous: !!args.initiation, reason: args.initiationReason, requiredFollowThrough: !!args.initiation?.intentionId,
   }) : null;
   const suggestedReason = focus ? focus.reason : args.initiationReason;
-  const context = `
+  const buildContext = (b: PromptBudget) => `
 CHARACTER BIBLE
 ${CHARACTER_BIBLE}
 
@@ -276,11 +277,11 @@ EXISTING PHOTOS SHE COULD SEND: ${args.photos.length ? args.photos.map((p) => `$
 NEW PHOTO TYPES SHE COULD TAKE RIGHT NOW: ${args.generateTypes.length ? args.generateTypes.join(", ") : "(none — no new photos)"}
 PHOTO FREQUENCY PREFERENCE: ${args.photoFrequency}
 HER RECENT PHOTO STYLES (avoid repeating the same combination unless the scene demands it): ${args.recentPhotoStyles?.length ? args.recentPhotoStyles.join(" | ") : "(none yet)"}
-LONG-TERM MEMORIES: ${args.memories.length ? boundedCharacterFacts(args.memories, 12000) : "(none yet)"}
-WHAT SHE KNOWS LATELY (her own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, 18000) : "(nothing new)"}
+LONG-TERM MEMORIES: ${args.memories.length ? boundedCharacterFacts(args.memories, b.memories) : "(none yet)"}
+WHAT SHE KNOWS LATELY (her own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, b.world) : "(nothing new)"}
 
 RECENT CONVERSATION
-${transcript(boundedRecentDialogue(args.messages), args.tz)}
+${transcript(boundedRecentDialogue(args.messages, b.dialogue, b.messages), args.tz)}
 `.trim();
 
   const task = args.initiation?.developerPhoto === "deliver"
@@ -317,7 +318,10 @@ ${EVENT_TAGS_LINE}`;
   const tessLines = args.messages.filter((m) => m.sender === "tess").map((m) => m.body ?? "");
   const lastUser = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = args.experience ? "" : topicGuidance(tessLines, args.initiation ? "" : lastUser);
-  const reply = await runStructured(replySchema, `${args.experience ? inPersonSystem(SYSTEM_CORE) : SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${weddingShowContext("tess", args.messages, now)}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${args.experience ? inPersonOutputRules("Tess", true) : rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const promptInstructions = `${args.experience ? inPersonSystem(SYSTEM_CORE) : SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${COMMITMENT_ACTION_RULES}\n${weddingShowContext("tess", args.messages, now)}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${args.experience ? inPersonOutputRules("Tess", true) : rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`;
+  const promptTail = `\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`;
+  const context = fitPromptContext(buildContext, promptInstructions.length + promptTail.length);
+  const reply = await runStructured(replySchema, promptInstructions, `${context}${promptTail}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = args.experience
     ? reply.messages.map((message) => message.trim()).filter(Boolean).slice(0, 2)
@@ -418,7 +422,7 @@ export async function generateContactReply(args: {
     latestUser: latestUserForFocus, autonomous: !!args.initiation, reason: args.initiationReason, requiredFollowThrough: !!args.initiation?.intentionId,
   }) : null;
   const suggestedReason = focus ? focus.reason : args.initiationReason;
-  const context = `
+  const buildContext = (b: PromptBudget) => `
 CHARACTER BIBLE
 ${c.bible}
 
@@ -431,11 +435,11 @@ NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "
 ${c.preferredName.toUpperCase()}'S LOCAL TIME (Eastern): ${charLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 ${c.preferredName.toUpperCase()} RIGHT NOW: ${args.availabilityDetail}
 WEATHER IN ${c.preferredName.toUpperCase()}'S AREA (ZIP ${c.zip}): ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F` : "(unknown — don't bring it up)"}
-LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
-WHAT ${c.preferredName.toUpperCase()} KNOWS LATELY (their own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, 18000) : "(nothing new)"}
+LONG-TERM MEMORIES: ${args.memories.length ? boundedCharacterFacts(args.memories, b.memories) : "(none yet)"}
+WHAT ${c.preferredName.toUpperCase()} KNOWS LATELY (their own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, b.world) : "(nothing new)"}
 
 RECENT CONVERSATION
-${transcript(boundedRecentDialogue(args.messages), args.tz, c.preferredName)}
+${transcript(boundedRecentDialogue(args.messages, b.dialogue, b.messages), args.tz, c.preferredName)}
 `.trim();
 
   const task = args.initiation?.developerPhoto === "deliver"
@@ -489,7 +493,10 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const lastUserText = [...args.messages].reverse().find((m) => m.sender === "user")?.body ?? "";
   const topics = args.experience ? "" : topicGuidance(ownLines, args.initiation ? "" : lastUserText, c.key);
   const breadth = LIFE_BREADTH[c.key] ? `\n- ${LIFE_BREADTH[c.key]}` : "";
-  const reply = await runStructured(replySchema, `${args.experience ? inPersonSystem(system) : system}\n${HOUSING_ACTION_RULES}\n${supportsRelationshipCommitment(c.key) ? COMMITMENT_ACTION_RULES : "- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this platonic contact."}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${characterInitiativeGuidance({key:c.key, channel: args.experience ? "experience" : "text", state:args.state, latestPlayerMessage:lastUserText, latestCharacterMessage:[...args.messages].reverse().find(m=>m.sender==="tess")?.body ?? "", turnCount:args.messages.length, availabilityDetail:args.availabilityDetail})}\n${weddingShowContext(c.key, args.messages, now)}\n${args.experience ? inPersonOutputRules(c.preferredName, c.romanticCapable) : rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`, `${context}\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  const promptInstructions = `${args.experience ? inPersonSystem(system) : system}\n${HOUSING_ACTION_RULES}\n${supportsRelationshipCommitment(c.key) ? COMMITMENT_ACTION_RULES : "- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this platonic contact."}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${characterInitiativeGuidance({key:c.key, channel: args.experience ? "experience" : "text", state:args.state, latestPlayerMessage:lastUserText, latestCharacterMessage:[...args.messages].reverse().find(m=>m.sender==="tess")?.body ?? "", turnCount:args.messages.length, availabilityDetail:args.availabilityDetail})}\n${weddingShowContext(c.key, args.messages, now)}\n${args.experience ? inPersonOutputRules(c.preferredName, c.romanticCapable) : rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`;
+  const promptTail = `\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`;
+  const context = fitPromptContext(buildContext, promptInstructions.length + promptTail.length);
+  const reply = await runStructured(replySchema, promptInstructions, `${context}${promptTail}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
   if (!supportsRelationshipCommitment(c.key)) reply.commitment_action = { action: null, kind: null, quote: null, proposalId: null };
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
