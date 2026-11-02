@@ -22,6 +22,22 @@ describe("memory recall", () => {
     const fact: MemoryRow = { summary: "he works nights", memory_type: "fact", importance: 2, created_at: daysAgo(90) };
     expect(recallMemories([...filler(60), fact], "hey", now)).toContain(fact);
   });
+  it("recalls a saved shared game-night experience when games come up again", () => {
+    const event: MemoryRow = {
+      summary: "Our board game date playing Ticket to Ride led to playful wrestling, mutual kissing and an intimate evening together",
+      memory_type: "relationship", importance: 5, created_at: daysAgo(12),
+    };
+    const out = recallMemories([...filler(70), event], "Want another board game night? Ticket to Ride rematch?", now);
+    expect(out).toContain(event);
+  });
+  it("does not force significant romantic memories into unrelated conversation", () => {
+    const event: MemoryRow = {
+      summary: "Our board game date became a romantic intimate evening",
+      memory_type: "relationship", importance: 5, created_at: daysAgo(90),
+    };
+    const out = recallMemories([...filler(70), event], "how is the equipment check going?", now);
+    expect(out).not.toContain(event);
+  });
   it("caps total recalled memories", () => {
     expect(recallMemories(filler(100), "hi", now).length).toBe(18);
   });
