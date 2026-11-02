@@ -124,7 +124,10 @@ it("never falls back to OpenAI for suggestive when the character has not opted i
 });
 it("keeps suggestive routing on SpicyAPI after the old credit verification expires", async () => {
   vi.stubEnv("SPICY_ACCOUNT_CREDITS_VERIFIED_AT", "2020-01-01T00:00:00Z");
-  const provider = await configuredPhotoProvider(client, "owner", "maya", "suggestive", normal);
+  const provider = await configuredPhotoProvider(
+    client, "owner", "maya", "suggestive", normal, "action", "conversation",
+    { scene: "private portrait", expression: null, type: "suggestive" },
+  );
   expect(provider.name).toBe("spicyapi");
   expect(normal.generate).not.toHaveBeenCalled();
 });
