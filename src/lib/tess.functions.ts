@@ -642,11 +642,22 @@ async function runTurnUnlocked(
   const pregnancyActionContext = pregnancyLifecycleIds.length
     ? [`Active canonical pregnancy lifecycle IDs: ${pregnancyLifecycleIds.join(", ")}. If you independently and unambiguously decide to continue the pregnancy, pursue abortion or adoption, or arrange a pregnancy appointment, you may set pregnancy_character_action with kind, lifecycleId, and exact quote from your own visible text. Leave null otherwise. Merely discussing a choice is not a commitment. No chat message alone establishes labor completion or childbirth.`]
     : [];
+  const pregnancyFamilyContext = configuredPhotoAdmin && def.age>=18
+    ? await (async()=>{try{
+       const {pregnancyMedicalContext,characterChildrenContext}=await import("./pregnancy-lifecycle.server");
+       const [pregnancies,children]=await Promise.all([
+          pregnancyMedicalContext(configuredPhotoAdmin,userId,def.key),
+          characterChildrenContext(configuredPhotoAdmin,userId,def.key)]);
+       return [
+         ...pregnancies.flatMap(p=>p.appointments.map(a=>`PRIVATE PREGNANCY APPOINTMENT: ${a.kind}, ${a.at}, status=${a.status}. A proposed visit is not a confirmed medical appointment. Respect the character's right to invite or not invite the player.`)),
+         ...children.map(ch=>`ESTABLISHED CHILD IN THIS CHARACTER'S WORLD: name=${ch.name??"not yet named"}, birth=${ch.bornAt}, stage=${ch.age.stage}. Never invent a newborn without a committed birth record.`)
+       ];
+      } catch{return [] as string[];}})() : [];
   const pendingWeddingIds = pendingWeddingPlans.map(p=>p.id);
   const weddingPlanContext = pendingWeddingPlans.map(p=>
     `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
   const generateReply = (extraChronology: string[] = []) => {
-    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyActionContext, ...worldKnowledge];
+    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyActionContext, ...pregnancyFamilyContext, ...worldKnowledge];
     return isTess
       ? generateTessReply({
           deliveryChannel: voice ? "voice" : "text",
