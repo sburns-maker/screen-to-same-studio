@@ -87,7 +87,7 @@ export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:stri
  if(conversationError || !conversation)return {disclosed:0};
  const {data:messages,error}=await db.from("messages").select("body,metadata,visible_at")
    .eq("user_id",userId).eq("conversation_id",conversation.id)
-   .eq("sender","tess").lte("visible_at",now.toISOString())
+   .eq("sender",characterKey).lte("visible_at",now.toISOString())
    .order("created_at",{ascending:false}).limit(100);
  if(error)throw new Error("Pregnancy disclosure messages unavailable");
  let disclosed=0;
