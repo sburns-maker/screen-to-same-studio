@@ -84,11 +84,11 @@ export async function schedulePregnancyAppointment(
   const lifecycle=query.data as unknown as {id:string;status:string}|null;
   if(query.error || !lifecycle || lifecycle.status!=="pregnant")
     throw new Error("Active pregnancy required for appointment");
-  const result=await db.from("family_pregnancy_appointments" as never).insert({
+  const result=await db.from("family_pregnancy_appointments" as never).upsert({
     lifecycle_id:args.lifecycleId,kind:args.kind,scheduled_at:args.at.toISOString(),
     status:"proposed",calendar_event_id:args.calendarEventId??null,created_by:"character",
     source_message_id:args.sourceMessageId??null,
-  } as never);
+  } as never,{onConflict:"lifecycle_id,source_message_id",ignoreDuplicates:true});
   if(result.error) throw new Error("Could not schedule pregnancy appointment");
   return {created:true};
 }
