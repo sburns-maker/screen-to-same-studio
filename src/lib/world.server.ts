@@ -392,7 +392,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
       // No AI, no public pregnancy disclosure, and no outcome rerolls.
       try {
         const { syncPregnancyLifecycles } = await import("./pregnancy-lifecycle.server");
-        const keys = [...new Set(convs.map((conv) => String(conv.character_key ?? "")).filter(Boolean))];
+        const keys = [...new Set(convs.map((conv) => String((conv.character as {key?:string}|null)?.key ?? "")).filter(Boolean))];
         for (const key of keys) {
           await syncPregnancyLifecycles(admin, userId, key, now);
         }
