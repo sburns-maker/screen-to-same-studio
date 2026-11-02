@@ -124,6 +124,8 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   const { familyCommitmentStatus } = await import("./family-life");
   const commitment = commitments.available ? familyCommitmentStatus(commitments.events) : null;
   await settleDuePregnancyEvents(db, userId, characterKey, now);
+  try { const { syncPregnancyLifecycles } = await import("./pregnancy-lifecycle.server"); await syncPregnancyLifecycles(db, userId, characterKey, now); }
+  catch (error) { console.warn("[family-life] pregnancy lifecycle sync deferred", error); }
   try{await reconcileVisiblePregnancyDisclosures(db,userId,characterKey,now);}
   catch(error){console.warn("[family-life] disclosure reconciliation deferred",error);}
   const [houses, pregnancies] = await Promise.all([
