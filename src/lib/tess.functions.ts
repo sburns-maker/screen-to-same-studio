@@ -631,7 +631,7 @@ async function runTurnUnlocked(
     ? await (async () => { try {
         const {disclosedPregnancyProgress}=await import("./pregnancy-lifecycle.server");
         const states=await disclosedPregnancyProgress(configuredPhotoAdmin,userId,def.key);
-        return states.map(p=>`FICTIONAL PREGNANCY CANON (ALREADY DISCLOSED): gestational week ${p.gestationalWeek}, trimester ${p.trimester}, due date ${p.dueAt}, lifecycle status ${p.status}. The 60-day timeline progresses while offline. Respect personal autonomy, routine life, and existing appointments. Never imply birth has occurred merely because the due date passed.`);
+        return states.map(p=>`FICTIONAL PREGNANCY CANON (ALREADY DISCLOSED): gestational week ${p.gestationalWeek}, trimester ${p.trimester}, due date ${p.dueAt}, lifecycle status ${p.status}. The 60-day timeline progresses while offline. Possible symptoms may vary; do not assert any symptom as a fact without established scene evidence. Respect personal autonomy, routine life, and existing appointments. Never imply birth has occurred merely because the due date passed.`);
       } catch { return [] as string[]; } })() : [];
   const pendingWeddingIds = pendingWeddingPlans.map(p=>p.id);
   const weddingPlanContext = pendingWeddingPlans.map(p=>
