@@ -56,3 +56,39 @@ ALTER TABLE public.family_children ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.family_pregnancy_lifecycles, public.family_pregnancy_milestones,
   public.family_pregnancy_appointments, public.family_children FROM anon, authenticated;
 -- Existing pregnancy events are intentionally not modified or backfilled by migration.
+
+-- Stable provenance and appointment deduplication.
+ALTER TABLE public.family_pregnancy_lifecycles ADD COLUMN IF NOT EXISTS resolution_source_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS family_pregnancy_appointment_calendar_unique
+  ON public.family_pregnancy_appointments(lifecycle_id,calendar_event_id)
+  WHERE calendar_event_id IS NOT NULL;
+
+-- One transaction for birth and child creation; may only be called by a privileged server.
+CREATE OR REPLACE FUNCTION public.finalize_family_pregnancy(
+ p_user_id uuid, p_character_key text, p_lifecycle_id uuid,
+ p_outcome text, p_source_id text, p_occurred_at timestamptz,
+ p_child_name text DEFAULT NULL
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE changed_id uuid;
+BEGIN
+ IF p_outcome NOT IN ('ended_birth','ended_abortion','ended_miscarriage')
+    OR p_source_id IS NULL OR length(trim(p_source_id))=0
+    OR p_occurred_at IS NULL THEN
+   RAISE EXCEPTION 'Invalid verified outcome';
+ END IF;
+ UPDATE public.family_pregnancy_lifecycles
+ SET status=p_outcome, completed_at=p_occurred_at, resolution_source_id=p_source_id
+ WHERE id=p_lifecycle_id AND user_id=p_user_id
+   AND character_key=p_character_key AND status='pregnant'
+ RETURNING id INTO changed_id;
+ IF changed_id IS NULL THEN RETURN false; END IF;
+ IF p_outcome='ended_birth' THEN
+  INSERT INTO public.family_children(lifecycle_id,user_id,parent_character_key,born_at,name)
+  VALUES (changed_id,p_user_id,p_character_key,p_occurred_at,p_child_name)
+  ON CONFLICT (lifecycle_id) DO NOTHING;
+ END IF;
+ RETURN true;
+END $$;
+REVOKE ALL ON FUNCTION public.finalize_family_pregnancy(uuid,text,uuid,text,text,timestamptz,text) FROM PUBLIC, anon, authenticated;
