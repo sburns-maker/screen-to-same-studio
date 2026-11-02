@@ -162,7 +162,7 @@ export async function reconcileCharacterPregnancyActions(
  const {data:lifecycles,error:lifeError}=await db.from("family_pregnancy_lifecycles" as never)
   .select("id,status").eq("user_id",userId).eq("character_key",characterKey).eq("status","pregnant");
  if(lifeError) throw new Error("Pregnancy action lifecycle lookup failed");
- const eligible=(lifecycles??[] as unknown as Array<{id:string}>).map(row=>row.id);
+ const eligible=((lifecycles??[]) as unknown as Array<{id:string}>).map(row=>row.id);
  let processed=0;
  for(const message of [...(rows??[])].reverse()) {
   const md=message.metadata;
