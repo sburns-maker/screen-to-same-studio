@@ -124,8 +124,16 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
   const { familyCommitmentStatus } = await import("./family-life");
   const commitment = commitments.available ? familyCommitmentStatus(commitments.events) : null;
   await settleDuePregnancyEvents(db, userId, characterKey, now);
+  try { const { syncPregnancyLifecycles } = await import("./pregnancy-lifecycle.server"); await syncPregnancyLifecycles(db, userId, characterKey, now); }
+  catch (error) { console.warn("[family-life] pregnancy lifecycle sync deferred", error); }
   try{await reconcileVisiblePregnancyDisclosures(db,userId,characterKey,now);}
   catch(error){console.warn("[family-life] disclosure reconciliation deferred",error);}
+  try { const {reconcileCharacterPregnancyActions}=await import("./pregnancy-lifecycle.server");
+    await reconcileCharacterPregnancyActions(db,userId,characterKey,now);
+  } catch(error) {console.warn("[family-life] pregnancy actions reconciliation deferred",error);}
+  let lifecycleProgress: Array<{pregnancyEventId:string;gestationalWeek:number;trimester:number;dueAt:string;status:string}> = [];
+  try { const {disclosedPregnancyProgress}=await import("./pregnancy-lifecycle.server"); lifecycleProgress=await disclosedPregnancyProgress(db,userId,characterKey,now); }
+  catch(error) { console.warn("[family-life] lifecycle progress unavailable",error); }
   const [houses, pregnancies] = await Promise.all([
     db.from("family_household_events").select("*").eq("user_id", userId)
       .eq("character_key", characterKey).order("occurred_at", { ascending: true }).limit(200),
@@ -148,6 +156,7 @@ export async function familySnapshot(db: Client, userId: string, characterKey: s
     household: resolveHouseholdStatus(home),
     commitment,
     pregnancies: events.map(e => publicPregnancy(e, now)),
+    lifecycleProgress,
   };
 }
 

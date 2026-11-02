@@ -216,6 +216,7 @@ describe("correlated structured provider diagnostics", () => {
       wedding_plan_action: null,
       encounter_action: null,
       pregnancy_disclosure_action: null,
+      pregnancy_character_action: null,
       schedule_actions: null,
       continuity: null,
       messages: ["Yes, let's continue the afternoon there."],

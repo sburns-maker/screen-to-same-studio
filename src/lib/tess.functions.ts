@@ -627,11 +627,37 @@ async function runTurnUnlocked(
   const duePregnancyIds=duePregnancyResults.map(e=>e.id);
   const pregnancyResultContext=duePregnancyResults.map(e=>
     `PRIVATE CHARACTER KNOWLEDGE ONLY (FICTIONAL): Due pregnancy event ${e.id} has outcome ${e.status}. The player does NOT know yet. You may decide independently when to share it in a visible message. If you do, use pregnancy_disclosure_action with this exact eventId and a contiguous quote from your own words. Never disclose the probability or secret random roll.`);
+  const pregnancyLifecycleContext = configuredPhotoAdmin && def.romanticCapable && def.age >= 18
+    ? await (async () => { try {
+        const {disclosedPregnancyProgress}=await import("./pregnancy-lifecycle.server");
+        const states=await disclosedPregnancyProgress(configuredPhotoAdmin,userId,def.key);
+        return states.map(p=>`FICTIONAL PREGNANCY CANON (ALREADY DISCLOSED): gestational week ${p.gestationalWeek}, trimester ${p.trimester}, due date ${p.dueAt}, lifecycle status ${p.status}. The 60-day timeline progresses while offline. Possible symptoms may vary; do not assert any symptom as a fact without established scene evidence. Respect personal autonomy, routine life, and existing appointments. Never imply birth has occurred merely because the due date passed.`);
+      } catch { return [] as string[]; } })() : [];
+  const pregnancyLifecycleIds = configuredPhotoAdmin
+    ? await (async () => {try {
+        const {data}=await configuredPhotoAdmin.from("family_pregnancy_lifecycles" as never)
+          .select("id").eq("user_id",userId).eq("character_key",def.key).eq("status","pregnant");
+        return ((data??[]) as unknown as Array<{id:string}>).map(x=>x.id);
+      } catch {return [] as string[];}})() : [];
+  const pregnancyActionContext = pregnancyLifecycleIds.length
+    ? [`Active canonical pregnancy lifecycle IDs: ${pregnancyLifecycleIds.join(", ")}. If you independently and unambiguously decide to continue the pregnancy, pursue abortion or adoption, or arrange a pregnancy appointment, you may set pregnancy_character_action with kind, lifecycleId, and exact quote from your own visible text. Leave null otherwise. Merely discussing a choice is not a commitment. No chat message alone establishes labor completion or childbirth.`]
+    : [];
+  const pregnancyFamilyContext = configuredPhotoAdmin && def.age>=18
+    ? await (async()=>{try{
+       const {pregnancyMedicalContext,characterChildrenContext}=await import("./pregnancy-lifecycle.server");
+       const [pregnancies,children]=await Promise.all([
+          pregnancyMedicalContext(configuredPhotoAdmin,userId,def.key),
+          characterChildrenContext(configuredPhotoAdmin,userId,def.key)]);
+       return [
+         ...pregnancies.flatMap(p=>p.appointments.map(a=>`PRIVATE PREGNANCY APPOINTMENT: ${a.kind}, ${a.at}, status=${a.status}. A proposed visit is not a confirmed medical appointment. Respect the character's right to invite or not invite the player.`)),
+         ...children.map(ch=>`ESTABLISHED CHILD IN THIS CHARACTER'S WORLD: name=${ch.name??"not yet named"}, birth=${ch.bornAt}, stage=${ch.age.stage}. Never invent a newborn without a committed birth record.`)
+       ];
+      } catch{return [] as string[];}})() : [];
   const pendingWeddingIds = pendingWeddingPlans.map(p=>p.id);
   const weddingPlanContext = pendingWeddingPlans.map(p=>
     `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
   const generateReply = (extraChronology: string[] = []) => {
-    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...worldKnowledge];
+    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyActionContext, ...pregnancyFamilyContext, ...worldKnowledge];
     return isTess
       ? generateTessReply({
           deliveryChannel: voice ? "voice" : "text",
@@ -866,6 +892,7 @@ async function runTurnUnlocked(
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         ...(i === 0 && supportsRelationshipCommitment(def.key) && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         ...(i === 0 && reply.wedding_plan_action?.action && reply.wedding_plan_action.planId && reply.wedding_plan_action.quote && pendingWeddingIds.includes(reply.wedding_plan_action.planId) && body.includes(reply.wedding_plan_action.quote) ? { wedding_plan_action: reply.wedding_plan_action } : {}),
+        ...(i === 0 && reply.pregnancy_character_action?.lifecycleId && pregnancyLifecycleIds.includes(reply.pregnancy_character_action.lifecycleId) && reply.pregnancy_character_action.quote && body.includes(reply.pregnancy_character_action.quote) ? { pregnancy_character_action: reply.pregnancy_character_action } : {}),
         ...(i === 0 && reply.pregnancy_disclosure_action?.eventId && reply.pregnancy_disclosure_action.quote && duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId) && body.includes(reply.pregnancy_disclosure_action.quote) ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
