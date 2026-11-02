@@ -63,3 +63,22 @@ export function canRecordPregnancyChoice(
 ) {
   return characterAuthorized && current !== next;
 }
+
+/** Final outcomes are explicit persisted events, never inferred from clock expiry. */
+export type PregnancyResolution = "ended_birth" | "ended_abortion" | "ended_miscarriage";
+export function canResolvePregnancy(
+  currentStatus: z.infer<typeof pregnancyLifecycleStatusSchema>,
+  outcome: PregnancyResolution,
+  characterOrMedicalEventVerified: boolean,
+) {
+  return currentStatus === "pregnant" && characterOrMedicalEventVerified &&
+    ["ended_birth","ended_abortion","ended_miscarriage"].includes(outcome);
+}
+
+export function postpartumProgress(bornAt: string, at: Date) {
+  const born = Date.parse(bornAt);
+  if (!Number.isFinite(born)) throw new Error("Invalid birth timestamp");
+  const days = Math.max(0, (at.getTime()-born)/DAY_MS);
+  return {days, stage: days < 30 ? "newborn" as const :
+    days < 90 ? "infant" as const : days < 180 ? "toddler" as const : "child" as const};
+}
