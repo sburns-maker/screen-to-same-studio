@@ -892,7 +892,6 @@ async function runTurnUnlocked(
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         ...(i === 0 && supportsRelationshipCommitment(def.key) && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         ...(i === 0 && reply.wedding_plan_action?.action && reply.wedding_plan_action.planId && reply.wedding_plan_action.quote && pendingWeddingIds.includes(reply.wedding_plan_action.planId) && body.includes(reply.wedding_plan_action.quote) ? { wedding_plan_action: reply.wedding_plan_action } : {}),
-        ...(i === 0 && reply.pregnancy_character_action?.lifecycleId && pregnancyLifecycleIds.includes(reply.pregnancy_character_action.lifecycleId) && reply.pregnancy_character_action.quote && body.includes(reply.pregnancy_character_action.quote) ? { pregnancy_character_action: reply.pregnancy_character_action } : {}),
         ...(i === 0 && reply.pregnancy_disclosure_action?.eventId && reply.pregnancy_disclosure_action.quote && duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId) && body.includes(reply.pregnancy_disclosure_action.quote) ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
