@@ -199,14 +199,14 @@ export async function pregnancyMedicalContext(
   .select("*").eq("user_id",userId).eq("character_key",characterKey)
   .eq("status","pregnant").limit(5);
  if(query.error) throw new Error("Pregnancy medical context unavailable");
- const result:Array<{lifecycleId:string;gestationalWeek:number;appointments:Array<{kind:string;at:string;status:string}>}>=[];
- for(const life of (query.data??[]) as unknown as Array<{id:string;started_at:string}>) {
+ const result:Array<{lifecycleId:string;gestationalWeek:number;choice:string;appointments:Array<{kind:string;at:string;status:string}>}>=[];
+ for(const life of (query.data??[]) as unknown as Array<{id:string;started_at:string;choice:string}>) {
   const appointments=await db.from("family_pregnancy_appointments" as never)
    .select("kind,scheduled_at,status").eq("lifecycle_id",life.id)
    .gte("scheduled_at",new Date(now.getTime()-7*86400000).toISOString())
    .order("scheduled_at",{ascending:true}).limit(20);
   if(appointments.error)throw new Error("Pregnancy appointments unavailable");
-  result.push({lifecycleId:life.id,
+  result.push({lifecycleId:life.id,choice:life.choice,
    gestationalWeek:pregnancyProgress(life.started_at,now).gestationalWeek,
    appointments:((appointments.data??[]) as unknown as Array<{kind:string;scheduled_at:string;status:string}>)
     .map(a=>({kind:a.kind,at:a.scheduled_at,status:a.status}))});
