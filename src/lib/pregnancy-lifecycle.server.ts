@@ -104,17 +104,17 @@ export async function disclosedPregnancyProgress(
   .lte("disclosed_at",now.toISOString());
  if(query.error) throw new Error("Disclosed pregnancy lookup failed");
  const results: Array<{pregnancyEventId:string;gestationalWeek:number;trimester:number;
-  dueAt:string;status:string;choice:string}> = [];
+  dueAt:string;status:string}> = [];
  for(const event of query.data??[]) {
   const lifecycleQuery=await db.from("family_pregnancy_lifecycles" as never)
    .select("*").eq("pregnancy_event_id",event.id).eq("user_id",userId)
    .eq("character_key",characterKey).maybeSingle();
   if(lifecycleQuery.error) throw new Error("Pregnancy progress unavailable");
   if(!lifecycleQuery.data) continue;
-  const life=lifecycleQuery.data as unknown as {started_at:string;status:string;choice:string};
+  const life=lifecycleQuery.data as unknown as {started_at:string;status:string};
   const progress=pregnancyProgress(life.started_at,now);
   results.push({pregnancyEventId:event.id,gestationalWeek:progress.gestationalWeek,
-   trimester:progress.trimester,dueAt:progress.dueAt,status:life.status,choice:life.choice});
+   trimester:progress.trimester,dueAt:progress.dueAt,status:life.status});
  }
  return results;
 }
