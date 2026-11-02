@@ -26,7 +26,6 @@ beforeEach(() => {
   for (const [k, v] of Object.entries({
     SPICY_ENABLED: "true",
     SPICY_API_KEY: "test",
-    SPICY_ACCOUNT_CREDITS_VERIFIED_AT: new Date().toISOString(),
     SPICY_JOB_RESERVATION_CENTS: "10",
     SPICY_DAILY_BUDGET_CENTS: "100",
     SPICY_MONTHLY_BUDGET_CENTS: "1000",
@@ -123,10 +122,10 @@ it("never falls back to OpenAI for suggestive when the character has not opted i
   expect(mocks.refs).not.toHaveBeenCalled();
   expect(normal.generate).not.toHaveBeenCalled();
 });
-it("never falls back to OpenAI for suggestive when SpicyAPI credits are unverified", async () => {
+it("keeps suggestive routing on SpicyAPI after the old credit verification expires", async () => {
   vi.stubEnv("SPICY_ACCOUNT_CREDITS_VERIFIED_AT", "2020-01-01T00:00:00Z");
-  await expect(configuredPhotoProvider(client, "owner", "maya", "suggestive", normal))
-    .rejects.toThrow("Verify usable SpicyAPI account credit");
+  const provider = await configuredPhotoProvider(client, "owner", "maya", "suggestive", normal);
+  expect(provider.name).toBe("spicyapi");
   expect(normal.generate).not.toHaveBeenCalled();
 });
 it("normal photos and a disabled provider keep OpenAI without old API18 calls", async () => {

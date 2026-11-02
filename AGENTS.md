@@ -10,6 +10,7 @@
 <!-- LOVABLE:END -->
 
 ## Tess app
+- SpicyAPI readiness must not depend on a recurring account-credit verification timestamp; provider authentication, per-request quotes and durable budget reservations remain enforced to avoid daily manual renewal without removing spending safeguards.
 - SpicyAPI quote IDs are bounded opaque provider tokens preserved verbatim through reservation and submission; never assume short identifier syntax or decode signed tokens, because valid quotes may be long and dot-delimited.
 - Voice creation, Studio selectors, scripted auditions and live-call voice assignment use the shared voice-design cast allowlist, so new contacts cannot silently disappear from sibling voice paths; presets are exhaustive over that cast.
 - Successful direct text-AI calls reconcile conservative in-flight reservations to reported token usage in the same window; failed or unknown usage remains reserved. Living Experience failure logs use allowlisted reasons and phase/operation IDs, never transcript or raw provider errors, so diagnosis does not expose private context.
