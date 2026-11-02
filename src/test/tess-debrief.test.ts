@@ -37,6 +37,7 @@ describe("reply schema memory layers", () => {
       encounter_action: null,
       pregnancy_disclosure_action: null,
       pregnancy_character_action: null,
+      pregnancy_character_action: null,
       messages: ["hi"],
       send_delay_seconds: 10,
       state_delta: Object.fromEntries(
