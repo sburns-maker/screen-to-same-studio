@@ -785,6 +785,44 @@ export type Database = {
         }
         Relationships: []
       }
+      family_children: {
+        Row: {
+          born_at: string
+          created_at: string
+          id: string
+          lifecycle_id: string
+          name: string | null
+          parent_character_key: string
+          user_id: string
+        }
+        Insert: {
+          born_at: string
+          created_at?: string
+          id?: string
+          lifecycle_id: string
+          name?: string | null
+          parent_character_key: string
+          user_id: string
+        }
+        Update: {
+          born_at?: string
+          created_at?: string
+          id?: string
+          lifecycle_id?: string
+          name?: string | null
+          parent_character_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_children_lifecycle_id_fkey"
+            columns: ["lifecycle_id"]
+            isOneToOne: true
+            referencedRelation: "family_pregnancy_lifecycles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       family_household_events: {
         Row: {
           character_key: string
@@ -820,6 +858,53 @@ export type Database = {
           user_response?: string
         }
         Relationships: []
+      }
+      family_pregnancy_appointments: {
+        Row: {
+          calendar_event_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          lifecycle_id: string
+          notes: string | null
+          scheduled_at: string
+          source_message_id: string | null
+          status: string
+        }
+        Insert: {
+          calendar_event_id?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          kind: string
+          lifecycle_id: string
+          notes?: string | null
+          scheduled_at: string
+          source_message_id?: string | null
+          status?: string
+        }
+        Update: {
+          calendar_event_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          lifecycle_id?: string
+          notes?: string | null
+          scheduled_at?: string
+          source_message_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_pregnancy_appointments_lifecycle_id_fkey"
+            columns: ["lifecycle_id"]
+            isOneToOne: false
+            referencedRelation: "family_pregnancy_lifecycles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       family_pregnancy_events: {
         Row: {
@@ -868,6 +953,88 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      family_pregnancy_lifecycles: {
+        Row: {
+          character_key: string
+          choice: string
+          choice_at: string | null
+          completed_at: string | null
+          id: string
+          pregnancy_event_id: string
+          resolution_source_id: string | null
+          started_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          character_key: string
+          choice?: string
+          choice_at?: string | null
+          completed_at?: string | null
+          id?: string
+          pregnancy_event_id: string
+          resolution_source_id?: string | null
+          started_at: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          character_key?: string
+          choice?: string
+          choice_at?: string | null
+          completed_at?: string | null
+          id?: string
+          pregnancy_event_id?: string
+          resolution_source_id?: string | null
+          started_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_pregnancy_lifecycles_pregnancy_event_id_fkey"
+            columns: ["pregnancy_event_id"]
+            isOneToOne: true
+            referencedRelation: "family_pregnancy_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      family_pregnancy_milestones: {
+        Row: {
+          completed_at: string | null
+          due_at: string
+          id: string
+          key: string
+          lifecycle_id: string
+          notes: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          due_at: string
+          id?: string
+          key: string
+          lifecycle_id: string
+          notes?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          due_at?: string
+          id?: string
+          key?: string
+          lifecycle_id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_pregnancy_milestones_lifecycle_id_fkey"
+            columns: ["lifecycle_id"]
+            isOneToOne: false
+            referencedRelation: "family_pregnancy_lifecycles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       family_wedding_plans: {
         Row: {
@@ -3817,6 +3984,18 @@ export type Database = {
         Returns: number
       }
       experience_status: { Args: never; Returns: number }
+      finalize_family_pregnancy: {
+        Args: {
+          p_character_key: string
+          p_child_name?: string
+          p_lifecycle_id: string
+          p_occurred_at: string
+          p_outcome: string
+          p_source_id: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       finalize_game_match: {
         Args: { p_id: string; p_summary: string; p_user_id: string }
         Returns: undefined
