@@ -633,17 +633,19 @@ async function runTurnUnlocked(
         const states=await disclosedPregnancyProgress(configuredPhotoAdmin,userId,def.key);
         return states.map(p=>`FICTIONAL PREGNANCY CANON (ALREADY DISCLOSED): gestational week ${p.gestationalWeek}, trimester ${p.trimester}, due date ${p.dueAt}, lifecycle status ${p.status}. The 60-day timeline progresses while offline. Possible symptoms may vary; do not assert any symptom as a fact without established scene evidence. Respect personal autonomy, routine life, and existing appointments. Never imply birth has occurred merely because the due date passed.`);
       } catch { return [] as string[]; } })() : [];
-  const pregnancyFamilyContext = configuredPhotoAdmin && def.age>=18
+  const pregnancyFamilyData = configuredPhotoAdmin && def.age>=18
     ? await (async()=>{try{
        const {pregnancyMedicalContext,characterChildrenContext}=await import("./pregnancy-lifecycle.server");
        const [pregnancies,children]=await Promise.all([
           pregnancyMedicalContext(configuredPhotoAdmin,userId,def.key),
           characterChildrenContext(configuredPhotoAdmin,userId,def.key)]);
-       return [
-         ...pregnancies.flatMap(p=>p.appointments.map(a=>`PRIVATE PREGNANCY APPOINTMENT: ${a.kind}, ${a.at}, status=${a.status}. A proposed visit is not a confirmed medical appointment. Respect the character's right to invite or not invite the player.`)),
+       return {ids:pregnancies.map(p=>p.lifecycleId),lines:[
+         ...pregnancies.flatMap(p=>[`PRIVATE ACTIVE PREGNANCY LIFECYCLE: lifecycleId=${p.lifecycleId}, gestational week ${p.gestationalWeek}, recorded choice ${p.choice}. If you independently decide, you may propose a medical appointment or make a clear decision; remaining undecided is allowed. When ready, initiate a concrete next step rather than repeat reassurance. Never invent a confirmed booking or a medical result.`,...p.appointments.map(a=>`PRIVATE PREGNANCY APPOINTMENT: ${a.kind}, ${a.at}, status=${a.status}. A proposed visit is not a confirmed medical appointment. Respect the character's right to invite or not invite the player.`)]),
          ...children.map(ch=>`ESTABLISHED CHILD IN THIS CHARACTER'S WORLD: name=${ch.name??"not yet named"}, birth=${ch.bornAt}, stage=${ch.age.stage}. Never invent a newborn without a committed birth record.`)
-       ];
-      } catch{return [] as string[];}})() : [];
+       ]};
+      } catch{return {ids:[] as string[],lines:[] as string[]};}})() : {ids:[] as string[],lines:[] as string[]};
+  const pregnancyLifecycleIds = pregnancyFamilyData.ids;
+  const pregnancyFamilyContext = pregnancyFamilyData.lines;
   const pendingWeddingIds = pendingWeddingPlans.map(p=>p.id);
   const weddingPlanContext = pendingWeddingPlans.map(p=>
     `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
@@ -883,6 +885,7 @@ async function runTurnUnlocked(
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         ...(i === 0 && supportsRelationshipCommitment(def.key) && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         ...(i === 0 && reply.wedding_plan_action?.action && reply.wedding_plan_action.planId && reply.wedding_plan_action.quote && pendingWeddingIds.includes(reply.wedding_plan_action.planId) && body.includes(reply.wedding_plan_action.quote) ? { wedding_plan_action: reply.wedding_plan_action } : {}),
+        ...(i === 0 && reply.pregnancy_character_action?.quote && pregnancyLifecycleIds.includes(reply.pregnancy_character_action.lifecycleId) && body.includes(reply.pregnancy_character_action.quote) ? {pregnancy_character_action:reply.pregnancy_character_action} : {}),
         ...(i === 0 && reply.pregnancy_disclosure_action?.eventId && reply.pregnancy_disclosure_action.quote && duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId) && body.includes(reply.pregnancy_disclosure_action.quote) ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
