@@ -133,12 +133,14 @@ import { commitmentActionSchema, COMMITMENT_ACTION_RULES } from "./relationship-
 import { weddingPlanActionSchema, WEDDING_PLAN_ACTION_RULES } from "./family-wedding-actions";
 import { encounterActionSchema, ENCOUNTER_ACTION_RULES } from "./family-encounter-actions";
 import { pregnancyDisclosureActionSchema, PREGNANCY_DISCLOSURE_RULES } from "./family-pregnancy-disclosure";
+import { pregnancyCharacterActionSchema } from "./pregnancy-character-actions";
 export const replySchema = z.object({
   housing_actions: housingActionsSchema,
   commitment_action: commitmentActionSchema,
   wedding_plan_action: weddingPlanActionSchema.nullable(),
   encounter_action: encounterActionSchema.nullable(),
   pregnancy_disclosure_action: pregnancyDisclosureActionSchema.nullable(),
+  pregnancy_character_action: pregnancyCharacterActionSchema.optional(),
   schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
