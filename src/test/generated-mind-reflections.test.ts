@@ -41,7 +41,10 @@ describe("Mind shows only actually authored character perspectives as thoughts",
     expect(segment).toContain('.eq("user_id", userId).eq("conversation_id", conv.id)');
     expect(segment).toContain('.not("character_perspective", "is", null)');
     expect(segment).toContain('order("evaluated_at", { ascending: false })');
-    expect(segment).toContain('const mindReflection = latestReflection');
+    expect(segment).toContain("const mindReflection = messageReflection");
+    expect(segment).toContain("const ledgerReflection = latestReflection");
+    expect(segment).toContain('["character_perspective"]');
+    expect(backend).toContain("character_perspective: reply.character_perspective.trim().slice(0, 700)");
     expect(segment).not.toContain("generateText(");
   });
 
