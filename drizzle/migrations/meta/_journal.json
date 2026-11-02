@@ -428,6 +428,13 @@
       "when": 1793562783227,
       "tag": "0060_scene_activity_sitting",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793581344597,
+      "tag": "0061_performance_indexes",
+      "breakpoints": true
     }
   ]
 }
