@@ -435,7 +435,7 @@ NOW (his local time): ${local.toLocaleString("en-US", { weekday: "long", hour: "
 ${c.preferredName.toUpperCase()}'S LOCAL TIME (Eastern): ${charLocal.toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit" })}
 ${c.preferredName.toUpperCase()} RIGHT NOW: ${args.availabilityDetail}
 WEATHER IN ${c.preferredName.toUpperCase()}'S AREA (ZIP ${c.zip}): ${args.weather ? `${args.weather.condition}, ${args.weather.temperature_f}°F` : "(unknown — don't bring it up)"}
-LONG-TERM MEMORIES: ${args.memories.length ? args.memories.join(" | ") : "(none yet)"}
+LONG-TERM MEMORIES: ${args.memories.length ? boundedCharacterFacts(args.memories, b.memories) : "(none yet)"}
 WHAT ${c.preferredName.toUpperCase()} KNOWS LATELY (their own life and social circle): ${args.worldKnowledge?.length ? boundedCharacterFacts(args.worldKnowledge, b.world) : "(nothing new)"}
 
 RECENT CONVERSATION

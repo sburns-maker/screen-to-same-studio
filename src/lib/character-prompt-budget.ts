@@ -34,3 +34,20 @@ export function boundedRecentDialogue<T extends { body: string }>(
   }
   return kept;
 }
+
+export type PromptBudget = { dialogue: number; messages: number; memories: number; world: number };
+/** Progressively smaller prompt-only windows; the saved thread and memory bank are untouched. */
+export const PROMPT_BUDGETS: readonly PromptBudget[] = [
+  { dialogue: 24000, messages: 26, memories: 12000, world: 18000 },
+  { dialogue: 14000, messages: 18, memories: 9000, world: 12000 },
+  { dialogue: 8000, messages: 12, memories: 7000, world: 8000 },
+  { dialogue: 4000, messages: 8, memories: 5000, world: 5000 },
+];
+/** Pick the largest context that keeps the whole request under the provider ceiling. */
+export function fitPromptContext(build: (b: PromptBudget) => string, otherCharacters: number, limit = 96_000): string {
+  for (const b of PROMPT_BUDGETS) {
+    const text = build(b);
+    if (text.length + otherCharacters <= limit) return text;
+  }
+  return build(PROMPT_BUDGETS[PROMPT_BUDGETS.length - 1]!);
+}
