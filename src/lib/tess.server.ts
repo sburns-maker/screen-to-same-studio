@@ -140,7 +140,7 @@ export const replySchema = z.object({
   wedding_plan_action: weddingPlanActionSchema.nullable(),
   encounter_action: encounterActionSchema.nullable(),
   pregnancy_disclosure_action: pregnancyDisclosureActionSchema.nullable(),
-  pregnancy_character_action: pregnancyCharacterActionSchema.optional(),
+  pregnancy_character_action: pregnancyCharacterActionSchema,
   schedule_actions: scheduleActionsSchema,
   continuity: continuitySchema.nullable(),
   messages: z.array(z.string()),
