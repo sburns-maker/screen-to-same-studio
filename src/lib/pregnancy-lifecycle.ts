@@ -82,3 +82,25 @@ export function postpartumProgress(bornAt: string, at: Date) {
   return {days, stage: days < 30 ? "newborn" as const :
     days < 90 ? "infant" as const : days < 180 ? "toddler" as const : "child" as const};
 }
+
+/** Deterministic fictional symptom tendencies. These are narrative options,
+ * not diagnoses, mandatory symptoms or independently generated medical records.
+ * Stable per-character seed avoids flickering symptoms on every world tick.
+ */
+export type PregnancySymptom = "fatigue"|"nausea"|"food_aversion"|"appetite_change"|"back_discomfort"|"sleep_disruption";
+export function pregnancySymptomOptions(gestationalWeek:number): PregnancySymptom[] {
+ if(gestationalWeek < 4) return [];
+ if(gestationalWeek < 14) return ["fatigue","nausea","food_aversion"];
+ if(gestationalWeek < 28) return ["appetite_change","fatigue"];
+ return ["back_discomfort","sleep_disruption","fatigue"];
+}
+export function characterPregnancySymptoms(
+ gestationalWeek:number, stableSeed:number,
+): PregnancySymptom[] {
+ if(!Number.isFinite(stableSeed)) return [];
+ const options=pregnancySymptomOptions(gestationalWeek);
+ return options.filter((_,index)=> {
+  const value=Math.abs(Math.sin(stableSeed*17.17+(index+1)*39.31+Math.floor(gestationalWeek/3)*1.73));
+  return value>0.45;
+ });
+}
