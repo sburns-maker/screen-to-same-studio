@@ -96,5 +96,4 @@ REVOKE ALL ON FUNCTION public.finalize_family_pregnancy(uuid,text,uuid,text,text
 -- Character-authored appointment provenance protects against repeated reconciliation.
 ALTER TABLE public.family_pregnancy_appointments ADD COLUMN IF NOT EXISTS source_message_id uuid;
 CREATE UNIQUE INDEX IF NOT EXISTS family_pregnancy_appointments_source_once
- ON public.family_pregnancy_appointments(lifecycle_id,source_message_id)
- WHERE source_message_id IS NOT NULL;
+ ON public.family_pregnancy_appointments(lifecycle_id,source_message_id);
