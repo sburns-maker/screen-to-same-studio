@@ -879,6 +879,7 @@ async function runTurnUnlocked(
       metadata: {
         tone: reply.tone,
         tags: reply.event_tags,
+        ...(i === 0 && reply.character_perspective?.trim() ? { character_perspective: reply.character_perspective.trim().slice(0, 700) } : {}),
         initiated: !!initiation,
         notification_group: notificationGroup,
         ...(!initiation && !voice && recent.find(m => m.sender === "user")?.id ? { in_reply_to: recent.find(m => m.sender === "user")!.id } : {}),
@@ -1387,10 +1388,27 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     }>;
     const latestReflection = reflectionResult.error ? null : reflectionRows
       .find(row => typeof row.character_perspective === "string" && row.character_perspective.trim().length > 0);
-    const mindReflection = latestReflection?.character_perspective
+    // Reflections also ride with the committed character message, so a transient
+    // evaluation-ledger failure does not freeze Mind while conversations continue.
+    // The message is already owner-scoped and visible; never generate a reflection
+    // here or expose private world facts that were not actually authored.
+    const messageReflection = (recentMsgs ?? [])
+      .filter(m => m.sender === "tess")
+      .map(m => {
+        const md = m.metadata;
+        const text = md && typeof md === "object" && !Array.isArray(md)
+          ? (md as Record<string, unknown>)["character_perspective"] : null;
+        return typeof text === "string" && text.trim()
+          ? { text: text.trim().slice(0, 700), generatedAt: m.created_at,
+              sourceKind: "conversation", context: null } : null;
+      }).find(Boolean) ?? null;
+    const ledgerReflection = latestReflection?.character_perspective
       ? { text: latestReflection.character_perspective.trim(), generatedAt: latestReflection.evaluated_at,
           sourceKind: latestReflection.source_kind, context: latestReflection.context_summary }
       : null;
+    const mindReflection = messageReflection &&
+      (!ledgerReflection || Date.parse(messageReflection.generatedAt) > Date.parse(ledgerReflection.generatedAt))
+      ? messageReflection : ledgerReflection;
     const mindReflectionStatus = reflectionResult.error ? "unavailable" : "ready";
     const { getWeatherContext } = await import("./tess-weather.server");
     const weather = await getWeatherContext(def.zip);
