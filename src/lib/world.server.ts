@@ -390,7 +390,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
     for (const [userId, convs] of users) {
       // Advance all character pregnancies even when no conversation is opened.
       // No AI, no public pregnancy disclosure, and no outcome rerolls.
-      try {
+      if (process.env["ENABLE_PREGNANCY_LIFECYCLE"] === "true") try {
         const { syncPregnancyLifecycles } = await import("./pregnancy-lifecycle.server");
         const keys = [...new Set(convs.map((conv) => String((conv.character as {key?:string}|null)?.key ?? "")).filter(Boolean))];
         for (const key of keys) {
