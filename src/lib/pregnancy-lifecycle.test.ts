@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRecordPregnancyChoice, duePregnancyMilestones, pregnancyProgress } from "./pregnancy-lifecycle";
+import { canRecordPregnancyChoice, canResolvePregnancy, duePregnancyMilestones, postpartumProgress, pregnancyProgress } from "./pregnancy-lifecycle";
 
 const start = "2026-11-01T19:00:00-05:00";
 const later = (days: number) => new Date(Date.parse(start) + days * 86400000);
@@ -22,4 +22,15 @@ describe("60-day pregnancy lifecycle", () => {
   expect(canRecordPregnancyChoice("undecided","continue",false)).toBe(false);
   expect(canRecordPregnancyChoice("undecided","continue",true)).toBe(true);
  });
+ it("keeps all outcome decisions explicit, including birth", () => {
+  expect(canResolvePregnancy("pregnant","ended_birth",false)).toBe(false);
+  expect(canResolvePregnancy("pregnant","ended_birth",true)).toBe(true);
+  expect(canResolvePregnancy("ended_birth","ended_birth",true)).toBe(false);
+ });
+ it("uses a separate postpartum clock", () => {
+  expect(postpartumProgress(start,later(0)).stage).toBe("newborn");
+  expect(postpartumProgress(start,later(31)).stage).toBe("infant");
+  expect(postpartumProgress(start,later(92)).stage).toBe("toddler");
+ });
+
 });
