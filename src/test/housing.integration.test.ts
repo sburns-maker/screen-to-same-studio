@@ -522,7 +522,7 @@ it("does not re-enable public calendar sweeps or accept unrelated home venues", 
       p_kind: "message",
       p_source: source,
       p_ordinal: 0,
-      p_payload: { action: "invite", title: "Visit", category: "meetup", place: "home:claire" },
+      p_payload: { action: "invite", title: "Visit", category: "meetup", place: "home:nobody" },
       p_now: now.toISOString(),
     }),
   ).rejects.toThrow("authorized residence");
