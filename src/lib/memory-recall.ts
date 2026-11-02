@@ -23,12 +23,29 @@ export function scoreMemory(m: MemoryRow, topic: Set<string>, now: Date): number
   return importance * 1.0 + recency * 3 + association * 4;
 }
 
+/**
+ * Significant shared experiences deserve continuity when their topic returns,
+ * but cannot become unsolicited disclosures. This uses only saved memories,
+ * never hidden pregnancy results, guesses from relationship scores, or new canon.
+ */
+function sharedExperienceRelevance(m: MemoryRow, topic: Set<string>): number {
+  if (m.memory_type !== "relationship" || topic.size === 0) return 0;
+  const words = keywords(m.summary);
+  const eventWords = ["date", "games", "game", "dinner", "movie", "walk",
+    "trip", "visit", "kiss", "kissing", "wrestling", "intimate", "together"];
+  if (!eventWords.some(w => words.has(w))) return 0;
+  const hits = [...words].filter(w => topic.has(w)).length;
+  // A saved high-importance shared event beats generic recent chatter only
+  // if it relates to the player's current subject.
+  return hits >= 2 ? 5 : hits === 1 && (m.importance ?? 3) >= 4 ? 3 : 0;
+}
+
 const SLOTS: Record<string, number> = { relationship: 6, personal: 6, fact: 4 };
 
 export function recallMemories(rows: MemoryRow[], recentText: string, now: Date, limit = 18): MemoryRow[] {
   const topic = keywords(recentText);
   const ranked = rows
-    .map((m) => ({ m, s: scoreMemory(m, topic, now) }))
+    .map((m) => ({ m, s: scoreMemory(m, topic, now) + sharedExperienceRelevance(m, topic) }))
     .sort((a, b) => b.s - a.s || b.m.created_at.localeCompare(a.m.created_at));
   const picked: MemoryRow[] = [];
   const used = new Map<string, number>();
