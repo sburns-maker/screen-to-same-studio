@@ -89,7 +89,7 @@ function Chat({ conversationId }: { conversationId: string }) {
 
   const conv = useQuery(conversationQuery(conversationId));
   const convId = conv.data?.id;
-  const [historyLimit, setHistoryLimit] = useState(200);
+  const [historyLimit, setHistoryLimit] = useState(80);
   const msgs = useQuery(messagesQuery(convId, historyLimit));
   // Optional native Android refresh request. A previously published chat
   // snapshot may contain an in-progress/old version of a message body.
