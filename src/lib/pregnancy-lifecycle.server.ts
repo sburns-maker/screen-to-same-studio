@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { pregnancyProgress, pregnancyMilestones, canResolvePregnancy, type PregnancyResolution } from "./pregnancy-lifecycle";
+import { pregnancyProgress, pregnancyMilestones, type PregnancyResolution } from "./pregnancy-lifecycle";
 
 /**
  * Idempotent lifecycle synchronization for a character's positive pregnancies.
@@ -131,28 +131,13 @@ export async function resolveVerifiedPregnancyOutcome(
 ) {
   if (!args.verifiedEventId.trim() || !Number.isFinite(args.occurredAt.getTime()))
     throw new Error("Verified event and timestamp required");
-  const query=await db.from("family_pregnancy_lifecycles" as never)
-    .select("*").eq("id",args.lifecycleId).eq("user_id",args.userId)
-    .eq("character_key",args.characterKey).maybeSingle();
-  if(query.error || !query.data) throw new Error("Pregnancy lifecycle unavailable");
-  const row=query.data as unknown as {id:string;status:"pregnant"|"ended_birth"|"ended_abortion"|"ended_miscarriage"};
-  if(!canResolvePregnancy(row.status,args.outcome,true))
-    return {changed:false,reason:"already-resolved"};
-  // The stored source id makes an outcome auditable; unique key prevents retry duplicates.
-  const result=await db.from("family_pregnancy_lifecycles" as never)
-    .update({status:args.outcome,completed_at:args.occurredAt.toISOString()} as never)
-    .eq("id",args.lifecycleId).eq("user_id",args.userId)
-    .eq("character_key",args.characterKey).eq("status","pregnant")
-    .select("id");
-  if(result.error) throw new Error("Pregnancy outcome update failed");
-  if(!result.data?.length) return {changed:false,reason:"concurrent-update"};
-  if(args.outcome==="ended_birth") {
-    const child=await db.from("family_children" as never).upsert({
-      lifecycle_id:args.lifecycleId,user_id:args.userId,
-      parent_character_key:args.characterKey,
-      born_at:args.occurredAt.toISOString(),name:args.childName??null,
-    } as never,{onConflict:"lifecycle_id",ignoreDuplicates:true});
-    if(child.error) throw new Error("Birth recorded but child creation failed; retry reconciliation");
-  }
-  return {changed:true};
+  const result=await db.rpc("finalize_family_pregnancy" as never,{
+    p_user_id:args.userId,p_character_key:args.characterKey,
+    p_lifecycle_id:args.lifecycleId,p_outcome:args.outcome,
+    p_source_id:args.verifiedEventId,p_occurred_at:args.occurredAt.toISOString(),
+    p_child_name:args.childName??null,
+  } as never);
+  if(result.error) throw new Error("Atomic pregnancy outcome finalization failed");
+  return {changed:result.data===true};
+
 }
