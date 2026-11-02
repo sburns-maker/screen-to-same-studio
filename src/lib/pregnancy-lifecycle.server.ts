@@ -75,7 +75,7 @@ export async function recordCharacterPregnancyChoice(
 export async function schedulePregnancyAppointment(
   db: SupabaseClient<Database>,
   args:{userId:string;characterKey:string;lifecycleId:string;kind:string;at:Date;
-    calendarEventId?:string|null},
+    calendarEventId?:string|null;sourceMessageId?:string},
 ) {
   if(!Number.isFinite(args.at.getTime()) || !args.kind.trim()) throw new Error("Invalid appointment");
   const query=await db.from("family_pregnancy_lifecycles" as never)
@@ -86,7 +86,8 @@ export async function schedulePregnancyAppointment(
     throw new Error("Active pregnancy required for appointment");
   const result=await db.from("family_pregnancy_appointments" as never).insert({
     lifecycle_id:args.lifecycleId,kind:args.kind,scheduled_at:args.at.toISOString(),
-    status:"scheduled",calendar_event_id:args.calendarEventId??null,created_by:"character",
+    status:"proposed",calendar_event_id:args.calendarEventId??null,created_by:"character",
+    source_message_id:args.sourceMessageId??null,
   } as never);
   if(result.error) throw new Error("Could not schedule pregnancy appointment");
   return {created:true};
@@ -140,4 +141,50 @@ export async function resolveVerifiedPregnancyOutcome(
   if(result.error) throw new Error("Atomic pregnancy outcome finalization failed");
   return {changed:result.data===true};
 
+}
+
+/** Reconcile only committed, visible character messages with an explicit structured
+ * pregnancy action. This cannot infer actions from conversational keywords.
+ */
+export async function reconcileCharacterPregnancyActions(
+ db:SupabaseClient<Database>,userId:string,characterKey:string,now=new Date(),
+) {
+ const {pregnancyCharacterActionSchema,validPregnancyCharacterAction}=await import("./pregnancy-character-actions");
+ const {data:char,error:charError}=await db.from("characters").select("id").eq("key",characterKey).maybeSingle();
+ if(charError||!char)return {processed:0};
+ const {data:conv,error:convError}=await db.from("conversations").select("id").eq("user_id",userId).eq("character_id",char.id).maybeSingle();
+ if(convError||!conv)return {processed:0};
+ const {data:rows,error:messageError}=await db.from("messages")
+  .select("id,body,metadata,visible_at,sender").eq("user_id",userId)
+  .eq("conversation_id",conv.id).eq("sender",characterKey)
+  .lte("visible_at",now.toISOString()).order("created_at",{ascending:false}).limit(100);
+ if(messageError) throw new Error("Pregnancy message reconciliation unavailable");
+ const {data:lifecycles,error:lifeError}=await db.from("family_pregnancy_lifecycles" as never)
+  .select("id,status").eq("user_id",userId).eq("character_key",characterKey).eq("status","pregnant");
+ if(lifeError) throw new Error("Pregnancy action lifecycle lookup failed");
+ const eligible=(lifecycles??[] as unknown as Array<{id:string}>).map(row=>row.id);
+ let processed=0;
+ for(const message of [...(rows??[])].reverse()) {
+  const md=message.metadata;
+  const action=pregnancyCharacterActionSchema.safeParse(
+    md && typeof md==="object"&&!Array.isArray(md)
+     ? (md as Record<string,unknown>)["pregnancy_character_action"]:null);
+  if(!action.success||!validPregnancyCharacterAction(action.data,message.body,eligible)||!action.data)continue;
+  const value=action.data;
+  if(value.kind==="decision") {
+   await recordCharacterPregnancyChoice(db,{
+    userId,characterKey,lifecycleId:value.lifecycleId,choice:value.choice,
+    sourceMessageId:message.id,decidedAt:new Date(message.visible_at)});
+   processed++;
+  } else if(value.kind==="appointment") {
+   // The medical appointment is recorded only; never claim a calendar booking
+   // until the existing scheduling system supplies an actual calendar event id.
+   await schedulePregnancyAppointment(db,{userId,characterKey,lifecycleId:value.lifecycleId,
+     kind:value.appointmentKind,at:new Date(value.at),sourceMessageId:message.id});
+   processed++;
+  }
+  // Labor and final outcomes need verified interactive experience/medical-event
+  // provenance, not chat-only claims, so they are intentionally not reconciled here.
+ }
+ return {processed};
 }
