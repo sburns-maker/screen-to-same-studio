@@ -232,7 +232,7 @@ export function requiresAutonomousTextReservation(photoSelected:boolean, globall
 export async function reserveWorldAi(admin: Admin, userId: string) {
   const { data, error } = await admin.rpc("reserve_world_ai", {
     p_user_id: userId,
-    p_limit: limit("AUTONOMOUS_AI_DAILY_LIMIT", 100, 300),
+    p_limit: limit("AUTONOMOUS_AI_DAILY_LIMIT", 300, 1000),
   });
   if (error) throw new Error("Autonomous AI budget unavailable");
   return data === true;
