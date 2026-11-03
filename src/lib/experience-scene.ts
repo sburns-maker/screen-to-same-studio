@@ -162,8 +162,8 @@ function transitionClause(
   }
   if (next.locationKind === "home") {
     const entered = homeEntry(s);
-    const exited = homeExit(s);
-    if (entered && !exited) next.area = isIndoorArea(next.area) && next.area !== "inside" ? next.area : roomFrom(s) ?? "inside";
+    const exited = isIndoorArea(next.area) && homeExit(s);
+    if (entered && !exited) next.area = roomFrom(s) ?? (isIndoorArea(next.area) && next.area ? next.area : "inside");
     else if (exited) next.area = "front door (outside)";
     else if (isIndoorArea(next.area)) {
       // Already indoors: moving between rooms never sends anyone back outside.
@@ -186,7 +186,7 @@ function transitionClause(
   return JSON.stringify(next) === JSON.stringify(current) ? null : next;
 }
 export function isIndoorArea(area: string | null | undefined) {
-  return !!area && !/outside|front door|porch|doorstep|driveway/i.test(area);
+  return !/outside|front door|porch|doorstep|driveway/i.test(area ?? "");
 }
 function roomFrom(s: string) {
   if (/\b(?:couch|sofa)\b/i.test(s) && /\b(?:i|we|she|he)\b/i.test(s) && /\b(?:sit|sat|sitting|settle|settled|follow|followed|curl|curled|get comfortable|got comfortable|lean|leaned|onto|on the)\b/i.test(s)) return "living room (couch)";

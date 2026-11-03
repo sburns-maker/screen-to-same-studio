@@ -81,7 +81,7 @@ export function experienceStarters(
   activity: string | null | undefined,
   scene?: { locationKind?: string; area?: string } | null,
 ): ExperienceStarter[] {
-  const indoorHome = scene?.locationKind === "home" && !!scene.area && !/outside|front door|porch|doorstep|driveway/i.test(scene.area);
+  const indoorHome = scene?.locationKind === "home" && !/outside|front door|porch|doorstep|driveway/i.test(scene.area ?? "");
   if (indoorHome && (activity === "arriving" || activity === "at_front_door" || !activity)) return INDOOR_HOME;
   const list = BY_ACTIVITY[activity ?? ""] ?? COMMON;
   return indoorHome ? list.filter((x) => !/go inside|say goodnight/i.test(x.label)) : list;
