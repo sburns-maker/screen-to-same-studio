@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {pregnancyCharacterActionSchema,validPregnancyCharacterAction} from "./pregnancy-character-actions";
+import {pregnancyCharacterActionSchema,validPregnancyCharacterAction,pregnancyProgressionGuidance} from "./pregnancy-character-actions";
 const id="11111111-1111-4111-8111-111111111111";
 describe("pregnancy character action verification",()=>{
  it("requires canonical lifecycle ID and exact own visible words",()=>{
@@ -11,5 +11,28 @@ describe("pregnancy character action verification",()=>{
  it("rejects invalid appointment dates and unsupported outcomes",()=>{
   expect(pregnancyCharacterActionSchema.safeParse({kind:"appointment",lifecycleId:id,appointmentKind:"ultrasound",at:"tomorrow",quote:"I booked it."}).success).toBe(false);
   expect(pregnancyCharacterActionSchema.safeParse({kind:"outcome",lifecycleId:id,outcome:"twins",quote:"The twins were born."}).success).toBe(false);
+ });
+});
+describe("character-specific pregnancy progression",()=>{
+ const disclosure=[{sender:"tess",body:"I got a positive pregnancy test."}];
+ it("does not invent an active pregnancy from a player's speculation",()=>{
+  expect(pregnancyProgressionGuidance("kendra",[{sender:"user",body:"Could you be pregnant?"}],[])).toBe("");
+ });
+ it("gives Tess and Kendra distinct approaches without requiring a decision",()=>{
+  const own=[{sender:"user",body:"How do you feel about the pregnancy?"},{sender:"tess",body:"I'm scared and need time."},{sender:"user",body:"What next?"},{sender:"tess",body:"I don't know what I want."}];
+  const tess=pregnancyProgressionGuidance("tess",own,["Canonical pregnancy test positive"]);
+  const kendra=pregnancyProgressionGuidance("kendra",own,["Canonical pregnancy test positive"]);
+  expect(tess).toContain("Tess tends to think carefully");
+  expect(kendra).toContain("Kendra can be shaken");
+  expect(tess).toContain("STALL SIGNAL");
+  expect(kendra).toContain("STALL SIGNAL");
+  expect(kendra).toContain("Never force a pregnancy outcome");
+ });
+ it("allows disclosure to establish the subject, without inventing decisions",()=>{
+  expect(pregnancyProgressionGuidance("kendra",disclosure,[])).toContain("Kendra can be shaken");
+  expect(pregnancyProgressionGuidance("kendra",[{sender:"user",body:"I'm scared"}],["unrelated work notes"])).toBe("");
+ });
+ it("stays quiet when an existing pregnancy is not the current subject",()=>{
+  expect(pregnancyProgressionGuidance("tess",[{sender:"user",body:"How was trivia?"}],["Pregnancy confirmed"])).toBe("");
  });
 });
