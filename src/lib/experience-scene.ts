@@ -231,10 +231,13 @@ export function sceneContradiction(scene: LiveScene, text: string) {
   return clauses.some((s) => {
     // An explicitly completed home entry is not still at the exterior threshold.
     // Reject the old doorway narration rather than repeatedly regressing the date.
-    if (scene.locationKind === "home" && isIndoorArea(scene.area) &&
-      /\b(?:at|by|on|outside|toward)\s+(?:the\s+)?(?:front\s+(?:door|step)|doorstep|porch)\b|\b(?:front\s+door|front\s+step|doorstep|porch)\b/i.test(s) &&
-      /\b(?:i|we|she|he)\s+(?:pause|paused|stand|stood|wait|waited|grin|grinned|smile|smiled|look|looked|lean|leaned|lead|led|reach|reached)\b|\b(?:let['’]s|let us)\s+(?:get|go|head)\s+inside\b|\b(?:come on in|ready to go in)\b/i.test(s) &&
-      !/\b(?:walk|step|go|head|return)(?:ed|s)?\s+(?:back\s+)?(?:out(?:side)?|to\s+(?:the\s+)?(?:front\s+door|porch|doorstep))\b/i.test(s))
+    const indoors = scene.locationKind === "home" && isIndoorArea(scene.area);
+    const leaving = /\b(?:walk|step|go|head|return)(?:ed|s)?\s+(?:back\s+)?(?:out(?:side)?|to\s+(?:the\s+)?(?:front\s+door|porch|doorstep))\b/i.test(s);
+    if (indoors && !leaving && /\b(?:let['’]s|let us)\s+(?:get|go|head)\s+inside\b|\b(?:come on in|ready to go in|before we (?:even )?get inside)\b/i.test(s))
+      return true;
+    if (indoors && !leaving &&
+      /\b(?:front\s+door|front\s+step|doorstep|porch)\b/i.test(s) &&
+      /\b(?:i|we|she|he)\s+(?:pause|paused|stand|stood|wait|waited|grin|grinned|smile|smiled|look|looked|lean|leaned|lead|led|reach|reached)\b|\b(?:at|by|on|outside)\s+(?:the\s+)?(?:front\s+(?:door|step)|doorstep|porch)\b/i.test(s))
       return true;
     // An already-performed restaurant exit cannot be contradicted by suddenly
     // ordering more dessert or returning to the dining room without re-entry.
