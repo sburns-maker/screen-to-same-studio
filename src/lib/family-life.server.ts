@@ -100,8 +100,8 @@ export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:stri
    const parsed=pregnancyDisclosureActionSchema.safeParse(
      md && typeof md==="object" && !Array.isArray(md)
       ? (md as Record<string,unknown>)["pregnancy_disclosure_action"]:null);
-   if(parsed.success && validPregnancyDisclosure(parsed.data,m.body,[result.id],result.status))
-     return true;
+   if(parsed.success && parsed.data)
+     return validPregnancyDisclosure(parsed.data,m.body,[result.id],result.status);
    // Older model replies may have omitted the structured action or placed the
    // disclosure in a later bubble. Reconcile ONLY an unambiguous sole due event
    // with an explicit first-person result matching the canonical outcome.
