@@ -21,6 +21,13 @@ beforeAll(async () => {
   await db.exec(readFileSync("drizzle/migrations/0065_expand_relationship_commitment_cast.sql", "utf8"));
   // This minimal commitment fixture has no character/media/storage tables.
   // Install the relationship-sync function from Jade's additive migration only.
+  // The test fixture lacks unrelated media tables used by the full cast
+  // migration. Expand the original player-command allowlist in isolation.
+  const playerSql = readFileSync("drizzle/migrations/0065_expand_relationship_commitment_cast.sql", "utf8");
+  await db.exec(playerSql.slice(
+    playerSql.indexOf("CREATE OR REPLACE FUNCTION relationship_player_command("),
+    playerSql.indexOf("-- Mirror the expanded cast")
+  ).replace("'sienna','kendra'", "'sienna','kendra','jade'"));
   const jadeSql = readFileSync("drizzle/migrations/0066_jade_monroe_cast.sql", "utf8");
   await db.exec(jadeSql.slice(jadeSql.indexOf("CREATE OR REPLACE FUNCTION relationship_sync_character")));
   for (const key of RELATIONSHIP_CAST) {
