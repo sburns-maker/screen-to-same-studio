@@ -251,6 +251,12 @@ export function liveSceneInstructions(scene: LiveScene) {
 }
 /** Reject clear present-scene relocations, not memories or ordinary outdoor surroundings. */
 export function sceneContradiction(scene: LiveScene, text: string) {
+  // Once indoors, inviting the player inside again is a regression even when the
+  // clause also contains a conditional ("...and see if you can follow the plot").
+  if (scene.locationKind === "home" && isIndoorArea(scene.area) &&
+    text.split(/[.!?\n]+/).some((s) => !/\b(?:walk|step|go|head|return)(?:ed|s)?\s+(?:back\s+)?out(?:side)?\b/i.test(s) &&
+      /\b(?:let['’]s|let us)\s+(?:get|go|head)\s+inside\b|\b(?:come on in|ready to go in)\b/i.test(s)))
+    return true;
   const clauses = text
     .split(/[.!?\n]+/)
     .filter(
