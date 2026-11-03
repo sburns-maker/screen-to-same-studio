@@ -38,7 +38,7 @@ export function headPose(style: PhotoStyle): HeadPose {
   // A chosen variant is appended after ";" and is authoritative over the model's base text.
   const pose = (style.pose_type ?? "").toLowerCase();
   const t = `${pose.includes(";") ? pose.slice(pose.lastIndexOf(";") + 1) : pose} ${style.camera_angle ?? ""}`
-    .replace(/\b(?:no|not|without)(?: a| any)?(?: head)? tilt(?:ed)?/g, "");
+    .replace(/\b(?:no|not|without)(?: a| any)?(?: sideways| copied portrait| repeated| posed| slight| gentle| head)*\s*(?:head\s+)?tilt(?:ed|ing)?\b/g, "");
   if (/over (?:her|his|the|their)? ?shoulder/.test(t)) return "over_shoulder";
   if (/profile|side view|side angle|three-quarter turn of the head/.test(t)) return "profile";
   if (/\btilt|cocked|tipped (?:to|sideways)/.test(t)) return "tilted";
