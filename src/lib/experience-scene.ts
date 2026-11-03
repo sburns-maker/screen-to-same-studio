@@ -161,12 +161,15 @@ function transitionClause(
     }
   }
   if (next.locationKind === "home" && !/\b(?:front door|doorstep|porch)\b/i.test(s)) {
-    if (/\b(?:we|i) (?:enter|entered|step inside|stepped inside|go inside|went inside)\b/i.test(s))
+    // Explicitly following the host inside is an entry, not a new invitation.
+    // Preserve the room transition across turns rather than trapping the scene
+    // at an earlier outside/front-door checkpoint.
+    if (/\b(?:we|i)\s+(?:(?:enter|entered|step|stepped|go|went|walk|walked|come|came)\s+(?:in|inside|into\s+(?:the\s+)?(?:home|house|apartment|living room))|(?:follow|followed)\s+(?:(?:you|her|him|them|[a-z]+)\s+)?(?:in|inside|into\s+(?:the\s+)?(?:home|house|apartment|living room))|(?:head|headed)\s+inside)\b/i.test(s))
       next.area = "inside";
     if (!/outside|front door/.test(next.area)) {
       if (/\b(?:cook|cooking|chop|chopping|prepare|preparing)\b/i.test(s))
         next.activity = "cooking";
-      else if (/\b(?:watch|watching|put on)\b.{0,35}\b(?:movie|film)\b/i.test(s))
+      else if (/\b(?:watch|watching|put(?:s|ting)? on|start(?:s|ed)?|play(?:s|ed)?)\b.{0,35}\b(?:movie|film)\b/i.test(s))
         next.activity = "watching_movie";
       else if (/\b(?:play|playing)\b.{0,25}\b(?:game|cards)\b/i.test(s))
         next.activity = "playing_game";
@@ -192,7 +195,7 @@ export function transitionScene(
   return JSON.stringify(scene) === JSON.stringify(current) ? null : scene;
 }
 export function liveSceneInstructions(scene: LiveScene) {
-  return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. If area is outside at a restaurant or cafe, you have ALREADY left the dining room: no server, seated table, dessert or interior mini-game remains unless you actually re-enter. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside. Old places may be remembered, never silently resumed.`;
+  return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. If area is outside at a restaurant or cafe, you have ALREADY left the dining room: no server, seated table, dessert or interior mini-game remains unless you actually re-enter. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside, but an explicitly recorded entry means INSIDE: do not narrate the doorstep, driveway or arrival again unless someone actually leaves. Old places may be remembered, never silently resumed.`;
 }
 /** Reject clear present-scene relocations, not memories or ordinary outdoor surroundings. */
 export function sceneContradiction(scene: LiveScene, text: string) {
@@ -205,6 +208,13 @@ export function sceneContradiction(scene: LiveScene, text: string) {
         ),
     );
   return clauses.some((s) => {
+    // An explicitly completed home entry is not still at the exterior threshold.
+    // Reject the old doorway narration rather than repeatedly regressing the date.
+    if (scene.locationKind === "home" && scene.area === "inside" &&
+      /\b(?:at|by|on|outside|toward)\s+(?:the\s+)?(?:front\s+(?:door|step)|doorstep|porch)\b|\b(?:front\s+door|front\s+step|doorstep|porch)\b/i.test(s) &&
+      /\b(?:i|we|she|he)\s+(?:pause|paused|stand|stood|wait|waited|grin|smile|smiled|look|looked|lean|leaned)\b/i.test(s) &&
+      !/\b(?:walk|step|go|head|return)(?:ed|s)?\s+(?:back\s+)?(?:out(?:side)?|to\s+(?:the\s+)?(?:front\s+door|porch|doorstep))\b/i.test(s))
+      return true;
     // An already-performed restaurant exit cannot be contradicted by suddenly
     // ordering more dessert or returning to the dining room without re-entry.
     if ((scene.locationKind === "restaurant" || scene.locationKind === "cafe") && scene.area === "outside" &&
