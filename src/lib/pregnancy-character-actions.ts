@@ -30,13 +30,13 @@ export function pregnancyProgressionGuidance(
  const canon = canonicalContext.join(" ").toLowerCase();
  // A speculative player question is not proof of a pregnancy. Require the
  // character's own disclosure or a canonical world/memory pregnancy fact.
- const verified = /\\b(?:pregnan(?:cy|t)|positive (?:pregnancy )?test|test (?:was|came back) positive|gestation|prenatal)\\b/i.test(canon) ||
-   messages.some(m => m.sender !== "user" && /\\b(?:i(?:'|’)?m pregnant|my pregnancy|pregnancy test (?:was|is) positive|(?:i )?(?:got|had) a positive (?:pregnancy )?(?:test|result))\\b/i.test(m.body));
+ const verified = /\b(?:pregnan(?:cy|t)|positive (?:pregnancy )?test|test (?:was|came back) positive|gestation|prenatal)\b/i.test(canon) ||
+   messages.some(m => m.sender !== "user" && /\b(?:i(?:'|’)?m pregnant|my pregnancy|pregnancy test (?:was|is) positive|(?:i )?(?:got|had) a positive (?:pregnancy )?(?:test|result))\b/i.test(m.body));
  if (!verified) return "";
  const recent = messages.slice(-20);
- if (!recent.some(m => /\\b(?:pregnan(?:cy|t)|positive (?:test|result)|doctor(?:'s)? appointment|be (?:a )?(?:mom|mother)|having (?:a )?baby)\\b/i.test(m.body))) return "";
+ if (!recent.some(m => /\b(?:pregnan(?:cy|t)|positive (?:test|result)|doctor(?:'s)? appointment|be (?:a )?(?:mom|mother)|having (?:a )?baby)\b/i.test(m.body))) return "";
  const own = recent.filter(m => m.sender !== "user").map(m => m.body);
- const hesitations = own.filter(s => /\\b(?:scared|afraid|numb|overwhelmed|don't know (?:what|if)|do not know (?:what|if)|need (?:a little )?time|not ready|everything (?:could|will) change|figure (?:it|this|everything) out)\\b/i.test(s)).length;
+ const hesitations = own.filter(s => /\b(?:scared|afraid|numb|overwhelmed|don't know (?:what|if)|do not know (?:what|if)|need (?:a little )?time|not ready|everything (?:could|will) change|figure (?:it|this|everything) out)\b/i.test(s)).length;
  const approaches: Record<string,string> = {
   tess: "Tess tends to think carefully and speak plainly. Let her identify one specific unknown, propose a realistic next step if she wants it, or privately weigh a concrete implication rather than restating a general fear. Her caution is not paralysis.",
   kendra: "Kendra can be shaken without losing her confident, impulsive, playful and independent temperament. She might ask blunt practical questions, look up information, initiate a candid conversation, seek a visit, set a boundary, or change her mind. Her modeling work and bodily autonomy may matter, but don't automatically make either her only concern.",
