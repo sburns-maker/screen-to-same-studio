@@ -169,7 +169,7 @@ function transitionClause(
     if (!/outside|front door/.test(next.area)) {
       if (/\b(?:cook|cooking|chop|chopping|prepare|preparing)\b/i.test(s))
         next.activity = "cooking";
-      else if (/\b(?:watch|watching|put on)\b.{0,35}\b(?:movie|film)\b/i.test(s))
+      else if (/\b(?:watch|watching|put(?:s|ting)? on|start(?:s|ed)?|play(?:s|ed)?)\b.{0,35}\b(?:movie|film)\b/i.test(s))
         next.activity = "watching_movie";
       else if (/\b(?:play|playing)\b.{0,25}\b(?:game|cards)\b/i.test(s))
         next.activity = "playing_game";
