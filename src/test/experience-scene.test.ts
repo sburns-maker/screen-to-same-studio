@@ -78,7 +78,7 @@ describe("grounded live scene continuity", () => {
     scene = transitionScene(scene, "We take a ride. A little while later, we pull up outside her place.", "maya", "Maya") ?? scene;
     expect(scene).toMatchObject({ locationKey: "home:maya", locationKind: "home", area: "outside" });
     scene = transitionScene(scene, "I follow her inside. We settle on the couch and she puts on a movie.", "maya", "Maya") ?? scene;
-    expect(scene).toMatchObject({ locationKey: "home:maya", area: "inside", activity: "watching_movie" });
+    expect(scene).toMatchObject({ locationKey: "home:maya", area: "living room (couch)", activity: "watching_movie" });
     expect(sceneContradiction(scene, "I pause at the front step, smiling at your confidence.")).toBe(true);
     expect(sceneContradiction(scene, "I grin beside you on the couch as the movie begins.")).toBe(false);
     expect(transitionScene(scene, "I smile at Maya. Do you like this movie?", "maya", "Maya")).toBeNull();

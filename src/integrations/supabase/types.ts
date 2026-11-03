@@ -713,6 +713,53 @@ export type Database = {
           },
         ]
       }
+      experience_scene_reconciliations: {
+        Row: {
+          after_scene: Json
+          before_revision: number
+          before_scene: Json | null
+          created_at: string
+          evidence_ordinal: number
+          evidence_source_id: string
+          experience_id: string
+          id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          after_scene: Json
+          before_revision: number
+          before_scene?: Json | null
+          created_at?: string
+          evidence_ordinal: number
+          evidence_source_id: string
+          experience_id: string
+          id?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          after_scene?: Json
+          before_revision?: number
+          before_scene?: Json | null
+          created_at?: string
+          evidence_ordinal?: number
+          evidence_source_id?: string
+          experience_id?: string
+          id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experience_scene_reconciliations_user_id_experience_id_fkey"
+            columns: ["user_id", "experience_id"]
+            isOneToOne: false
+            referencedRelation: "living_experiences"
+            referencedColumns: ["user_id", "id"]
+          },
+        ]
+      }
       experience_scene_transitions: {
         Row: {
           after_scene: Json
@@ -3974,6 +4021,17 @@ export type Database = {
           p_revision: number
           p_scene: Json
           p_source: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      experience_scene_reconcile: {
+        Args: {
+          p_evidence: string
+          p_plan: string
+          p_reason: string
+          p_revision: number
+          p_scene: Json
           p_user: string
         }
         Returns: Json

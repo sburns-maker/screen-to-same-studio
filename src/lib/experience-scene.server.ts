@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { ExperienceRow, ExperienceMoment } from "./living-experiences";
-import { initialScene, transitionScene, type LiveScene } from "./experience-scene";
+import { initialScene, replayScene, sceneNeedsReconcile, transitionScene, type LiveScene } from "./experience-scene";
 type Client = SupabaseClient<Database>;
 export async function synchronizeScene(
   db: Client,
@@ -55,6 +55,23 @@ export async function synchronizeScene(
     const data = result.data as unknown as { scene: LiveScene; revision: number };
     current = data.scene;
     revision = data.revision;
+  }
+  // Recovery for scenes saved by an older parser: replay explicit player actions
+  // and record an auditable correction when the stored scene contradicts them.
+  const replay = replayScene(initialScene(character, venueKey, venueLabel), moments, character, name, homes);
+  if (replay.evidence && sceneNeedsReconcile(current, replay.scene)) {
+    const fixed = await db.rpc("experience_scene_reconcile" as never, {
+      p_user: user,
+      p_plan: plan,
+      p_revision: revision,
+      p_scene: { ...replay.scene, locationLabel: replay.scene.locationKey === current.locationKey ? current.locationLabel : replay.scene.locationLabel },
+      p_evidence: replay.evidence,
+      p_reason: "replayed recorded player actions",
+    } as never);
+    if (!fixed.error) {
+      const data = fixed.data as unknown as { scene: LiveScene; revision: number };
+      current = data.scene;
+    } else console.warn("[experience-scene] reconcile skipped", { code: fixed.error.code });
   }
   return { current, durable: true };
 }

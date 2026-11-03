@@ -71,6 +71,18 @@ const BY_ACTIVITY: Record<string, ExperienceStarter[]> = {
     { label: "Talk", draft: "I turn toward you. \"How are you feeling?\"" },
   ],
 };
-export function experienceStarters(activity: string | null | undefined): ExperienceStarter[] {
-  return BY_ACTIVITY[activity ?? ""] ?? COMMON;
+const INDOOR_HOME: ExperienceStarter[] = [
+  { label: "Get comfortable", draft: "I settle in beside you and get comfortable. " },
+  { label: "Put on a movie", draft: "I reach for the remote. \"Want to pick a movie?\"" },
+  { label: "Talk", draft: "I turn toward you. \"How are you feeling?\"" },
+];
+/** Starters come from the authoritative live scene, never the original calendar venue. */
+export function experienceStarters(
+  activity: string | null | undefined,
+  scene?: { locationKind?: string; area?: string } | null,
+): ExperienceStarter[] {
+  const indoorHome = scene?.locationKind === "home" && !/outside|front door|porch|doorstep|driveway/i.test(scene.area ?? "");
+  if (indoorHome && (activity === "arriving" || activity === "at_front_door" || !activity)) return INDOOR_HOME;
+  const list = BY_ACTIVITY[activity ?? ""] ?? COMMON;
+  return indoorHome ? list.filter((x) => !/go inside|say goodnight/i.test(x.label)) : list;
 }
