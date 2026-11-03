@@ -87,6 +87,19 @@ const OTHER_VARIANTS: { head: HeadPose; text: string }[] = [
   { head: "profile", text: "side profile while doing the current activity, head upright" },
 ];
 
+/** The image provider can otherwise obey an old "look over shoulder" instruction
+ * even after a corrected, upright target is appended. Keep the activity, not
+ * the repeated head angle from the canonical reference or proposed pose. */
+export function removeConflictingPoseDirections(pose: string): string {
+  return pose
+    .replace(/\b(?:looking|glancing|gazing)\s+(?:back\s+)?over\s+(?:her|his|their|the)?\s*shoulder\b/gi, "")
+    .replace(/\b(?:head\s+)?(?:slightly\s+|gently\s+)?tilt(?:ed|ing)?(?:\s+(?:her|his|their)\s+head)?(?:\s+to\s+the\s+(?:left|right|side))?\b/gi, "")
+    .replace(/\b(?:cocked|tipped)\s+(?:her|his|their)?\s*head\s+(?:to\s+the\s+)?(?:left|right|side)\b/gi, "")
+    .replace(/\s+,/g, ",").replace(/,\s*,/g, ",")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[,;\s]+|[,;\s]+$/g, "").trim();
+}
+
 /** Missing/repeated capture metadata gets a plausible framing, never a new outfit,
  * location, emotion, activity or imaginary photographer. No random draws or paid retries.
  */
@@ -157,7 +170,7 @@ export function selectPhotoComposition(
     const pick = variants
       .map((v, index) => ({ v, index, score: used(v.head) + (window.some((o) => (o.pose_type ?? "").includes(v.text)) ? 100 : 0) }))
       .sort((a, b) => a.score - b.score || a.index - b.index)[0]!.v;
-    const base = (style.pose_type ?? "").replace(/,?\s*(?:with )?(?:a |her |his )?(?:head )?(?:slight |gentle )?(?:head )?tilt(?:ed|ing)?(?: to the (?:side|left|right))?(?: head)?/gi, "").trim();
+    const base = removeConflictingPoseDirections((style.pose_type ?? "").split(";")[0] ?? "");
     const body = selfie ? base.replace(/,?\s*(?:with )?(?:her |his |one )?arm (?:extended|outstretched|out)(?: holding (?:the )?phone)?|,?\s*at arm.s length/gi, "").trim() : base;
     style = { ...style, pose_type: body ? `${body}; ${pick.text}` : pick.text };
     return { style, decision: frameRepeat && complete ? "avoided_recent_capture" : "varied_repeated_pose" };
