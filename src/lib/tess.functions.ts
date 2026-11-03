@@ -441,6 +441,12 @@ async function runTurnUnlocked(
         .lte("visible_at", nowIso).order("visible_at", { ascending: false }).limit(120)
     : { data: null, error: null };
   const topicHistory = topicHistoryResult.error ? undefined : topicHistoryResult.data ?? undefined;
+  // This is only observed character-authored, already-visible dialogue. It
+  // does not establish a pregnancy or expose a private result.
+  const {sharedPregnancyDisclosureContext} = await import("./family-pregnancy-disclosure");
+  const observedPregnancyContext = sharedPregnancyDisclosureContext(
+    [...(topicHistory ?? recent)].reverse().map(m=>({sender:m.sender,body:m.body??""}))
+  );
   const { knowledgePromptLines } = await import("./social-logic");
   const continuity = worldReady && photoAdmin ? await continuityContext(photoAdmin, userId, conv.id, now) : { lines: [] };
   const calendarLines = photoAdmin
@@ -621,12 +627,25 @@ async function runTurnUnlocked(
     : [];
   const duePregnancyResults = configuredPhotoAdmin && def.romanticCapable && def.age>=18
     ? await (async()=>{try{
-        const {dueUndisclosedPregnancyResults}=await import("./family-life.server");
+        const {dueUndisclosedPregnancyResults,reconcileVisiblePregnancyDisclosures}=await import("./family-life.server");
+        // Previous visible disclosures may have lost their structured action.
+        // Reconcile before offering the same "secret" test result again.
+        await reconcileVisiblePregnancyDisclosures(configuredPhotoAdmin,userId,def.key);
         return await dueUndisclosedPregnancyResults(configuredPhotoAdmin,userId,def.key);
       }catch{return [];}})() : [];
   const duePregnancyIds=duePregnancyResults.map(e=>e.id);
   const pregnancyResultContext=duePregnancyResults.map(e=>
     `PRIVATE CHARACTER KNOWLEDGE ONLY (FICTIONAL): Due pregnancy event ${e.id} has outcome ${e.status}. The player does NOT know yet. You may decide independently when to share it in a visible message. If you do, use pregnancy_disclosure_action with this exact eventId and a contiguous quote from your own words. Never disclose the probability or secret random roll.`);
+  const disclosedPregnancyContext = configuredPhotoAdmin && def.romanticCapable && def.age >= 18
+    ? await (async()=>{try{
+        const {data,error}=await configuredPhotoAdmin.from("family_pregnancy_events")
+          .select("status,disclosed_at").eq("user_id",userId).eq("character_key",def.key)
+          .not("disclosed_at","is",null).lte("disclosed_at",nowIso)
+          .order("disclosed_at",{ascending:false}).limit(3);
+        if(error)return [] as string[];
+        return (data??[]).map(e=>
+          `CANONICAL PREGNANCY RESULT ALREADY DISCLOSED: You already told the player about the ${e.status} pregnancy result. He knows; this is not first-time news. If asked about the doctor or next steps, respond from your established shared history. Do not claim a new test, diagnosis, appointment or event without evidence.`);
+      }catch{return [] as string[];}})() : [];
   const pregnancyLifecycleContext = configuredPhotoAdmin && def.romanticCapable && def.age >= 18
     ? await (async () => { try {
         const {disclosedPregnancyProgress}=await import("./pregnancy-lifecycle.server");
@@ -650,7 +669,7 @@ async function runTurnUnlocked(
   const weddingPlanContext = pendingWeddingPlans.map(p=>
     `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
   const generateReply = (extraChronology: string[] = []) => {
-    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyFamilyContext, ...worldKnowledge];
+    const groundedKnowledge = [...extraChronology, ...(observedPregnancyContext ? [observedPregnancyContext] : []), ...disclosedPregnancyContext, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyFamilyContext, ...worldKnowledge];
     return isTess
       ? generateTessReply({
           deliveryChannel: voice ? "voice" : "text",
@@ -866,6 +885,13 @@ async function runTurnUnlocked(
   const delaySec = voice || scheduleActions.length ? 0 : realTime ? Math.min(3600, Math.max(3, latency.seconds)) : clampDelaySeconds(latency.seconds);
   let at = Math.max(Date.now() + delaySec * 1000,initiation?.spontaneousPhoto?spontaneousQueue.deliverAfter+1000:0);
   const notificationGroup = photoAction ?? crypto.randomUUID();
+  // Attach the canonical result action to the bubble that actually says it,
+  // not invariably the first bubble (which might be "Not yet").
+  const disclosureBubbleIndex = reply.pregnancy_disclosure_action?.eventId &&
+    reply.pregnancy_disclosure_action.quote &&
+    duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId)
+      ? bubbles.findIndex(body=>body.includes(reply.pregnancy_disclosure_action!.quote))
+      : -1;
   const rows = bubbles.map((body, i) => {
     if (i > 0) at += 1500 + Math.min(body.length * 60, 6000);
     return {
@@ -887,7 +913,7 @@ async function runTurnUnlocked(
         ...(i === 0 && supportsRelationshipCommitment(def.key) && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
         ...(i === 0 && reply.wedding_plan_action?.action && reply.wedding_plan_action.planId && reply.wedding_plan_action.quote && pendingWeddingIds.includes(reply.wedding_plan_action.planId) && body.includes(reply.wedding_plan_action.quote) ? { wedding_plan_action: reply.wedding_plan_action } : {}),
         ...(i === 0 && reply.pregnancy_character_action?.quote && pregnancyLifecycleIds.includes(reply.pregnancy_character_action.lifecycleId) && body.includes(reply.pregnancy_character_action.quote) ? {pregnancy_character_action:reply.pregnancy_character_action} : {}),
-        ...(i === 0 && reply.pregnancy_disclosure_action?.eventId && reply.pregnancy_disclosure_action.quote && duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId) && body.includes(reply.pregnancy_disclosure_action.quote) ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
+        ...(i === disclosureBubbleIndex && reply.pregnancy_disclosure_action ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
         push_primary: !voice && i === 0,
         ...(voice ? {channel:"voice",call_id:voice.callId,call_turn:voice.turnId,voice_end:voiceEnd} : {}),
         ...(i === 0 ? { photo_decision: { profile:def.key, scenario:photography.scenario,
