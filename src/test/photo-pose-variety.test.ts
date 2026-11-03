@@ -69,7 +69,7 @@ describe("pose variety", () => {
   });
 
   it("honors an explicit request for the same pose", () => {
-    const r = selectPhotoComposition(tiltSelfie, [tiltSelfie], "same pose as before");
+    const r = selectPhotoComposition(tiltSelfie, [tiltSelfie], "at home", "same pose as before");
     expect(r.decision).toBe("preserved");
     expect(r.style.pose_type).toBe(tiltSelfie.pose_type);
   });
