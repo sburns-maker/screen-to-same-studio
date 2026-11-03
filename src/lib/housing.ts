@@ -260,15 +260,15 @@ export function housingDecisionGuidance(args: {
 }): string {
   const recent = args.messages.slice(-24);
   const dialogue = recent.map(m => m.body).join("\n");
-  const housingSubject = /\\b(?:roommate|roommates|move(?:d|s)? in|moving in|live together|living together|stay with (?:me|you)|share (?:a )?(?:home|place)|living arrangements?)\\b/i.test(dialogue + "\n" + (args.experienceInstruction ?? ""));
+  const housingSubject = /\b(?:roommate|roommates|move(?:d|s)? in|moving in|live together|living together|stay with (?:me|you)|share (?:a )?(?:home|place)|living arrangements?)\b/i.test(dialogue + "\n" + (args.experienceInstruction ?? ""));
   if (!housingSubject) return "";
 
   const own = recent.filter(m => m.sender !== "user").map(m => m.body);
-  const repeatedDeferrals = own.filter(v => /\\b(?:tomorrow|another (?:day|time)|not tonight|need (?:some|more|a little) time|talk (?:it |this )?(?:through |about )?(?:later|tomorrow)|don't want to decide|not ready to decide|figure (?:it|this) out (?:later|tomorrow))\\b/i.test(v)).length;
-  const dedicatedMeeting = /\\b(?:roommate|living arrangement|moving in|move in|share a place|housing)\\b/i.test(args.experienceInstruction ?? "") &&
-    /\\b(?:discussion|talk|review|agreement|plan)\\b/i.test(args.experienceInstruction ?? "");
+  const repeatedDeferrals = own.filter(v => /\b(?:tomorrow|another (?:day|time)|not tonight|need (?:some|more|a little) time|talk (?:it |this )?(?:through |about )?(?:later|tomorrow)|don't want to decide|not ready to decide|figure (?:it|this) out (?:later|tomorrow))\b/i.test(v)).length;
+  const dedicatedMeeting = /\b(?:roommate|living arrangement|moving in|move in|share a place|housing)\b/i.test(args.experienceInstruction ?? "") &&
+    /\b(?:discussion|talk|review|agreement|plan)\b/i.test(args.experienceInstruction ?? "");
   const latestUser = [...recent].reverse().find(m => m.sender === "user")?.body ?? "";
-  const askedForDecision = /\\b(?:decid(?:e|ed|ing)|yes or no|what do you want|want to (?:move|live|stay)|move in|stay with me|live together|roommate)\\b/i.test(latestUser);
+  const askedForDecision = /\b(?:decid(?:e|ed|ing)|yes or no|what do you want|want to (?:move|live|stay)|move in|stay with me|live together|roommate)\b/i.test(latestUser);
 
   if (repeatedDeferrals < 2 && !dedicatedMeeting) return "";
   return `HOUSING DECISION FOLLOW-THROUGH FOR ${args.character.toUpperCase()}:
