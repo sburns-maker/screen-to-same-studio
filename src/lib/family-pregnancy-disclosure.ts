@@ -50,3 +50,32 @@ export function sharedPregnancyDisclosureContext(
     ? "SHARED PREGNANCY DISCLOSURE HISTORY: You have already told the player in a visible conversation that you are pregnant or had a positive pregnancy test. He already knows you said this. Do not announce it as brand-new information or claim you are telling him for the first time. Respond to his actual question and discuss only established follow-up details. The earlier statement alone is not proof of a canonical pregnancy event or any later medical result."
     : "SHARED PREGNANCY DISCLOSURE HISTORY: You have already told the player in a visible conversation that you were not pregnant or had a negative pregnancy test. He already knows you said this. Do not repeat it as first-time news. Do not invent a new result or medical event.";
 }
+
+/** Match a visible self-disclosure to exactly one eligible canonical result.
+ * An explicit event ID, when present, must match; older metadata-free replies
+ * may be reconciled only when there is one possible due result.
+ */
+export function matchesVisiblePregnancyDisclosure(args: {
+  body: string;
+  metadata: unknown;
+  visibleAt: string | null;
+  event: { id: string; status: "positive" | "negative"; revealAt: string };
+  soleDueEvent: boolean;
+}): boolean {
+  const visible = Date.parse(args.visibleAt ?? "");
+  const due = Date.parse(args.event.revealAt);
+  if (!Number.isFinite(visible) || !Number.isFinite(due) || visible < due)
+    return false;
+  const md = args.metadata && typeof args.metadata === "object" && !Array.isArray(args.metadata)
+    ? args.metadata as Record<string, unknown>
+    : null;
+  const action = md?.["pregnancy_disclosure_action"];
+  if (action != null) {
+    const parsed = pregnancyDisclosureActionSchema.safeParse(action);
+    return parsed.success && validPregnancyDisclosure(
+      parsed.data, args.body, [args.event.id], args.event.status,
+    );
+  }
+  return args.soleDueEvent &&
+    observedPregnancyDisclosureStatus(args.body) === args.event.status;
+}
