@@ -67,7 +67,7 @@ export type LinkSeed = {
 
 export const CANON_NPCS: NpcSeed[] = [
   { characterKey: "jade", name: "Maren", relation: "best friend since high school", category: "friend", blurb: "Fictional grounded best friend who enjoys Jade's wild ideas but expects her to follow through." },
-  { characterKey: "jade", name: "Dani", relation: "boutique co-owner", category: "coworker", blurb: "Fictional small-shop partner, practical about schedules, campaigns and sales." },
+  { characterKey: "jade", name: "Dani", relation: "director of clinical services", category: "coworker", blurb: "Fictional clinical lead at Harbor Point, practical about staffing, ethics and resident privacy." },
   { characterKey: "jade", name: "Aunt Val", relation: "aunt", category: "family", blurb: "Fictional aunt who taught Jade to love thrift stores and extravagant celebrations." },
   { characterKey: "kendra", name: "Nina", relation: "best friend and gym partner", category: "friend", blurb: "Fictional best friend; morning workouts, reality-TV marathons and honest advice." },
   { characterKey: "kendra", name: "Marco", relation: "photographer she often works with", category: "coworker", blurb: "Fictional Altoona photographer who books Kendra for shoots; keeps client work private." },
