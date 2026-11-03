@@ -75,7 +75,7 @@ export function repeatsPoseSignature(style: PhotoStyle, recent: PhotoStyle[]): b
  * Selfie variants keep a self-held phone; non-selfie variants never become selfies. */
 const SELFIE_VARIANTS: { head: HeadPose; text: string }[] = [
   { head: "level", text: "upright head, square shoulders, straight-on gaze, camera at chest height, no sideways head tilt and no repeated diagonal selfie lean" },
-  { head: "looking_away", text: "head upright and eyes looking away toward the current activity, torso facing sideways, camera at eye level, visibly different shoulder line from a tilted close selfie" },
+  { head: "looking_away", text: "head upright and eyes looking away toward the current activity, torso facing sideways, camera at eye level, visibly different shoulder line from the reference close selfie" },
   { head: "level", text: "head held upright, camera low near waist height aimed upward, shoulders even and torso framed wider, direct eye contact, no copied portrait tilt" },
   { head: "profile", text: "clear three-quarter side profile with upright neck and nose pointing toward the room, camera beside her face rather than overhead, not the canonical front selfie angle" },
   { head: "looking_away", text: "head upright while looking down at the existing activity, camera held farther away to reveal more surroundings, shoulders relaxed rather than diagonally leaned" },
