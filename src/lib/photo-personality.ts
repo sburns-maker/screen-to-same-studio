@@ -56,7 +56,7 @@ export const PHOTOGRAPHY_PROFILES = {
     settings: ["apartment", "actual shoot or casting break", "gym", "actual night out"],
     wardrobe: ["established lounge clothes", "athletic wear", "trendy going-out outfit when established"],
     hairstyles: ["reference-compatible messy blonde bun", "loose blonde waves", "backward cap when established"],
-    selfies: ["natural front camera", "outfit check", "a detail from her actual surroundings"],
+    selfies: ["straight-on front-camera selfie with level head and both shoulders visible", "seated selfie facing the camera, phone held slightly to one side", "three-quarter side view with body and face turned together", "standing outfit check with upright posture and wider framing", "a detail from her actual surroundings instead of another face portrait"],
     captionVoice: "Playful, teasing and confident; flirty when she feels it, ordinary when she doesn't. Never shares private client work.",
     spontaneity: 0.8, hours: 5, messages: 3,
     subjects: "everyday life, workouts, outfits, nights out, shoots without client details and confident natural selfies",
