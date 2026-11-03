@@ -160,27 +160,48 @@ function transitionClause(
       else if (/\b(?:eat|eating|dining|food arrives)\b/i.test(s)) next.activity = "dining";
     }
   }
-  if (next.locationKind === "home" && !/\b(?:front door|doorstep|porch)\b/i.test(s)) {
-    // Explicitly following the host inside is an entry, not a new invitation.
-    // Preserve the room transition across turns rather than trapping the scene
-    // at an earlier outside/front-door checkpoint.
-    if (/\b(?:we|i)\s+(?:(?:enter|entered|step|stepped|go|went|walk|walked|come|came)\s+(?:in|inside|into\s+(?:the\s+)?(?:home|house|apartment|living room))|(?:follow|followed)\s+(?:(?:you|her|him|them|[a-z]+)\s+)?(?:in|inside|into\s+(?:the\s+)?(?:home|house|apartment|living room))|(?:head|headed)\s+inside)\b/i.test(s))
-      next.area = "inside";
-    if (!/outside|front door/.test(next.area)) {
+  if (next.locationKind === "home") {
+    const entered = homeEntry(s);
+    const exited = homeExit(s);
+    if (entered && !exited) next.area = isIndoorArea(next.area) && next.area !== "inside" ? next.area : roomFrom(s) ?? "inside";
+    else if (exited) next.area = "front door (outside)";
+    else if (isIndoorArea(next.area)) {
+      // Already indoors: moving between rooms never sends anyone back outside.
+      const room = roomFrom(s);
+      if (room && /\b(?:i|we|she|he)\b/i.test(s)) next.area = room;
+    } else if (/\b(?:front door|doorstep|porch)\b/i.test(s)) next.area = "front door (outside)";
+    if (isIndoorArea(next.area)) {
       if (/\b(?:cook|cooking|chop|chopping|prepare|preparing)\b/i.test(s))
         next.activity = "cooking";
-      else if (/\b(?:watch|watching|put(?:s|ting)? on|start(?:s|ed)?|play(?:s|ed)?)\b.{0,35}\b(?:movie|film)\b/i.test(s))
+      else if (/\b(?:watch|watching|put(?:s|ting)? on|start(?:s|ed)?|play(?:s|ed)?)\b.{0,35}\b(?:movie|film)\b|\b(?:movie|film|opening credits)\b.{0,25}\b(?:starts|started|begins|began|rolls?|roll(?:ed|ing))\b/i.test(s))
         next.activity = "watching_movie";
       else if (/\b(?:play|playing)\b.{0,25}\b(?:game|cards)\b/i.test(s))
         next.activity = "playing_game";
       else if (/\b(?:review|reviewing|go over|going over|compare|comparing|sit down|sitting down)\b.{0,85}\b(?:roommate|rent|utilities|living arrangement|shared expenses|household budget)\b|\b(?:roommate agreement|roommate plan|budget spreadsheet)\b/i.test(s)) next.activity = "reviewing_roommate_plan";
       else if (/\b(?:clean|cleaning|tidy|chores)\b/i.test(s)) next.activity = "household_chore";
-      else if (/\b(?:relax|relaxing|settle|settled)\b/i.test(s)) next.activity = "relaxing";
-    }
+      else if (next.activity !== "watching_movie" && /\b(?:relax|relaxing|settle|settled|sit|sat|sitting)\b/i.test(s)) next.activity = "relaxing";
+      else if (next.activity === "arriving" || next.activity === "at_front_door") next.activity = "relaxing";
+    } else if (next.area === "front door (outside)") next.activity = "at_front_door";
   }
-  if (next.locationKind === "home" && /\b(?:front door|doorstep|porch)\b/i.test(s))
-    next.area = "front door (outside)";
   return JSON.stringify(next) === JSON.stringify(current) ? null : next;
+}
+export function isIndoorArea(area: string | null | undefined) {
+  return !!area && !/outside|front door|porch|doorstep|driveway/i.test(area);
+}
+function roomFrom(s: string) {
+  if (/\b(?:couch|sofa)\b/i.test(s) && /\b(?:i|we|she|he)\b/i.test(s) && /\b(?:sit|sat|sitting|settle|settled|follow|followed|curl|curled|get comfortable|got comfortable|lean|leaned|onto|on the)\b/i.test(s)) return "living room (couch)";
+  if (/\b(?:living room|lounge room|den)\b/i.test(s)) return "living room";
+  if (/\bkitchen\b/i.test(s) && /\b(?:in|into|to)\s+(?:the|her|his|my)\s+kitchen\b/i.test(s)) return "kitchen";
+  return null;
+}
+/** Completed entry into the home. Arriving at, or standing by, the door is not entry. */
+function homeEntry(s: string) {
+  return /\b(?:we|i)\s+(?:(?:enter|entered|step|stepped|go|went|walk|walked|come|came|head|headed|make it|made it)\s+(?:(?:back\s+)?in(?:side)?\b|into\b|through\s+(?:the\s+)?(?:front\s+)?door\b(?:.{0,30}\b(?:in|inside|into)\b)?)|(?:follow|followed)\s+(?:(?:you|her|him|them|[a-z]+)\s+)?(?:in\b|inside\b|into\b|to\s+the\s+(?:couch|sofa|living room|kitchen))|(?:sit|sat)\s+down\s+in\s+the\s+living room)/i.test(s) ||
+    /\b(?:pull|pulled|lead|led|leads)\s+(?:you|her|him|me)\s+(?:in|inside|into)\b/i.test(s) ||
+    /\bwe\s+(?:settle|settled|sit|sat|get comfortable|got comfortable)\b.{0,30}\b(?:couch|sofa|living room)\b/i.test(s);
+}
+function homeExit(s: string) {
+  return /\b(?:we|i)\s+(?:walk|walked|step|stepped|go|went|head|headed)\s+(?:back\s+)?out(?:side)?\b|\b(?:i|we)\s+(?:leave|left)\s+(?:her|his|the|your)\s+(?:house|home|apartment|place)\b/i.test(s);
 }
 export function transitionScene(
   current: LiveScene,
