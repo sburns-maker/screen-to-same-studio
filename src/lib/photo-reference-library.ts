@@ -1,4 +1,8 @@
 import { CHARACTERS, type CharacterKey } from "./characters";
+import { z } from "zod";
+
+/** Shared with every reference-library endpoint: avoid stale cast allowlists. */
+export const referenceCharacterSchema = z.enum(Object.keys(CHARACTERS) as [CharacterKey, ...CharacterKey[]]);
 
 export const REFERENCE_ROLES = ["canonical", "half_body", "alternate_angle"] as const;
 export type ReferenceRole = (typeof REFERENCE_ROLES)[number];
