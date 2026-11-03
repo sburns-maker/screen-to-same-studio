@@ -30,8 +30,8 @@ describe("roommate decision follow-through", () => {
   it("does not treat a scheduled future discussion as an already accepted move", () => {
     const text = housingDecisionGuidance({character:"tess",messages});
     expect(text).toContain("preserve it");
-    expect(text).toContain("not a completed move");
-    expect(text).toContain("A sincere NO or NOT NOW is a valid decision");
+    expect(text).toContain("never treat it as a completed move");
+    expect(text).toContain("concrete preference");
   });
   it("prompts a concrete position during the actual scheduled roommate meeting", () => {
     const text = housingDecisionGuidance({
