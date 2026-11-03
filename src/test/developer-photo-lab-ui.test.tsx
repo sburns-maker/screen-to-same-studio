@@ -118,6 +118,31 @@ it("keeps a network-uncertain request ID for explicit retry", async () => {
   expect(requests[1]![0].data.requestId).toBe(first);
 });
 
+it("rejects an unsupported mature-adult scene before creating a paid request and allows another category", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.change(screen.getByLabelText("mature_adult custom scene 1"), {
+    target: { value: "A nude portrait in the bedroom" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Generate Mature adult (non-explicit) test" }));
+  expect(await screen.findByText(/Custom scene outside supported boundaries/)).toBeTruthy();
+  expect(mocks.command.mock.calls.every(c => c[0].data.action !== "generate")).toBe(true);
+
+  fireEvent.click(screen.getByRole("button", { name: "Generate Casual selfie test" }));
+  await screen.findByAltText("Riley Casual selfie developer test");
+  expect(mocks.command.mock.calls.filter(c => c[0].data.action === "generate")).toHaveLength(1);
+});
+
+it("clears the held request after server rejects a scene before reservation", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  const button = await screen.findByRole("button", { name: "Generate Mature adult (non-explicit) test" });
+  mocks.command.mockRejectedValueOnce(new Error("Custom scene outside supported boundaries"));
+  fireEvent.click(button);
+  await screen.findByText(/Custom scene outside supported boundaries/);
+  fireEvent.click(screen.getByRole("button", { name: "Generate Casual selfie test" }));
+  await screen.findByAltText("Riley Casual selfie developer test");
+  expect(mocks.command.mock.calls.filter(c => c[0].data.action === "generate")).toHaveLength(2);
+});
+
 it("offers a suggestive test with a private custom scene without messaging the character", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
   const testButton = await screen.findByRole("button", {
