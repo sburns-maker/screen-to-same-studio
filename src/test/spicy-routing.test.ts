@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.refs.mockReset().mockImplementation(async (_db, _user, key) => [
     {
       url: `https://storage.example.com/${key}/canonical`,
-      blob: (await canonicalProfile(key)).blob,
+      blob: key === "jade" ? new Blob(["jade-approved-user-image"], { type: "image/jpeg" }) : (await canonicalProfile(key)).blob,
     },
   ]);
 });
@@ -57,7 +57,7 @@ it.each(SPICY_CAST)("uses only %s's approved canonical reference", async (key) =
     { scene: "at home", expression: null },
   );
   expect(p).toMatchObject({ name: "spicyapi", model: SPICY_MODELS[0], allowIdentityRetry: false });
-  await expect(p.generate("one adult", [(await canonicalProfile(key)).blob])).rejects.toThrow(
+  await expect(p.generate("one adult", [key === "jade" ? new Blob(["jade-approved-user-image"], { type: "image/jpeg" }) : (await canonicalProfile(key)).blob])).rejects.toThrow(
     "queued-test",
   );
   expect(mocks.refs).toHaveBeenCalledWith(client, "owner", key);
