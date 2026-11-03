@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { enforceTessVoice, cleanTessHistoryLine, CONTACT_VOICE } from "@/lib/tess-voice";
+import { enforceTessVoice, cleanTessHistoryLine, CONTACT_VOICE, isRepeatedSubstantialReply } from "@/lib/tess-voice";
 
 describe("enforceTessVoice", () => {
   it("removes self-description of her personality", () => {
@@ -79,4 +79,16 @@ describe("punctuation and meaning survive voice cleanup", () => {
     expect(enforceTessVoice(["Meet me at 7:30.", "Meet me at 8:30."])).toHaveLength(2);
     expect(enforceTessVoice(["Meet me at 7:30.", "Meet me at 7:30."])).toHaveLength(1);
   });
+});
+
+describe("substantial repeated reply guard", () => {
+ const prior = "I sit beside you on the couch and smile. The movie is playing, and I reach for your hand while we watch the opening credits together.";
+ it("catches substantial near-verbatim replay in an experience", () => {
+   expect(isRepeatedSubstantialReply("I sit beside you on the couch and smile. The movie is playing, and I reach for your hand while we watch the opening credits together.", [prior])).toBe(true);
+   expect(isRepeatedSubstantialReply("I sit beside you on the couch and smile. The movie is playing, and I reach for your hand while we watch the opening credits with you.", [prior])).toBe(true);
+ });
+ it("does not suppress concise affection or new turns", () => {
+   expect(isRepeatedSubstantialReply("Goodnight. I love you.", ["Goodnight. I love you."])).toBe(false);
+   expect(isRepeatedSubstantialReply("The vet called about Mabel today and we agreed to take her in tomorrow morning; I've already written down the appointment details.", [prior])).toBe(false);
+ });
 });

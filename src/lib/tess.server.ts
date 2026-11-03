@@ -22,7 +22,7 @@ import { weddingShowContext } from "./fictional-marriage-show";
 export const EVENT_TAGS_LINE = `- event_tags: tag the latest PLAYER message separately from YOUR reply. Use user_flirt only for the player\u0027s actual romantic overture, flirt only for your own overture, both only if both happened; a warm acknowledgement is not automatically your flirt. Follow the EVENT TAGS rules above exactly.`;
 
 
-import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE } from "./tess-voice";
+import { enforceTessVoice, cleanTessHistoryLine, cleanContactHistoryLine, CONTACT_VOICE, isRepeatedSubstantialReply } from "./tess-voice";
 
 export const CHARACTER_BIBLE = `
 TESS MORGAN — 34, she/her, single, no kids.
@@ -323,7 +323,23 @@ ${EVENT_TAGS_LINE}`;
   const promptInstructions = `${args.experience ? inPersonSystem(SYSTEM_CORE) : SYSTEM_CORE}\n${HOUSING_ACTION_RULES}\n${PREGNANCY_CHARACTER_ACTION_RULES}\n${pregnancyProgressionGuidance("tess", args.messages, [...args.memories, ...(args.worldKnowledge ?? [])])}\n${COMMITMENT_ACTION_RULES}\n${weddingShowContext("tess", args.messages, now)}\n${dialogueRules("tess", args.experience ? "experience" : "text")}\n${dialogueContext(tessLines, args.initiation ? "" : lastUser)}\n${args.experience ? inPersonOutputRules("Tess", true) : rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Never describe your own personality or humor (no "I'm sarcastic", "my dry humor", "sarcasm is my second language", "chaos"). Show it only through what you actually say. Don't reuse a joke or phrase you already used in the recent conversation.\n- Your life is wide: work at the clinic, Sam and Dr. Halloran, Lena/Marcus/Dev, your parents, Evan's wedding, plans, things that annoy you, things you want. Mabel and trivia are just two parts of it — not your default material.`;
   const promptTail = `\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery("tess", tessLines, args.initiation ? "" : lastUser)}`}`;
   const context = fitPromptContext(buildContext, promptInstructions.length + promptTail.length);
-  const reply = await runStructured(replySchema, promptInstructions, `${context}${promptTail}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  let reply = await runStructured(replySchema, promptInstructions, `${context}${promptTail}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  // A substantial near-verbatim repeat is a generation failure, not a character choice.
+  // Retry once before saving anything; never rewrite existing transcript or lifecycle records.
+  const priorCharacterLines = args.messages.filter(m => m.sender === "tess").map(m => m.body);
+  if (reply.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) {
+    console.warn("[dialogue-repetition] Near-duplicate generated; retrying once");
+    try {
+    const revised = await runStructured(replySchema,
+      promptInstructions + "\\nREGENERATION GUARD: A draft substantially repeated an earlier reply. Preserve the established facts, boundaries, pregnancy decisions, and current scene. Respond to the newest player action with a genuinely new, character-specific reaction; do not quote, paraphrase or replay the old line. A short response, or no response if allowed, is better than repetition.",
+      `${context}${promptTail}`,
+      args.initiation ? "autonomous" : "reply");
+    if (!revised.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) reply = revised;
+    } catch (error) {
+      // Keep the original successful generation if a corrective attempt fails.
+      console.warn("[dialogue-repetition] Optional regeneration failed", error);
+    }
+  }
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = args.experience
     ? reply.messages.map((message) => message.trim()).filter(Boolean).slice(0, 2)
@@ -498,7 +514,23 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const promptInstructions = `${args.experience ? inPersonSystem(system) : system}\n${HOUSING_ACTION_RULES}\n${PREGNANCY_CHARACTER_ACTION_RULES}\n${pregnancyProgressionGuidance(c.key, args.messages, [...args.memories, ...(args.worldKnowledge ?? [])])}\n${supportsRelationshipCommitment(c.key) ? COMMITMENT_ACTION_RULES : "- commitment_action: always {action:null,kind:null,quote:null,proposalId:null} for this platonic contact."}\n${dialogueRules(c.key, args.experience ? "experience" : "text")}\n${dialogueContext(ownLines, args.initiation ? "" : lastUserText)}\n${characterInitiativeGuidance({key:c.key, channel: args.experience ? "experience" : "text", state:args.state, latestPlayerMessage:lastUserText, latestCharacterMessage:[...args.messages].reverse().find(m=>m.sender==="tess")?.body ?? "", turnCount:args.messages.length, availabilityDetail:args.availabilityDetail})}\n${weddingShowContext(c.key, args.messages, now)}\n${args.experience ? inPersonOutputRules(c.preferredName, c.romanticCapable) : rules}\n${args.experience?.instruction.split("\nEXPERIENCE HISTORY")[0] ?? ""}\n- Don't reuse a phrase or joke you already used recently. Sincere thanks, acknowledgment and ordinary affection are valid when grounded. Avoid formulaic validation speeches, but do not dodge a genuine emotional statement with a joke.${breadth}`;
   const promptTail = `\n\n${args.experience ? args.experience.instruction : task}${topics ? `\n${topics}` : ""}${focus ? `\n\n${focus.prompt}` : ""}${args.experience || args.deliveryChannel === "voice" ? "" : `\n\n${nextTextDelivery(c.key, ownLines, args.initiation ? "" : lastUserText)}`}`;
   const context = fitPromptContext(buildContext, promptInstructions.length + promptTail.length);
-  const reply = await runStructured(replySchema, promptInstructions, `${context}${promptTail}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  let reply = await runStructured(replySchema, promptInstructions, `${context}${promptTail}`, args.initiation ? "autonomous" : "reply", args.operationId ? { operationId: args.operationId } : undefined);
+  // A substantial near-verbatim repeat is a generation failure, not a character choice.
+  // Retry once before saving anything; never rewrite existing transcript or lifecycle records.
+  const priorCharacterLines = args.messages.filter(m => m.sender === "tess").map(m => m.body);
+  if (reply.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) {
+    console.warn("[dialogue-repetition] Near-duplicate generated; retrying once");
+    try {
+    const revised = await runStructured(replySchema,
+      promptInstructions + "\\nREGENERATION GUARD: A draft substantially repeated an earlier reply. Preserve the established facts, boundaries, pregnancy decisions, and current scene. Respond to the newest player action with a genuinely new, character-specific reaction; do not quote, paraphrase or replay the old line. A short response, or no response if allowed, is better than repetition.",
+      `${context}${promptTail}`,
+      args.initiation ? "autonomous" : "reply");
+    if (!revised.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) reply = revised;
+    } catch (error) {
+      // Keep the original successful generation if a corrective attempt fails.
+      console.warn("[dialogue-repetition] Optional regeneration failed", error);
+    }
+  }
   if (!supportsRelationshipCommitment(c.key)) reply.commitment_action = { action: null, kind: null, quote: null, proposalId: null };
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
