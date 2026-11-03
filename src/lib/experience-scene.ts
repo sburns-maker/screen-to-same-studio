@@ -215,6 +215,37 @@ export function transitionScene(
     scene = transitionClause(scene, clause, character, name, homes) ?? scene;
   return JSON.stringify(scene) === JSON.stringify(current) ? null : scene;
 }
+/**
+ * Deterministically replays explicit completed player actions from the outing's
+ * starting venue. Character narration never counts as evidence.
+ */
+export function replayScene(
+  initial: LiveScene,
+  moments: { id: string; source: string; body: string }[],
+  character: string,
+  name: string,
+  homes?: { user: string | null; character: string | null },
+) {
+  let scene = initial,
+    evidence: string | null = null;
+  for (const m of moments) {
+    if (m.source !== "user") continue;
+    const next = transitionScene(scene, m.body, character, name, homes);
+    if (next) {
+      scene = next;
+      evidence = m.id;
+    }
+  }
+  return { scene, evidence };
+}
+/** True when stored state is stale versus replayed evidence (location, area or activity). */
+export function sceneNeedsReconcile(stored: LiveScene, replayed: LiveScene) {
+  return (
+    stored.locationKey !== replayed.locationKey ||
+    stored.area !== replayed.area ||
+    stored.activity !== replayed.activity
+  );
+}
 export function liveSceneInstructions(scene: LiveScene) {
   return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. If area is outside at a restaurant or cafe, you have ALREADY left the dining room: no server, seated table, dessert or interior mini-game remains unless you actually re-enter. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside, but an explicitly recorded entry means INSIDE: do not narrate the doorstep, driveway or arrival again unless someone actually leaves. Old places may be remembered, never silently resumed.`;
 }
