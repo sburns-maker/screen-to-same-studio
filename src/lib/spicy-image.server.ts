@@ -95,7 +95,7 @@ export const SPICY_MODELS = [
   "bytedance/seedream-5.0-flash/edit",
   "bytedance/seedream-5.0-pro/edit",
 ] as const;
-export const SPICY_CAST = ["tess", "maya", "riley", "claire", "jordan", "sienna", "kendra"] as const;
+export const SPICY_CAST = ["tess", "maya", "riley", "claire", "jordan", "sienna", "kendra", "jade"] as const;
 export { PendingPhotoTask } from "./photo-task";
 const positive = (key: string, max: number) => {
   const value = Number(process.env[key]);
