@@ -16,6 +16,7 @@ export const SCENE_ACTIVITIES = [
   "household_chore",
   "reviewing_roommate_plan",
   "relaxing",
+  "private_moment",
 ] as const;
 export type LiveScene = {
   locationKey: string;
@@ -47,8 +48,10 @@ function transitionClause(
   homes?: { user: string | null; character: string | null },
 ): LiveScene | null {
   const s = text.trim();
+  const explicitFade = /fade\s+to\s+black|scene\s+fades?\s+out/i.test(s);
+  const afterFade = /some\s+time\s+later|after\s+(?:a\s+)?while|after\s+the\s+encore/i.test(s);
   if (
-    /\?|\b(?:let['’]s|shall we|want to|would you|could we|if we|maybe|tomorrow|remember|used to|last night|yesterday|earlier|wish|imagine|would|could|should|will|going to|haven['’]t|didn['’]t|not yet|don['’]t|do not)\b/i.test(
+    !explicitFade && !afterFade && /\?|\b(?:let['’]s|shall we|want to|would you|could we|if we|maybe|tomorrow|remember|used to|last night|yesterday|earlier|wish|imagine|would|could|should|will|going to|haven['’]t|didn['’]t|not yet|don['’]t|do not)\b/i.test(
       s,
     )
   )
@@ -171,7 +174,9 @@ function transitionClause(
       if (room && /\b(?:i|we|she|he)\b/i.test(s)) next.area = room;
     } else if (/\b(?:front door|doorstep|porch)\b/i.test(s)) next.area = "front door (outside)";
     if (isIndoorArea(next.area)) {
-      if (/\b(?:cook|cooking|chop|chopping|prepare|preparing)\b/i.test(s))
+      if (explicitFade) next.activity = "private_moment";
+      else if (afterFade && next.activity === "private_moment") next.activity = "relaxing";
+      else if (/\b(?:cook|cooking|chop|chopping|prepare|preparing)\b/i.test(s))
         next.activity = "cooking";
       else if (/\b(?:watch|watching|put(?:s|ting)? on|start(?:s|ed)?|play(?:s|ed)?)\b.{0,35}\b(?:movie|film)\b|\b(?:movie|film|opening credits)\b.{0,25}\b(?:starts|started|begins|began|rolls?|roll(?:ed|ing))\b/i.test(s))
         next.activity = "watching_movie";
@@ -189,6 +194,7 @@ export function isIndoorArea(area: string | null | undefined) {
   return !/outside|front door|porch|doorstep|driveway/i.test(area ?? "");
 }
 function roomFrom(s: string) {
+  if (/\bbedroom\b/i.test(s) && /\b(?:into|to|in|upstairs|reach|reached|enter|entered|head|headed|way|lie|lying|lay|bed|door)\b/i.test(s)) return "bedroom";
   if (/\b(?:couch|sofa)\b/i.test(s) && /\b(?:i|we|she|he)\b/i.test(s) && /\b(?:sit|sat|sitting|settle|settled|follow|followed|curl|curled|get comfortable|got comfortable|lean|leaned|onto|on the)\b/i.test(s)) return "living room (couch)";
   if (/\b(?:living room|lounge room|den)\b/i.test(s)) return "living room";
   if (/\bkitchen\b/i.test(s) && /\b(?:in|into|to)\s+(?:the|her|his|my)\s+kitchen\b/i.test(s)) return "kitchen";
@@ -247,7 +253,7 @@ export function sceneNeedsReconcile(stored: LiveScene, replayed: LiveScene) {
   );
 }
 export function liveSceneInstructions(scene: LiveScene) {
-  return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. If area is outside at a restaurant or cafe, you have ALREADY left the dining room: no server, seated table, dessert or interior mini-game remains unless you actually re-enter. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside, but an explicitly recorded entry means INSIDE: do not narrate the doorstep, driveway or arrival again unless someone actually leaves. Old places may be remembered, never silently resumed.`;
+  return `AUTHORITATIVE LIVE SCENE (takes precedence over original calendar metadata, baseline schedule, memories and old scene paragraphs): ${JSON.stringify(scene)}. The calendar venue is where this outing began, NOT where you are now. Stay at this confirmed location and activity. If area is outside at a restaurant or cafe, you have ALREADY left the dining room: no server, seated table, dessert or interior mini-game remains unless you actually re-enter. Do not return to a previous location without an actual recorded travel/arrival transition. Do not infer private-home entry, intimacy, a booking, a new participant or user consent. Vehicle scenes do not imply arrival. A front door means outside, but an explicitly recorded entry means INSIDE: do not narrate the doorstep, driveway or arrival again unless someone actually leaves. A recorded fade-to-black marks an off-screen private beat, not proof of any particular sexual act. Resume afterward in the same room; do not restart an earlier activity. When in the bedroom, kitchen dishes, food and counters are in another room, and must not be handled without moving there. Old places may be remembered, never silently resumed.`;
 }
 /** Reject clear present-scene relocations, not memories or ordinary outdoor surroundings. */
 export function sceneContradiction(scene: LiveScene, text: string) {
@@ -269,6 +275,7 @@ export function sceneContradiction(scene: LiveScene, text: string) {
     // An explicitly completed home entry is not still at the exterior threshold.
     // Reject the old doorway narration rather than repeatedly regressing the date.
     const indoors = scene.locationKind === "home" && isIndoorArea(scene.area);
+    if (indoors && scene.area === "bedroom" && !/\b(?:walk|walked|go|went|head|headed|return|returned|step|stepped|move|moved)\b.{0,45}\b(?:kitchen|downstairs)\b/i.test(s) && /\b(?:reach|reached|grab|grabbed|pick|picked|wash|washed|rinse|rinsed|stack|stacked|load|loaded|clean|cleaned|scrub|scrubbed|wipe|wiped)\b.{0,55}\b(?:plate|dish|pancake|sink|counter|spatula|mixing bowl)\b/i.test(s)) return true;
     const leaving = /\b(?:walk|step|go|head|return)(?:ed|s)?\s+(?:back\s+)?(?:out(?:side)?|to\s+(?:the\s+)?(?:front\s+door|porch|doorstep))\b/i.test(s);
     if (indoors && !leaving && /\b(?:let['’]s|let us)\s+(?:get|go|head)\s+inside\b|\b(?:come on in|ready to go in|before we (?:even )?get inside)\b/i.test(s))
       return true;

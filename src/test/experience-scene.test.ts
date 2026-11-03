@@ -99,6 +99,33 @@ describe("grounded live scene continuity", () => {
     ).toBe("park:local");
   });
 });
+describe("Sienna bedroom and fade-to-black continuity", () => {
+  const start = {
+    ...initialScene("sienna", "home:user", "Your home"),
+    locationKind: "home",
+    area: "kitchen",
+    activity: "cooking" as const,
+  };
+  it("records kitchen to upstairs bedroom and the private time skip without inventing details", () => {
+    const upstairs = transitionScene(start, "I take your hand. We make our way into the bedroom together, and I close the door.", "sienna", "Sienna")!;
+    expect(upstairs).toMatchObject({locationKey:"home:user",area:"bedroom"});
+    const faded = transitionScene(upstairs, "We share another kiss. Fade to black.", "sienna", "Sienna")!;
+    expect(faded).toMatchObject({area:"bedroom",activity:"private_moment"});
+    const resumed = transitionScene(faded, "Some time later, I lie beside you in bed, smiling.", "sienna", "Sienna")!;
+    expect(resumed).toMatchObject({area:"bedroom",activity:"relaxing"});
+    expect(sceneContradiction(resumed, 'I glance toward the kitchen mess and reach for a plate.')).toBe(true);
+    expect(sceneContradiction(resumed, 'Those breakfast dishes can wait until we go downstairs.')).toBe(false);
+    expect(sceneContradiction(resumed, 'I hold your hand while we rest together.')).toBe(false);
+    expect(transitionScene(resumed, "I remember the pancakes in the kitchen.", "sienna", "Sienna")).toBeNull();
+    const downstairs = transitionScene(resumed, "We walk downstairs into the kitchen.", "sienna", "Sienna")!;
+    expect(downstairs.area).toBe("kitchen");
+    expect(sceneContradiction(downstairs,"I reach for the plates.")).toBe(false);
+  });
+  it("does not treat an invitation to go upstairs as actual movement", () => {
+    expect(transitionScene(start, "Come upstairs to the bedroom with me?", "sienna", "Sienna")).toBeNull();
+  });
+});
+
 describe("photo blocker regressions", () => {
   const detail =
     "weekend, relaxed; she is off today, even though there is an unresolved workplace storyline";
