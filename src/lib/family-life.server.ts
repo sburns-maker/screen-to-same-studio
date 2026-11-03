@@ -79,7 +79,7 @@ export async function dueUndisclosedPregnancyResults(db:Client,userId:string,cha
 export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:string,characterKey:string,now=new Date()) {
  const pending=await dueUndisclosedPregnancyResults(db,userId,characterKey,now);
  if(!pending.length)return {disclosed:0};
- const {validPregnancyDisclosure,pregnancyDisclosureActionSchema,observedPregnancyDisclosureStatus}=await import("./family-pregnancy-disclosure");
+ const {matchesVisiblePregnancyDisclosure}=await import("./family-pregnancy-disclosure");
  const {data:character,error:characterError}=await db.from("characters").select("id").eq("key",characterKey).single();
  if(characterError || !character)return {disclosed:0};
  const {data:conversation,error:conversationError}=await db.from("conversations")
@@ -92,21 +92,10 @@ export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:stri
  if(error)throw new Error("Pregnancy disclosure messages unavailable");
  let disclosed=0;
  for(const result of pending) {
-  const matched=(messages??[]).find(m=>{
-   // A result must have been due by the time the CHARACTER'S message became
-   // visible. Never derive a disclosure from a future/queued message or user text.
-   if(!m.visible_at || Date.parse(m.visible_at) < Date.parse(result.revealAt))return false;
-   const md=m.metadata;
-   const parsed=pregnancyDisclosureActionSchema.safeParse(
-     md && typeof md==="object" && !Array.isArray(md)
-      ? (md as Record<string,unknown>)["pregnancy_disclosure_action"]:null);
-   if(parsed.success && parsed.data)
-     return validPregnancyDisclosure(parsed.data,m.body,[result.id],result.status);
-   // Older model replies may have omitted the structured action or placed the
-   // disclosure in a later bubble. Reconcile ONLY an unambiguous sole due event
-   // with an explicit first-person result matching the canonical outcome.
-   return pending.length === 1 && observedPregnancyDisclosureStatus(m.body) === result.status;
-  });
+  const matched=(messages??[]).find(m=>matchesVisiblePregnancyDisclosure({
+    body:m.body, metadata:m.metadata, visibleAt:m.visible_at,
+    event:result, soleDueEvent:pending.length===1,
+  }));
   if(!matched)continue;
   const {error:updateError}=await db.from("family_pregnancy_events")
     .update({disclosed_at:matched.visible_at}).eq("id",result.id)
