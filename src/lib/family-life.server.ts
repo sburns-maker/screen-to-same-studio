@@ -71,7 +71,7 @@ export async function dueUndisclosedPregnancyResults(db:Client,userId:string,cha
    .eq("user_id",userId).eq("character_key",characterKey).is("disclosed_at",null)
    .lte("reveal_at",now.toISOString()).in("status",["positive","negative"]).limit(10);
  if(error)throw new Error("Private family result unavailable");
- return (data??[]).map(row=>({id:row.id,status:row.status as "positive"|"negative"}));
+ return (data??[]).map(row=>({id:row.id,status:row.status as "positive"|"negative",revealAt:row.reveal_at}));
 }
 /** Reconcile an actual visible character-authored pregnancy disclosure. The
  * player never receives the private result before the message is visible.
@@ -79,7 +79,7 @@ export async function dueUndisclosedPregnancyResults(db:Client,userId:string,cha
 export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:string,characterKey:string,now=new Date()) {
  const pending=await dueUndisclosedPregnancyResults(db,userId,characterKey,now);
  if(!pending.length)return {disclosed:0};
- const {validPregnancyDisclosure,pregnancyDisclosureActionSchema}=await import("./family-pregnancy-disclosure");
+ const {matchesVisiblePregnancyDisclosure}=await import("./family-pregnancy-disclosure");
  const {data:character,error:characterError}=await db.from("characters").select("id").eq("key",characterKey).single();
  if(characterError || !character)return {disclosed:0};
  const {data:conversation,error:conversationError}=await db.from("conversations")
@@ -88,17 +88,14 @@ export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:stri
  const {data:messages,error}=await db.from("messages").select("body,metadata,visible_at")
    .eq("user_id",userId).eq("conversation_id",conversation.id)
    .eq("sender","tess").lte("visible_at",now.toISOString())
-   .order("created_at",{ascending:false}).limit(100);
+   .order("created_at",{ascending:false}).limit(250);
  if(error)throw new Error("Pregnancy disclosure messages unavailable");
  let disclosed=0;
  for(const result of pending) {
-  const matched=(messages??[]).find(m=>{
-   const md=m.metadata;
-   const parsed=pregnancyDisclosureActionSchema.safeParse(
-     md && typeof md==="object" && !Array.isArray(md)
-      ? (md as Record<string,unknown>)["pregnancy_disclosure_action"]:null);
-   return parsed.success && validPregnancyDisclosure(parsed.data,m.body,[result.id],result.status);
-  });
+  const matched=(messages??[]).find(m=>matchesVisiblePregnancyDisclosure({
+    body:m.body, metadata:m.metadata, visibleAt:m.visible_at,
+    event:result, soleDueEvent:pending.length===1,
+  }));
   if(!matched)continue;
   const {error:updateError}=await db.from("family_pregnancy_events")
     .update({disclosed_at:matched.visible_at}).eq("id",result.id)
