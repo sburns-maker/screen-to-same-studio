@@ -393,7 +393,7 @@ async function runTurnUnlocked(
 
   const state = pickState(stateRow ?? {}, def.seedState);
   const photoContext: PhotoContext = {
-    age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
+    character: def.key, age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
     supported: def.photoTypes, matureEnabled: conv.mature_photography,
     boundary: (["none", "selfies", "all_photos", "mature"].includes(conv.photo_boundary) ? conv.photo_boundary : "all_photos") as PhotoBoundary,
   };
@@ -1455,7 +1455,7 @@ export const debugSnapshot = createServerFn({ method: "POST" })
     const curatedCount = !isTess || recentlySentPhoto ? 0 : eligiblePhotos(state, { irritation: state.irritation >= 20 }).length;
     // Report the same category eligibility as runTurn; pacing is a separate diagnostic, not a hard category block.
     const genTypes = allowedCharacterPhotoTypes(def.key, eligiblePhotoCategories(state, {
-      age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
+      character: def.key, age: def.age, enabled: def.photosEnabled, romanticCapable: def.romanticCapable,
       supported: def.photoTypes, matureEnabled: conv.mature_photography,
       boundary: conv.photo_boundary as PhotoBoundary,
     }));
