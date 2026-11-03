@@ -131,3 +131,29 @@ export function cleanContactHistoryLine(body: string, name: string): string {
   const v = CONTACT_VOICE[name.toLowerCase()] ?? { allowedEmoji: null };
   return enforceTessVoice([body], { ...v, maxBubbles: 1, maxEmoji: 3, maxExclaim: 3 })[0] ?? "…";
 }
+
+/** Strong repetition check for generated replies, including live experiences.
+ * Avoid treating short affection, yes/no answers, dates or normal callbacks as duplicates.
+ * This never edits the stored transcript.
+ */
+export function isRepeatedSubstantialReply(candidate: string, prior: readonly string[]): boolean {
+  const tokens = (s: string) => s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  const c = tokens(candidate);
+  if (c.length < 17 || candidate.trim().length < 90) return false;
+  const grams = (t: string[]) => {
+    const out = new Set<string>();
+    for (let i = 0; i <= t.length - 4; i++) out.add(t.slice(i, i + 4).join(" "));
+    return out;
+  };
+  const cg = grams(c);
+  return prior.slice(-12).some((line) => {
+    const p = tokens(line);
+    if (p.length < 17) return false;
+    const pg = grams(p);
+    let common = 0;
+    for (const g of cg) if (pg.has(g)) common++;
+    // Long-form near duplicates; avoid overreacting to legitimate recurring facts.
+    return common / Math.max(1, Math.min(cg.size, pg.size)) >= 0.76 &&
+      Math.min(cg.size, pg.size) / Math.max(cg.size, pg.size) >= 0.58;
+  });
+}
