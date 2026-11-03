@@ -33,7 +33,7 @@ export function characterInitiativeOpportunity(args: {
     if (args.state.perceived_pressure >= 20 || args.state.irritation >= 20)
       return { mode: "ordinary", instruction: "JADE AGENCY: She keeps her own choices, can refuse, slow down or change her mind if pressured. Being wild is not automatic agreement." };
     if (/\b(?:yes|yeah|yep|absolutely|i do|let.s do it|i mean it|serious|marry you)\b/i.test(previous) &&
-        /\b(?:marry|marriage|wedding|wife|husband|ring|elope)\b/i.test(herLast))
+        /\b(?:marry|married|marriage|wedding|wife|husband|ring|elope)\b/i.test(herLast))
       return { mode: "bold_romance", instruction: "JADE MARRIAGE FOLLOW-THROUGH: Her marriage comment was answered positively. Do not downgrade it to banter or dodge with vague maybe-someday lines. Clarify whether the player means an actual engagement and, if she genuinely wants that herself, explicitly ask him to marry her. Use commitment_action propose engagement only for an unmistakable sincere proposal, never a joke. An engagement needs the player's explicit recorded acceptance. She can actively propose practical next steps." };
     const signal = stableChoice([args.turnCount, previous.slice(-160), herLast.slice(-100)].join("|")) % 100;
     return { mode: signal < 32 ? "bold_romance" : signal < 60 ? "surprise_invitation" : signal < 80 ? "direct_vulnerability" : "ordinary",
