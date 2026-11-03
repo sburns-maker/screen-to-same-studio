@@ -256,7 +256,7 @@ export function housingCommuteMinutes(
 export function housingDecisionGuidance(args: {
   character: string;
   messages: readonly { sender: string; body: string }[];
-  experienceInstruction?: string;
+  experienceInstruction?: string | undefined;
 }): string {
   const recent = args.messages.slice(-24);
   const dialogue = recent.map(m => m.body).join("\n");
