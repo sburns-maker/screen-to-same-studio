@@ -20,6 +20,8 @@ describe("shared pregnancy disclosure continuity", () => {
     expect(visiblePregnancyResultDisclosure("Did you hear from the doctor?")).toBeNull();
     expect(visiblePregnancyResultDisclosure("I'm waiting for results.")).toBeNull();
     expect(visiblePregnancyResultDisclosure("A positive outlook for this weekend.")).toBeNull();
+    expect(visiblePregnancyResultDisclosure("We are expecting visitors.")).toBeNull();
+    expect(visiblePregnancyResultDisclosure("I got a positive test for flu.")).toBeNull();
     expect(priorPregnancyDisclosureContext([{body:"Have you taken the test?"}])).toEqual([]);
   });
   it("preserves a confirmed negative result as distinct shared history", () => {
