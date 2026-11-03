@@ -492,7 +492,7 @@ function Experiences() {
                       <div className="space-y-2" aria-label="Optional scene actions">
                         <p className="text-xs text-muted-foreground">Optional ideas · tap to draft, not send · plans are never scheduled here</p>
                         <div className="flex flex-wrap gap-2">
-                          {experienceStarters(history.data?.scene?.live_scene?.activity).map((starter) => (
+                          {experienceStarters(history.data?.scene?.live_scene?.activity, history.data?.scene?.live_scene).map((starter) => (
                             <button
                               key={starter.label}
                               type="button"
