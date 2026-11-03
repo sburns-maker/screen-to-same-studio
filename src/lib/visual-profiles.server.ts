@@ -10,10 +10,6 @@ export async function expansionAvailable(db: Client) {
   return r.data === 15;
 }
 export async function registerPrimaryIdentity(db: Client, user: string, key: CharacterKey) {
-  if (key === "jade") {
-    const { currentCanonical } = await import("./profile-media.server");
-    return { ...await currentCanonical(db, user, key), activeMessageId: null, activeReason: null };
-  }
   const anchor = await canonicalProfile(key);
   const r = await db.from("visual_identity_registry").upsert(
     {

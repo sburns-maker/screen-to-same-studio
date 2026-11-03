@@ -6,7 +6,7 @@ import ben from "@/assets/avatars/ben.jpg";
 import riley from "@/assets/avatars/riley-canon.png";
 import sienna from "@/assets/avatars/sienna.png.asset.json";
 import kendra from "@/assets/avatars/kendra.jpg.asset.json";
-import jade from "@/assets/avatars/jade-placeholder.svg";
+import jade from "@/assets/avatars/jade-canon.jpg";
 /** Existing UI assets are authoritative. Never replace these with generated outputs. */
 export const PROFILE_PORTRAITS = {
   tess: { avatar: tess, asset: "src/assets/tess.jpg" },
@@ -17,5 +17,5 @@ export const PROFILE_PORTRAITS = {
   riley: { avatar: riley, asset: "src/assets/avatars/riley-canon.png" },
   sienna: { avatar: sienna.url, asset: "src/assets/avatars/sienna-canon.png" },
   kendra: { avatar: kendra.url, asset: "src/assets/avatars/kendra-canon.jpg" },
-  jade: { avatar: jade, asset: "user-approved-profile:jade" },
+  jade: { avatar: jade, asset: "src/assets/avatars/jade-canon.jpg" },
 } as const;

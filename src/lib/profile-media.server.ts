@@ -32,7 +32,7 @@ export async function currentCanonical(db: Client, user: string, key: CharacterK
   const r = row.data;
   if (!r) return canonicalProfile(key);
   if (r.approval !== "approved") throw new Error("Canonical identity is not approved");
-  const original = key === "jade" ? null : await canonicalProfile(key);
+  const original = await canonicalProfile(key);
   if (original && r.canonical_asset === original.asset) {
     if (r.canonical_sha256 !== original.sha256)
       throw new Error("Canonical reference integrity check failed");
@@ -102,8 +102,7 @@ export async function saveProfileMedia(
     throw new Error("Explicit canonical approval required");
   const reference = data.reference ? decodePortrait(data.reference) : null;
   const { registerPrimaryIdentity } = await import("./visual-profiles.server");
-  if (data.key !== "jade") await registerPrimaryIdentity(db, user, data.key);
-  if (data.key === "jade" && !reference) throw new Error("Jade needs an approved canonical portrait upload");
+  await registerPrimaryIdentity(db, user, data.key);
   const root = `${user}/profile/${data.key}/${crypto.randomUUID()}`;
   {
     const avatarPath = `${root}-avatar.jpg`;
@@ -117,19 +116,6 @@ export async function saveProfileMedia(
         .from("tess-photos")
         .upload(refPath, reference.bytes, { contentType: "image/jpeg", upsert: false });
       if (r.error) throw new Error("Identity upload failed");
-    }
-    if (data.key === "jade" && reference && refPath) {
-      const existing = await db.from("visual_identity_registry")
-        .select("entity_key").eq("user_id", user).eq("entity_key", "jade").maybeSingle();
-      if (existing.error) throw new Error("Jade identity registry unavailable");
-      if (!existing.data) {
-        const inserted = await db.from("visual_identity_registry").insert({
-          user_id: user, entity_key: "jade", canonical_asset: refPath,
-          canonical_sha256: await portraitHash(reference.bytes), approval: "approved",
-        });
-        if (inserted.error && inserted.error.code !== "23505")
-          throw new Error("Jade identity registration unavailable");
-      }
     }
     const r = await db.rpc("set_profile_media", {
       p_user: user,
