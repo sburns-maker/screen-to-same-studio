@@ -73,6 +73,20 @@ describe("grounded live scene continuity", () => {
     expect(sceneContradiction(outdoors!, "I glance around Valley Table looking for another suspect.")).toBe(true);
     expect(transitionScene(outdoors!, "We continue walking right.", "sienna", "Sienna")).toBeNull();
   });
+  it("moves Maya from the bar to her home and then inside when the player follows her", () => {
+    let scene = initialScene("maya", "bar:4ds", "4D's Lounge");
+    scene = transitionScene(scene, "We take a ride. A little while later, we pull up outside her place.", "maya", "Maya") ?? scene;
+    expect(scene).toMatchObject({ locationKey: "home:maya", locationKind: "home", area: "outside" });
+    scene = transitionScene(scene, "I follow her inside. We settle on the couch and she puts on a movie.", "maya", "Maya") ?? scene;
+    expect(scene).toMatchObject({ locationKey: "home:maya", area: "inside", activity: "watching_movie" });
+    expect(sceneContradiction(scene, "I pause at the front step, smiling at your confidence.")).toBe(true);
+    expect(sceneContradiction(scene, "I grin beside you on the couch as the movie begins.")).toBe(false);
+    expect(transitionScene(scene, "I smile at Maya. Do you like this movie?", "maya", "Maya")).toBeNull();
+  });
+  it("recognizes entry when following the host in from a home doorstep", () => {
+    const atDoor = { ...initialScene("maya", "home:maya", "Maya's home"), area: "front door (outside)", activity: "at_front_door" as const };
+    expect(transitionScene(atDoor, "I follow her inside.", "maya", "Maya")).toMatchObject({ area: "inside" });
+  });
   it("keeps planned exits as mere invitations", () => {
     const restaurant = initialScene("sienna", "diner:valley", "Valley Table");
     expect(transitionScene(restaurant, "Let's go outside after dessert.", "sienna", "Sienna")).toBeNull();
