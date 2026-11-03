@@ -23,13 +23,13 @@ describe("character-specific pregnancy progression",()=>{
   const tess=pregnancyProgressionGuidance("tess",own,["Canonical pregnancy test positive"]);
   const kendra=pregnancyProgressionGuidance("kendra",own,["Canonical pregnancy test positive"]);
   expect(tess).toContain("Tess tends to think carefully");
-  expect(kendra).toContain("Kendra can be shaken");
+  expect(kendra).toContain("Kendra genuinely wants motherhood");
   expect(tess).toContain("STALL SIGNAL");
   expect(kendra).toContain("STALL SIGNAL");
   expect(kendra).toContain("Never force a pregnancy outcome");
  });
  it("allows disclosure to establish the subject, without inventing decisions",()=>{
-  expect(pregnancyProgressionGuidance("kendra",disclosure,[])).toContain("Kendra can be shaken");
+  expect(pregnancyProgressionGuidance("kendra",disclosure,[])).toContain("Kendra genuinely wants motherhood");
   expect(pregnancyProgressionGuidance("kendra",[{sender:"user",body:"I'm scared"}],["unrelated work notes"])).toBe("");
  });
  it("prefers joy for Kendra's wanted confirmed pregnancy without deciding for her",()=>{
