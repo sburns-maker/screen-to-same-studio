@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { selectPhotoComposition, headPose, armPose, repeatsPoseSignature } from "@/lib/photo-composition";
+import { selectPhotoComposition, headPose, armPose, repeatsPoseSignature, removeConflictingPoseDirections } from "@/lib/photo-composition";
 import { referencePoseGuidance } from "@/lib/photo-reference-prompt";
 import type { PhotoStyle } from "@/lib/tess-photos";
 
@@ -36,6 +36,29 @@ describe("pose variety", () => {
     const tilts = history.filter((s) => headPose(s) === "tilted").length;
     expect(tilts).toBeLessThanOrEqual(1);
     expect(new Set(history.map((s) => s.pose_type)).size).toBeGreaterThanOrEqual(4);
+  });
+
+  it("removes old over-the-shoulder and tilted-head instructions before selecting a new pose", () => {
+    const repeated: PhotoStyle = {
+      ...tiltSelfie,
+      pose_type: "standing in her bedroom, looking back over her shoulder, head tilted to the side, arm extended holding the phone",
+    };
+    const capture = selectPhotoComposition(repeated, [repeated], "at home");
+    expect(capture.decision).not.toBe("preserved");
+    expect(headPose(capture.style)).not.toBe("over_shoulder");
+    expect(headPose(capture.style)).not.toBe("tilted");
+    expect(capture.style.pose_type).not.toMatch(/looking back over her shoulder|head tilted/i);
+    expect(capture.style.pose_type).toContain("standing in her bedroom");
+    expect(capture.style.selfie_type).toBe("selfie");
+    expect(capture.style.setting).toBe(repeated.setting);
+    expect(capture.style.clothing_category).toBe(repeated.clothing_category);
+  });
+
+  it("retains activity while removing conflicting inherited head angles", () => {
+    expect(removeConflictingPoseDirections("sitting on couch, looking back over her shoulder, head tilted to the side"))
+      .toMatch(/^sitting on couch/);
+    expect(removeConflictingPoseDirections("sitting on couch, looking back over her shoulder, head tilted to the side"))
+      .not.toMatch(/shoulder|tilt/i);
   });
 
   it("does not let a scene mentioning tilt disable repetition protection", () => {
