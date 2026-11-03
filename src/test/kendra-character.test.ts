@@ -18,6 +18,12 @@ describe("Kendra Blake independent adult cast integration", () => {
     expect(supportsRelationshipCommitment("kendra")).toBe(true);
     expect(canShareCommitmentWithCharacter("kendra", "ben")).toBe(false);
   });
+  it("gives Kendra an affirmative, autonomous desire for family and motherhood", () => {
+    expect(CHARACTERS.kendra.bible).toContain("genuinely wants to become a mother");
+    expect(CHARACTERS.kendra.bible).toContain("joy, excitement");
+    expect(CHARACTERS.kendra.bible).toContain("retains bodily autonomy");
+    expect(CHARACTERS.sienna.bible).not.toContain("genuinely wants to become a mother");
+  });
   it("keeps daytime shoots separate from overnight sleep", () => {
     expect(workplaceShiftLikely("kendra", new Date("2026-10-28T18:00:00Z"))).toBe(true);
     expect(characterAvailability(CHARACTERS.kendra, new Date("2026-10-28T10:00:00Z")).availability).toBe("asleep");
