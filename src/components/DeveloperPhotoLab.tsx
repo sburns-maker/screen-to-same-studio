@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { developerPhotoLab, checkDeveloperSpicyConnection } from "@/lib/developer-photo-lab.functions";
 import { evaluatePhotoDecisionBatch } from "@/lib/photo-decision-batch.functions";
+import { safePhotoScene } from "@/lib/photo-policy";
 import {
   PHOTO_LAB_PRESETS,
   type PhotoLabType,
@@ -84,8 +85,17 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
   }, [conversationId, refresh]);
   async function generate(category: PhotoLabType) {
     if (busy) return;
-    setBusy(true);
     setError("");
+    const customScene = (category === "mature_romantic" || category === "mature_adult" || category === "suggestive")
+      ? (scenes[category][0]?.[chosen[category]] ?? "").trim()
+      : "";
+    // Validate before allocating a stable request ID. An invalid scene is not an
+    // uncertain paid request and must never strand the next category behind it.
+    if (customScene && category !== "mature_adult" && !safePhotoScene(customScene)) {
+      setError("Custom scene outside supported boundaries. Edit the scene to use permitted non-explicit wording; no image was requested.");
+      return;
+    }
+    setBusy(true);
     const request = pending.current ?? { category, id: crypto.randomUUID() };
     if (request.category !== category) {
       setError("Check the previous test status before starting another category.");
@@ -100,9 +110,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
           conversationId,
           category,
           requestId: request.id,
-          ...((category === "mature_romantic" || category === "mature_adult" || category === "suggestive") &&
-              scenes[category][0]?.[chosen[category]]?.trim()
-            ? { customScene: scenes[category][0]![chosen[category]]!.trim() } : {}),
+          ...(customScene ? { customScene } : {}),
           confirmation: "GENERATE DEVELOPER PHOTO TEST",
         },
       });
@@ -122,7 +130,15 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
       }
       await refresh();
     } catch (e) {
-      setError((e as Error).message + " Check test status before requesting another image.");
+      const message = e instanceof Error ? e.message : "Photo test failed";
+      // A pre-reservation validation failure cannot have started a paid image
+      // call. Only network-uncertain failures keep the idempotent request ID.
+      if (/Custom scene outside supported boundaries|This category is unavailable|Owned configured character required|Developer photo tests are disabled/.test(message)) {
+        pending.current = null;
+        setError(message);
+      } else {
+        setError(message + " Check test status before requesting another image.");
+      }
     } finally {
       setBusy(false);
     }
