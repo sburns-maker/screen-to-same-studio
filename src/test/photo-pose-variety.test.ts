@@ -38,6 +38,21 @@ describe("pose variety", () => {
     expect(new Set(history.map((s) => s.pose_type)).size).toBeGreaterThanOrEqual(4);
   });
 
+  it("does not let a scene mentioning tilt disable repetition protection", () => {
+    const result = selectPhotoComposition(
+      { ...tiltSelfie },
+      [tiltSelfie],
+      "Kendra tilts her head while sitting at home",
+    );
+    expect(result.decision).not.toBe("preserved");
+    expect(headPose(result.style)).not.toBe("tilted");
+  });
+
+  it("honors an explicit camera request from the player", () => {
+    const result = selectPhotoComposition(tiltSelfie, [tiltSelfie], "at home", "same pose as before");
+    expect(result.decision).toBe("preserved");
+  });
+
   it("keeps outfit, setting, expression and hairstyle continuity", () => {
     const r = selectPhotoComposition({ ...tiltSelfie, hairstyle: "messy bun" }, [tiltSelfie], "at home");
     expect(r.style.clothing_category).toBe("grey lounge set");
