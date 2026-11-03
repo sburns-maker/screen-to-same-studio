@@ -1,14 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { REFERENCE_ROLES } from "./photo-reference-library";
-import { CHARACTERS } from "./characters";
-const character = z.enum(Object.keys(CHARACTERS) as [keyof typeof CHARACTERS, ...(keyof typeof CHARACTERS)[]]);
+import { REFERENCE_ROLES, referenceCharacterSchema } from "./photo-reference-library";
 export const loadReferenceLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
     z
-      .object({ character, offset: z.number().int().min(0).max(100000).default(0) })
+      .object({ character: referenceCharacterSchema, offset: z.number().int().min(0).max(100000).default(0) })
       .strict()
       .parse(v),
   )
@@ -26,7 +24,7 @@ export const loadReferenceLibrary = createServerFn({ method: "POST" })
 export const previewReference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
-    z.object({ character, message: z.string().uuid().nullable() }).strict().parse(v),
+    z.object({ character: referenceCharacterSchema, message: z.string().uuid().nullable() }).strict().parse(v),
   )
   .handler(async ({ data, context }) => {
     const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
@@ -43,7 +41,7 @@ export const changeReference = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        character,
+        character: referenceCharacterSchema,
         action: z.enum(["approve", "reject", "remove", "undo"]),
         role: z.enum(REFERENCE_ROLES).nullable(),
         message: z.string().uuid().nullable(),
@@ -73,7 +71,7 @@ export const setReferenceProviderPreference = createServerFn({ method: "POST" })
   .inputValidator((v: unknown) =>
     z
       .object({
-        character,
+        character: referenceCharacterSchema,
         enabled: z.boolean(),
         adult: z.boolean(),
         version: z.number().int().nonnegative(),
