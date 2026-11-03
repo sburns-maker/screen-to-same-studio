@@ -22,15 +22,15 @@ export function validPregnancyDisclosure(
  * it only determines whether this conversation already contains disclosure.
  */
 export function observedPregnancyDisclosureStatus(body: string): "positive" | "negative" | null {
-  const value = body.replace(/\\s+/g, " ").trim();
-  if (/\\b(?:i(?:['’]m| am) not pregnant|my pregnancy test (?:was|is|came back) negative|i (?:got|had) a negative pregnancy test)\\b/i.test(value))
+  const value = body.replace(/\s+/g, " ").trim();
+  if (/\b(?:i(?:['’]m| am) not pregnant|my pregnancy test (?:was|is|came back) negative|i (?:got|had) a negative pregnancy test)\b/i.test(value))
     return "negative";
-  if (/\\b(?:my pregnancy test (?:was|is|came back) positive|i (?:got|had|have|did get) a positive pregnancy test|we(?:['’]re| are) expecting(?: a baby)?)\\b/i.test(value))
+  if (/\b(?:my pregnancy test (?:was|is|came back) positive|i (?:got|had|have|did get) a positive pregnancy test|we(?:['’]re| are) expecting(?: a baby)?)\b/i.test(value))
     return "positive";
-  const pregnant = /\\bi(?:['’]m| am) pregnant\\b/i.exec(value);
+  const pregnant = /\bi(?:['’]m| am) pregnant\b/i.exec(value);
   if (!pregnant) return null;
   const before = value.slice(Math.max(0, pregnant.index - 60), pregnant.index);
-  if (/\\b(?:if|what if|maybe|might|could|possibly|think|thought|wonder|imagine)\\b[^.!?]*$/i.test(before))
+  if (/\b(?:if|what if|maybe|might|could|possibly|think|thought|wonder|imagine)\b[^.!?]*$/i.test(before))
     return null;
   return "positive";
 }
