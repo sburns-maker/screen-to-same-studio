@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { pickReferenceCandidates, referenceLibrarySummary } from "@/lib/photo-reference-library";
+import { pickReferenceCandidates, referenceLibrarySummary, referenceCharacterSchema } from "@/lib/photo-reference-library";
+import { CHARACTERS } from "@/lib/characters";
 const owner = "11111111-1111-4111-8111-111111111111";
 const canonical = {asset:"src/assets/tess.jpg",sha256:"a".repeat(64)};
 const message=(path:string, crop:string, overrides:Record<string,unknown>={})=>({
@@ -31,5 +32,15 @@ describe("Api18 three-reference candidate selection",()=>{
     const refs=pickReferenceCandidates("tess",canonical,[],owner);
     expect(refs).toHaveLength(1);
     expect(referenceLibrarySummary(refs).ready).toBe(false);
+  });
+});
+
+describe("Reference Library character validation", () => {
+  it("accepts Jade and all registered playable characters", () => {
+    for (const key of Object.keys(CHARACTERS)) expect(referenceCharacterSchema.parse(key)).toBe(key);
+    expect(referenceCharacterSchema.parse("jade")).toBe("jade");
+  });
+  it("rejects an unknown character instead of allowing arbitrary input", () => {
+    expect(referenceCharacterSchema.safeParse("unknown").success).toBe(false);
   });
 });
