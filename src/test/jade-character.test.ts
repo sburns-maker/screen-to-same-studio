@@ -16,12 +16,18 @@ describe("Jade Monroe — independent adult character", () => {
     expect(characterFor("jade")).toMatchObject({key:"jade",fullName:"Jade Monroe",age:25,romanticCapable:true,photosEnabled:true});
     expect(CHARACTERS.jade.appearance).toMatch(/auburn|red/i);
     expect(CHARACTERS.jade.bible).toMatch(/marriage/i);
-    expect(CHARACTERS.jade.opener).toMatch(/wedding/i);
+    expect(CHARACTERS.jade.opener).toMatch(/work meetings/i);
+    expect(CHARACTERS.jade.opener).toMatch(/propose marriage/i);
+    expect(CHARACTERS.jade.bible).toMatch(/ESTABLISHED WORK ACQUAINTANCE/);
+    expect(CHARACTERS.jade.bible).toMatch(/PROFESSIONAL BOUNDARIES/);
     expect(supportsRelationshipCommitment("jade")).toBe(true);
     expect(canShareCommitmentWithCharacter("jade","kendra")).toBe(false);
   });
   it("has a separate workplace, real schedule, social circle and voice", () => {
     expect(WORKPLACES.jade.character).toBe("jade");
+    expect(WORKPLACES.jade.label).toBe("Harbor Point Recovery Center");
+    expect(WORKPLACES.jade.publicAccess).toBe("by_invitation");
+    expect(CHARACTERS.jade.schedule).toMatchObject({workDays:[1,2,3,4,5],workStart:9,workEnd:17});
     expect(CANON_NPCS.filter(x=>x.characterKey==="jade")).toHaveLength(3);
     expect(CANON_LINKS.filter(x=>x.characterKey==="jade")).toHaveLength(3);
     expect(VOICE_DESIGN_KEYS).toContain("jade");
