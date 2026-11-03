@@ -23,8 +23,8 @@ export function validPregnancyDisclosure(
  */
 export function visiblePregnancyResultDisclosure(body: string): "positive" | "negative" | null {
   const s = body.toLowerCase();
-  const positive = /\b(?:i(?:['’]m| am) pregnant|my pregnancy test (?:was|is|came back) positive|i (?:got|had|received) a positive (?:pregnancy )?(?:test|result)|we(?:['’]re| are) expecting)\b/i.test(s);
-  const negative = /\b(?:i(?:['’]m| am) not pregnant|my pregnancy test (?:was|is|came back) negative|i (?:got|had|received) a negative (?:pregnancy )?(?:test|result))\b/i.test(s);
+  const positive = /\b(?:i(?:['’]m| am) pregnant|my pregnancy test (?:was|is|came back) positive|i (?:got|had|received) a positive pregnancy (?:test|result)|we(?:['’]re| are) expecting (?:a|our) (?:baby|child))\b/i.test(s);
+  const negative = /\b(?:i(?:['’]m| am) not pregnant|my pregnancy test (?:was|is|came back) negative|i (?:got|had|received) a negative pregnancy (?:test|result))\b/i.test(s);
   return positive === negative ? null : positive ? "positive" : "negative";
 }
 
