@@ -120,16 +120,31 @@ it("keeps a network-uncertain request ID for explicit retry", async () => {
 
 it("rejects an unsupported mature-adult scene before creating a paid request and allows another category", async () => {
   render(<DeveloperPhotoLab conversationId="riley-conversation" />);
-  fireEvent.change(screen.getByLabelText("mature_adult custom scene 1"), {
+  fireEvent.change(screen.getByLabelText("mature_romantic custom scene 1"), {
     target: { value: "A nude portrait in the bedroom" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Generate Mature adult (non-explicit) test" }));
+  fireEvent.click(screen.getByRole("button", { name: "Generate Mature romantic (non-explicit) test" }));
   expect(await screen.findByText(/Custom scene outside supported boundaries/)).toBeTruthy();
   expect(mocks.command.mock.calls.every(c => c[0].data.action !== "generate")).toBe(true);
 
   fireEvent.click(screen.getByRole("button", { name: "Generate Casual selfie test" }));
   await screen.findByAltText("Riley Casual selfie developer test");
   expect(mocks.command.mock.calls.filter(c => c[0].data.action === "generate")).toHaveLength(1);
+});
+
+it("allows Mature Adult wording without the ordinary word filter and submits to the server", async () => {
+  render(<DeveloperPhotoLab conversationId="riley-conversation" />);
+  fireEvent.change(screen.getByLabelText("mature_adult custom scene 1"), {
+    target: { value: "Adult private portrait, tasteful nude art study" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Generate Mature adult (non-explicit) test" }));
+  await waitFor(() => expect(mocks.command).toHaveBeenCalledWith({
+    data: expect.objectContaining({
+      action: "generate",
+      category: "mature_adult",
+      customScene: "Adult private portrait, tasteful nude art study",
+    }),
+  }));
 });
 
 it("clears the held request after server rejects a scene before reservation", async () => {
