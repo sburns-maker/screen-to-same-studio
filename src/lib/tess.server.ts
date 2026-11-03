@@ -329,11 +329,16 @@ ${EVENT_TAGS_LINE}`;
   const priorCharacterLines = args.messages.filter(m => m.sender === "tess").map(m => m.body);
   if (reply.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) {
     console.warn("[dialogue-repetition] Near-duplicate generated; retrying once");
+    try {
     const revised = await runStructured(replySchema,
       promptInstructions + "\\nREGENERATION GUARD: A draft substantially repeated an earlier reply. Preserve the established facts, boundaries, pregnancy decisions, and current scene. Respond to the newest player action with a genuinely new, character-specific reaction; do not quote, paraphrase or replay the old line. A short response, or no response if allowed, is better than repetition.",
       `${context}${promptTail}`,
       args.initiation ? "autonomous" : "reply");
     if (!revised.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) reply = revised;
+    } catch (error) {
+      // Keep the original successful generation if a corrective attempt fails.
+      console.warn("[dialogue-repetition] Optional regeneration failed", error);
+    }
   }
   const recentTess = args.messages.filter((m) => m.sender === "tess").slice(-12).map((m) => m.body);
   const cleaned = args.experience
@@ -515,11 +520,16 @@ Preserve continuity and use callbacks naturally. Never claim consciousness, emot
   const priorCharacterLines = args.messages.filter(m => m.sender === "tess").map(m => m.body);
   if (reply.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) {
     console.warn("[dialogue-repetition] Near-duplicate generated; retrying once");
+    try {
     const revised = await runStructured(replySchema,
       promptInstructions + "\\nREGENERATION GUARD: A draft substantially repeated an earlier reply. Preserve the established facts, boundaries, pregnancy decisions, and current scene. Respond to the newest player action with a genuinely new, character-specific reaction; do not quote, paraphrase or replay the old line. A short response, or no response if allowed, is better than repetition.",
       `${context}${promptTail}`,
       args.initiation ? "autonomous" : "reply");
     if (!revised.messages.some(line => isRepeatedSubstantialReply(line, priorCharacterLines))) reply = revised;
+    } catch (error) {
+      // Keep the original successful generation if a corrective attempt fails.
+      console.warn("[dialogue-repetition] Optional regeneration failed", error);
+    }
   }
   if (!supportsRelationshipCommitment(c.key)) reply.commitment_action = { action: null, kind: null, quote: null, proposalId: null };
   const voice = CONTACT_VOICE[c.key] ?? { maxBubbles: 2, allowedEmoji: null };
