@@ -74,11 +74,11 @@ export function repeatsPoseSignature(style: PhotoStyle, recent: PhotoStyle[]): b
 /** Concrete head/shoulder/arm directions that stay inside the chosen capture method.
  * Selfie variants keep a self-held phone; non-selfie variants never become selfies. */
 const SELFIE_VARIANTS: { head: HeadPose; text: string }[] = [
-  { head: "level", text: "head level and square to the lens, chin slightly down, shoulders turned a little away, phone arm out of frame" },
-  { head: "looking_away", text: "glancing off to the side mid-moment, head upright, one shoulder closer to the camera, free hand busy with what she is doing" },
-  { head: "level", text: "camera held low near chest height, head upright, relaxed shoulders, direct eye contact" },
-  { head: "profile", text: "three-quarter turn of the head toward the window or room, upright neck, phone held close rather than at full arm's length" },
-  { head: "looking_away", text: "looking down at something in her hands, head upright, phone slightly above, shoulders relaxed" },
+  { head: "level", text: "upright head, square shoulders, straight-on gaze, camera at chest height, no sideways head tilt and no repeated diagonal selfie lean" },
+  { head: "looking_away", text: "head upright and eyes looking away toward the current activity, torso facing sideways, camera at eye level, visibly different shoulder line from a tilted close selfie" },
+  { head: "level", text: "head held upright, camera low near waist height aimed upward, shoulders even and torso framed wider, direct eye contact, no copied portrait tilt" },
+  { head: "profile", text: "clear three-quarter side profile with upright neck and nose pointing toward the room, camera beside her face rather than overhead, not the canonical front selfie angle" },
+  { head: "looking_away", text: "head upright while looking down at the existing activity, camera held farther away to reveal more surroundings, shoulders relaxed rather than diagonally leaned" },
 ];
 const OTHER_VARIANTS: { head: HeadPose; text: string }[] = [
   { head: "level", text: "body angled three-quarters to the camera, head upright, hands occupied with the current activity" },
@@ -99,16 +99,24 @@ export function selectPhotoComposition(
   style: PhotoStyle;
   decision: "preserved" | "filled_missing_capture" | "avoided_recent_capture" | "varied_repeated_pose";
 } {
+  // Only a direct player instruction protects a specific composition. Scene
+  // narration (e.g. "she tilts her head") must not disable repeat avoidance.
   const explicit =
-    /\b(?:same (?:pose|angle|photo)|mirror|side (?:angle|profile)|full[- ]body|close[- ]up|from above|from below|propped|self.timer|tilt)\b/i.test(
-      `${scene} ${request}`,
-    );
+    /\b(?:same (?:pose|angle|photo)|mirror|side (?:angle|profile)|full[- ]body|close[- ]up|from above|from below|propped|self.timer|tilt)\b/i.test(request);
   if (explicit) return { style: { ...proposed }, decision: "preserved" };
   const complete = !!(proposed.camera_angle && proposed.crop_type && proposed.selfie_type);
   // Framing repeat ignores pose text (checked separately), so appended pose variants can't mask it.
   const noPose = (x: PhotoStyle) => ({ ...x, pose_type: null });
   const frameRepeat = !complete || repeatsCapture(noPose(proposed), recent.slice(0, 3).map(noPose));
-  const poseRepeat = repeatsPoseSignature(proposed, recent);
+  const poseRepeat = repeatsPoseSignature(proposed, recent) ||
+    // The same canonical selfie can keep reappearing even when its proposed
+    // pose label changes slightly. Treat recent selfie/head silhouettes as
+    // repeats rather than relying on the language model's adjectives.
+    (recent.slice(0, 3).some((old) =>
+      compositionValue(old.selfie_type) === compositionValue(proposed.selfie_type) &&
+      headPose(old) === headPose(proposed) &&
+      armPose(old) === armPose(proposed)
+    ));
   if (!frameRepeat && !poseRepeat) return { style: { ...proposed }, decision: "preserved" };
 
   let style: PhotoStyle = { ...proposed };
