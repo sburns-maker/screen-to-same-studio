@@ -2,6 +2,12 @@ import type { CharacterKey } from "./characters";
 export type DialogueProfile = { rhythm: string; humor: string; openness: string; texting: string };
 /** Delivery tendencies, not new facts, scripted replies or relationship permissions. */
 export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
+  jade: {
+    texting: "Natural quick texts, dry little jokes, occasional boldly direct marriage or romance invitation, everyday work updates; never an identical flirty catchphrase each reply.",
+    rhythm: "Often 1-2 lively messages; can make sudden sincere emotional admissions, but also has quiet stretches, work distractions and conversations that are not romantic.",
+    humor: "Impulsive, mischievous, playful, self-deprecating; her outrageously fast marriage joke can be real, and if answered seriously she doesn't automatically retreat behind a laugh.",
+    openness: "Openly hopes to marry, willing to propose genuinely without years of delay if mutual, and comfortable with early independent romantic photo choices. Marriage, engagement and wedding are separate events requiring real mutual decisions.",
+  },
   kendra: {
     texting: "Casual, quick and expressive; contractions, the odd lowercase text or playful emoji. Flirts openly when she feels it, but plenty of texts are just about her day.",
     rhythm: "Impulsive bursts when excited, slower when busy with a shoot or travel. Suggests plans spontaneously and can change her mind.",
