@@ -53,7 +53,7 @@ beforeEach(async () => {
   backing = postgresSupabase(db);
 });
 describe("isolated developer category generation", () => {
-  it.each(PHOTO_LAB_TYPES.filter((type) => type !== "suggestive"))(
+  it.each(PHOTO_LAB_TYPES.filter((type) => type !== "suggestive" && type !== "mature_adult"))(
     "generates exact %s despite chat restrictions, using Riley's original identity",
     async (category) => {
       expect(safePhotoScene(PHOTO_LAB_PRESETS[category].scene)).toBe(true);
@@ -69,7 +69,7 @@ describe("isolated developer category generation", () => {
       expect(result.url).toContain("developer-photo-tests");
       expect(model.generate).toHaveBeenCalledTimes(1);
       const args = model.generate.mock.calls[0]![0];
-      expect(args.type).toBe(category === "mature_adult" ? "mature_romantic" : category);
+      expect(args.type).toBe(category);
       expect(args.identity.key).toBe("riley");
       if (category !== "object") expect(args.canonical.asset).toContain("riley");
       expect((await db.query("SELECT * FROM conversations")).rows).toEqual(before.rows);
@@ -85,6 +85,14 @@ describe("isolated developer category generation", () => {
       });
     },
   );
+  it("routes Mature Adult tests only through SpicyAPI, never ordinary OpenAI fallback", async () => {
+    vi.stubEnv("SPICY_ENABLED", "false");
+    const r = await generatePhotoLabTest(backing.admin, user, conv, id(), "mature_adult", "Adult art-study nude portrait");
+    expect(r.status).toBe("failed");
+    expect(r.reason).toBe("Suggestive photos require SpicyAPI to be enabled");
+    expect(model.generate).not.toHaveBeenCalled();
+    expect((await db.query("SELECT count(*)::int n FROM media_attempts")).rows[0]).toEqual({ n: 0 });
+  });
   it("fails suggestive tests before charging or calling OpenAI when SpicyAPI is disabled", async () => {
     vi.stubEnv("SPICY_ENABLED", "false");
     vi.stubEnv("OPENAI_API_KEY", "");
