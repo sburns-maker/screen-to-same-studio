@@ -64,7 +64,8 @@ export function experienceClock(e: ExperienceRow, moments: ExperienceMoment[]) {
   // Fictional time starts at the appointment, irrespective of when the phone opens.
   return new Date(
     Date.parse(e.start_at) +
-      Math.min(180, moments.filter((m) => m.source === "user").length * 4) * 60000,
+      Math.min(240, moments.filter((m) => m.source === "user").length * 4 +
+        moments.filter((m) => m.source === "user" && /fade\\s+to\\s+black|scene\\s+fades?\\s+out/i.test(m.body)).length * 30) * 60000,
   ).toISOString();
 }
 /** Code-point-safe truncation so a cut never leaves half an emoji. */
