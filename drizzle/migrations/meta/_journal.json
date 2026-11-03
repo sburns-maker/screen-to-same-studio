@@ -477,6 +477,13 @@
       "when": 1793702902075,
       "tag": "0067_jade_registry_note",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1793750022607,
+      "tag": "0068_raise_world_ai_ceiling",
+      "breakpoints": true
     }
   ]
 }
