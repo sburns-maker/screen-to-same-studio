@@ -159,7 +159,7 @@ export async function generatePhotoLabTest(
   const def = await authorize(db, user, conversation);
   if (!PHOTO_LAB_TYPES.includes(type) || !labTypeSupported(def, type))
     throw new Error("This category is unavailable for this adult character");
-  if (customScene && (!safePhotoScene(customScene) || customScene.length > 400)) throw new Error("Custom scene outside supported boundaries");
+  if (customScene && (customScene.length > 400 || (type !== "mature_adult" && !safePhotoScene(customScene)))) throw new Error("Custom scene outside supported boundaries");
   const id = await photoActionId(`developer-photo-lab:${user}:${conversation}:${requestId}`);
   const old = await db.from("job_runs").select("*").eq("id", id).maybeSingle();
   if (old.error) throw new Error("Photo test reservation unavailable");
@@ -193,10 +193,12 @@ export async function generatePhotoLabTest(
   }
   try {
     const scene = customScene?.trim() && (type === "mature_romantic" || type === "mature_adult" || type === "suggestive")
-      ? `${PHOTO_LAB_PRESETS[type].scene} Custom styling and scene: ${customScene.trim()}. Opaque clothing and tasteful non-explicit composition.`
+      ? `${PHOTO_LAB_PRESETS[type].scene} Custom styling and scene: ${customScene.trim()}.${type === "mature_adult" ? "" : " Opaque clothing and tasteful non-explicit composition."}`
       : PHOTO_LAB_PRESETS[type].scene;
-    if (!safePhotoScene(scene)) throw new Error("Photo test scene rejected");
-    const generationType = type === "mature_adult" ? "mature_romantic" : type;
+    // Mature Adult is a SpicyAPI-only lab test. Its custom description is
+    // reviewed by SpicyAPI, not the ordinary provider's keyword blacklist.
+    if (type !== "mature_adult" && !safePhotoScene(scene)) throw new Error("Photo test scene rejected");
+    const generationType = type === "mature_adult" ? "suggestive" : type;
     const canonical = includesTess(generationType)
       ? await currentCanonical(db, user, def.key as CharacterKey)
       : undefined;
