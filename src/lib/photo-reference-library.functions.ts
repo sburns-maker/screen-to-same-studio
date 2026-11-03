@@ -2,7 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { REFERENCE_ROLES } from "./photo-reference-library";
-const character = z.enum(["tess", "maya", "claire", "riley", "jordan", "ben", "sienna", "kendra"]);
+import { CHARACTERS } from "./characters";
+const character = z.enum(Object.keys(CHARACTERS) as [keyof typeof CHARACTERS, ...(keyof typeof CHARACTERS)[]]);
 export const loadReferenceLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>
