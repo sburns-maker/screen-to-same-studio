@@ -19,7 +19,7 @@ export async function configuredPhotoProvider(
   // Suggestive images are SpicyAPI-only. Never send a suggestive prompt or
   // canonical portrait to OpenAI/the ordinary provider as a silent fallback.
   if (process.env["SPICY_ENABLED"] !== "true") {
-    if (type === "suggestive") throw new Error("Suggestive photos require SpicyAPI to be enabled");
+    if (type === "suggestive" || key === "jade") throw new Error("Jade private portraits require SpicyAPI to be enabled");
     return ordinary;
   }
   if (!(SPICY_CAST as readonly string[]).includes(key))
@@ -32,7 +32,7 @@ export async function configuredPhotoProvider(
     .maybeSingle();
   if (preference.error) throw new Error("SpicyAPI migration or preferences unavailable");
   if (!preference.data?.spicy_enabled) {
-    if (type === "suggestive") throw new Error("Enable SpicyAPI for this character to test suggestive photos");
+    if (type === "suggestive" || key === "jade") throw new Error("Enable SpicyAPI for Jade before generating private portraits");
     return ordinary;
   }
   if (
