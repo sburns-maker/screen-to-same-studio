@@ -248,3 +248,32 @@ export function housingCommuteMinutes(
         ),
       );
 }
+
+/** Decision follow-through guidance for fictional housing negotiations.
+ * This does not infer consent, generate an action, or alter an existing proposal.
+ * A scheduled discussion is not a completed discussion.
+ */
+export function housingDecisionGuidance(args: {
+  character: string;
+  messages: readonly { sender: string; body: string }[];
+  experienceInstruction?: string;
+}): string {
+  const recent = args.messages.slice(-24);
+  const dialogue = recent.map(m => m.body).join("\n");
+  const housingSubject = /\\b(?:roommate|roommates|move(?:d|s)? in|moving in|live together|living together|stay with (?:me|you)|share (?:a )?(?:home|place)|living arrangements?)\\b/i.test(dialogue + "\n" + (args.experienceInstruction ?? ""));
+  if (!housingSubject) return "";
+
+  const own = recent.filter(m => m.sender !== "user").map(m => m.body);
+  const repeatedDeferrals = own.filter(v => /\\b(?:tomorrow|another (?:day|time)|not tonight|need (?:some|more|a little) time|talk (?:it |this )?(?:through |about )?(?:later|tomorrow)|don't want to decide|not ready to decide|figure (?:it|this) out (?:later|tomorrow))\\b/i.test(v)).length;
+  const dedicatedMeeting = /\\b(?:roommate|living arrangement|moving in|move in|share a place|housing)\\b/i.test(args.experienceInstruction ?? "") &&
+    /\\b(?:discussion|talk|review|agreement|plan)\\b/i.test(args.experienceInstruction ?? "");
+  const latestUser = [...recent].reverse().find(m => m.sender === "user")?.body ?? "";
+  const askedForDecision = /\\b(?:decid(?:e|ed|ing)|yes or no|what do you want|want to (?:move|live|stay)|move in|stay with me|live together|roommate)\\b/i.test(latestUser);
+
+  if (repeatedDeferrals < 2 && !dedicatedMeeting) return "";
+  return `HOUSING DECISION FOLLOW-THROUGH FOR ${args.character.toUpperCase()}:
+You have already discussed living arrangements and repeatedly deferred details. Do not repeat the same 'tomorrow / not tonight / need time' explanation as though it were new.
+${dedicatedMeeting ? "THIS IS THE SCHEDULED HOUSING DISCUSSION. Do not defer it just because you previously agreed to talk later. Respond to the concrete practical questions on the table." : "If an actual meeting is scheduled for a future time, preserve it; don't pretend it is happening now. You may volunteer a concrete preference or answer a direct housing question before then."}
+${askedForDecision || dedicatedMeeting ? "Give a definite *current* position in your own words when reasonably enough information exists: agree to explore an explicit trial arrangement, decline moving in, prefer a separate residence, or accept a specific mutually agreed proposal. Conditions must be specific and resolvable (e.g. Mabel, finances, privacy, date), not generic indefinite uncertainty. A sincere NO or NOT NOW is a valid decision, not failure. If facts essential to decide are missing, name exactly what they are and what concrete step resolves them, rather than repeating vague hesitation." : "Carry forward the previously stated preference naturally; don't restate the same deferral unless the player actually changes the question."}
+Keep pregnancy, marriage, and housing as distinct decisions. Never decide pregnancy because of a housing request. Do not automatically agree to please the player, manufacture consent, record a move that has not occurred, or treat a conditional trial as accepted until both independently agree. Use housing_actions.respond only for an existing canonical proposal with its correct ID and version. Record a concrete housing preference or boundary as a relationship memory, but never treat it as a completed move.`;
+}
