@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.characters IS 'Main cast registry; one row per permanent character key.';

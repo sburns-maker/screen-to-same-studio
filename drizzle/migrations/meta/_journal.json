@@ -470,6 +470,13 @@
       "when": 1793669740147,
       "tag": "0066_jade_monroe_cast",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1793702902075,
+      "tag": "0067_jade_registry_note",
+      "breakpoints": true
     }
   ]
 }
