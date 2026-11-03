@@ -32,6 +32,16 @@ describe("character-specific pregnancy progression",()=>{
   expect(pregnancyProgressionGuidance("kendra",disclosure,[])).toContain("Kendra can be shaken");
   expect(pregnancyProgressionGuidance("kendra",[{sender:"user",body:"I'm scared"}],["unrelated work notes"])).toBe("");
  });
+ it("prefers joy for Kendra's wanted confirmed pregnancy without deciding for her",()=>{
+  const messages=[{sender:"kendra",body:"My pregnancy test was positive."},{sender:"user",body:"How do you feel about it?"}];
+  const guidance=pregnancyProgressionGuidance("kendra",messages,["Confirmed pregnancy"]);
+  const sienna=pregnancyProgressionGuidance("sienna",messages,["Confirmed pregnancy"]);
+  expect(guidance).toContain("genuinely wants motherhood");
+  expect(guidance).toContain("openly excited");
+  expect(guidance).toContain("Do not infer or invent pregnancy");
+  expect(guidance).toContain("Never force a pregnancy outcome");
+  expect(sienna).not.toContain("genuinely wants motherhood");
+ });
  it("stays quiet when an existing pregnancy is not the current subject",()=>{
   expect(pregnancyProgressionGuidance("tess",[{sender:"user",body:"How was trivia?"}],["Pregnancy confirmed"])).toBe("");
  });
