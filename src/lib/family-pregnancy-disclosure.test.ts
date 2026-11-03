@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   observedPregnancyDisclosureStatus,
+  matchesVisiblePregnancyDisclosure,
   sharedPregnancyDisclosureContext,
   validPregnancyDisclosure,
 } from "./family-pregnancy-disclosure";
@@ -31,6 +32,24 @@ describe("fictional pregnancy disclosure continuity", () => {
     const shared = [...playerOnly,{sender:"tess",body:"I'm pregnant and wanted to tell you personally"}];
     expect(sharedPregnancyDisclosureContext(shared)).toContain("He already knows");
     expect(sharedPregnancyDisclosureContext(shared)).toContain("not proof of a canonical pregnancy");
+  });
+  it("reconciles only an already-due, visible result with a unique canonical event", () => {
+    const event = {id:"00000000-0000-4000-8000-000000000001",status:"positive" as const,revealAt:"2026-11-03T08:00:00Z"};
+    const message = {body:"I'm pregnant and wanted to tell you directly",metadata:null,visibleAt:"2026-11-03T09:00:00Z"};
+    expect(matchesVisiblePregnancyDisclosure({...message,event,soleDueEvent:true})).toBe(true);
+    expect(matchesVisiblePregnancyDisclosure({...message,event,soleDueEvent:false})).toBe(false);
+    expect(matchesVisiblePregnancyDisclosure({...message,event,soleDueEvent:true,visibleAt:"2026-11-03T07:00:00Z"})).toBe(false);
+    expect(matchesVisiblePregnancyDisclosure({...message,event,soleDueEvent:true,visibleAt:null})).toBe(false);
+    expect(matchesVisiblePregnancyDisclosure({...message,event:{...event,status:"negative"},soleDueEvent:true})).toBe(false);
+    expect(matchesVisiblePregnancyDisclosure({...message,metadata:{pregnancy_disclosure_action:{
+      eventId:"00000000-0000-4000-8000-000000000002",quote:"I'm pregnant",
+    }},event,soleDueEvent:true})).toBe(false);
+    expect(matchesVisiblePregnancyDisclosure({...message,metadata:{pregnancy_disclosure_action:{
+      eventId:event.id,quote:"I'm pregnant",
+    }},event,soleDueEvent:true})).toBe(true);
+    expect(matchesVisiblePregnancyDisclosure({...message,metadata:{pregnancy_disclosure_action:{
+      eventId:"bad-id",quote:"I'm pregnant",
+    }},event,soleDueEvent:true})).toBe(false);
   });
   it("does not transform dialogue alone into a canonical event id", () => {
     expect(validPregnancyDisclosure(null, "I'm pregnant", [], "positive")).toBe(false);
