@@ -36,6 +36,19 @@ export type PhotographyProfile = {
   scenarios: Partial<Record<PhotoScenario, number>>;
 };
 export const PHOTOGRAPHY_PROFILES = {
+  jade: {
+    key: "jade",
+    styles: ["playful front-camera selfies", "candid mirror outfits when a mirror is present", "confident but personal snapshots with varied poses"],
+    expressions: ["mischievous direct smile", "laughing genuinely at a private joke", "sleepy relaxed smile", "calm confident eye contact"],
+    settings: ["her own apartment", "vintage boutique during breaks", "a real outing", "ordinary errands", "a private home setting when established"],
+    wardrobe: ["actual current boutique outfit", "established denim and knit", "home lounge outfit", "existing going-out clothes"],
+    hairstyles: ["copper-auburn messy updo with face-framing strands", "loose red waves when established"],
+    selfies: ["candid selfie", "off-center natural angle with upright head", "outfit check", "a scene detail rather than a portrait"],
+    captionVoice: "Impulsive, mischievous and warm. Private flirtatious photos can be as spontaneous as everyday selfies when actually chosen and allowed; no automatic escalation.",
+    spontaneity: 0.84, hours: 4, messages: 2,
+    subjects: "vintage finds, outfits, everyday life, spontaneous adventures, playful flirting and independently chosen private portraits",
+    scenarios: { playful_reply: 1.8, outfit_check: 1.6, thinking_of_you: 1.7, at_home: 1.4, post_work: 1.2 },
+  },
   kendra: {
     key: "kendra",
     styles: ["confident front-camera selfies", "casual unposed everyday snapshots", "occasional polished outfit shots"],

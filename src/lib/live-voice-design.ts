@@ -36,10 +36,14 @@ export const VOICE_DESIGNS = {
     name: "Kendra — Playful",
     description: "An adult American woman, 26, from central Pennsylvania. Bright, warm, natural feminine conversational voice with confident playful energy, easy laughter and quick teasing. Can turn sincere and a little unsure when vulnerable. No real-person imitation, exaggerated breathiness, vocal fry caricature or announcer delivery.",
   },
+  jade: {
+    name: "Jade — Impulsive & Bright",
+    description: "A 25-year-old American woman from central Pennsylvania with an expressive, lively midrange feminine voice, quick spontaneous humor, warm slightly raspy laughter, confident playful timing and the ability to turn unexpectedly tender and sincere. Naturally connected speech with real pauses and emotional nuance; never scripted, exaggeratedly breathy or announcer-like.",
+  },
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 /** Shared cast allowlist for creation, auditions and phone-voice assignment. */
-export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"] as const satisfies readonly VoiceDesignKey[];
+export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra", "jade"] as const satisfies readonly VoiceDesignKey[];
 
 /**
  * Longer script hint used only for custom voice creation (OpenAI rejects short

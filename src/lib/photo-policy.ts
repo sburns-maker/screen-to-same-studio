@@ -4,6 +4,7 @@ import { allowedGeneratedTypes, type GeneratedType } from "./tess-photos";
 export type PhotoCategory = GeneratedType | "mature_romantic" | "suggestive" | "mature_nude";
 export type PhotoBoundary = "none" | "selfies" | "all_photos" | "mature";
 export type PhotoContext = {
+  character?: string;
   age: number;
   enabled: boolean;
   romanticCapable: boolean;
@@ -38,6 +39,13 @@ export function romanticPhotoEligible(s: TessState, c: PhotoContext): boolean {
 
 /** More selective category; scores only establish eligibility, never willingness. */
 export function suggestivePhotoEligible(s: TessState, c: PhotoContext): boolean {
+  // Jade may independently choose a suggestive category earlier than others
+  // when interested and comfortable. Permissions, boundaries and provider
+  // checks remain mandatory for every actual generation.
+  if (c.character === "jade") return c.romanticCapable &&
+    s.comfort >= 50 && s.trust >= 35 && s.romantic_attraction >= 45 &&
+    s.romantic_intent >= 40 && s.perceived_pressure < 20 &&
+    s.irritation < 20 && s.respect >= 45;
   return romanticPhotoEligible(s, c) &&
     s.comfort >= 75 && s.trust >= 65 && s.emotional_intimacy >= 55 &&
     s.romantic_attraction >= 55 && s.romantic_intent >= 55 &&

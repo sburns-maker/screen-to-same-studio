@@ -69,10 +69,10 @@ function mount() {
   );
 }
 describe("mobile reference review interface", () => {
-  it("lists the six characters, has no client key field and makes no review or generation request on load", async () => {
+  it("lists all playable characters, has no client key field and makes no review or generation request on load", async () => {
     mount();
     await screen.findByText("Awaiting visual review");
-    expect(screen.getAllByRole("option")).toHaveLength(8);
+    expect(screen.getAllByRole("option")).toHaveLength(9);
     expect(screen.queryByLabelText(/api.*key/i)).not.toBeInTheDocument();
     expect(mocks.change).not.toHaveBeenCalled();
     expect(mocks.preview).not.toHaveBeenCalled();

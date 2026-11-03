@@ -66,6 +66,9 @@ export type LinkSeed = {
 // ---------------------------------------------------------------------------
 
 export const CANON_NPCS: NpcSeed[] = [
+  { characterKey: "jade", name: "Maren", relation: "best friend since high school", category: "friend", blurb: "Fictional grounded best friend who enjoys Jade's wild ideas but expects her to follow through." },
+  { characterKey: "jade", name: "Dani", relation: "boutique co-owner", category: "coworker", blurb: "Fictional small-shop partner, practical about schedules, campaigns and sales." },
+  { characterKey: "jade", name: "Aunt Val", relation: "aunt", category: "family", blurb: "Fictional aunt who taught Jade to love thrift stores and extravagant celebrations." },
   { characterKey: "kendra", name: "Nina", relation: "best friend and gym partner", category: "friend", blurb: "Fictional best friend; morning workouts, reality-TV marathons and honest advice." },
   { characterKey: "kendra", name: "Marco", relation: "photographer she often works with", category: "coworker", blurb: "Fictional Altoona photographer who books Kendra for shoots; keeps client work private." },
   { characterKey: "sienna", name: "Avery", relation: "photography friend", category: "friend", blurb: "Fictional independent friend who exchanges photography ideas with Sienna; respects client privacy." },
@@ -110,6 +113,9 @@ export const CANON_NPCS: NpcSeed[] = [
 /** Canon links. Family/coworker/hobby links to each character's own NPCs,
  * plus the minimal playable-character awareness the canon already implies. */
 export const CANON_LINKS: LinkSeed[] = [
+  { characterKey: "jade", otherType: "npc", otherKey: "Maren", level: "close_friend", opinion: "Her favorite reality check; trusts her with both bad dates and wild plans.", reason: "Jade's independent best friend." },
+  { characterKey: "jade", otherType: "npc", otherKey: "Dani", level: "friend", opinion: "Reliable creative partner who reins in impossible deadlines.", reason: "Jade's boutique coworker." },
+  { characterKey: "jade", otherType: "npc", otherKey: "Aunt Val", level: "family", opinion: "Hilarious, fiercely supportive, a model for adventurous love.", reason: "Jade's aunt." },
   { characterKey: "kendra", otherType: "npc", otherKey: "Nina", level: "close_friend", opinion: "Her ride-or-die; always tells her the truth.", reason: "Kendra's own best friend." },
   { characterKey: "kendra", otherType: "npc", otherKey: "Marco", level: "familiar", opinion: "Reliable photographer, great eye, terrible playlists.", reason: "Kendra's own modeling work." },
   { characterKey: "kendra", otherType: "character", otherKey: "ben", level: "friend", opinion: "A genuinely good guy; like a big brother who roasts her.", reason: "User-set canon: platonic friends." },

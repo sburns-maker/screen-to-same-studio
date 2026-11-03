@@ -11,7 +11,7 @@ import sienna from "@/assets/avatars/sienna-canon.png?inline";
 import kendra from "@/assets/avatars/kendra-canon.jpg?inline";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 import type { CharacterKey } from "./characters";
-const originals: Record<CharacterKey, string> = { tess, maya, claire, jordan, ben, riley, sienna, kendra };
+const originals: Partial<Record<CharacterKey, string>> = { tess, maya, claire, jordan, ben, riley, sienna, kendra };
 export function jpegDimensions(bytes: Uint8Array) {
   if (bytes.length < 4 || bytes.length > 4 * 1024 * 1024 || bytes[0] !== 255 || bytes[1] !== 216)
     throw new Error("Canonical profile is not a supported JPEG");
@@ -51,6 +51,7 @@ function pngDimensions(bytes: Uint8Array) {
 export const canonicalProfile = createServerOnlyFn(async (key: CharacterKey) => {
   if (!Object.hasOwn(originals, key)) throw new Error("Canonical profile is not registered");
   const url = originals[key];
+  if (!url) throw new Error("Upload and approve Jade’s selected identity portrait in her profile first");
   const type = url.startsWith("data:image/png;base64,") ? "image/png" : "image/jpeg";
   if (!url.startsWith(`data:${type};base64,`))
     throw new Error("Canonical profile bytes unavailable");

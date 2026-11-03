@@ -19,6 +19,17 @@ beforeAll(async () => {
   await db.exec(readFileSync("drizzle/migrations/0050_relationship_commitments.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0053_private_character_commitments.sql", "utf8"));
   await db.exec(readFileSync("drizzle/migrations/0065_expand_relationship_commitment_cast.sql", "utf8"));
+  // This minimal commitment fixture has no character/media/storage tables.
+  // Install the relationship-sync function from Jade's additive migration only.
+  // The test fixture lacks unrelated media tables used by the full cast
+  // migration. Expand the original player-command allowlist in isolation.
+  const playerSql = readFileSync("drizzle/migrations/0065_expand_relationship_commitment_cast.sql", "utf8");
+  await db.exec(playerSql.slice(
+    playerSql.indexOf("CREATE OR REPLACE FUNCTION relationship_player_command("),
+    playerSql.indexOf("-- Mirror the expanded cast")
+  ).replace("'sienna','kendra'", "'sienna','kendra','jade'"));
+  const jadeSql = readFileSync("drizzle/migrations/0066_jade_monroe_cast.sql", "utf8");
+  await db.exec(jadeSql.slice(jadeSql.indexOf("CREATE OR REPLACE FUNCTION relationship_sync_character")));
   for (const key of RELATIONSHIP_CAST) {
     const cid = crypto.randomUUID(),
       id = crypto.randomUUID();
@@ -97,6 +108,21 @@ it("does not process a hidden response or change a refusal into acceptance", asy
   await reply("maya", id);
   await sync("maya");
   expect((await row(id)).status).toBe("declined");
+});
+it("persists Jade's explicit early engagement proposal as pending until player agrees", async () => {
+  const quote = "I am serious. Will you marry me?";
+  const messageId = crypto.randomUUID();
+  await db.query("INSERT INTO messages VALUES($1,$2,$3,'tess',$4,$5,now())", [
+    messageId, user, conversations.get("jade"), quote,
+    JSON.stringify({ commitment_action: { action:"propose", kind:"engagement", quote, proposalId:null } }),
+  ]);
+  await sync("jade");
+  const events = (await db.query<{kind:string,status:string,user_response:string}>("SELECT kind,status,user_response FROM relationship_commitment_events")).rows;
+  expect(events).toEqual([{kind:"engagement",status:"pending",user_response:"pending"}]);
+  await db.query("SELECT relationship_player_command($1,$2,'jade','engagement','accept',$3)", [
+    user, crypto.randomUUID(), messageId,
+  ]);
+  expect((await row(messageId)).status).toBe("accepted");
 });
 it("keeps player consent pending for character-initiated proposals", async () => {
   const quote = "I'd like us to be in a committed relationship.";

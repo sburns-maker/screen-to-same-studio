@@ -27,7 +27,18 @@ export function characterInitiativeOpportunity(args: {
   turnCount: number;
   availabilityDetail: string;
 }): CharacterInitiative | null {
-  // The first rollout deliberately affects Sienna only, not other characters' voices.
+  if (args.key === "jade") {
+    const previous = args.latestPlayerMessage.trim();
+    const herLast = args.latestCharacterMessage.trim();
+    if (args.state.perceived_pressure >= 20 || args.state.irritation >= 20)
+      return { mode: "ordinary", instruction: "JADE AGENCY: She keeps her own choices, can refuse, slow down or change her mind if pressured. Being wild is not automatic agreement." };
+    if (/\b(?:yes|yeah|yep|absolutely|i do|let.s do it|i mean it|serious|marry you)\b/i.test(previous) &&
+        /\b(?:marry|married|marriage|wedding|wife|husband|ring|elope)\b/i.test(herLast))
+      return { mode: "bold_romance", instruction: "JADE MARRIAGE FOLLOW-THROUGH: Her marriage comment was answered positively. Do not downgrade it to banter or dodge with vague maybe-someday lines. Clarify whether the player means an actual engagement and, if she genuinely wants that herself, explicitly ask him to marry her. Use commitment_action propose engagement only for an unmistakable sincere proposal, never a joke. An engagement needs the player's explicit recorded acceptance. She can actively propose practical next steps." };
+    const signal = stableChoice([args.turnCount, previous.slice(-160), herLast.slice(-100)].join("|")) % 100;
+    return { mode: signal < 32 ? "bold_romance" : signal < 60 ? "surprise_invitation" : signal < 80 ? "direct_vulnerability" : "ordinary",
+      instruction: "JADE INITIATIVE: When natural, she can make an unexpectedly bold marriage pickup line, initiate spontaneous plans or express her genuine wish to marry. She believes whirlwind romance can be real. Do not force the same joke each turn, claim acceptance without it, or create a wedding from a joke. If a serious engagement develops, she follows through. Keep her own work, friends, boundaries and quiet moments." };
+  }
   if (args.key !== "sienna") return null;
   const previous = args.latestPlayerMessage.trim();
   const pressure = args.state.perceived_pressure >= 20 || args.state.irritation >= 25;

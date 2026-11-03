@@ -125,7 +125,7 @@ suite("actual Drizzle runner on PostgreSQL: migration history compatibility", ()
   beforeEach(async () => {
     await sql.unsafe(`DROP PUBLICATION IF EXISTS supabase_realtime;DROP SCHEMA IF EXISTS drizzle CASCADE;DROP SCHEMA public CASCADE;DROP SCHEMA IF EXISTS auth CASCADE;DROP SCHEMA IF EXISTS storage CASCADE;
     CREATE SCHEMA public;GRANT USAGE ON SCHEMA public TO PUBLIC;
-    CREATE SCHEMA auth;CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+    CREATE SCHEMA auth;CREATE TABLE auth.users(id uuid PRIMARY KEY);INSERT INTO auth.users(id) VALUES ('${user}');CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS 'SELECT nullif(current_setting(''request.jwt.claim.sub'',true),'''')::uuid';
     CREATE FUNCTION auth.role() RETURNS text LANGUAGE sql AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claim.role',true),''),'service_role') $$;
     CREATE SCHEMA storage;CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);CREATE TABLE storage.objects(id uuid,bucket_id text,name text);CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$ SELECT string_to_array($1,'/') $$;
     CREATE TABLE public.character_voices(character_key text CONSTRAINT character_voices_character_key_check CHECK(character_key IN('tess','maya','claire','jordan','ben')));`);

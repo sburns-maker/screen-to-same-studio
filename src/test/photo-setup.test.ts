@@ -49,10 +49,9 @@ describe("browser photo setup checks", () => {
     const status = await photoSetupStatus("my-user-id");
     expect(status.migration).toBe("present");
     expect(status.tessReference).toBe("present");
-    expect(status.canonicalReferences).toHaveLength(7);
-    expect(status.canonicalReferences.every((ref) => ref.status === "structurally_usable")).toBe(
-      true,
-    );
+    expect(status.canonicalReferences).toHaveLength(8);
+    expect(status.canonicalReferences.filter((ref) => ref.character !== "jade").every((ref) => ref.status === "structurally_usable")).toBe(true);
+    expect(status.canonicalReferences.find((ref) => ref.character === "jade")?.status).toBe("unavailable");
     expect(mocks.list).not.toHaveBeenCalled();
     expect(mocks.rpc).toHaveBeenCalledWith("deliver_photo_turn", { p_job_id: null });
     expect(JSON.stringify(status)).not.toMatch(/test-only-private-key|test-service-key/);
