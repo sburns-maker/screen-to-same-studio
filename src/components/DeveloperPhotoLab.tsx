@@ -91,7 +91,7 @@ export function DeveloperPhotoLab({ conversationId }: { conversationId: string }
       : "";
     // Validate before allocating a stable request ID. An invalid scene is not an
     // uncertain paid request and must never strand the next category behind it.
-    if (customScene && !safePhotoScene(customScene)) {
+    if (customScene && category !== "mature_adult" && !safePhotoScene(customScene)) {
       setError("Custom scene outside supported boundaries. Edit the scene to use permitted non-explicit wording; no image was requested.");
       return;
     }
