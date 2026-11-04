@@ -477,6 +477,13 @@
       "when": 1793702902075,
       "tag": "0067_jade_registry_note",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1793702902076,
+      "tag": "0068_scene_activity_private_moment",
+      "breakpoints": true
     }
   ]
 }
