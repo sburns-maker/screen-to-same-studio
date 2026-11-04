@@ -45,7 +45,7 @@ type Admin = SupabaseClient<Database>;
 
 export const TICK_INTERVAL_MINUTES = 30;
 export const MAX_USERS_PER_RUN = 20;
-export const MAX_AI_CALLS_PER_RUN = 4;
+export const MAX_AI_CALLS_PER_RUN = 10;
 export const MAX_PUSH_SWEEP_PER_RUN = 10;
 const LEASE_MINUTES = 15; // Four bounded text + image calls can exceed the former three-minute lease.
 
