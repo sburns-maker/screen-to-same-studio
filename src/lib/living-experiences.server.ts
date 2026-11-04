@@ -19,6 +19,13 @@ import {
   type Difficulty,
 } from "./tess-logic";
 import { recallMemories } from "./memory-recall";
+import {
+  characterPregnancyDisclosure,
+  playerPregnancyReference,
+  experiencePregnancyContinuity,
+  explicitPregnancyDenial,
+  type ExperiencePregnancyEvidence,
+} from "./experience-pregnancy-continuity";
 import { continuityContext, reserveWorldAi } from "./world-runtime.server";
 import { knowledgeForCharacter } from "./social.server";
 import { knowledgePromptLines } from "./social-logic";
@@ -238,9 +245,17 @@ export async function generateExperience(
   try {
     if (kind === "automatic" && !(await reserveWorldAi(db, user)))
       throw new Error("Autonomous budget unavailable");
-    await (
-      await import("./calendar-coordinator.server")
-    ).syncExperienceScheduling(db, user, plan, now);
+    try {
+      await (
+        await import("./calendar-coordinator.server")
+      ).syncExperienceScheduling(db, user, plan, now);
+    } catch (error) {
+      console.warn("[living-experience] scheduling synchronization error", {
+        code: (error as { code?: string })?.code ?? null,
+        message: error instanceof Error ? error.message : "unknown",
+      });
+      throw error;
+    }
     phase = "context";
     const { scene, moments } = await livingHistory(db, user, plan);
     const def = characterFor(p.data.organizer),
@@ -321,6 +336,54 @@ export async function generateExperience(
       if (commitment?.available)
         relationshipFacts.push(...commitmentContextForCharacter(def.key, def.key, commitment.events));
     }
+    // Interactive experiences have a separate model path from ordinary chat.
+    // Load the same owner-scoped pregnancy canon so a character cannot erase
+    // a previously disclosed positive result in a live scene.
+    const pregnancyEvidence: ExperiencePregnancyEvidence = {
+      disclosedPositive: false,
+      disclosedNegative: false,
+      lifecycle: "unknown",
+      characterSharedPositive: [
+        ...(prior.data ?? []).filter(m => m.sender === "tess").map(m => m.body),
+        ...moments.filter(m => m.source !== "user").map(m => m.body),
+      ].some(characterPregnancyDisclosure),
+      playerMentioned: [
+        ...(prior.data ?? []).filter(m => m.sender === "user").map(m => m.body),
+        ...moments.filter(m => m.source === "user").slice(-10).map(m => m.body),
+      ].some(playerPregnancyReference),
+    };
+    if (def.romanticCapable && def.age >= 18) {
+      try {
+        const disclosed = await db.from("family_pregnancy_events")
+          .select("id,status,disclosed_at")
+          .eq("user_id", user).eq("character_key", def.key)
+          .not("disclosed_at", "is", null).lte("disclosed_at", now.toISOString())
+          .in("status", ["positive", "negative"])
+          .order("disclosed_at", { ascending: false }).limit(10);
+        if (disclosed.error) throw new Error("Disclosed pregnancy history unavailable");
+        const records = disclosed.data ?? [];
+        const positiveIds = records.filter(r => r.status === "positive").map(r => r.id);
+        let active = false;
+        let ended = false;
+        if (positiveIds.length) {
+          const lifecycle = await db.from("family_pregnancy_lifecycles" as never)
+            .select("pregnancy_event_id,status").eq("user_id", user)
+            .eq("character_key", def.key).in("pregnancy_event_id", positiveIds).limit(20);
+          if (lifecycle.error) throw new Error("Disclosed pregnancy lifecycle unavailable");
+          const lifecycles = (lifecycle.data ?? []) as unknown as Array<{pregnancy_event_id:string;status:string}>;
+          active = lifecycles.some(l => l.status === "pregnant");
+          ended = !active && lifecycles.some(l => l.pregnancy_event_id === records[0]?.id && l.status !== "pregnant");
+        }
+        pregnancyEvidence.disclosedPositive = active || records[0]?.status === "positive";
+        pregnancyEvidence.disclosedNegative = !active && records[0]?.status === "negative";
+        pregnancyEvidence.lifecycle = active ? "pregnant" : ended ? "ended" : "unknown";
+      } catch (error) {
+        // An unavailable family table should not block an unrelated outing.
+        // Character-authored shared evidence remains available for continuity.
+        console.warn("[living-experience] pregnancy context unavailable", error);
+      }
+    }
+    const pregnancyContinuity = experiencePregnancyContinuity(pregnancyEvidence);
     const args = {
       operationId: id,
       state,
@@ -346,6 +409,7 @@ export async function generateExperience(
       photoFrequency: "off",
       availabilityDetail: `${liveInstructions} Use fictional appointment time, not phone-open time.`,
       worldKnowledge: [
+        ...pregnancyContinuity.lines,
         ...await (await import("./call-history-context.server")).recentCallContext(db, user, conv, def.key, new Date(experienceClock(scene, moments))),
         await (await import("./housing.server")).housingContext(db,user,def.key,now),
         ...relationshipFacts,
@@ -371,6 +435,7 @@ export async function generateExperience(
           experienceInstructions(kind, "the ongoing outing", venue, moments) +
           "\n" +
           liveInstructions +
+          (pregnancyContinuity.lines.length ? "\n" + pregnancyContinuity.lines.join("\n") : "") +
           (marriageReflection ? "\n" + marriageReflection : "") +
           (kind === "finish" && body === "close_now"
             ? "\nCLOSE NOW: summarize only the recorded experience. Do not generate additional remaining activities. The user explicitly chose to end here."
@@ -379,10 +444,26 @@ export async function generateExperience(
     };
     phase = "generation";
     const { generateTessReply, generateContactReply } = await import("./tess.server");
-    const reply =
+    let reply =
       def.key === "tess"
         ? await generateTessReply(args)
         : await generateContactReply({ ...args, character: def });
+    if (pregnancyContinuity.rejectUnverifiedDenial &&
+        explicitPregnancyDenial(reply.messages.join("\n"))) {
+      // A single retry repairs an LLM continuity slip BEFORE committing any
+      // dialogue or memory. Never rewrite canonical results or roll pregnancy.
+      const correctedArgs = {
+        ...args,
+        experience: {
+          ...args.experience,
+          instruction: args.experience.instruction +
+            "\nCONTINUITY CORRECTION: Your last draft made an unsupported categorical denial of pregnancy. Preserve the authoritative/shared evidence above. Respond to the player's actual living-arrangement proposal without negating a recorded result. Do not invent a diagnosis or outcome.",
+        },
+      };
+      reply = def.key === "tess"
+        ? await generateTessReply(correctedArgs)
+        : await generateContactReply({ ...correctedArgs, character: def });
+    }
     phase = "schedule_actions";
     const lastUser = moments.filter((m) => m.source === "user").at(-1);
     const scheduleActions =
@@ -403,6 +484,8 @@ export async function generateExperience(
       .trim()
       .slice(0, kind === "turn" ? 1500 : 3000);
     if (!text) throw new Error("Character did not produce a scene");
+    if (pregnancyContinuity.rejectUnverifiedDenial && explicitPregnancyDenial(text))
+      throw new Error("Pregnancy continuity check failed");
     if (kind === "turn" && sceneContradiction(live.current, text))
       throw new Error("Scene continuity check failed");
     if (kind !== "turn" && body !== "close_now" && !automaticSceneSafe(text))
