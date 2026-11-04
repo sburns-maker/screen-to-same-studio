@@ -8,6 +8,7 @@
 export type PregnancyLifecycleState = "pregnant" | "ended" | "unknown";
 export type ExperiencePregnancyEvidence = {
   disclosedPositive: boolean;
+  disclosedNegative: boolean;
   lifecycle: PregnancyLifecycleState;
   characterSharedPositive: boolean;
   playerMentioned: boolean;
@@ -51,6 +52,12 @@ export function experiencePregnancyContinuity(e: ExperiencePregnancyEvidence): E
     return {
       source: "canonical_disclosure", rejectUnverifiedDenial: true,
       lines: ["AUTHORITATIVE PREGNANCY HISTORY: A positive pregnancy test was already disclosed to the player. The active lifecycle is not confirmed by this read. Do not erase or deny the previously shared positive result, and do not invent a later medical outcome."],
+    };
+  }
+  if (e.disclosedNegative) {
+    return {
+      source: "canonical_disclosure", rejectUnverifiedDenial: false,
+      lines: ["AUTHORITATIVE SHARED PREGNANCY RESULT: The most recent disclosed canonical test was negative and no active pregnancy is established by this context. Do not invent a pregnancy or positive test. Acknowledge the recorded outcome if the player raises it."],
     };
   }
   if (e.characterSharedPositive) {
