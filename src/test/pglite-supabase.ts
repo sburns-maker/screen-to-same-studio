@@ -6,7 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 export async function worldDatabase() {
   const db = new PGlite();
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS;
-    CREATE SCHEMA auth; CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$;
+    CREATE SCHEMA auth; CREATE TABLE auth.users(id uuid PRIMARY KEY); CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT NULL::uuid $$;
     CREATE SCHEMA storage; CREATE TABLE storage.buckets(id text PRIMARY KEY,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]); CREATE TABLE storage.objects (id uuid,bucket_id text,name text);
     CREATE FUNCTION storage.foldername(text) RETURNS text[] LANGUAGE sql AS $$ SELECT string_to_array($1,'/') $$;`);
   for (const file of [
@@ -31,6 +31,9 @@ export async function worldDatabase() {
     "0021_venue_experiences",
     "0022_verify_venue_experiences",
     "0023_phone_calls",
+    "0058_family_life_events",
+    "0063_pregnancy_lifecycle",
+    "0070_raise_world_ai_ceiling_restore",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   await db.exec(readFileSync("docs/sql/20261024_internal_lookup_security.sql", "utf8"));

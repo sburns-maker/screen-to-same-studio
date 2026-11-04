@@ -125,27 +125,19 @@ export const inboxOverview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const convs = await loadConversations(supabase, userId);
-    const nowIso = new Date().toISOString();
+    const [convs, summary] = await Promise.all([
+      loadConversations(supabase, userId),
+      supabase.rpc("inbox_summary"),
+    ]);
+    if (summary.error) throw new Error("Inbox unavailable");
+    const byId = new Map((summary.data ?? []).map((r) => [r.conversation_id, r]));
     const rows = await Promise.all(
       convs.map(async (conv) => {
-        const [{ data: last }, { count }] = await Promise.all([
-          supabase
-            .from("messages")
-            .select("id, sender, body, created_at, metadata")
-            .eq("conversation_id", conv.id)
-            .lte("visible_at", nowIso)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
-          supabase
-            .from("messages")
-            .select("id", { count: "exact", head: true })
-            .eq("conversation_id", conv.id)
-            .eq("sender", "tess")
-            .lte("visible_at", nowIso)
-            .gt("created_at", conv.last_read_at ?? "1970-01-01"),
-        ]);
+        const s = byId.get(conv.id as string);
+        const last = s?.last_id
+          ? { sender: s.last_sender, body: s.last_body, created_at: s.last_created_at, metadata: s.last_metadata }
+          : null;
+        const count = Number(s?.unread ?? 0);
         const def = characterFor(conv.character?.key);
         const md = (last?.metadata ?? null) as { photo?: string; generated_path?: string } | null;
         const preview = last

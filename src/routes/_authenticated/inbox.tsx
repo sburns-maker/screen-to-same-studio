@@ -48,7 +48,6 @@ function Inbox() {
   const inbox = useQuery({
     queryKey: ["inbox"],
     queryFn: () => inboxFn({}),
-    enabled: ensured.isSuccess,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
@@ -56,6 +55,8 @@ function Inbox() {
   // On opening the app, give each contact one chance to text first.
   useEffect(() => {
     if (!ensured.isSuccess) return;
+    // Inbox loads in parallel; refresh once in case new contacts were just set up.
+    inbox.refetch();
     initiate({ data: { tz: userTz() } })
       .then((r) => {
         if (r.count) inbox.refetch();

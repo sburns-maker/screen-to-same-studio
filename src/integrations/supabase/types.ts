@@ -4132,6 +4132,18 @@ export type Database = {
         Args: { p_blocked?: Json; p_now: string; p_user: string }
         Returns: number
       }
+      inbox_summary: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          last_body: string
+          last_created_at: string
+          last_id: string
+          last_metadata: Json
+          last_sender: string
+          unread: number
+        }[]
+      }
       interactive_world_status: { Args: never; Returns: number }
       living_experience_action_v25: {
         Args: {
