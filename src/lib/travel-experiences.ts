@@ -53,7 +53,7 @@ export function alignIcelandItineraryToDates(p:TripPlan):TripPlan {
   const index = Number(match[1]);
   const schedule = days <= 3 ? [1,1,Math.min(2,days),Math.min(2,days),days,days]
     : [1,1,Math.max(2,days-3),Math.max(2,days-2),Math.max(3,days-1),days];
-  return {...stop,day:schedule[index]};
+  return {...stop,day:schedule[index] ?? stop.day};
  });
  return {...p,itinerary};
 }
