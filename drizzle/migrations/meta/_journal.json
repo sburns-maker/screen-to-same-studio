@@ -484,6 +484,13 @@
       "when": 1793702902076,
       "tag": "0068_scene_activity_private_moment",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793754153797,
+      "tag": "0069_apply_scene_private_moment",
+      "breakpoints": true
     }
   ]
 }
