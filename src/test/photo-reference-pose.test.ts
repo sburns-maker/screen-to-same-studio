@@ -63,6 +63,14 @@ describe("reference identity without reference pose locking", () => {
     );
   });
 
+  it("requires new body geometry rather than a recolored canonical shoulder pose", () => {
+    const prompt = referencePoseGuidance({ pose_type: "front-facing with upright head and even shoulders", camera_angle: "eye_level", selfie_type: "selfie" });
+    expect(prompt).toContain("COMPOSITION IS A HARD REQUIREMENT");
+    expect(prompt).toContain("front of both shoulders and torso");
+    expect(prompt).toContain("Compose the body and camera FIRST");
+    expect(prompt).toContain("Never solve a new-pose request by recycling the source shoulder silhouette");
+  });
+
   it("does not apply human pose instructions to object-only photos", () => {
     const prompt = buildImagePrompt("object", "a cup on the kitchen counter", null);
     expect(prompt).not.toContain("TARGET CAPTURE");
