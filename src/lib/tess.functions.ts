@@ -296,6 +296,7 @@ async function runTurnUnlocked(
   tz: string,
   initiation?: { gapHours: number; reason?: string | null; photoKey?: string; intentionId?: string; budgetReserved?: boolean; developerPhoto?: "preview" | "deliver"; spontaneousPhoto?: true; expectedSceneVersion?: string | undefined },
   voice?: {callId:string;turnId:string;sourceId:string|null},
+  recovery?: { replyAnchor: string },
 ) {
   const { generateTessReply, generateContactReply } = await import("./tess.server");
   const conv = await loadConversation(supabase, userId, conversationId);
@@ -373,7 +374,7 @@ async function runTurnUnlocked(
   if(initiation?.spontaneousPhoto&&spontaneousQueue.blocked)return {count:0,lastVisibleAt:null,photoSent:false,imageRequested:false,reason:spontaneousQueue.reason};
   const actionAnchor = initiation
     ? (initiation.photoKey ?? `${conv.id}:${def.key}:${Math.floor(Date.now() / (PHOTO_TENDENCIES[def.key].hours * 3_600_000))}`)
-    : `reply:${(msgs ?? []).find((m) => m.sender === "user")?.id ?? "initial"}`;
+    : recovery?.replyAnchor ?? `reply:${(msgs ?? []).find((m) => m.sender === "user")?.id ?? "initial"}`;
   const actionKey = `${userId}:${conv.id}:${actionAnchor}`;
   if (photoAdmin && initiation?.developerPhoto !== "preview") {
     const { existingPhotoAction } = await import("./photo-delivery.server");
@@ -954,7 +955,7 @@ async function runTurnUnlocked(
       relationshipHistory: { before: state, after: next, delta: Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]])), previousStage:deriveStage(state), stage, tone: reply.tone??null, tags: reply.event_tags??[],
         evaluatedAt: nowIso,
         sourceKind: (photo || generated) ? "photo_delivery" : initiation ? "autonomous_message" : voice ? "voice" : "conversation",
-        contextSummary: (recent.find(m=>m.sender==="user")?.body ?? initiation?.reason ?? "Autonomous character interaction").slice(0,300),
+        contextSummary: (await import("./text-clip")).clipText(recent.find(m=>m.sender==="user")?.body ?? initiation?.reason ?? "Autonomous character interaction",300),
         perspective: reply.character_perspective?.trim().slice(0,700) || null },
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
