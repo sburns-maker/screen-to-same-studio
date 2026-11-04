@@ -955,7 +955,7 @@ async function runTurnUnlocked(
       relationshipHistory: { before: state, after: next, delta: Object.fromEntries(STATE_KEYS.map(k=>[k,next[k]-state[k]])), previousStage:deriveStage(state), stage, tone: reply.tone??null, tags: reply.event_tags??[],
         evaluatedAt: nowIso,
         sourceKind: (photo || generated) ? "photo_delivery" : initiation ? "autonomous_message" : voice ? "voice" : "conversation",
-        contextSummary: (recent.find(m=>m.sender==="user")?.body ?? initiation?.reason ?? "Autonomous character interaction").slice(0,300),
+        contextSummary: (await import("./text-clip")).clipText(recent.find(m=>m.sender==="user")?.body ?? initiation?.reason ?? "Autonomous character interaction",300),
         perspective: reply.character_perspective?.trim().slice(0,700) || null },
       continuity: extractedContinuity,
       intentionId: extractedContinuity?.fulfilled?.id === initiation?.intentionId ? initiation?.intentionId : null,
