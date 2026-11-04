@@ -183,8 +183,10 @@ export async function preparePhotoDelivery(
     .eq("id", id)
     .eq("status", "running").eq("detail->>phase", "generating").eq("detail->>userId", userId)
     .select("id").maybeSingle();
-  if (error || !prepared)
+  if (error || !prepared) {
+    console.warn("[character-delivery] prepare rejected", { code: error?.code ?? "no_row" });
     throw new Error("Photo was generated but delivery could not be prepared; do not regenerate");
+  }
   if (deferVoice) return { count: 0, lastVisibleAt: null, preparedActionId: id };
   return deliverPhotoTurn(admin, id);
 }
