@@ -530,7 +530,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
             admin.from("tess_state").select("*").eq("conversation_id", conv.id).single(),
             admin
               .from("messages")
-              .select("sender, created_at")
+              .select("id, sender, created_at")
               .eq("conversation_id", conv.id)
               .order("created_at", { ascending: false })
               .limit(30),
@@ -617,8 +617,27 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           // Orphaned user message: the user's latest text never got a reply
           // (app closed / request aborted). Answer it now, ahead of initiation.
           const newest = (recentMsgs ?? [])[0];
+          // An interrupted reply (app closed mid-request) leaves a failed action for this
+          // user message. Allow one text-only recovery; otherwise fall through to the
+          // normal initiation decision so the character is never silenced forever.
+          let orphanPlan: import("./orphan-reply").OrphanReplyPlan = "skip";
+          let recoveryAnchor: string | null = null;
+          if (newest?.sender === "user") {
+            const { orphanReplyPlan, recoveryReplyAnchor } = await import("./orphan-reply");
+            const { existingPhotoAction, photoActionId } = await import("./photo-delivery.server");
+            recoveryAnchor = recoveryReplyAnchor(newest.id);
+            const replyKey = `${userId}:${conv.id}:reply:${newest.id}`;
+            const [replyStatus, recoveryStatus, replyMedia] = await Promise.all([
+              existingPhotoAction(admin, replyKey),
+              existingPhotoAction(admin, `${userId}:${conv.id}:${recoveryAnchor}`),
+              admin.from("media_attempts").select("action_id").eq("action_id", await photoActionId(replyKey)).maybeSingle(),
+            ]);
+            if (replyMedia.error) throw new Error("Reply attempt history unavailable");
+            orphanPlan = orphanReplyPlan({ replyStatus, recoveryStatus, replyRequestedImage: !!replyMedia.data });
+          }
           if (
             newest?.sender === "user" &&
+            orphanPlan !== "skip" &&
             report.aiCalls < aiBudget &&
             !report.paused &&
             schedule.availability !== "asleep" &&
@@ -628,7 +647,8 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               if (worldReady && !(await reserveWorldAi(admin, userId))) continue;
               report.aiCalls++;
               const { runTurn } = await import("./tess.functions");
-              const r = await runTurn(admin, userId, conv.id, "America/New_York");
+              const r = await runTurn(admin, userId, conv.id, "America/New_York", undefined, undefined,
+                orphanPlan === "recover" && recoveryAnchor ? { replyAnchor: recoveryAnchor } : undefined);
               if (r.count > 0) {
                 await admin.from("world_events").insert({
                   user_id: userId,
