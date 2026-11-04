@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@/integrations/supabase/types";
 import { registeredCalendarVenues } from "./calendar-venue.server";
 import { resolveCalendarVenue } from "./calendar-venue";
+import { clipText, wellFormedJson } from "./text-clip";
 
 type Admin = SupabaseClient<Database>;
 export type DeliveryResult = {
@@ -174,7 +175,8 @@ export async function preparePhotoDelivery(
         phase: deferVoice ? "voice_prepared" : "prepared",
         userId,
         conversationId,
-        plan,
+        // A clipped emoji anywhere in the plan would make the whole update invalid JSON.
+        plan: wellFormedJson(plan),
         ...(deferVoice ? { callId: deferVoice.callId, callTurnId: deferVoice.turnId } : {}),
       },
     })
@@ -213,8 +215,8 @@ export function evaluationFromDetail(detail: HistoryDetail | null | undefined, d
     state_before: h.before, state_after: h.after, delta: h.delta,
     stage_before: h.previousStage, stage_after: h.stage,
     observed_tone: h.tone ?? null, event_tags: h.tags ?? [],
-    context_summary: (h.contextSummary ?? "Photo and associated character response delivered").slice(0, 300),
-    character_perspective: h.perspective?.trim().slice(0, 700) || null,
+    context_summary: clipText(h.contextSummary ?? "Photo and associated character response delivered", 300),
+    character_perspective: (h.perspective ? clipText(h.perspective.trim(), 700) : "") || null,
   };
 }
 
