@@ -18,3 +18,4 @@
 - [x] SpicyAPI: key, budgets and credit-check time supplied in the earlier setup.
 - [x] Removed recurring SpicyAPI credit-verification expiry; 105 provider/routing/job tests passed, build clean, signed-in free authenticated connection check succeeded. No paid generation or publishing.
 - [x] Add Sienna Hayes with approved portrait, independent personality and messaging/world/photo/voice/calendar connections. Forward migration 0055 installed; signed-in inbox, normal text saved/read back, reply and Voice Studio verified; 185 focused tests pass. No paid images/audio, experience transitions or publishing. Voice creation and mature-photo opt-in remain explicit.
+- [ ] Investigate private memories database merge (user request)
