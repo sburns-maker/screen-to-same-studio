@@ -31,6 +31,8 @@ export async function worldDatabase() {
     "0021_venue_experiences",
     "0022_verify_venue_experiences",
     "0023_phone_calls",
+    "0058_family_life_events",
+    "0063_pregnancy_lifecycle",
   ])
     await db.exec(readFileSync(`drizzle/migrations/${file}.sql`, "utf8"));
   await db.exec(readFileSync("docs/sql/20261024_internal_lookup_security.sql", "utf8"));
