@@ -42,6 +42,21 @@ export function icelandTripIdea(origin="Altoona, PA"):TripPlan{
  startDate:null,endDate:null,status:"idea",companions:[],notes:["Tess has dreamed of visiting Iceland in winter for years.","A work-learning visit could be considered separately; no tickets or reservations are implied."],
  itinerary:ICELAND_WINTER_IDEAS.map((label,i)=>({id:"iceland-"+i,day:i<2?1:i<4?2:3,label,location:"Iceland",kind:i===0?"travel":i===5?"rest":"activity",completed:false}))};
 }
+/** Respace the built-in Iceland story beats to the selected trip length without overwriting custom stops. */
+export function alignIcelandItineraryToDates(p:TripPlan):TripPlan {
+ if (p.title !== "Iceland in winter" || !p.startDate || !p.endDate) return p;
+ const days = Math.round((Date.parse(p.endDate + "T12:00:00Z") - Date.parse(p.startDate + "T12:00:00Z")) / 86400000) + 1;
+ if (!Number.isFinite(days) || days < 1) return p;
+ const itinerary = p.itinerary.map(stop => {
+  const match = /^iceland-([0-5])$/.exec(stop.id);
+  if (!match) return stop;
+  const index = Number(match[1]);
+  const schedule = days <= 3 ? [1,1,Math.min(2,days),Math.min(2,days),days,days]
+    : [1,1,Math.max(2,days-3),Math.max(2,days-2),Math.max(3,days-1),days];
+  return {...stop,day:schedule[index]};
+ });
+ return {...p,itinerary};
+}
 export function tripScenePrompt(p:TripPlan,day:number):string{
  if(p.status!=="in_progress")throw new Error("Trip has not started");
  const stops=p.itinerary.filter(s=>s.day===day);
