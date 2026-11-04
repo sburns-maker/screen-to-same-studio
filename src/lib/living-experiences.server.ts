@@ -245,9 +245,17 @@ export async function generateExperience(
   try {
     if (kind === "automatic" && !(await reserveWorldAi(db, user)))
       throw new Error("Autonomous budget unavailable");
-    await (
-      await import("./calendar-coordinator.server")
-    ).syncExperienceScheduling(db, user, plan, now);
+    try {
+      await (
+        await import("./calendar-coordinator.server")
+      ).syncExperienceScheduling(db, user, plan, now);
+    } catch (error) {
+      console.warn("[living-experience] scheduling synchronization error", {
+        code: (error as { code?: string })?.code ?? null,
+        message: error instanceof Error ? error.message : "unknown",
+      });
+      throw error;
+    }
     phase = "context";
     const { scene, moments } = await livingHistory(db, user, plan);
     const def = characterFor(p.data.organizer),
