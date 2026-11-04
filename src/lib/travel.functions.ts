@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { addCompanion, respondCompanion, acceptTrip, validateTrip, type TripPlan } from "./travel-experiences";
+import { addCompanion, respondCompanion, acceptTrip, validateTrip, alignIcelandItineraryToDates, type TripPlan } from "./travel-experiences";
 const uuid=z.string().uuid();
 const input=z.object({id:uuid,title:z.string().trim().min(1).max(120),origin:z.string().trim().min(1).max(160),destination:z.string().trim().min(1).max(160),
  mode:z.enum(["road_trip","flight","rail","local"]),purpose:z.enum(["vacation","work","family","adventure"]),
@@ -65,7 +65,7 @@ export const changeTravelTrip=createServerFn({method:"POST"}).middleware([requir
   p={...p,status:"in_progress"};break;
  case "set_dates":
   if(!["idea","proposed"].includes(p.status))throw new Error("Dates are locked once confirmed");
-  p={...p,startDate:data.startDate??null,endDate:data.endDate??null};break;
+  p=alignIcelandItineraryToDates({...p,startDate:data.startDate??null,endDate:data.endDate??null});break;
  case "add_stop":
   if(!data.label||!data.location||!data.day||!data.kind)throw new Error("Stop needs day, title, place and type");
   if(!["idea","proposed","accepted","in_progress"].includes(p.status))throw new Error("Trip is closed");
