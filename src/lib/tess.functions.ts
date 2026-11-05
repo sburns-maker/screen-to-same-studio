@@ -612,11 +612,39 @@ async function runTurnUnlocked(
           .filter(p=>p.characterResponse==="pending").slice(0,3);
       }catch{return [];}})()
     : [];
+  // Reconcile character-authored disclosures before compiling private results.
+  // Otherwise an already-told result remains "undisclosed" in the model context
+  // and the character can announce the same news over and over.
+  if (configuredPhotoAdmin && def.romanticCapable && def.age >= 18) {
+    try {
+      const { reconcileVisiblePregnancyDisclosures } = await import("./family-life.server");
+      await reconcileVisiblePregnancyDisclosures(configuredPhotoAdmin, userId, def.key, now);
+    } catch (error) {
+      console.warn("[pregnancy-continuity] disclosure reconciliation deferred", error);
+    }
+  }
   const duePregnancyResults = configuredPhotoAdmin && def.romanticCapable && def.age>=18
     ? await (async()=>{try{
         const {dueUndisclosedPregnancyResults}=await import("./family-life.server");
-        return await dueUndisclosedPregnancyResults(configuredPhotoAdmin,userId,def.key);
+        return await dueUndisclosedPregnancyResults(configuredPhotoAdmin,userId,def.key,now);
       }catch{return [];}})() : [];
+  // Negative rolls have no active pregnancy lifecycle. Preserve the most recent
+  // already-shared result so character narrative cannot recast it as a miscarriage.
+  const disclosedPregnancyContext = configuredPhotoAdmin && def.romanticCapable && def.age>=18
+    ? await (async()=>{try{
+        const { data, error } = await configuredPhotoAdmin.from("family_pregnancy_events")
+          .select("status,disclosed_at,occurred_at")
+          .eq("user_id",userId).eq("character_key",def.key)
+          .not("disclosed_at","is",null)
+          .lte("disclosed_at",now.toISOString())
+          .in("status",["positive","negative"])
+          .order("disclosed_at",{ascending:false}).limit(1);
+        if (error || !data?.length) return [] as string[];
+        const last = data[0];
+        if (!last) return [] as string[];
+        const { disclosedPregnancyResultGuidance } = await import("./family-pregnancy-disclosure");
+        return [disclosedPregnancyResultGuidance(last.status as "positive"|"negative", last.disclosed_at!)];
+      }catch{return [] as string[];}})() : [];
   const duePregnancyIds=duePregnancyResults.map(e=>e.id);
   const pregnancyResultContext=duePregnancyResults.map(e=>
     `PRIVATE CHARACTER KNOWLEDGE ONLY (FICTIONAL): Due pregnancy event ${e.id} has outcome ${e.status}. The player does NOT know yet. You may decide independently when to share it in a visible message. If you do, use pregnancy_disclosure_action with this exact eventId and a contiguous quote from your own words. Never disclose the probability or secret random roll.`);
@@ -643,7 +671,7 @@ async function runTurnUnlocked(
   const weddingPlanContext = pendingWeddingPlans.map(p=>
     `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
   const generateReply = (extraChronology: string[] = []) => {
-    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyFamilyContext, ...worldKnowledge];
+    const groundedKnowledge = [...extraChronology, ...disclosedPregnancyContext, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyFamilyContext, ...worldKnowledge];
     return isTess
       ? generateTessReply({
           deliveryChannel: voice ? "voice" : "text",

@@ -109,3 +109,25 @@ describe("wedding plans are not automatic marriages", () => {
     expect(weddingPlanStatus(completed,[acceptedEngagement],new Date("2026-11-02T12:00:00Z"))).toBe("ceremony_recorded");
   });
 });
+
+
+import { disclosedPregnancyResultGuidance } from "./family-pregnancy-disclosure";
+
+describe("negative conception roll is not pregnancy loss", () => {
+  it("keeps a negative result separate from miscarriage and ongoing grief", () => {
+    const date = "2026-11-04T16:00:00Z";
+    const negative = disclosedPregnancyResultGuidance("negative", date);
+    expect(negative).toContain("NEGATIVE");
+    expect(negative).toContain("NOT a miscarriage");
+    expect(negative).toContain("ongoing depressive state");
+    expect(negative).toContain("NEVER announce the same result");
+    expect(negative).toContain(date);
+    expect(resolvePregnancyEvent(pregnancy(0.9, 0.2), new Date("2026-11-04T18:00:00Z")).status).toBe("negative");
+  });
+  it("does not repeatedly reveal an already disclosed positive event", () => {
+    const positive = disclosedPregnancyResultGuidance("positive", "2026-11-04T16:00:00Z");
+    expect(positive).toContain("ALREADY");
+    expect(positive).toContain("Never announce the same result as new again");
+    expect(positive).not.toContain("NOT a miscarriage");
+  });
+});
