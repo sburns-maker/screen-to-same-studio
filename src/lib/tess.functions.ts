@@ -641,9 +641,8 @@ async function runTurnUnlocked(
           .order("disclosed_at",{ascending:false}).limit(1);
         if (error || !data?.length) return [] as string[];
         const last = data[0];
-        return last.status === "negative"
-          ? [`AUTHORITATIVE ALREADY-SHARED FICTIONAL RESULT (${last.disclosed_at}): The most recently disclosed conception roll was NEGATIVE: no pregnancy resulted from that encounter. This is NOT a miscarriage, pregnancy loss, death of a baby, or termination of an established pregnancy. Do not invent a pregnancy-loss history, grief/trauma narrative, physical recovery, or ongoing depressive state from this negative roll. The character may have ordinary, proportionate disappointment if a pregnancy was hoped for, but does not need to be sad and should continue her normal personality, relationship, work, jokes, and daily routines. The player already knows this result: NEVER announce it again as new news or repeatedly center conversation on it. Do not override another independently verified active pregnancy if one exists.`]
-          : [`AUTHORITATIVE ALREADY-SHARED FICTIONAL RESULT (${last.disclosed_at}): The most recently disclosed conception result was POSITIVE and has ALREADY been communicated to the player. Never announce the same result as new again. Refer to it naturally only when relevant, preserving canonical lifecycle status and any independently recorded outcomes.`];
+        const { disclosedPregnancyResultGuidance } = await import("./family-pregnancy-disclosure");
+        return [disclosedPregnancyResultGuidance(last.status as "positive"|"negative", last.disclosed_at!)];
       }catch{return [] as string[];}})() : [];
   const duePregnancyIds=duePregnancyResults.map(e=>e.id);
   const pregnancyResultContext=duePregnancyResults.map(e=>
