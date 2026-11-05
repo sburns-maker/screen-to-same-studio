@@ -22,6 +22,14 @@ describe("distinct delivery without a universal joke template", () => {
     expect(dialogueRules("riley")).toContain("sleepy fragment");
     expect(dialogueRules("future-npc")).not.toContain("Tess's composed deadpan");
   });
+  it("keeps Sienna in her established western Pennsylvania speech register", () => {
+    expect(dialogueRules("sienna")).toContain("American English");
+    expect(dialogueRules("sienna")).toContain("work schedule");
+    expect(CHARACTERS.sienna.textingStyle).toContain("never British rota");
+    expect(enforceTessVoice(["I’ll check my rota after work."], CONTACT_VOICE.sienna)).toEqual(["I’ll check my schedule after work."]);
+    expect(cleanContactHistoryLine("I will check the rota tonight.", "sienna")).toBe("I will check the schedule tonight.");
+    expect(enforceTessVoice(["I’ll check my rota after work."], CONTACT_VOICE.maya)).toEqual(["I’ll check my rota after work."]);
+  });
   it("keeps mundane texting and variable emoji guidance character-specific and out of voice calls", () => {
     for (const key of Object.keys(DIALOGUE_PROFILES)) {
       const text = dialogueRules(key, "text");
