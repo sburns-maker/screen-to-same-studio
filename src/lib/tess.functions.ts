@@ -641,6 +641,7 @@ async function runTurnUnlocked(
           .order("disclosed_at",{ascending:false}).limit(1);
         if (error || !data?.length) return [] as string[];
         const last = data[0];
+        if (!last) return [] as string[];
         const { disclosedPregnancyResultGuidance } = await import("./family-pregnancy-disclosure");
         return [disclosedPregnancyResultGuidance(last.status as "positive"|"negative", last.disclosed_at!)];
       }catch{return [] as string[];}})() : [];
