@@ -69,6 +69,8 @@ export type VoiceOptions = {
   allowedEmoji?: Set<string> | null;
   /** Max exclamation marks per turn (default 1). */
   maxExclaim?: number;
+  /** Opt-in American workplace vocabulary guard for a specific fictional contact. */
+  americanScheduleWords?: boolean;
 };
 
 /** Per-character voice limits for non-Tess contacts. */
@@ -78,7 +80,7 @@ export const CONTACT_VOICE: Record<string, Omit<VoiceOptions, "recentTess">> = {
   jordan: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: new Set(["🙄"]), maxExclaim: 0 },
   ben: { maxBubbles: 2, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
   riley: { maxBubbles: 3, maxEmoji: 1, allowedEmoji: null, maxExclaim: 1 },
-  sienna: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2 },
+  sienna: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2, americanScheduleWords: true },
   kendra: { maxBubbles: 3, maxEmoji: 2, allowedEmoji: null, maxExclaim: 2 },
 };
 
@@ -93,6 +95,9 @@ export function enforceTessVoice(bubbles: string[], opts: VoiceOptions = {}): st
   const out: string[] = [];
   for (const raw of bubbles) {
     let t = stripSentences(raw, opts.allowedEmoji !== undefined);
+    // Sienna is from western Pennsylvania. Normalize a British workplace term both
+    // on fresh replies and when past contact lines return to model context.
+    if (opts.americanScheduleWords) t = t.replace(/\brota\b/gi, (word) => word[0] === "R" ? "Schedule" : "schedule");
     // Emoji: at most one per turn, only from her set.
     t = t.replace(EMOJI_RE, (e) => {
       if (emojiUsed >= maxEmoji || (allowed && !allowed.has(e))) return "";
