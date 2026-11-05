@@ -612,6 +612,27 @@ async function runTurnUnlocked(
           .filter(p=>p.characterResponse==="pending").slice(0,3);
       }catch{return [];}})()
     : [];
+  // Check visible character-authored history before treating a result as
+  // private. This never infers pregnancy from the player's speculation.
+  const { priorPregnancyDisclosureContext } = await import("./family-pregnancy-disclosure");
+  const disclosureHistory = configuredPhotoAdmin && def.romanticCapable && def.age >= 18
+    ? await supabase.from("messages")
+        .select("body,visible_at").eq("user_id",userId).eq("conversation_id",conv.id)
+        .eq("sender","tess").gte("visible_at",new Date(now.getTime() - 30*86400000).toISOString())
+        .lte("visible_at",nowIso).order("visible_at",{ascending:false}).limit(200)
+    : { data: [], error: null };
+  if (disclosureHistory.error) console.warn("[family-life] prior shared disclosure history unavailable");
+  const priorDisclosureLines = priorPregnancyDisclosureContext(disclosureHistory.data ?? []);
+  // A missing structured metadata tag is not proof she never told the player.
+  // Only reconcile when a first-person disclosure is actually in the history.
+  if (configuredPhotoAdmin && priorDisclosureLines.length) {
+    try {
+      const { reconcileVisiblePregnancyDisclosures } = await import("./family-life.server");
+      await reconcileVisiblePregnancyDisclosures(configuredPhotoAdmin, userId, def.key);
+    } catch (error) {
+      console.warn("[family-life] prior disclosure reconciliation deferred", error);
+    }
+  }
   const duePregnancyResults = configuredPhotoAdmin && def.romanticCapable && def.age>=18
     ? await (async()=>{try{
         const {dueUndisclosedPregnancyResults}=await import("./family-life.server");
@@ -643,7 +664,7 @@ async function runTurnUnlocked(
   const weddingPlanContext = pendingWeddingPlans.map(p=>
     `PENDING PRIVATE WEDDING PLAN REQUEST FROM PLAYER (NOT ACCEPTED): planId=${p.id}, proposed time=${p.startsAt}, venue=${p.venue}. You may independently agree, decline or defer. For a clear answer, use wedding_plan_action with this exact ID and quote your own unmistakable visible words. No wedding or marriage has happened.`);
   const generateReply = (extraChronology: string[] = []) => {
-    const groundedKnowledge = [...extraChronology, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyFamilyContext, ...worldKnowledge];
+    const groundedKnowledge = [...extraChronology, ...priorDisclosureLines, ...weddingPlanContext, ...pregnancyResultContext, ...pregnancyLifecycleContext, ...pregnancyFamilyContext, ...worldKnowledge];
     return isTess
       ? generateTessReply({
           deliveryChannel: voice ? "voice" : "text",

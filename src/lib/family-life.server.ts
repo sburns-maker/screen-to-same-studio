@@ -71,7 +71,7 @@ export async function dueUndisclosedPregnancyResults(db:Client,userId:string,cha
    .eq("user_id",userId).eq("character_key",characterKey).is("disclosed_at",null)
    .lte("reveal_at",now.toISOString()).in("status",["positive","negative"]).limit(10);
  if(error)throw new Error("Private family result unavailable");
- return (data??[]).map(row=>({id:row.id,status:row.status as "positive"|"negative"}));
+ return (data??[]).map(row=>({id:row.id,status:row.status as "positive"|"negative",revealAt:row.reveal_at as string}));
 }
 /** Reconcile an actual visible character-authored pregnancy disclosure. The
  * player never receives the private result before the message is visible.
@@ -79,7 +79,7 @@ export async function dueUndisclosedPregnancyResults(db:Client,userId:string,cha
 export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:string,characterKey:string,now=new Date()) {
  const pending=await dueUndisclosedPregnancyResults(db,userId,characterKey,now);
  if(!pending.length)return {disclosed:0};
- const {validPregnancyDisclosure,pregnancyDisclosureActionSchema}=await import("./family-pregnancy-disclosure");
+ const {validPregnancyDisclosure,pregnancyDisclosureActionSchema,visiblePregnancyResultDisclosure}=await import("./family-pregnancy-disclosure");
  const {data:character,error:characterError}=await db.from("characters").select("id").eq("key",characterKey).single();
  if(characterError || !character)return {disclosed:0};
  const {data:conversation,error:conversationError}=await db.from("conversations")
@@ -92,13 +92,23 @@ export async function reconcileVisiblePregnancyDisclosures(db:Client,userId:stri
  if(error)throw new Error("Pregnancy disclosure messages unavailable");
  let disclosed=0;
  for(const result of pending) {
-  const matched=(messages??[]).find(m=>{
+  const structured=(messages??[]).find(m=>{
    const md=m.metadata;
    const parsed=pregnancyDisclosureActionSchema.safeParse(
      md && typeof md==="object" && !Array.isArray(md)
       ? (md as Record<string,unknown>)["pregnancy_disclosure_action"]:null);
    return parsed.success && validPregnancyDisclosure(parsed.data,m.body,[result.id],result.status);
   });
+  // Older messages may have omitted the structured action although the
+  // player already saw an unambiguous first-person result. Match only the
+  // same due canonical result, after reveal time; never create a new event.
+  const sameStatusPending=pending.filter(e=>e.status===result.status);
+  const visibleMatch=!structured && sameStatusPending.length===1
+    ? [...(messages??[])].reverse().find(m=>
+        !!m.visible_at && m.visible_at>=result.revealAt &&
+        visiblePregnancyResultDisclosure(m.body)===result.status)
+    : null;
+  const matched=structured??visibleMatch;
   if(!matched)continue;
   const {error:updateError}=await db.from("family_pregnancy_events")
     .update({disclosed_at:matched.visible_at}).eq("id",result.id)

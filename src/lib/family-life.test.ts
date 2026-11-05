@@ -5,6 +5,31 @@ import {
   familyCommitmentStatus, mayPlanWedding, mayCompleteWedding, mayDiscussEngagement, weddingPlanSchema, weddingPlanStatus
 } from "./family-life";
 
+import { visiblePregnancyResultDisclosure, priorPregnancyDisclosureContext } from "./family-pregnancy-disclosure";
+
+describe("shared pregnancy disclosure continuity", () => {
+  it("recognizes a previously visible positive result and does not treat it as new information", () => {
+    const body = "Not yet. I did get a positive result, though. I'm pregnant. I wanted to tell you directly.";
+    expect(visiblePregnancyResultDisclosure(body)).toBe("positive");
+    const lines = priorPregnancyDisclosureContext([{body,visible_at:"2026-11-03T12:00:00Z"}]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("already told the player");
+    expect(lines[0]).toContain("not proof of a new conception event");
+  });
+  it("does not turn player speculation or ambiguous positive results into a disclosure", () => {
+    expect(visiblePregnancyResultDisclosure("Did you hear from the doctor?")).toBeNull();
+    expect(visiblePregnancyResultDisclosure("I'm waiting for results.")).toBeNull();
+    expect(visiblePregnancyResultDisclosure("A positive outlook for this weekend.")).toBeNull();
+    expect(visiblePregnancyResultDisclosure("We are expecting visitors.")).toBeNull();
+    expect(visiblePregnancyResultDisclosure("I got a positive test for flu.")).toBeNull();
+    expect(priorPregnancyDisclosureContext([{body:"Have you taken the test?"}])).toEqual([]);
+  });
+  it("preserves a confirmed negative result as distinct shared history", () => {
+    expect(visiblePregnancyResultDisclosure("My pregnancy test came back negative.")).toBe("negative");
+    expect(visiblePregnancyResultDisclosure("I'm not pregnant.")).toBe("negative");
+  });
+});
+
 const uuid = "00000000-0000-4000-8000-000000000001";
 const start = "2026-10-30T12:00:00.000Z";
 function pregnancy(roll: number, probability: number) {
