@@ -412,6 +412,9 @@ export const downloadSpicyOutput = createServerOnlyFn(async function downloadSpi
   throw new Error("spicy_output_redirect_limit");
 });
 
+/** Shared face-realism guidance for every SpicyAPI character category. */
+export const SPICY_FACE_REALISM = `FACIAL IDENTITY AND NATURALISM (HIGH PRIORITY): The approved canonical portrait anchors facial structure, not beauty styling. Render the same recognizable adult with their actual eye size and spacing, nose, lips, jaw, cheeks, hairline, complexion, and subtle asymmetries. Prioritize recognizable identity and convincing unretouched realism over conventional prettiness. Preserve naturally occurring pores, normal under-eye shading, fine smile lines, subtle skin tonal variation, realistic lip texture and modest flyaway hairs appropriate to distance and lighting. These details should be plausible, not artificially exaggerated. Expressions can be relaxed or flirtatious without changing facial anatomy. Avoid beautification, airbrushed or porcelain skin, beauty-filter effects, hyper-symmetry, enlarged or hyper-bright irises, plumped lips, overly sharpened eyes, doll-like facial features, plastic shine, synthetic hair strands and model-headshot polish. A realistic everyday phone photo, never a polished AI beauty render. Do not invent scars, blemishes, wrinkles, makeup changes or other permanent identity details merely to signal realism.`;
+
 export function buildSpicyPrompt(
   name: string,
   age: number,
@@ -420,6 +423,7 @@ export function buildSpicyPrompt(
   type: "mature_romantic" | "suggestive" | "ordinary" = "mature_romantic",
 ) {
   return `IDENTITY / REFERENCES: Reference 1 is the approved canonical design of ${name}, a fictional adult age ${age}. All references depict this same adult; preserve face, complexion, hair-color family and proportions. References do not prescribe wardrobe, pose or background. Never substitute a similar person.
+${SPICY_FACE_REALISM}
 CATEGORY: ${type === "ordinary" ? "Everyday, non-sexualized smartphone photo. Preserve the actual location, context, clothing and activity. No suggestive styling or costume changes." : type === "suggestive" ? "Strongly flirtatious adult portrait. Confident body language, playful expression and realistic intimate mood. Do not force disrobing or a new location." : "Private romantic non-explicit adult portrait."}\nWARDROBE: ${style["clothing_category"] ?? "Use the established outfit; never change clothing merely for variety."} Opaque clothing; retain current scene continuity.
 SCENE / LOCATION: ${scene}
 POSE / EXPRESSION: ${style["pose_type"] ?? "Natural to the actual activity"}; ${style["expression"] ?? "Match the established mood"}.
