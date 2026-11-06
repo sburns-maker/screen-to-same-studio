@@ -203,7 +203,7 @@ export async function createGeneratedPhoto(
     const { data } = await supabaseAdmin.storage.from("tess-reference").download("mabel.jpg");
     mabelReference = data ?? null;
   }
-  const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(supabaseAdmin,userId,characterKey,type,lovableGatewayProvider(apiKey ?? ""),actionId,undefined,{scene,expression,style:style??null,type:type as import("./spicy-jobs.server").SpicyContext["type"],...(photography?{photography}:{})});
+  const provider = await (await import("./photo-provider-router.server")).configuredPhotoProvider(supabaseAdmin,userId,characterKey,type,lovableGatewayProvider(apiKey ?? ""),actionId,undefined,{scene,expression,style:style??null,type:type as NonNullable<import("./spicy-jobs.server").SpicyContext["type"]>,...(photography?{photography}:{})});
   const identity = def
     ? { key: def.key, name: def.fullName, age: def.age, pronouns: def.pronouns, appearance: def.appearance }
     : undefined;
