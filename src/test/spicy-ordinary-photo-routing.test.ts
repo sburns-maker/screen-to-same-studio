@@ -21,6 +21,15 @@ describe("staged SpicyAPI character photo migration", () => {
       expect(useSpicyCharacterPhoto(category)).toBe(true);
     expect(useSpicyCharacterPhoto("object")).toBe(false);
   });
+  it("uses the same unretouched face guidance for romantic photos", () => {
+    for (const type of ["suggestive", "mature_romantic"] as const) {
+      const prompt = buildSpicyPrompt("Claire", 28, "At home", {}, type);
+      expect(prompt).toContain("FACIAL IDENTITY AND NATURALISM (HIGH PRIORITY)");
+      expect(prompt).toContain("actual eye size and spacing");
+      expect(prompt).toContain("never a polished AI beauty render");
+    }
+  });
+
   it("does not eroticize an everyday work selfie", () => {
     const prompt = buildSpicyPrompt("Claire", 28, "At work taking a selfie", {
       clothing_category: "blue casual blouse",
@@ -28,5 +37,11 @@ describe("staged SpicyAPI character photo migration", () => {
     expect(prompt).toContain("Everyday, non-sexualized smartphone photo");
     expect(prompt).toContain("blue casual blouse");
     expect(prompt).not.toContain("Private romantic non-explicit adult portrait");
+    expect(prompt).toContain("FACIAL IDENTITY AND NATURALISM (HIGH PRIORITY)");
+    expect(prompt).toContain("Prioritize recognizable identity and convincing unretouched realism");
+    expect(prompt).toContain("normal under-eye shading");
+    expect(prompt).toContain("Avoid beautification, airbrushed or porcelain skin");
+    expect(prompt).toContain("Do not invent scars");
+
   });
 });
