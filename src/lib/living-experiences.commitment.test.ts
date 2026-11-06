@@ -16,10 +16,13 @@ const moment = (source: string, body: string, ordinal: number): ExperienceMoment
 describe("commitment continuity across long experiences", () => {
   it("keeps both the player's paperwork claim and the character's refusal in long histories", () => {
     const history = [
-      moment("character", "I want to be your wife, but we should verify the requirements together.", 0),
-      moment("user", "I have a wedding dress and a preacher. The county paperwork is approved.", 1),
-      moment("character", "I am not getting legally married tonight. I want to verify it with you tomorrow.", 2),
-      ...Array.from({ length: 30 }, (_, i) => moment(i % 2 ? "user" : "character", `We walk around the park and discuss the scenery ${i}.`, i + 3)),
+      moment("character", "The evening starts with a walk.", 0),
+      moment("user", "We talk about the thrift store.", 1),
+      moment("character", "I am excited to choose outfits.", 2),
+      moment("character", "I want to be your wife, but we should verify the requirements together.", 3),
+      moment("user", "I have a wedding dress and a preacher. The county paperwork is approved.", 4),
+      moment("character", "I am not getting legally married tonight. I want to verify it with you tomorrow.", 5),
+      ...Array.from({ length: 30 }, (_, i) => moment(i % 2 ? "user" : "character", `We walk around the park and discuss the scenery ${i}.`, i + 6)),
     ];
     const promptHistory = windowExperienceHistory("turn", history);
     expect(promptHistory.some((x) => x.body.includes("county paperwork is approved"))).toBe(true);
