@@ -192,7 +192,7 @@ export async function createGeneratedPhoto(
     ...(style ?? {}),
   });
   if (issue) throw new PhotoSceneBoundaryError(issue.field);
-  if (!apiKey && process.env["SPICY_ALL_CHARACTER_PHOTOS"] !== "true") throw new Error("image provider not configured");
+  if (!apiKey && (process.env["SPICY_ALL_CHARACTER_PHOTOS"] !== "true" || type === "object")) throw new Error("image provider not configured");
   const { generateTessImage, includesTess, lovableGatewayProvider, sceneHasMabel } = await import("./tess-image.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const t = type as import("./tess-image.server").TessImageType;
