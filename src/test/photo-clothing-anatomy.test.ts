@@ -14,6 +14,9 @@ describe("photo prompt clothing anatomy", () => {
     expect(prompt).toContain("established chest and torso proportions");
     expect(prompt).toContain("medical scrubs");
     expect(prompt).toContain("Do not artificially flatten or enlarge breasts");
+    expect(prompt).toContain("featureless flat skin panel");
+    expect(prompt).toContain("naturally reveal some cleavage");
+    expect(prompt).toContain("not inherently suggestive");
     expect(prompt).toContain("Coverage follows the actual garment");
   });
 
@@ -23,6 +26,8 @@ describe("photo prompt clothing anatomy", () => {
     });
     expect(prompt).toContain("natural adult chest and torso anatomy");
     expect(prompt).toContain("without artificially flattening or enlarging");
+    expect(prompt).toContain("implausibly flat featureless panel");
+    expect(prompt).toContain("Do not force cleavage");
     expect(prompt).toContain("Do not change canonical body proportions");
   });
 });
