@@ -353,9 +353,9 @@ export async function generateTessImage(args: {
       // Optional photographic flavor is shortened only in this outgoing copy.
       const base = buildSpicyPrompt(
         args.identity!.name, args.identity!.age, args.scene, args.style ?? {},
-        args.type === "suggestive" ? "suggestive" : "mature_romantic",
+        args.type === "suggestive" ? "suggestive" : args.type === "mature_romantic" ? "mature_romantic" : "ordinary",
       );
-      const category = args.type === "suggestive" ? SUGGESTIVE_STYLE : MATURE_STYLE;
+      const category = args.type === "suggestive" ? SUGGESTIVE_STYLE : args.type === "mature_romantic" ? MATURE_STYLE : STYLE;
       const personality = photoPersonalityPrompt(args.photography ?? {
         version: 1, character: args.identity!.key, scenario: null, candidates: [],
         location: null, availability: "free",

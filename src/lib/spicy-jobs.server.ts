@@ -23,7 +23,7 @@ type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
   expression: string | null;
-  type?: "mature_romantic" | "suggestive";
+  type?: "mature_romantic" | "suggestive" | "casual_selfie" | "personal_selfie" | "intimate_selfie" | "tess_candid";
   style?: PhotoStyle | null;
   photography?: PhotographyPlan;
   delivery?: "chat" | "lab";
@@ -163,7 +163,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
   return {
     generated_path: path,
     generated_image_id: job.action_id,
-    photo_type: job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",
+    photo_type: job.payload.type ?? "mature_romantic",
     photo_identity: identity,
     photo_visual: {
       version: 1,
@@ -175,7 +175,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
   };
 }
 async function rememberCommittedPhoto(db: Client, job: Job) {
-  if (job.payload.delivery === "lab") return;
+  if (job.payload.delivery === "lab" || (job.payload.type !== "mature_romantic" && job.payload.type !== "suggestive")) return;
   const summary = deliveredRomanticPhotoMemory(
     CHARACTERS[job.character_key].preferredName,
     job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",
@@ -273,11 +273,13 @@ export const processSpicyPhotos = createServerOnlyFn(async function processSpicy
         .eq("character_key", job.character_key)
         .maybeSingle();
       if (prefs.error) throw new Error("spicy_preferences_unavailable");
-      if (!prefs.data?.spicy_enabled || !prefs.data.adult_confirmed) {
+      const ordinaryPhoto = job.payload.type !== "mature_romantic" && job.payload.type !== "suggestive";
+      if (CHARACTERS[job.character_key].age < 18 ||
+          (!ordinaryPhoto && (!prefs.data?.spicy_enabled || !prefs.data.adult_confirmed))) {
         await finish(db, job, null, "spicy_permission_changed");
         continue;
       }
-      if (!isLab) {
+      if (!isLab && !ordinaryPhoto) {
         const conversation = await db
           .from("conversations")
           .select("mature_photography,photo_boundary")

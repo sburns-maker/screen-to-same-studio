@@ -4,7 +4,11 @@ import { CHARACTERS, type CharacterKey } from "./characters";
 import type { ImageProvider } from "./tess-image.server";
 import { spicyConfiguration, SPICY_CAST } from "./spicy-image.server";
 import { submitSpicyPhoto, type SpicyContext } from "./spicy-jobs.server";
-/** Ordinary categories never enter this provider path. */
+/** Explicit opt-in: route ordinary character photos through the durable SpicyAPI job pipeline. */
+export function useSpicyCharacterPhoto(type: string): boolean {
+  return (type === "mature_romantic" || type === "suggestive") ||
+    (process.env["SPICY_ALL_CHARACTER_PHOTOS"] === "true" && type !== "object");
+}
 export async function configuredPhotoProvider(
   db: SupabaseClient<Database>,
   user: string,
@@ -15,16 +19,18 @@ export async function configuredPhotoProvider(
   conversationId?: string,
   context?: SpicyContext,
 ): Promise<ImageProvider> {
-  if (type !== "mature_romantic" && type !== "suggestive") return ordinary;
+  if (!useSpicyCharacterPhoto(type)) return ordinary;
+  const ordinaryPhoto = type !== "mature_romantic" && type !== "suggestive";
   // Suggestive images are SpicyAPI-only. Never send a suggestive prompt or
   // canonical portrait to OpenAI/the ordinary provider as a silent fallback.
   if (process.env["SPICY_ENABLED"] !== "true") {
+    if (ordinaryPhoto) throw new Error("spicy_character_provider_not_enabled");
     if (type === "suggestive") throw new Error("Suggestive photos require SpicyAPI to be enabled");
     if (key === "jade") throw new Error("Jade private portraits require SpicyAPI to be enabled");
     return ordinary;
   }
   if (!(SPICY_CAST as readonly string[]).includes(key))
-    throw new Error("Mature provider unavailable for this character");
+    throw new Error("SpicyAPI provider unavailable for this character");
   const preference = await db
     .from("photo_reference_state")
     .select("spicy_enabled,adult_confirmed")
@@ -32,15 +38,14 @@ export async function configuredPhotoProvider(
     .eq("character_key", key)
     .maybeSingle();
   if (preference.error) throw new Error("SpicyAPI migration or preferences unavailable");
-  if (!preference.data?.spicy_enabled) {
+  if (!ordinaryPhoto && !preference.data?.spicy_enabled) {
     if (type === "suggestive") throw new Error("Enable SpicyAPI for this character to test suggestive photos");
     if (key === "jade") throw new Error("Enable SpicyAPI for Jade before generating private portraits");
     return ordinary;
   }
   if (
-    !preference.data.adult_confirmed ||
     CHARACTERS[key].age < 18 ||
-    !CHARACTERS[key].romanticCapable
+    (!ordinaryPhoto && (!preference.data?.adult_confirmed || !CHARACTERS[key].romanticCapable))
   )
     throw new Error("Adult non-nude romantic photo eligibility required");
   const config = spicyConfiguration(key);
