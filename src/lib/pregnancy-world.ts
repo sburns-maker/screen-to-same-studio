@@ -29,3 +29,34 @@ export function suggestedMedicalMilestones(startedAt:string,now:Date) {
  const week=pregnancyProgress(startedAt,now).gestationalWeek;
  return pregnancyMedicalTimeline.filter(m=>m.gestationalWeek<=week);
 }
+
+
+/** A narrative checkpoint is a due reminder, not proof that any medical
+ * appointment was booked or completed. It is based only on canonical weeks and
+ * the persisted appointment ledger. */
+export type RecordedPregnancyAppointment = {
+ kind:string; at:string; status:"proposed"|"scheduled"|"completed"|"cancelled";
+};
+export function pregnancyNextCheckpoint(
+ gestationalWeek:number,
+ appointments:readonly RecordedPregnancyAppointment[],
+): {stage:string; nextStep:string; visitState:"none"|"proposed"|"scheduled"|"completed"} {
+ const valid = appointments.filter(a=>a.status!=="cancelled");
+ const completed = valid.filter(a=>a.status==="completed");
+ const upcoming = valid.filter(a=>a.status==="scheduled");
+ const proposals = valid.filter(a=>a.status==="proposed");
+ const visitState = upcoming.length ? "scheduled" : proposals.length ? "proposed" :
+  completed.length ? "completed" : "none";
+ if (gestationalWeek < 8) return {stage:"early pregnancy", visitState,
+  nextStep:"Discuss initial care preferences and a specific first-visit plan; no visit is presumed."};
+ if (gestationalWeek < 14) return {stage:"first trimester", visitState,
+  nextStep:"Discuss initial prenatal contact, practical needs or an early scan if wanted and not already done."};
+ if (gestationalWeek < 20) return {stage:"second trimester", visitState,
+  nextStep:"Discuss day-to-day changes and plans for the upcoming anatomy scan, without assuming a result."};
+ if (gestationalWeek < 28) return {stage:"mid-pregnancy", visitState,
+  nextStep:"Discuss the anatomy scan if its result is recorded, or making a plan if it is not."};
+ if (gestationalWeek < 36) return {stage:"third trimester", visitState,
+  nextStep:"Discuss prenatal follow-up, birth preferences and practical household support."};
+ return {stage:"late pregnancy", visitState,
+  nextStep:"Discuss birth planning and arrangements, without inferring labor or childbirth."};
+}
