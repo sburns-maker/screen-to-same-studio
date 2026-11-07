@@ -59,7 +59,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
   tess: {
     key: "tess",
     preferredName: "Tess",
-    fullName: "Tess Morgan",
+    fullName: "Tess Burns",
     age: 34,
     pronouns: "she/her",
     zip: "16602",
