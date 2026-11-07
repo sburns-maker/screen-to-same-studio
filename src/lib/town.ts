@@ -188,6 +188,18 @@ export const TOWN_PLACES = [
     opens: 16,
     closes: 2,
   },
+  {
+    key: "civic:courthouse",
+    label: "Blair County Courthouse",
+    kind: "community",
+    community: "Hollidaysburg",
+    latitude: 40.4276,
+    longitude: -78.3886,
+    description:
+      "A virtual civic scene using the county courthouse name as geographic grounding: historic front steps, the clerk's desk and a small ceremony room for civil weddings. Staff, officiants and hours are invented; this is not service information.",
+    opens: 8,
+    closes: 22,
+  },
   ...Object.values(WORKPLACES),
 ] as const;
 export type TownNpc = {

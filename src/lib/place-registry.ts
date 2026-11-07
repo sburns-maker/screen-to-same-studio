@@ -55,7 +55,8 @@ const VERIFIED_ADDRESSES: Record<string, string> = {
 export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   ...p,
   designation:
-    p.key === "hope:drop-in" || p.key === "dinner:fanellis" || p.key === "bar:4ds"
+    p.key === "hope:drop-in" || p.key === "dinner:fanellis" || p.key === "bar:4ds" ||
+    p.key === "civic:courthouse"
       ? ("unverified_real_name_fictional_scene" as const)
       : ("fictional" as const),
   address: (VERIFIED_ADDRESSES[p.key] ?? null) as string | null,
@@ -69,7 +70,9 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   reservationRequired: false,
   invitationRequired: false,
   areas:
-    p.kind === "restaurant"
+    p.key === "civic:courthouse"
+      ? ["courthouse steps", "clerk's office", "ceremony room"]
+      : p.kind === "restaurant"
       ? ["public dining area"]
       : p.kind === "library"
         ? ["public reading room", "discussion table"]
@@ -81,7 +84,9 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   eventCategories:
     p.kind === "library" || p.kind === "bookshop"
       ? ["book_club", "meetup"]
-      : p.key === "bar:4ds"
+      : p.key === "civic:courthouse"
+        ? ["wedding", "meetup"]
+        : p.key === "bar:4ds"
         ? ["drinks", "date", "meetup"]
         : p.kind === "bar"
           ? ["trivia", "meetup"]
