@@ -204,8 +204,9 @@ export async function pregnancyMedicalContext(
  for(const life of (query.data??[]) as unknown as Array<{id:string;started_at:string;choice:string}>) {
   const appointments=await db.from("family_pregnancy_appointments" as never)
    .select("kind,scheduled_at,status").eq("lifecycle_id",life.id)
-   .gte("scheduled_at",new Date(now.getTime()-7*86400000).toISOString())
-   .order("scheduled_at",{ascending:true}).limit(20);
+   // Preserve earlier prenatal visits throughout this pregnancy: removing
+   // older visits made the model think she had still never seen a doctor.
+   .order("scheduled_at",{ascending:false}).limit(30);
   if(appointments.error)throw new Error("Pregnancy appointments unavailable");
   const gestationalWeek=pregnancyProgress(life.started_at,now).gestationalWeek;
   const recordedAppointments=((appointments.data??[]) as unknown as Array<{kind:string;scheduled_at:string;status:string}>)
