@@ -42,6 +42,19 @@ describe("character-specific pregnancy progression",()=>{
   expect(guidance).toContain("Never force a pregnancy outcome");
   expect(sienna).not.toContain("genuinely wants motherhood");
  });
+ it("breaks repeated uncompleted doctor-call loops without inventing a visit",()=>{
+  const messages=[
+   {sender:"kendra",body:"I haven't talked to the doctor yet."},
+   {sender:"user",body:"Did you call the doctor?"},
+   {sender:"kendra",body:"I still need to call the doctor."},
+   {sender:"user",body:"Any updates on the pregnancy?"},
+  ];
+  const guidance=pregnancyProgressionGuidance("kendra",messages,["pregnancy confirmed"]);
+  expect(guidance).toContain("DOCTOR LOOP DETECTED");
+  expect(guidance).toContain("Do not repeat");
+  expect(guidance).toContain("do not replay");
+  expect(guidance).toContain("a proposed appointment as booked");
+ });
  it("stays quiet when an existing pregnancy is not the current subject",()=>{
   expect(pregnancyProgressionGuidance("tess",[{sender:"user",body:"How was trivia?"}],["Pregnancy confirmed"])).toBe("");
  });
