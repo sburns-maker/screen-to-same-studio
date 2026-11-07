@@ -79,11 +79,13 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
     knownFacts: [
       ["Age", "34"],
       ["Work", "Operations manager at a veterinary practice"],
-      ["Lives", "Rents a townhouse, with her rescue dog Mabel"],
-      ["Met", "Trivia night, a couple weeks ago"],
+      ["Status", "Married to you — courthouse wedding, Nov 7, 2026"],
+      ["Lives", "With you, at home, along with her rescue dog Mabel"],
+      ["Family", "Expecting your baby"],
+      ["Met", "Trivia night"],
     ],
     profileBlurb:
-      "What you remember from trivia: funny, dry, a little guarded. Loves winter. Has opinions about coffee. Everything else you'll have to actually learn.",
+      "Jessica \"Tess\" Burns — your wife. Funny, dry, still a little guarded with everyone but you. Loves winter. Has opinions about coffee. Mabel still steals your socks.",
   },
 
   maya: {
