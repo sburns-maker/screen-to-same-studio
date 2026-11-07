@@ -34,7 +34,13 @@ export function pregnancyProgressionGuidance(
    messages.some(m => m.sender !== "user" && /\b(?:i(?:'|’)?m pregnant|my pregnancy|pregnancy test (?:was|is) positive|(?:i )?(?:got|had) a positive (?:pregnancy )?(?:test|result))\b/i.test(m.body));
  if (!verified) return "";
  const recent = messages.slice(-20);
- if (!recent.some(m => /\b(?:pregnan(?:cy|t)|positive (?:test|result)|doctor(?:'s)? appointment|be (?:a )?(?:mom|mother)|having (?:a )?baby)\b/i.test(m.body))) return "";
+ const pregnancyMentioned = recent.some(m => /\b(?:pregnan(?:cy|t)|positive (?:test|result)|doctor(?:'s)? appointment|be (?:a )?(?:mom|mother)|having (?:a )?baby)\b/i.test(m.body));
+ // The character should occasionally bring up her known pregnancy without
+ // waiting for another question. Avoid an always-on reminder in every reply.
+ // Requiring canonical context prevents player speculation from starting it.
+ const proactiveBeat = !pregnancyMentioned && canonicalContext.length > 0 &&
+   messages.length >= 8 && messages.length % 8 === 0;
+ if (!pregnancyMentioned && !proactiveBeat) return "";
  const own = recent.filter(m => m.sender !== "user").map(m => m.body);
  const hesitations = own.filter(s => /\b(?:scared|afraid|numb|overwhelmed|don't know (?:what|if)|do not know (?:what|if)|need (?:a little )?time|not ready|everything (?:could|will) change|figure (?:it|this|everything) out)\b/i.test(s)).length;
  // Repeating "I haven't talked to the doctor" is a progression loop, not
@@ -51,6 +57,7 @@ export function pregnancyProgressionGuidance(
  const voice = approaches[character] ?? "Follow this person's own established history and preferences rather than copying another character's pregnancy reaction.";
  return `PREGNANCY STORY CONTINUITY (only if this character's canonical context confirms pregnancy; do not infer new events):
 ${voice}
+${proactiveBeat ? "PROACTIVE STORY BEAT: This pregnancy has not come up in recent dialogue. You may organically initiate ONE small, character-authored update, plan, question or feeling now; avoid an announcement, repeated doctor reminder, invented milestone or sudden medical report. If ordinary life should take precedence, do so." : ""}
 Do not default to the same 'scared, don't know, need time, thank you' monologue. Uncertainty can persist without repeated dialogue. Preserve what this character has already disclosed and decided, and do not fabricate a medical result, booked appointment, changed gestational stage, or decision.
 ${hesitations >= 2 ? "STALL SIGNAL: Multiple recent character messages already expressed uncertainty. Unless a new question genuinely calls for it, prefer a distinct next beat from established reality: a concrete question, privately initiated research, a request for space, a practical discussion, or an independently chosen eligible action. Do not automatically book, decide, disclose, or advance time. A brief ordinary non-pregnancy interaction is also valid." : "If it fits this turn, give a distinct, character-specific reaction or useful concrete detail rather than generic reassurance."}
 Pregnancy is an ongoing part of ordinary life, not only a response when the player brings it up: on suitable turns proactively mention a stage-appropriate change, an existing plan or a specific practical step, without making every message about pregnancy. The time-based gestational stage comes ONLY from canonical lifecycle context. If no appointment is confirmed, be direct about what is actually arranged versus merely considered.
