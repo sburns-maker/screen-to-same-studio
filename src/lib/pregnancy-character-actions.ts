@@ -39,7 +39,7 @@ export function pregnancyProgressionGuidance(
  // waiting for another question. Avoid an always-on reminder in every reply.
  // Requiring canonical context prevents player speculation from starting it.
  const proactiveBeat = !pregnancyMentioned && canonicalContext.length > 0 &&
-   messages.length >= 6 && messages.length % 6 === 0;
+   messages.length >= 8 && messages.length % 8 === 0;
  if (!pregnancyMentioned && !proactiveBeat) return "";
  const own = recent.filter(m => m.sender !== "user").map(m => m.body);
  const hesitations = own.filter(s => /\b(?:scared|afraid|numb|overwhelmed|don't know (?:what|if)|do not know (?:what|if)|need (?:a little )?time|not ready|everything (?:could|will) change|figure (?:it|this|everything) out)\b/i.test(s)).length;
