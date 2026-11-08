@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canRecordPregnancyChoice, canResolvePregnancy, characterPregnancySymptoms, pregnancySymptomOptions, duePregnancyMilestones, postpartumProgress, pregnancyProgress } from "./pregnancy-lifecycle";
+import { canRecordPregnancyChoice, canResolvePregnancy, characterPregnancySymptoms, pregnancySymptomOptions, duePregnancyMilestones, dueAutomaticPregnancyStages, postpartumProgress, pregnancyProgress } from "./pregnancy-lifecycle";
 
 const start = "2026-11-01T19:00:00-05:00";
 const later = (days: number) => new Date(Date.parse(start) + days * 86400000);
@@ -17,6 +17,14 @@ describe("60-day pregnancy lifecycle", () => {
   const due=duePregnancyMilestones(start,later(30),[]);
   expect(due.length).toBeGreaterThan(2);
   expect(duePregnancyMilestones(start,later(30),due.map(m=>m.key))).toHaveLength(0);
+ });
+ it("advances trimester and term stages without inventing medical visits or childbirth", () => {
+  expect(dueAutomaticPregnancyStages(start,later(0))).toEqual([]);
+  const stages=dueAutomaticPregnancyStages(start,later(60)).map(m=>m.key);
+  expect(stages).toEqual(["second_trimester","third_trimester","term"]);
+  expect(stages).not.toContain("early_ultrasound");
+  expect(stages).not.toContain("initial_visit");
+  expect(stages).not.toContain("birth_preparation");
  });
  it("does not allow the player to set a character's choice", () => {
   expect(canRecordPregnancyChoice("undecided","continue",false)).toBe(false);
