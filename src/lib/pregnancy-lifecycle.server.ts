@@ -199,8 +199,8 @@ export async function pregnancyMedicalContext(
   .select("*").eq("user_id",userId).eq("character_key",characterKey)
   .eq("status","pregnant").limit(5);
  if(query.error) throw new Error("Pregnancy medical context unavailable");
- const { pregnancyNextCheckpoint } = await import("./pregnancy-world");
- const result:Array<{lifecycleId:string;gestationalWeek:number;choice:string;appointments:Array<{kind:string;at:string;status:string}>;narrativeCheckpoint:ReturnType<typeof pregnancyNextCheckpoint>}>=[];
+ const { pregnancyNextCheckpoint, pregnancyMilestoneSnapshot, pregnancyAppointmentSnapshot } = await import("./pregnancy-world");
+ const result:Array<{lifecycleId:string;gestationalWeek:number;choice:string;appointments:Array<{kind:string;at:string;status:string}>;narrativeCheckpoint:ReturnType<typeof pregnancyNextCheckpoint>;milestones:ReturnType<typeof pregnancyMilestoneSnapshot>;visitHistory:ReturnType<typeof pregnancyAppointmentSnapshot>}>=[];
  for(const life of (query.data??[]) as unknown as Array<{id:string;started_at:string;choice:string}>) {
   const appointments=await db.from("family_pregnancy_appointments" as never)
    .select("kind,scheduled_at,status").eq("lifecycle_id",life.id)
@@ -215,9 +215,17 @@ export async function pregnancyMedicalContext(
     (a):a is {kind:string;at:string;status:"proposed"|"scheduled"|"completed"|"cancelled"} =>
       ["proposed","scheduled","completed","cancelled"].includes(a.status)
   );
+  const milestoneQuery=await db.from("family_pregnancy_milestones" as never)
+   .select("key,due_at,completed_at").eq("lifecycle_id",life.id)
+   .order("due_at",{ascending:true}).limit(50);
+  if(milestoneQuery.error)throw new Error("Pregnancy milestone history unavailable");
+  const milestoneRows=((milestoneQuery.data??[]) as unknown as Array<{key:string;due_at:string;completed_at:string|null}>)
+   .map(m=>({key:m.key,dueAt:m.due_at,completedAt:m.completed_at}));
   result.push({lifecycleId:life.id,choice:life.choice,gestationalWeek,
    appointments:recordedAppointments,
-   narrativeCheckpoint:pregnancyNextCheckpoint(gestationalWeek,recognizedAppointments)});
+   narrativeCheckpoint:pregnancyNextCheckpoint(gestationalWeek,recognizedAppointments),
+   milestones:pregnancyMilestoneSnapshot(milestoneRows,now),
+   visitHistory:pregnancyAppointmentSnapshot(recognizedAppointments,now)});
  }
  return result;
 }
