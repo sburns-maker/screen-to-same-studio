@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { pregnancyProgress, pregnancyMilestones, type PregnancyResolution } from "./pregnancy-lifecycle";
+import { pregnancyProgress, pregnancyMilestones, dueAutomaticPregnancyStages, type PregnancyResolution } from "./pregnancy-lifecycle";
 
 /**
  * Idempotent lifecycle synchronization for a character's positive pregnancies.
@@ -40,6 +40,14 @@ export async function syncPregnancyLifecycles(
           {onConflict:"lifecycle_id,key",ignoreDuplicates:true});
       if(result.error) throw new Error("Pregnancy milestone scheduling failed");
       scheduled++;
+    }
+    // Automatically record only elapsed trimester/term stages, never medical visits or birth.
+    for(const milestone of dueAutomaticPregnancyStages(lifecycle.started_at,now)) {
+      const result=await db.from("family_pregnancy_milestones" as never)
+        .update({completed_at:now.toISOString(),notes:"Gestational stage reached; no clinical result implied."} as never)
+        .eq("lifecycle_id",lifecycle.id).eq("key",milestone.key)
+        .is("completed_at",null).lte("due_at",now.toISOString());
+      if(result.error)throw new Error("Pregnancy stage completion failed");
     }
     if(progress.due) {
       // Term does NOT automatically equal childbirth; character and narrative events resolve birth.
