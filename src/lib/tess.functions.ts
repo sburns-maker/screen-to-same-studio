@@ -661,7 +661,18 @@ async function runTurnUnlocked(
           pregnancyMedicalContext(configuredPhotoAdmin,userId,def.key),
           characterChildrenContext(configuredPhotoAdmin,userId,def.key)]);
        return {ids:pregnancies.map(p=>p.lifecycleId),lines:[
-         ...pregnancies.flatMap(p=>[`PRIVATE ACTIVE PREGNANCY LIFECYCLE: lifecycleId=${p.lifecycleId}, gestational week ${p.gestationalWeek}, recorded choice ${p.choice}. If you independently decide, you may propose a medical appointment or make a clear decision; remaining undecided is allowed. When ready, initiate a concrete next step rather than repeat reassurance. Never invent a confirmed booking or a medical result.`,...p.appointments.map(a=>`PRIVATE PREGNANCY APPOINTMENT: ${a.kind}, ${a.at}, status=${a.status}. A proposed visit is not a confirmed medical appointment. Respect the character's right to invite or not invite the player.`)]),
+         ...pregnancies.flatMap(p=>[
+          `PRIVATE ACTIVE PREGNANCY LIFECYCLE: lifecycleId=${p.lifecycleId}, gestational week ${p.gestationalWeek}, recorded choice ${p.choice}. ${p.choice==="undecided" ? "She may choose independently." : "Her decision is already recorded; DO NOT restart it."} Never invent a confirmed booking, medical result, pregnancy loss or birth.`,
+          `PRIVATE PREGNANCY CHECKPOINT: ${p.narrativeCheckpoint.stage}; ${p.narrativeCheckpoint.nextStep}. Visit state: ${p.narrativeCheckpoint.visitState}. Narrative guidance is not a recorded medical event.`,
+          ...p.milestones.completed.map(m=>`PREGNANCY MILESTONE HISTORY: ${m.key} marked complete at ${m.completedAt}. Do not repeat this as new; milestone alone is not proof of a test result.`),
+          ...p.milestones.due.slice(0,3).map(m=>`PREGNANCY MILESTONE DUE: ${m.key} due ${m.dueAt} and NOT complete. Discuss a realistic next step rather than assume an appointment occurred.`),
+          ...(p.milestones.upcoming ? [`NEXT PREGNANCY MILESTONE: ${p.milestones.upcoming.key} at ${p.milestones.upcoming.dueAt}. Do not jump ahead.`] : []),
+          ...(p.visitHistory.lastCompleted ? [`LAST COMPLETED PREGNANCY VISIT: ${p.visitHistory.lastCompleted.kind} at ${p.visitHistory.lastCompleted.at}. Do not claim she has never seen a clinician.`] : []),
+          ...(p.visitHistory.nextScheduled ? [`NEXT CONFIRMED PREGNANCY VISIT: ${p.visitHistory.nextScheduled.kind} at ${p.visitHistory.nextScheduled.at}.`] : []),
+          ...(p.visitHistory.nextProposed ? [`PREGNANCY VISIT PROPOSED ONLY: ${p.visitHistory.nextProposed.kind} at ${p.visitHistory.nextProposed.at}. This is not booked.`] : []),
+          ...p.visitHistory.overdueScheduled.slice(0,2).map(a=>`UNRESOLVED PREGNANCY VISIT: ${a.kind} scheduled for ${a.at}, no completion verified. Ask about it without making up the outcome.`),
+          ...p.appointments.slice(0,10).map(a=>`PREGNANCY APPOINTMENT LEDGER: ${a.kind}, ${a.at}, status=${a.status}.`)
+         ]),
          ...children.map(ch=>`ESTABLISHED CHILD IN THIS CHARACTER'S WORLD: name=${ch.name??"not yet named"}, birth=${ch.bornAt}, stage=${ch.age.stage}. Never invent a newborn without a committed birth record.`)
        ]};
       } catch{return {ids:[] as string[],lines:[] as string[]};}})() : {ids:[] as string[],lines:[] as string[]};

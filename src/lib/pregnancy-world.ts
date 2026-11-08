@@ -31,6 +31,41 @@ export function suggestedMedicalMilestones(startedAt:string,now:Date) {
 }
 
 
+/**
+ * An explicit persisted milestone ledger is the source of narrative history.
+ * A due milestone is a discussion opportunity, NEVER a completed clinical test.
+ */
+export type PregnancyMilestoneRecord = {
+ key:string; dueAt:string; completedAt:string|null;
+};
+export function pregnancyMilestoneSnapshot(
+ records:readonly PregnancyMilestoneRecord[], now:Date,
+): {due:PregnancyMilestoneRecord[];upcoming:PregnancyMilestoneRecord|null;completed:PregnancyMilestoneRecord[]} {
+ const clock=now.getTime();
+ if (!Number.isFinite(clock)) throw new Error("Invalid milestone clock");
+ const valid=records.filter(m=>Number.isFinite(Date.parse(m.dueAt)));
+ const pending=valid.filter(m=>m.completedAt===null).sort((a,b)=>Date.parse(a.dueAt)-Date.parse(b.dueAt));
+ return {
+  due:pending.filter(m=>Date.parse(m.dueAt)<=clock),
+  upcoming:pending.find(m=>Date.parse(m.dueAt)>clock)??null,
+  completed:valid.filter(m=>m.completedAt!==null).sort((a,b)=>Date.parse(a.dueAt)-Date.parse(b.dueAt)),
+ };
+}
+
+/** The last completed visit is historical; a new proposal must not erase it. */
+export function pregnancyAppointmentSnapshot(
+ appointments:readonly RecordedPregnancyAppointment[], now:Date,
+) {
+ const active=appointments.filter(a=>a.status!=="cancelled");
+ const completed=active.filter(a=>a.status==="completed");
+ const scheduled=active.filter(a=>a.status==="scheduled" && Date.parse(a.at)>now.getTime());
+ const proposed=active.filter(a=>a.status==="proposed");
+ return {lastCompleted:completed.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at))[0]??null,
+  nextScheduled:scheduled.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))[0]??null,
+  nextProposed:proposed.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))[0]??null,
+  overdueScheduled:active.filter(a=>a.status==="scheduled" && Date.parse(a.at)<=now.getTime())};
+}
+
 /** A narrative checkpoint is a due reminder, not proof that any medical
  * appointment was booked or completed. It is based only on canonical weeks and
  * the persisted appointment ledger. */
