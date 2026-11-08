@@ -51,6 +51,14 @@ export const pregnancyMilestones = [
   { key: "term", gestationalDay: 259, description: "Term planning" },
 ] as const;
 
+/** Only gestational time stages finish automatically; medical care and birth do not. */
+export const AUTOMATIC_PREGNANCY_STAGES = ["second_trimester","third_trimester","term"] as const;
+export function dueAutomaticPregnancyStages(startedAt:string,now:Date) {
+ const day=pregnancyProgress(startedAt,now).gestationalDay;
+ return pregnancyMilestones.filter(m=>
+  (AUTOMATIC_PREGNANCY_STAGES as readonly string[]).includes(m.key) && m.gestationalDay<=day);
+}
+
 export function duePregnancyMilestones(startedAt: string, now: Date, completedKeys: readonly string[]) {
   const { gestationalDay } = pregnancyProgress(startedAt, now);
   const seen = new Set(completedKeys);
