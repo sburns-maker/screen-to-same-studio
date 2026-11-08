@@ -55,6 +55,12 @@ describe("character-specific pregnancy progression",()=>{
   expect(guidance).toContain("do not replay");
   expect(guidance).toContain("a proposed appointment as booked");
  });
+ it("keeps Jade's saved choice and appointment status distinct",()=>{
+  const messages=[{sender:"jade",body:"I have a positive pregnancy test."},{sender:"user",body:"What happens next?"}];
+  const guided=pregnancyProgressionGuidance("jade",messages,["confirmed pregnancy; choice continue"]);
+  expect(guided).toContain("If she has already chosen to continue");
+  expect(guided).toContain("An appointment proposal is not a booking");
+ });
  it("occasionally gives a canonical pregnancy its own voice without prompting",()=>{
   const ordinary=Array.from({length:8},(_,i)=>({sender:i%2?"kendra":"user",body:"Did you finish work today?"}));
   const guided=pregnancyProgressionGuidance("kendra",ordinary,["confirmed pregnancy"]);
