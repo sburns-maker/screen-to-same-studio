@@ -72,8 +72,8 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
   const pending = query.data.events.filter((e) => e.status === "pending");
   const commitmentStatus = resolveCommitmentStatus(query.data.events);
   async function refreshWeddingPlans(){
-    try{const plans=await listWeddings({data:{characterKey:characterKey as "tess"|"maya"|"riley"|"sienna"|"kendra"|"claire"|"jordan"}});setWeddingPlans(plans);}
-    catch{setFeedback("Wedding plans unavailable until the family database migration is applied.");}
+    try{const plans=await listWeddings({data:{characterKey:characterKey as "tess"|"maya"|"riley"|"sienna"|"kendra"|"claire"|"jordan"|"jade"}});setWeddingPlans(plans);}
+    catch(e){setFeedback(e instanceof Error ? e.message : "Unable to load saved wedding plans. Please retry.");}
   }
   async function propose(kind: "exclusive" | "partnership" | "engagement" | "marriage") {
     setBusy(true);
@@ -125,7 +125,7 @@ export function ContactRelationshipStory({ characterKey, characterName, conversa
               const date=new Date(weddingDate);
               if(!Number.isFinite(date.getTime())){setFeedback("Choose a valid date.");return;}
               setBusy(true);setFeedback("");
-              void plan({data:{characterKey: characterKey as "tess" | "maya" | "riley" | "sienna" | "kendra" | "claire" | "jordan",
+              void plan({data:{characterKey: characterKey as "tess" | "maya" | "riley" | "sienna" | "kendra" | "claire" | "jordan" | "jade",
                 requestId:crypto.randomUUID(),startsAt:date.toISOString(),venue:weddingVenue.trim()}})
                 .then(async()=>{await refreshWeddingPlans();setFeedback("Your wedding plan proposal was saved. Discuss it in messages; agreement and ceremony are still separate steps.");})
                 .catch(e=>setFeedback(e instanceof Error?e.message:"Wedding plan unavailable"))
