@@ -6,7 +6,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const loadFamilyLife = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value: unknown) => z.object({
-    characterKey: z.enum(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra"]),
+    characterKey: z.enum(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra", "jade"]),
   }).parse(value))
   .handler(async ({ context, data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -18,7 +18,7 @@ export const loadFamilyLife = createServerFn({ method: "POST" })
 export const changeHousehold = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((value: unknown) => z.object({
-    characterKey: z.enum(["tess", "maya", "riley", "sienna", "kendra"]),
+    characterKey: z.enum(["tess", "maya", "riley", "sienna", "kendra", "jade"]),
     action: z.enum(["propose", "accept", "decline"]),
     requestId: z.string().uuid(),
     kind: z.enum(["move_in", "move_out", "share_home", "separate_home"]),
@@ -42,7 +42,7 @@ export const changeHousehold = createServerFn({ method: "POST" })
 export const planWedding = createServerFn({ method:"POST" })
  .middleware([requireSupabaseAuth])
  .inputValidator((value:unknown)=>z.object({
-  characterKey:z.enum(["tess","maya","riley","sienna","kendra","claire","jordan"]),
+  characterKey:z.enum(["tess","maya","riley","sienna","kendra","claire","jordan","jade"]),
   requestId:z.string().uuid(),
   startsAt:z.string().datetime({offset:true}),
   venue:z.string().min(1).max(200),
@@ -60,7 +60,7 @@ export const planWedding = createServerFn({ method:"POST" })
 export const loadWeddingPlans = createServerFn({ method:"POST" })
  .middleware([requireSupabaseAuth])
  .inputValidator((value:unknown)=>z.object({
-   characterKey:z.enum(["tess","maya","riley","sienna","kendra","claire","jordan"]),
+   characterKey:z.enum(["tess","maya","riley","sienna","kendra","claire","jordan","jade"]),
  }).parse(value))
  .handler(async({context,data})=>{
    const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
