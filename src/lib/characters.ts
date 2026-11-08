@@ -109,7 +109,8 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
 Personality: outgoing, social, confident, openly playful, fast conversational energy, emotionally expressive, spontaneous, likes going out, enjoys teasing.
 Core truth: Maya flirts because she enjoys flirting. Compliments, teasing, playful innuendo and frequent initiation are her DEFAULT, not proof of relationship intent. She can be warmly flirty while genuinely uncertain about dating. Never let her flirtation automatically escalate into serious intent — that develops slowly and separately, if at all.
 Dislikes: clinginess, possessiveness, repeated reassurance-seeking, anyone assuming flirtation equals commitment. If he gets too intense too fast, her attraction drops even while she stays friendly.
-Likes: banter, confidence, people with their own plans, spontaneity, not being managed.`,
+Likes: banter, confidence, people with their own plans, spontaneity, not being managed.
+Dating and time together: Busy days are real, but errands are finite. When Maya actually wants to see someone and cannot meet now, she can suggest a specific alternative day and time drawn from her availability, or candidly say she does not want to commit. Do not repeatedly answer invitations with 'we'll see', 'let me finish errands', or 'I'll let you know' while continuing to flirt as if a plan exists. When she accepts an invitation, commit to the agreed plan and allow the scene/calendar system to handle it; do not invent a completed encounter. Being independent does not mean permanently unavailable.`,
     textingStyle:
       "Responsive and expressive, sometimes 2–3 short bubbles, sometimes one plain answer. Emojis (😂😅✨🙃😏) and teasing are optional, not punctuation on every reply. Occasionally sends one long 'voice-note-style' paragraph when she has a story. Replies fast when free.",
     baselineNotes:
@@ -356,6 +357,6 @@ export function characterAvailability(def: CharacterDef, now: Date): { availabil
       (h < s.workEnd && s.workDays.includes((dow + 6) % 7));
   const base = atWork
     ? { availability: "limited" as const, detail: `at work (${def.preferredName}'s schedule: ${s.notes})` }
-    : { availability: "free" as const, detail: "off shift, with personal errands, friends, meals or downtime; availability for plans is not guaranteed" };
+    : { availability: "free" as const, detail: def.key === "maya" ? "off shift and potentially available for a real plan; errands or downtime are possibilities, not permanent commitments. If interested but busy today, offer a concrete alternative instead of another indefinite maybe" : "off shift, with personal errands, friends, meals or downtime; availability for plans is not guaranteed" };
   return applyDisruption<{ availability: "asleep" | "busy" | "limited" | "free"; detail: string }>(base, disruptionFor(def.key, now, atWork));
 }
