@@ -124,7 +124,7 @@ function fakeDb() {
       update: (p: Record<string, unknown>) => { op = "update"; patch = p; return q; },
       insert: (p: Record<string, unknown>) => {
         op = "insert";
-        if (name === "after_dark_introductions" && tables[name].some((r: any) => r.user_id === p.user_id))
+        if (name === "after_dark_introductions" && tables[name].some((r: any) => r.user_id === (p as any).user_id))
           return Object.assign(Promise.resolve({ error: { code: "23505" } }), q);
         const row: any = { id: crypto.randomUUID(), brooke_consented: false, ...p };
         tables[name].push(row); inserted = [row]; return q;
@@ -151,7 +151,7 @@ describe("Brooke introduction persistence", () => {
     const msg = (sender: string, body: string) => db.tables.messages!.push({ id: crypto.randomUUID(), user_id: user, conversation_id: carlyConv, sender, body, created_at: new Date(Date.now() + n++ * 1000).toISOString(), visible_at: new Date(Date.now() + n * 1000).toISOString() });
     msg("tess", "hey it's carly"); msg("user", "hey!"); msg("tess", "what you up to"); msg("user", "not much"); msg("tess", "same lol"); msg("user", "want to grab food sometime?");
   });
-  const offers = () => db.tables.messages!.filter(m => (m.metadata as { after_dark_intro?: string } | undefined)?.after_dark_intro === "brooke_offer");
+  const offers = () => db.tables.messages.filter((m: any) => (m.metadata as { after_dark_intro?: string } | undefined)?.after_dark_intro === "brooke_offer");
 
   it("offers once, durably, and never repeats across turns or background ticks", async () => {
     expect(await maybeOfferBrookeIntroduction(db.client, user, carlyConv, { initiation: true })).toBe(false);
