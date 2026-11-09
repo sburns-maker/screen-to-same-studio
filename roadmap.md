@@ -21,5 +21,5 @@
 - [x] Integrate Brooke's original primary and explicit private evening import; add owner reference upload controls, hidden-offer safeguards, moving-help-only meeting reconciliation and exact After Dark venue resolution.
 - [x] Select Carly's full-resolution primary and alternate-2, register her original primary, and retain the low-resolution evening shot as backup only.
 - [ ] Finish three strong references for each woman: waiting on a sharper Carly evening photo and a higher-resolution Brooke alternate (supplied alternate is 142×193).
-- [ ] Activate and verify real messaging/photo flow: migration 0072 remains unapplied because this preview shares production and production changes are prohibited pending review.
+- [x] Applied Carly/Brooke database update (both characters registered, introduction gate live) and requested publish. Real in-game messaging not yet exercised.
 - [ ] Open completion PR: no PR creation tool is available in this project; changes are committed for review, not published.

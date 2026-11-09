@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      after_dark_introductions: {
+        Row: {
+          brooke_consented: boolean
+          created_at: string
+          met_at: string | null
+          offer_message_id: string | null
+          offered_at: string | null
+          responded_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brooke_consented?: boolean
+          created_at?: string
+          met_at?: string | null
+          offer_message_id?: string | null
+          offered_at?: string | null
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brooke_consented?: boolean
+          created_at?: string
+          met_at?: string | null
+          offer_message_id?: string | null
+          offered_at?: string | null
+          responded_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       api18_jobs: {
         Row: {
           action_id: string

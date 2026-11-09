@@ -512,6 +512,13 @@
       "when": 1793760000000,
       "tag": "0072_after_dark_carly_brooke",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1794194540950,
+      "tag": "0073_after_dark_activation_note",
+      "breakpoints": true
     }
   ]
 }

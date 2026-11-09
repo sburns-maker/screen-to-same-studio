@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.after_dark_introductions IS 'Per-user Carly to Brooke consented introduction gate.';
