@@ -82,7 +82,7 @@ async function loadConversations(supabase: Sb, userId: string): Promise<ConvRow[
   return (data ?? []) as ConvRow[];
 }
 
-async function seedConversation(supabase: Sb, userId: string, character: CharacterRow) {
+export async function seedConversation(supabase: Sb, userId: string, character: CharacterRow) {
   const def = characterFor(character.key);
   // New contacts inherit existing global simulation and messaging preferences.
   const { data: prefs } = await supabase.from("conversations")
@@ -113,8 +113,20 @@ export const ensureConversations = createServerFn({ method: "POST" })
     const { data: chars } = await supabase.from("characters").select("*").eq("enabled", true).order("sort_order");
     const existing = await loadConversations(supabase, userId);
     const have = new Set(existing.map((c) => c.character_id));
+    const { GATED_CONTACTS, contactUnlocked } = await import("./brooke-introduction");
+    let introStatus: import("./brooke-introduction").IntroductionStatus | null | undefined;
     for (const ch of chars ?? []) {
-      if (!have.has(ch.id)) await seedConversation(supabase, userId, ch);
+      if (have.has(ch.id)) continue;
+      // Gated contacts (Brooke) appear only after a valid, durable introduction.
+      if (GATED_CONTACTS[ch.key]) {
+        if (introStatus === undefined) {
+          const r = await (supabase as unknown as import("@supabase/supabase-js").SupabaseClient)
+            .from("after_dark_introductions").select("status").eq("user_id", userId).maybeSingle();
+          introStatus = r.error ? null : ((r.data?.status as typeof introStatus) ?? null);
+        }
+        if (!contactUnlocked(ch.key, introStatus)) continue;
+      }
+      await seedConversation(supabase, userId, ch);
     }
     const convs = await loadConversations(supabase, userId);
     return { ids: convs.map((c) => c.id as string) };
@@ -281,6 +293,11 @@ export function runTurn(...args: Parameters<typeof runTurnUnlocked>) {
   const turn = runTurnUnlocked(...args).then(async result=>{
     if(args[4]?.developerPhoto!=="preview"&&result.count>0&&process.env["SUPABASE_SERVICE_ROLE_KEY"]){
       const {supabaseAdmin}=await import("@/integrations/supabase/client.server");
+      if(!args[5]){
+        const intro=await import("./brooke-introduction.server");
+        await intro.maybeOfferBrookeIntroduction(supabaseAdmin,args[1],args[2],{initiation:!!args[4]}).catch(()=>console.warn("[after-dark] introduction offer deferred"));
+        await intro.reconcileBrookeMeeting(supabaseAdmin,args[1],args[2]).catch(()=>console.warn("[after-dark] meeting reconcile deferred"));
+      }
       await resolvePhotoScene(supabaseAdmin,args[1],args[2],{activity:"ordinary activity",availability:"free",detail:""},new Date(),true).catch(()=>console.warn("[character-scene] projection deferred; delivered evidence retained"));
     }
     return result;
@@ -461,6 +478,12 @@ async function runTurnUnlocked(
   if (shared) worldKnowledge.unshift(`ACTIVE SHARED PLAN: ${shared.summary} Photos may show only you, objects or the environment; group portraits are not supported.`);
   const { altoonaContext } = await import("./altoona-places");
   worldKnowledge.push((await import("./workplaces")).workVisitGuidance(def.key, now));
+  if (def.key === "carly" || def.key === "brooke") {
+    const r = await (supabase as unknown as import("@supabase/supabase-js").SupabaseClient)
+      .from("after_dark_introductions").select("status").eq("user_id", userId).maybeSingle();
+    const line = (await import("./brooke-introduction")).introductionContext(def.key, (r.data?.status ?? null) as never);
+    if (line) worldKnowledge.push(line);
+  }
   // A drop-off is only a request until a separate, trusted handoff is recorded.
   // Never turn an attempted gesture into a fabricated gift or relationship reward.
   if (photoAdmin) {

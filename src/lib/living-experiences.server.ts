@@ -329,7 +329,7 @@ export async function generateExperience(
     const venue = live.current.locationLabel;
     const liveInstructions = liveSceneInstructions(live.current);
     const relationshipFacts: string[] = [];
-    if (["tess", "maya", "riley", "claire", "jordan", "sienna", "kendra"].includes(def.key)) {
+    if (["tess", "maya", "riley", "claire", "jordan", "sienna", "kendra", "carly", "brooke"].includes(def.key)) {
       const { commitmentSnapshot } = await import("./relationship-commitments.server");
       const { commitmentContextForCharacter } = await import("./relationship-commitments");
       const commitment = await commitmentSnapshot(db, user, def.key).catch(() => null);

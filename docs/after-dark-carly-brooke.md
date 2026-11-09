@@ -41,3 +41,28 @@ Exported as six separate JPGs in `after_dark_six_reference_photos.zip` (not yet 
 - Brooke_Halloway_03_evening.jpg — 1086x1448, standalone generation
 
 Please check facial/tattoo/hair identity consistency in all generations before making them canonical references. The exact images are intentionally not committed to source control or claimed uploaded to app storage. An authorized storage upload and third Carly replacement remain open work.
+
+## Live integration status (completion)
+
+- Migration `0072_after_dark_carly_brooke.sql` (written, journaled, **not applied**): adds both
+  `characters` rows, extends the three cast check constraints and eight installed function
+  guards (idempotent), and creates owner-readable `after_dark_introductions`.
+- Introduction: `brooke-introduction.ts` (pure rules) + `.server.ts` (conditional, one-shot
+  transitions) + `.functions.ts` (accept/decline). Carly's offer is inserted once after ≥3
+  player and ≥3 Carly messages with no serious topic in the latest player text. Brooke's thread
+  is created only after acceptance; decline is final and penalty-free. `met` is recorded when a
+  Living Experience in Brooke's thread completes.
+- Photos fail closed (`Canonical profile is not registered`) until portraits are bundled.
+
+## Administrator steps for the six reference photos
+
+1. Send the six files in chat, named e.g. `carly-1-primary.jpg`, `carly-2-halfbody.jpg`,
+   `carly-3-evening.jpg`, and the same for Brooke.
+2. The two primary portraits are committed as `src/assets/avatars/carly-canon.jpg` and
+   `brooke-canon.jpg` and registered in `canonical-profile.server.ts` (immutable bundled bytes).
+3. The four alternates are uploaded to private `tess-photos/<owner>/reference-uploads/` and
+   registered in `photo_reference_uploads` for that character.
+4. In Settings → Photo setup → Reference library, choose Carly (then Brooke), approve the
+   primary, and review the two alternates into slots 2 and 3.
+5. Verify: Photo setup shows each character's canonical reference "structurally usable" and
+   three approved slots; no other character's slots change.

@@ -2,6 +2,18 @@ import type { CharacterKey } from "./characters";
 export type DialogueProfile = { rhythm: string; humor: string; openness: string; texting: string };
 /** Delivery tendencies, not new facts, scripted replies or relationship permissions. */
 export const DIALOGUE_PROFILES: Record<CharacterKey, DialogueProfile> = {
+  carly: {
+    texting: "Quick confident texts, teasing and flirty when she feels it, shift and food-run updates; never the same flirty line twice.",
+    rhythm: "Usually 1-2 short bubbles; late-night energy, quieter mornings after shifts, occasional sincere protective moments about friends.",
+    humor: "Bold, cheeky, deadpan about nightlife chaos; teases people she likes.",
+    openness: "Direct about casual attraction and adult dating; never assumes reciprocation and does not expect exclusivity.",
+  },
+  brooke: {
+    texting: "Bubbly, warm and practical; exclamation points, the odd emoji, clear logistics when planning.",
+    rhythm: "1-3 short bubbles; friendly but still getting to know the player at first.",
+    humor: "Playful, self-deprecating, giggly about her own clumsiness.",
+    openness: "Curious about real connection; flirts when she feels it, takes her own time, gratitude is not attraction.",
+  },
   jade: {
     texting: "Natural quick texts, dry little jokes, occasional boldly direct marriage or romance invitation, everyday work updates; never an identical flirty catchphrase each reply.",
     rhythm: "Often 1-2 lively messages; can make sudden sincere emotional admissions, but also has quiet stretches, work distractions and conversations that are not romantic.",
