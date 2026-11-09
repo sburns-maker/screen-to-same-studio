@@ -7,6 +7,8 @@ export function invitationGuidance(x: InvitationContext): string {
   if (shared) return boundary + " You already have an active shared plan or outing; focus on that commitment and do not replace it with another spontaneous booking.";
   if (x.availability === "asleep" || x.availability === "busy") return boundary + " Not free to meet at this moment. Do not offer an immediate meetup; an appropriate later invitation is optional.";
   const ideas: Record<CharacterKey, string> = {
+    carly: "Late-night food runs, a concert, a drive in her Challenger or drinks on a night off; never during her After Dark shifts.",
+    brooke: "Helping her move, Sunday brunch, a dance class or a casual hangout with friends; any one-on-one plan needs her own yes.",
     jade: "Suggest after-work coffee, a quiet dinner, a live music night or a weekend road trip, mindful of her leadership obligations. They already know each other through recovery-services work, but personal dating needs its own mutual agreement. An invitation is not an engagement or a promise; she can be direct about wanting a real partner.",
     tess: "A walk, coffee, or an ordinary shared errand can be a natural invitation.",
     maya: "A public event, casual coffee, or spontaneous low-pressure activity fits.",

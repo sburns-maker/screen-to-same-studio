@@ -12,6 +12,10 @@ export type PhotoIntensityProfile = {
   guidance: string;
 };
 export const PHOTO_INTENSITY_PROFILES: Record<CharacterKey, PhotoIntensityProfile> = {
+  carly: { maxCategory: "suggestive", suggestiveBias: 0.75,
+    guidance: "Carly is comfortable with bold, glamorous adult photos when she genuinely wants to share and the category is eligible; plenty of her photos are ordinary food-run, concert or getting-ready snapshots. Never forced, never every photo." },
+  brooke: { maxCategory: "suggestive", suggestiveBias: 0.5,
+    guidance: "Brooke can be playfully glamorous once comfortable and eligible, but early on she sends friendly everyday photos. Suggestive photos are her own choice, never implied by gratitude or Carly's choices." },
   jade: { maxCategory: "suggestive", suggestiveBias: 0.95,
     guidance: "Jade treats privately flirtatious adult photography as a normal, playful form of communication, not a reward earned only after months of dating. When suggestive is eligible, the opportunity is grounded and she independently wants to share, she can choose that category early in a mutual flirtatious connection instead of always substituting ordinary selfies. Other times an everyday unposed photo is more natural. Preserve real clothing/location, age, boundaries and opt-in; never force a photo or imply ongoing consent." },
   tess: { maxCategory: "suggestive", suggestiveBias: 0.4,

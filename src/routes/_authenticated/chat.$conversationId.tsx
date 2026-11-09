@@ -12,6 +12,7 @@ import { CallButton } from "@/components/CallButton";
 import { ConversationPlans } from "@/components/ConversationPlans";
 import { ConversationMedia } from "@/components/ConversationMedia";
 import { NpcIntroductionChip } from "@/components/NpcIntroductionChip";
+import { BrookeIntroductionPrompt } from "@/components/BrookeIntroductionPrompt";
 import { usePortraits } from "@/lib/use-portrait";
 import { PhotoViewer } from "@/components/PhotoViewer";
 import { VideoAttachment } from "@/components/VideoAttachment";
@@ -646,6 +647,7 @@ function Chat({ conversationId }: { conversationId: string }) {
                     body={m.body}
                     onUnsend={mine ? () => void unsend(m.id) : undefined}
                   />}
+                  {!mine && (m.metadata as {after_dark_intro?:string}|null)?.after_dark_intro === "brooke_offer" && <BrookeIntroductionPrompt />}
                   </div>
                 </div>
                 {i === lastUserIdx && readReceipt && (

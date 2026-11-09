@@ -27,9 +27,10 @@ beforeAll(async () => {
   await db.exec(playerSql.slice(
     playerSql.indexOf("CREATE OR REPLACE FUNCTION relationship_player_command("),
     playerSql.indexOf("-- Mirror the expanded cast")
-  ).replace("'sienna','kendra'", "'sienna','kendra','jade'"));
+  ).replace("'sienna','kendra'", "'sienna','kendra','jade','carly','brooke'"));
   const jadeSql = readFileSync("drizzle/migrations/0066_jade_monroe_cast.sql", "utf8");
-  await db.exec(jadeSql.slice(jadeSql.indexOf("CREATE OR REPLACE FUNCTION relationship_sync_character")));
+  await db.exec(jadeSql.slice(jadeSql.indexOf("CREATE OR REPLACE FUNCTION relationship_sync_character"))
+    .replace("'kendra','jade'", "'kendra','jade','carly','brooke'")); // mirrors 0072's guard extension
   for (const key of RELATIONSHIP_CAST) {
     const cid = crypto.randomUUID(),
       id = crypto.randomUUID();

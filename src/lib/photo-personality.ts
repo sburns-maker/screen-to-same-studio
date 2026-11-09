@@ -36,6 +36,32 @@ export type PhotographyProfile = {
   scenarios: Partial<Record<PhotoScenario, number>>;
 };
 export const PHOTOGRAPHY_PROFILES = {
+  carly: {
+    key: "carly",
+    styles: ["confident front-camera selfies", "getting-ready mirror shots when a mirror is present", "candid nightlife or concert snapshots"],
+    expressions: ["smirking direct eye contact", "laughing mid-tease", "sleepy post-shift smile", "cool unbothered look"],
+    settings: ["her own apartment", "her black Dodge Challenger when parked", "a real concert or food run", "backstage break room only when established"],
+    wardrobe: ["actual current going-out outfit", "established band tee and jeans", "home lounge outfit"],
+    hairstyles: ["very long straight jet-black hair down", "long black ponytail when established"],
+    selfies: ["candid selfie", "off-center natural angle", "mirror outfit check", "a scene detail rather than a portrait"],
+    captionVoice: "Teasing, confident, a little cheeky; bold photos only when she actually chooses them.",
+    spontaneity: 0.78, hours: 4, messages: 2,
+    subjects: "outfits, late-night food, music, her car, everyday life and independently chosen glamorous portraits",
+    scenarios: { playful_reply: 1.7, outfit_check: 1.6, thinking_of_you: 1.3, at_home: 1.1, post_work: 1.3 },
+  },
+  brooke: {
+    key: "brooke",
+    styles: ["friendly front-camera selfies", "candid snapshots with roommates out of frame", "outfit checks when a mirror is present"],
+    expressions: ["bright open smile", "giggling", "soft shy smile", "playful wink"],
+    settings: ["her shared rental house", "moving boxes and her new room when established", "brunch spots", "a dance class"],
+    wardrobe: ["actual current casual outfit", "established leggings and oversized sweatshirt", "existing going-out clothes"],
+    hairstyles: ["shoulder-length platinum-blonde waves", "platinum hair clipped up when established"],
+    selfies: ["candid selfie", "off-center natural angle", "a scene detail rather than a portrait"],
+    captionVoice: "Bubbly and warm; flirty only when she feels it.",
+    spontaneity: 0.6, hours: 6, messages: 3,
+    subjects: "moving progress, brunch, dance, roommates' chaos and everyday life",
+    scenarios: { playful_reply: 1.3, outfit_check: 1.2, thinking_of_you: 1.0, at_home: 1.3, post_work: 1.0 },
+  },
   jade: {
     key: "jade",
     styles: ["playful front-camera selfies", "candid mirror outfits when a mirror is present", "confident but personal snapshots with varied poses"],
