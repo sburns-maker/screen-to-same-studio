@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AFTER_DARK_CAST, canUnlockAfterDarkContact } from "../lib/after-dark-cast";
+import { AFTER_DARK_CAST, canUnlockAfterDarkContact, nextBrookeIntroductionBeat } from "../lib/after-dark-cast";
 
 describe("After Dark staged character identities", () => {
   it("keeps both adults distinct from existing names and one another", () => {
@@ -15,5 +15,15 @@ describe("After Dark staged character identities", () => {
   });
   it("permits introduction only after a real encounter and independent agreement", () => {
     expect(canUnlockAfterDarkContact({ target: "brooke", source: "carly", metInScene: true, targetConsentedToContact: true })).toBe(true);
+  });
+  it("mentions Brooke early, then proposes a meetup without unlocking her", () => {
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 0, status: "not_mentioned", naturalOpening: true })).toBe("none");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 1, status: "not_mentioned", naturalOpening: true })).toBe("mention");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 3, status: "not_mentioned", naturalOpening: true })).toBe("mention");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 2, status: "mentioned", naturalOpening: true })).toBe("offer_group_meet");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 2, status: "mentioned", naturalOpening: false })).toBe("none");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 4, status: "declined", naturalOpening: true })).toBe("none");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 4, status: "met", naturalOpening: true })).toBe("none");
+    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 4, status: "contact_accepted", naturalOpening: true })).toBe("none");
   });
 });
