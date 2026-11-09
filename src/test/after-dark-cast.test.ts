@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AFTER_DARK_CAST, canUnlockAfterDarkContact, nextBrookeIntroductionBeat } from "../lib/after-dark-cast";
+import { AFTER_DARK_CAST, canUnlockAfterDarkContact, nextBrookeIntroductionBeat, canStartBrookeHelpText, BROOKE_MOVING_INTRO } from "../lib/after-dark-cast";
 
 describe("After Dark staged character identities", () => {
   it("keeps both adults distinct from existing names and one another", () => {
@@ -16,14 +16,18 @@ describe("After Dark staged character identities", () => {
   it("permits introduction only after a real encounter and independent agreement", () => {
     expect(canUnlockAfterDarkContact({ target: "brooke", source: "carly", metInScene: true, targetConsentedToContact: true })).toBe(true);
   });
-  it("mentions Brooke early, then proposes a meetup without unlocking her", () => {
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 0, status: "not_mentioned", naturalOpening: true })).toBe("none");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 1, status: "not_mentioned", naturalOpening: true })).toBe("mention");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 3, status: "not_mentioned", naturalOpening: true })).toBe("mention");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 2, status: "mentioned", naturalOpening: true })).toBe("offer_group_meet");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 2, status: "mentioned", naturalOpening: false })).toBe("none");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 4, status: "declined", naturalOpening: true })).toBe("none");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 4, status: "met", naturalOpening: true })).toBe("none");
-    expect(nextBrookeIntroductionBeat({ completedCarlyExchanges: 4, status: "contact_accepted", naturalOpening: true })).toBe("none");
+  it("offers moving help just after Carly's first meaningful conversation", () => {
+    expect(nextBrookeIntroductionBeat({completedCarlyExchanges:0,status:"not_mentioned",naturalOpening:true})).toBe("none");
+    expect(nextBrookeIntroductionBeat({completedCarlyExchanges:1,status:"not_mentioned",naturalOpening:true})).toBe("offer_help_text");
+    expect(nextBrookeIntroductionBeat({completedCarlyExchanges:1,status:"not_mentioned",naturalOpening:false})).toBe("none");
+    expect(nextBrookeIntroductionBeat({completedCarlyExchanges:2,status:"text_offered",naturalOpening:true})).toBe("none");
+    expect(nextBrookeIntroductionBeat({completedCarlyExchanges:3,status:"declined",naturalOpening:true})).toBe("none");
+    expect(BROOKE_MOVING_INTRO.initialCarlyLine).toMatch(/Mind texting her/);
+  });
+  it("lets texting start before the move only with both parties' consent", () => {
+    expect(canStartBrookeHelpText({status:"text_offered",brookeAgreedToShareNumber:true,userAcceptedIntroduction:true})).toBe(true);
+    expect(canStartBrookeHelpText({status:"text_offered",brookeAgreedToShareNumber:false,userAcceptedIntroduction:true})).toBe(false);
+    expect(canStartBrookeHelpText({status:"text_offered",brookeAgreedToShareNumber:true,userAcceptedIntroduction:false})).toBe(false);
+    expect(canStartBrookeHelpText({status:"not_mentioned",brookeAgreedToShareNumber:true,userAcceptedIntroduction:true})).toBe(false);
   });
 });
