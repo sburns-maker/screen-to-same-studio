@@ -20,3 +20,9 @@ They are crops from the approved concept poster. Smaller alternative crops lack 
 6. Add integration tests for database migration, phone contacts, avatars, photo generation, first message, independent state, consent, and unlock behavior. Run app build + all CI before enabling.
 
 **Do not merge this staging-only branch expecting the contacts to appear in the app.** It captures approved identities and introduction policy while integration is pending.
+
+## Early introduction follow-up
+When full runtime integration is implemented, track `completedCarlyExchanges` and `BrookeIntroductionStatus` per owner/conversation. Within the **first 1–3 meaningful Carly exchanges**, naturally mention Brooke; after user curiosity, offer a group meal or social invitation. Do not generate an introduction when the scene context is urgent or awkward. Persist `mentioned`, `invited`, `declined`, `met`, and `contact_accepted` to prevent loops. The pure staging helper `nextBrookeIntroductionBeat` expresses the intended pacing, but it is **not yet wired into runtime messaging**.
+
+## Portrait cleanup follow-up
+New concept renders were made and larger portrait preview crops exported separately in `after_dark_cleaner_previews.zip` for user review. These crops are **not true standalone high-resolution canonical portraits**, and upscaling does not restore details absent from poster-sized source images. Final photo integration requires separately generated, identity-matched high-resolution portrait sources (preferably at least 1024 px across the face/upper-body crop) and an independent quality check for face, hair, tattoo continuity, and uncropped clothing.
