@@ -72,3 +72,34 @@ export const AFTER_DARK_SOCIAL_RULES = [
   "Interests, boundaries, and photo preferences are per character; never auto-copy them from Carly to Brooke.",
   "Do not imply all dancers share Carly's or Brooke's preferences.",
 ] as const;
+
+/**
+ * Carly brings Brooke up organically during the first few meaningful player
+ * exchanges, without manufacturing a meeting, phone number or agreement.
+ * Turn count is the number of completed substantive player/Carly exchanges,
+ * not total messages or background ticks. A declined or completed introduction
+ * is terminal and must not be repeatedly suggested.
+ */
+export type BrookeIntroductionStatus =
+  | "not_mentioned" | "mentioned" | "invited" | "declined"
+  | "met" | "contact_accepted";
+
+export function nextBrookeIntroductionBeat(input: {
+  completedCarlyExchanges: number;
+  status: BrookeIntroductionStatus;
+  naturalOpening: boolean;
+}): "none" | "mention" | "offer_group_meet" {
+  const { completedCarlyExchanges: turns, status, naturalOpening } = input;
+  if (!Number.isInteger(turns) || turns < 0 || !naturalOpening) return "none";
+  if (status === "not_mentioned" && turns >= 1 && turns <= 3) return "mention";
+  if (status === "mentioned" && turns >= 2) return "offer_group_meet";
+  return "none";
+}
+
+/** Independent introduction pacing, not a forced date or automatic hookup. */
+export const BROOKE_EARLY_INTRO_GUIDANCE = [
+  "Within Carly's first one to three substantive exchanges, naturally mention Brooke as her trusted coworker/friend when the conversation has a social opening.",
+  "Once the player shows curiosity, Carly can suggest that Brooke join an ordinary public group outing or a shared after-shift meal.",
+  "Brooke decides separately whether to attend, exchange numbers, flirt, or pursue romance. A declined invitation stays declined until Brooke herself initiates a new opportunity.",
+  "Never repeatedly mention Brooke in every turn, and never interrupt an urgent or emotionally serious topic for the introduction.",
+] as const;
