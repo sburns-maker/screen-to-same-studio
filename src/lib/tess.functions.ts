@@ -296,7 +296,7 @@ export function runTurn(...args: Parameters<typeof runTurnUnlocked>) {
       if(!args[5]){
         const intro=await import("./brooke-introduction.server");
         await intro.maybeOfferBrookeIntroduction(supabaseAdmin,args[1],args[2],{initiation:!!args[4]}).catch(()=>console.warn("[after-dark] introduction offer deferred"));
-        await intro.reconcileBrookeMeeting(supabaseAdmin,args[1]).catch(()=>console.warn("[after-dark] meeting reconcile deferred"));
+        await intro.reconcileBrookeMeeting(supabaseAdmin,args[1],args[2]).catch(()=>console.warn("[after-dark] meeting reconcile deferred"));
       }
       await resolvePhotoScene(supabaseAdmin,args[1],args[2],{activity:"ordinary activity",availability:"free",detail:""},new Date(),true).catch(()=>console.warn("[character-scene] projection deferred; delivered evidence retained"));
     }

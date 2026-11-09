@@ -109,7 +109,8 @@ export async function maybeOfferBrookeIntroduction(
 }
 
 /** Brooke's first meeting happens at a completed outing in her thread. */
-export async function reconcileBrookeMeeting(admin: Client, user: string): Promise<boolean> {
+export async function reconcileBrookeMeeting(admin: Client, user: string, conversationId?: string): Promise<boolean> {
+  if (conversationId && (await characterKeyFor(admin, user, conversationId)) !== "brooke") return false;
   const row = await introductionRow(admin, user);
   if (row?.status !== "contact_accepted") return false;
   const ch = await admin.from("characters").select("id").eq("key", "brooke").maybeSingle();
