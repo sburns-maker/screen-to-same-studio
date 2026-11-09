@@ -7,6 +7,18 @@ import { photographyProfile } from "@/lib/photo-personality";
 import { safePhotoScene } from "@/lib/photo-policy";
 
 describe("character-aware mature photo guidance", () => {
+  it("keeps Carly and Brooke independent and their dancer jobs separate from consent", () => {
+    for (const character of ["carly", "brooke"] as const) {
+      expect(maturePhotoCharacterHint(character, ["casual_selfie"])).toBe("");
+      const hint = maturePhotoCharacterHint(character, ["casual_selfie", "mature_romantic"]);
+      expect(hint).toContain("adult");
+      expect(hint).toContain("consent");
+      expect(hint).toContain("non-explicit");
+      expect(characterPhotoIntensityHint(character, ["casual_selfie", "mature_romantic"])).toContain("independently");
+      expect(allowedCharacterPhotoTypes(character, ["casual_selfie"])).toEqual(["casual_selfie"]);
+    }
+    expect(maturePhotoCharacterHint("carly", ["mature_romantic"])).not.toEqual(maturePhotoCharacterHint("brooke", ["mature_romantic"]));
+  });
   it("gives Kendra optional fashion-aware framing only when the mature category is eligible", () => {
     expect(maturePhotoCharacterHint("kendra", ["casual_selfie"])).toBe("");
     const hint = maturePhotoCharacterHint("kendra", ["casual_selfie", "mature_romantic"]);
