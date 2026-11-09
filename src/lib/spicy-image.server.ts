@@ -418,7 +418,7 @@ export function buildSpicyPrompt(
   scene: string,
   style: Record<string, unknown> = {},
   type: "mature_romantic" | "suggestive" | "ordinary" = "mature_romantic",
-) {
+): string {
   if (type === "ordinary")
     return buildSpicyPrompt(name, age, scene, style, "mature_romantic").replace(
       /CATEGORY: [^\n]*/,

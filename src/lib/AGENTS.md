@@ -1,0 +1,1 @@
+- Image provider choice lives only in `photo-provider-policy.ts` so entry points cannot diverge; no OpenAI fallback for Spicy-routed photos.
