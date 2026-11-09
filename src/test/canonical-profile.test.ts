@@ -36,4 +36,12 @@ describe("authoritative profile bytes", () => {
     expect(ref.width).toBe(1122);
     expect(ref.height).toBe(1402);
   });
+  it("uses Brooke's supplied original primary without substituting her evening photo", async () => {
+    const ref = await canonicalProfile("brooke");
+    expect(ref.width).toBe(1086);
+    expect(ref.height).toBe(1448);
+    expect(Buffer.from(await ref.blob.arrayBuffer()).equals(readFileSync("src/assets/avatars/brooke-canon.jpg"))).toBe(true);
+    expect(await canonicalProfile("brooke")).not.toMatchObject({ sha256: (await canonicalProfile("jade")).sha256 });
+    await expect(canonicalProfile("carly")).rejects.toThrow("not registered");
+  });
 });

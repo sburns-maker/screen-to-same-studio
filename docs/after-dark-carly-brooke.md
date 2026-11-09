@@ -1,10 +1,10 @@
 # Carly Reed and Brooke Halloway — After Dark cast staging
 
-This branch stages **two fictional adult characters** and an explicit, consent-aware social introduction rule. They are **NOT yet registered as live contacts**: this work deliberately avoids updating the large global `CharacterKey` union and database cast before every dependent runtime validator, seed, and photo pipeline is ready.
+The source now integrates **two fictional adult characters** and a durable, consent-aware introduction. Migration 0072 is still **unapplied**: this shared preview/production database must not be changed before review. Registries and runtime wiring are checked in; this is not a deployed feature.
 
 ## Character roles
 - **Carly Reed (28)**: Long jet-black hair, icy-blue eyes, floral tattoos; Pittsburgh-born exotic dancer and occasional bartender at the entirely fictional *After Dark*. Social, confident, spontaneous, interested in casual dating; independent apartment and black Dodge Challenger. Directly available as a first-contact character when cast integration lands.
-- **Brooke Halloway (26)**: Shoulder-length natural platinum blonde waves, blue eyes; dancer at the same fictional club, originally from Erie. College-to-nightlife career pivot; rents with two coworkers. Playful, spontaneous and willing to date, but with her own schedule and boundaries. Unlock via actual meeting and her independent choice to exchange contact information.
+- **Brooke Halloway (26)**: Shoulder-length natural platinum blonde waves, blue eyes; dancer at the same fictional club, originally from Erie. College-to-nightlife career pivot; rents with two coworkers. Playful, spontaneous and willing to date, but with her own schedule and boundaries. Texting unlocks after consented introduction acceptance, before the moving-help meeting.
 
 ## Reference photos (prepared separately, not committed as binary assets)
 `Carly_Reed_01_primary.jpg`, `Carly_Reed_02_alternate.jpg`, `Carly_Reed_03_evening.jpg`;
@@ -14,12 +14,12 @@ They are crops from the approved concept poster. Smaller alternative crops lack 
 ## Integration checklist before enabling
 1. Add names to `CharacterKey`, `CHARACTERS`, identity/display and avatar registries, server validators, seed migrations, and every exhaustive Record keyed on the cast.
 2. Register per-character canonical image assets and quality-controlled reference slots; permit bold, consensual adult-flirtation photo styles without assuming every photo needs to be intimate.
-3. Wire actual contact creation and messaging after a Carly encounter; keep Brooke initially locked until an in-scene meeting and her independent agreement. Never unlock through a name mention or arbitrary score.
+3. Create Brooke's contact only after Carly's visible offer is accepted. The moving-help encounter is the subsequent first meeting; neither name mentions nor scores unlock her.
 4. Add independent work schedules at fictional *After Dark*, map coordinates only if securely grounded as a fictional venue, and independent relationship/consent state.
 5. Integrate background NPC friendship edges and invitation lifecycle in the world; no auto-accepted dates or intimacy.
 6. Add integration tests for database migration, phone contacts, avatars, photo generation, first message, independent state, consent, and unlock behavior. Run app build + all CI before enabling.
 
-**Do not merge this staging-only branch expecting the contacts to appear in the app.** It captures approved identities and introduction policy while integration is pending.
+**Merging code alone does not apply migration 0072 or approve private reference slots.** Carly's three supplied photos and a usable Brooke alternate remain outstanding.
 
 ## First-conversation introduction: practical help
 After the first meaningful conversation Carly asks: "Hey, random favor. My friend Brooke needs an extra set of hands moving something. She said it's okay to pass you her number if you're up for helping. Mind texting her? I think you'll like her."
@@ -29,7 +29,7 @@ After the first meaningful conversation Carly asks: "Hey, random favor. My frien
 - Unlock Brooke's texting contact at **mutual acceptance of contact exchange**, not after the move.
 - The player texts Brooke, Brooke schedules the moving help, and their first in-person meeting happens while moving a box or piece of furniture.
 - Relationship, flirtation, or any physical intimacy proceed separately; helping is not transactional.
-- The `nextBrookeIntroductionBeat` and `canStartBrookeHelpText` helpers and tests are staged, **not yet wired to the live phone system or server**.
+- Runtime wiring uses `brooke-introduction.ts`, its server service and authenticated actions; `ensureConversations` consults the persisted gate.
 
 ## Three reference photos per woman
 Exported as six separate JPGs in `after_dark_six_reference_photos.zip` (not yet uploaded to the in-app image reference library):
@@ -51,18 +51,19 @@ Please check facial/tattoo/hair identity consistency in all generations before m
   transitions) + `.functions.ts` (accept/decline). Carly's offer is inserted once after ≥3
   player and ≥3 Carly messages with no serious topic in the latest player text. Brooke's thread
   is created only after acceptance; decline is final and penalty-free. `met` is recorded when a
-  Living Experience in Brooke's thread completes.
-- Photos fail closed (`Canonical profile is not registered`) until portraits are bundled.
+  completed moving-help plan in Brooke's thread is found. An unrelated outing never counts.
+- Counts exclude hidden Carly messages; accepting/declining requires the durable, visible offer message. A partially saved offer cannot unlock Brooke.
+- Brooke's original 1086×1448 primary is now bundled byte-for-byte as her canonical portrait and display avatar. Her evening original is server-only and imports into private storage only on an explicit owner action; it is not automatically approved.
+- Carly photos still fail closed (`Canonical profile is not registered`) until her primary is supplied.
+- After Dark's two workplace entrances resolve to the existing Carly club key for the exact shared label, without relaxing other ambiguous venue validation.
 
 ## Administrator steps for the six reference photos
 
-1. Send the six files in chat, named e.g. `carly-1-primary.jpg`, `carly-2-halfbody.jpg`,
-   `carly-3-evening.jpg`, and the same for Brooke.
-2. The two primary portraits are committed as `src/assets/avatars/carly-canon.jpg` and
-   `brooke-canon.jpg` and registered in `canonical-profile.server.ts` (immutable bundled bytes).
-3. The four alternates are uploaded to private `tess-photos/<owner>/reference-uploads/` and
-   registered in `photo_reference_uploads` for that character.
-4. In Settings → Photo setup → Reference library, choose Carly (then Brooke), approve the
-   primary, and review the two alternates into slots 2 and 3.
-5. Verify: Photo setup shows each character's canonical reference "structurally usable" and
-   three approved slots; no other character's slots change.
+1. After review and authorized migration application, open Carly's thread, accept her introduction, then open Brooke's thread. No acceptance, messages or encounters were performed on the real game during this work.
+2. Settings → Reference Library → Character → Brooke. Preview the canonical portrait, confirm identity and approve the canonical slot.
+3. Click **Add supplied evening photo**. Preview the newly uploaded candidate, select **Alternate angle**, confirm identity and approve. Importing alone never changes a reference slot or enables SpicyAPI.
+4. Upload a replacement for `Brooke_Halloway_02_alternate.jpg` using **Upload reference**. The supplied file is only **142×193** and is retained unchanged for comparison, but deliberately not activated or enlarged. The existing JPEG quality gate requires at least 256 pixels on each side; preferably supply an original around 1000 pixels or larger. Preview and assign it to **Half-body** after review.
+5. Supply Carly's primary, alternate and evening images; her canonical portrait must be bundled before her library can resolve identity. Once ready, use the same upload/preview/confirm/approve process for Carly's two alternate slots.
+6. Verify each character shows **Three references approved** with distinct hashes and no changed slots for other characters. Explicit adult confirmation and provider opt-in remain separate; uploading never enables paid generation.
+
+Private uploads use `tess-photos/<owner>/reference-uploads/<character>/<content-sha256>.jpg`, matching migration 0057's candidate validator. The authenticated server validates an owned conversation, private bucket, original JPEG dimensions, size, character binding and hashes before registration. The browser receives previews, not storage URLs.

@@ -8,7 +8,11 @@ import {
   changeReference,
   setReferenceProviderPreference,
   checkSpicyJob,
+  uploadReferencePhoto,
+  importBrookeEveningReference,
 } from "@/lib/photo-reference-library.functions";
+import { Button } from "@/components/ui/button";
+import { Upload } from "lucide-react";
 import { CHARACTERS, type CharacterKey } from "@/lib/characters";
 import { REFERENCE_ROLES, type ReferenceRole } from "@/lib/photo-reference-library";
 const labels: Record<ReferenceRole, string> = {
@@ -22,7 +26,10 @@ export function ReferenceLibrary() {
     change = useServerFn(changeReference),
     preference = useServerFn(setReferenceProviderPreference),
     settings = useServerFn(updateSettings),
-    jobStatus = useServerFn(checkSpicyJob);
+    jobStatus = useServerFn(checkSpicyJob),
+    uploadPhoto = useServerFn(uploadReferencePhoto),
+    importEvening = useServerFn(importBrookeEveningReference);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [key, setKey] = useState<CharacterKey>("tess"),
     [offset, setOffset] = useState(0),
     [selected, setSelected] = useState<{
@@ -149,6 +156,28 @@ export function ReferenceLibrary() {
       {page && (
         <>
           <p role="status">{page.status}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}><Upload />Upload reference</Button>
+            {key === "brooke" && <Button variant="outline" disabled={busy} onClick={async () => {
+              setBusy(true); setFeedback("");
+              try { await importEvening(); await q.refetch(); setFeedback("Evening photo added for review."); }
+              catch (e) { setFeedback((e as Error).message); } finally { setBusy(false); }
+            }}>Add supplied evening photo</Button>}
+            <input ref={fileInput} type="file" accept="image/jpeg" className="hidden" aria-label="Upload reference photo" onChange={async (e) => {
+              const file = e.target.files?.[0]; e.target.value = "";
+              if (!file) return;
+              if (file.size > 4 * 1024 * 1024) { setFeedback("Choose a JPEG under 4 MB."); return; }
+              const character = key;
+              setBusy(true); setFeedback("");
+              try {
+                const bytes = new Uint8Array(await file.arrayBuffer());
+                let binary = "";
+                for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode(...bytes.subarray(i, i + 32768));
+                await uploadPhoto({ data: { character, image: btoa(binary), label: file.name.slice(0, 120) } });
+                await q.refetch(); setFeedback("Photo uploaded. Review it before assigning a slot.");
+              } catch (error) { setFeedback((error as Error).message); } finally { setBusy(false); }
+            }} />
+          </div>
           <label className="flex min-h-11 items-center gap-3 text-sm">
             <input
               type="checkbox"

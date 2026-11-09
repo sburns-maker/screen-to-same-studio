@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   change: vi.fn(),
   preference: vi.fn(),
   job: vi.fn(),
+  upload: vi.fn(),
+  importEvening: vi.fn(),
 }));
 vi.mock("@/lib/tess.functions", () => ({ updateSettings: vi.fn() }));
 vi.mock("@tanstack/react-start", () => ({ useServerFn: (f: unknown) => f }));
@@ -16,6 +18,8 @@ vi.mock("@/lib/photo-reference-library.functions", () => ({
   changeReference: mocks.change,
   setReferenceProviderPreference: mocks.preference,
   checkSpicyJob: mocks.job,
+  uploadReferencePhoto: mocks.upload,
+  importBrookeEveningReference: mocks.importEvening,
 }));
 import { ReferenceLibrary } from "@/components/ReferenceLibrary";
 const hash = "a".repeat(64),

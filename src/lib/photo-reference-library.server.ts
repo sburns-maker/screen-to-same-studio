@@ -6,7 +6,7 @@ import {
   pickReferenceCandidates,
   type ReferenceRole,
 } from "./photo-reference-library";
-import { currentCanonical, portraitHash } from "./profile-media.server";
+import { currentCanonical, portraitHash, decodePortrait } from "./profile-media.server";
 import { registerPrimaryIdentity } from "./visual-profiles.server";
 type Client = SupabaseClient<Database>;
 export const PROVIDER_REFERENCE_TTL = 1800;
@@ -186,6 +186,27 @@ export type ReferenceReview = {
   visualConfirmed: boolean;
   reviewedSha: string | null;
 };
+/** An explicit owner upload creates an unapproved candidate, not a canonical change. */
+export async function uploadReferenceCandidate(db: Client, user: string, key: CharacterKey, encoded: string, label: string) {
+  await ownedCharacter(db, user, key);
+  await privateBucket(db);
+  const canonical = await currentCanonical(db, user, key);
+  const { bytes } = decodePortrait(encoded);
+  const hash = await portraitHash(bytes);
+  const existing = await db.from("photo_reference_uploads").select("id")
+    .eq("user_id", user).eq("character_key", key).eq("canonical_sha256", canonical.sha256)
+    .eq("content_sha256", hash).maybeSingle();
+  if (existing.error) throw new Error("Reference inventory unavailable");
+  if (existing.data) return { id: existing.data.id };
+  const id = crypto.randomUUID();
+  const asset = `${user}/reference-uploads/${key}/${hash}.jpg`;
+  const stored = await db.storage.from("tess-photos").upload(asset, bytes, { contentType: "image/jpeg", upsert: false });
+  if (stored.error) throw new Error("Private reference upload failed");
+  const saved = await db.from("photo_reference_uploads").insert({ id, user_id: user, character_key: key,
+    canonical_sha256: canonical.sha256, content_sha256: hash, asset, label: label.slice(0, 120) });
+  if (saved.error) throw new Error("Reference registration failed; refresh before retrying");
+  return { id };
+}
 export async function reviewReference(db: Client, user: string, input: ReferenceReview) {
   await ownedCharacter(db, user, input.character);
   await registerPrimaryIdentity(db, user, input.character);

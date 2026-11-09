@@ -18,3 +18,7 @@
 - [x] SpicyAPI: key, budgets and credit-check time supplied in the earlier setup.
 - [x] Removed recurring SpicyAPI credit-verification expiry; 105 provider/routing/job tests passed, build clean, signed-in free authenticated connection check succeeded. No paid generation or publishing.
 - [x] Add Sienna Hayes with approved portrait, independent personality and messaging/world/photo/voice/calendar connections. Forward migration 0055 installed; signed-in inbox, normal text saved/read back, reply and Voice Studio verified; 185 focused tests pass. No paid images/audio, experience transitions or publishing. Voice creation and mature-photo opt-in remain explicit.
+- [x] Integrate Brooke's original primary and explicit private evening import; add owner reference upload controls, hidden-offer safeguards, moving-help-only meeting reconciliation and exact After Dark venue resolution.
+- [ ] Finish three usable references for each woman: waiting on Carly's three photos and a higher-resolution Brooke alternate (supplied alternate is 142×193).
+- [ ] Activate and verify real messaging/photo flow: migration 0072 remains unapplied because this preview shares production and production changes are prohibited pending review.
+- [ ] Open completion PR: no PR creation tool is available in this project; changes are committed for review, not published.

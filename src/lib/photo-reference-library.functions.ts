@@ -21,6 +21,21 @@ export const loadReferenceLibrary = createServerFn({ method: "POST" })
       ).spicyJobHistory(db, context.userId, data.character),
     };
   });
+export const uploadReferencePhoto = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((v: unknown) => z.object({ character: referenceCharacterSchema,
+    image: z.string().max(5_600_000), label: z.string().min(1).max(120) }).strict().parse(v))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    return (await import("./photo-reference-library.server")).uploadReferenceCandidate(db, context.userId, data.character, data.image, data.label);
+  });
+export const importBrookeEveningReference = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const encoded = (await import("./brooke-reference-package.server")).brookeEveningReference();
+    return (await import("./photo-reference-library.server")).uploadReferenceCandidate(db, context.userId, "brooke", encoded, "Brooke evening — owner supplied");
+  });
 export const previewReference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) =>

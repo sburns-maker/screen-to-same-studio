@@ -70,7 +70,7 @@ export async function maybeOfferBrookeIntroduction(
     admin.from("messages").select("id", { count: "exact", head: true })
       .eq("user_id", user).eq("conversation_id", conversationId).eq("sender", "user"),
     admin.from("messages").select("id", { count: "exact", head: true })
-      .eq("user_id", user).eq("conversation_id", conversationId).eq("sender", "tess"),
+      .eq("user_id", user).eq("conversation_id", conversationId).eq("sender", "tess").lte("visible_at", now),
     admin.from("messages").select("body").eq("user_id", user).eq("conversation_id", conversationId)
       .eq("sender", "user").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("messages").select("visible_at").eq("user_id", user).eq("conversation_id", conversationId)
@@ -88,7 +88,9 @@ export async function maybeOfferBrookeIntroduction(
     const ins = await t(admin).insert({ user_id: user, status: "not_mentioned" });
     if (ins.error && ins.error.code !== "23505") throw new Error("Introduction state unavailable");
   }
-  const won = await advance(admin, user, "not_mentioned", transition("not_mentioned", "offer")!, {
+  const next = transition("not_mentioned", "offer");
+  if (!next) return false;
+  const won = await advance(admin, user, "not_mentioned", next, {
     brooke_consented: true, // Brooke agreed in canon before Carly asks.
     offered_at: now,
   });
@@ -108,7 +110,7 @@ export async function maybeOfferBrookeIntroduction(
   return true;
 }
 
-/** Brooke's first meeting happens at a completed outing in her thread. */
+/** Only the completed moving-help plan establishes Brooke's first meeting. */
 export async function reconcileBrookeMeeting(admin: Client, user: string, conversationId?: string): Promise<boolean> {
   if (conversationId && (await characterKeyFor(admin, user, conversationId)) !== "brooke") return false;
   const row = await introductionRow(admin, user);
@@ -117,11 +119,18 @@ export async function reconcileBrookeMeeting(admin: Client, user: string, conver
   if (!ch.data) return false;
   const conv = await admin.from("conversations").select("id").eq("user_id", user).eq("character_id", ch.data.id).maybeSingle();
   if (!conv.data) return false;
-  const done = await admin.from("living_experiences").select("id,updated_at")
+  const done = await admin.from("living_experiences").select("id,plan_id,updated_at")
     .eq("user_id", user).eq("conversation_id", conv.data.id).eq("state", "completed")
-    .order("updated_at", { ascending: true }).limit(1).maybeSingle();
-  if (!done.data) return false;
-  return !!(await advance(admin, user, "contact_accepted", "met", { met_at: done.data.updated_at }));
+    .order("updated_at", { ascending: true });
+  if (done.error) throw new Error("Moving-help completion unavailable");
+  for (const experience of done.data ?? []) {
+    const plan = await admin.from("social_plans").select("id,title")
+      .eq("user_id", user).eq("id", experience.plan_id).maybeSingle();
+    if (plan.error) throw new Error("Moving-help plan unavailable");
+    if (!/\b(?:moving(?:[- ]help)?|help(?:ing)?\s+(?:brooke\s+)?move|move\s+(?:boxes|furniture))\b/i.test(plan.data?.title ?? "")) continue;
+    return !!(await advance(admin, user, "contact_accepted", "met", { met_at: experience.updated_at }));
+  }
+  return false;
 }
 
 export async function respondToBrookeIntroduction(
@@ -134,6 +143,15 @@ export async function respondToBrookeIntroduction(
   const to = transition(row.status, accept ? "accept" : "decline");
   if (!to) return { status: row.status, changed: false }; // idempotent re-click
   if (accept && !row.brooke_consented) throw new Error("Brooke hasn't agreed to share her number");
+  // A claimed but uncommitted or future offer cannot authorize a contact unlock.
+  const offer = row.offer_message_id ? await admin.from("messages").select("id,metadata")
+    .eq("user_id", user).eq("id", row.offer_message_id).eq("sender", "tess")
+    .lte("visible_at", new Date().toISOString()).maybeSingle() : null;
+  const metadata = offer?.data?.metadata as Record<string, unknown> | null | undefined;
+  if (!offer?.data || offer.error || metadata?.[OFFER_METADATA_KEY] !== "brooke_offer")
+    throw new Error("Respond to Carly's visible offer first");
   const won = await advance(admin, user, row.status, to, { responded_at: new Date().toISOString() });
-  return { status: won?.status ?? (await introductionRow(admin, user))!.status, changed: !!won };
+  const saved = won ?? await introductionRow(admin, user);
+  if (!saved) throw new Error("Introduction state unavailable");
+  return { status: saved.status, changed: !!won };
 }

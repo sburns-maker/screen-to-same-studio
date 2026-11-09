@@ -21,4 +21,10 @@ describe("registered calendar venues", () => {
   it("does not guess between duplicate labels", () => {
     expect(resolveCalendarVenue("Juniper Commons", [...venues, { key: "park:other", label: "Juniper Commons" }])).toBe("Juniper Commons");
   });
+  it("resolves the established shared After Dark club without guessing unrelated duplicate venues", () => {
+    const club = [{ key: "work:carly", label: "After Dark" }, { key: "work:brooke", label: "After Dark" }];
+    expect(resolveCalendarVenue("After Dark", club)).toBe("work:carly");
+    expect(resolveCalendarVenue("work:brooke", club)).toBe("work:brooke");
+    expect(resolveCalendarVenue("After Dark", [...club, { key: "other:club", label: "After Dark" }])).toBe("After Dark");
+  });
 });

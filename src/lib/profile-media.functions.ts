@@ -1,12 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { referenceCharacterSchema } from "./photo-reference-library";
 export const saveProfileImage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
-        key: z.enum(["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra"]),
+        key: referenceCharacterSchema,
         avatar: z.string().max(5_600_000),
         reference: z.string().max(5_600_000).optional(),
         canonicalApproved: z.boolean(),

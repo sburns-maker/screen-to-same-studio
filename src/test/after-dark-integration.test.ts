@@ -102,7 +102,7 @@ describe("Brooke introduction rules", () => {
 /** Minimal supabase-js stand-in over in-memory tables, enough for the introduction service. */
 function fakeDb() {
   const tables: any = {
-    after_dark_introductions: [], messages: [], conversations: [], characters: [], living_experiences: [],
+    after_dark_introductions: [], messages: [], conversations: [], characters: [], living_experiences: [], social_plans: [],
   };
   const from = (name: string) => {
     const rows = (): any[] => tables[name];
@@ -119,6 +119,7 @@ function fakeDb() {
     const q: Record<string, unknown> = {
       select: (_c?: string, o?: { head?: boolean }) => { head = !!o?.head; return q; },
       eq: (k: string, v: unknown) => { filters.push(r => r[k] === v); return q; },
+      lte: (k: string, v: string) => { filters.push(r => r[k] <= v); return q; },
       order: (k: string, o?: { ascending?: boolean }) => { order = [k, o?.ascending !== false]; return q; },
       limit: () => q,
       update: (p: Record<string, unknown>) => { op = "update"; patch = p; return q; },
@@ -148,10 +149,11 @@ describe("Brooke introduction persistence", () => {
     db.tables.characters!.push({ id: "carly-id", key: "carly" }, { id: "brooke-id", key: "brooke" });
     db.tables.conversations!.push({ id: carlyConv, user_id: user, character_id: "carly-id" });
     let n = 0;
-    const msg = (sender: string, body: string) => db.tables.messages!.push({ id: crypto.randomUUID(), user_id: user, conversation_id: carlyConv, sender, body, created_at: new Date(Date.now() + n++ * 1000).toISOString(), visible_at: new Date(Date.now() + n * 1000).toISOString() });
+    const msg = (sender: string, body: string) => db.tables.messages!.push({ id: crypto.randomUUID(), user_id: user, conversation_id: carlyConv, sender, body, created_at: new Date(Date.now() - 60000 + n++ * 1000).toISOString(), visible_at: new Date(Date.now() - 60000 + n * 1000).toISOString() });
     msg("tess", "hey it's carly"); msg("user", "hey!"); msg("tess", "what you up to"); msg("user", "not much"); msg("tess", "same lol"); msg("user", "want to grab food sometime?");
   });
   const offers = () => db.tables.messages.filter((m: any) => (m.metadata as { after_dark_intro?: string } | undefined)?.after_dark_intro === "brooke_offer");
+  const showOffer = () => offers().forEach((m: any) => { m.visible_at = new Date(Date.now() - 1000).toISOString(); });
 
   it("offers once, durably, and never repeats across turns or background ticks", async () => {
     expect(await maybeOfferBrookeIntroduction(db.client, user, carlyConv, { initiation: true })).toBe(false);
@@ -165,12 +167,14 @@ describe("Brooke introduction persistence", () => {
   });
   it("accepting unlocks Brooke; a second click is idempotent", async () => {
     await maybeOfferBrookeIntroduction(db.client, user, carlyConv, { initiation: false });
+    showOffer();
     expect((await respondToBrookeIntroduction(db.client, user, true))).toEqual({ status: "contact_accepted", changed: true });
     expect((await respondToBrookeIntroduction(db.client, user, false))).toEqual({ status: "contact_accepted", changed: false });
     expect(contactUnlocked("brooke", (await introductionRow(db.client, user))!.status)).toBe(true);
   });
   it("declining keeps Brooke hidden, has no penalty and is final", async () => {
     await maybeOfferBrookeIntroduction(db.client, user, carlyConv, { initiation: false });
+    showOffer();
     expect((await respondToBrookeIntroduction(db.client, user, false)).status).toBe("declined");
     expect((await respondToBrookeIntroduction(db.client, user, true)).status).toBe("declined");
     expect(contactUnlocked("brooke", "declined")).toBe(false);
@@ -180,18 +184,35 @@ describe("Brooke introduction persistence", () => {
   it("refuses to respond before any offer", async () => {
     await expect(respondToBrookeIntroduction(db.client, user, true)).rejects.toThrow(/hasn't offered/);
   });
+  it("cannot accept a staged or still-hidden offer", async () => {
+    db.tables.after_dark_introductions.push({ user_id: user, status: "text_offered", brooke_consented: true, offer_message_id: null });
+    await expect(respondToBrookeIntroduction(db.client, user, true)).rejects.toThrow(/visible offer/);
+  });
+  it("does not treat an unrelated completed outing as moving help", async () => {
+    db.tables.after_dark_introductions.push({ user_id: user, status: "contact_accepted", brooke_consented: true });
+    db.tables.conversations.push({ id: brookeConv, user_id: user, character_id: "brooke-id" });
+    db.tables.living_experiences.push({ id: "movie", user_id: user, conversation_id: brookeConv, plan_id: "movie-plan", state: "completed", updated_at: "2026-11-10T20:00:00Z" });
+    db.tables.social_plans = [{ id: "movie-plan", user_id: user, title: "Movie night" }];
+    expect(await reconcileBrookeMeeting(db.client, user)).toBe(false);
+  });
   it("marks the first meeting only after a completed outing in Brooke's thread", async () => {
     await maybeOfferBrookeIntroduction(db.client, user, carlyConv, { initiation: false });
+    showOffer();
     await respondToBrookeIntroduction(db.client, user, true);
     db.tables.conversations!.push({ id: brookeConv, user_id: user, character_id: "brooke-id" });
     // Texting before the move does not count as meeting.
     expect(await reconcileBrookeMeeting(db.client, user)).toBe(false);
-    db.tables.living_experiences!.push({ id: "e1", user_id: user, conversation_id: brookeConv, state: "scheduled", updated_at: "2026-11-10T20:00:00Z" });
+    db.tables.social_plans.push({ id: "moving-plan", user_id: user, title: "Help Brooke move furniture" });
+    db.tables.living_experiences!.push({ id: "e1", user_id: user, conversation_id: brookeConv, plan_id: "moving-plan", state: "scheduled", updated_at: "2026-11-10T20:00:00Z" });
     expect(await reconcileBrookeMeeting(db.client, user)).toBe(false);
     db.tables.living_experiences![0]!.state = "completed";
     expect(await reconcileBrookeMeeting(db.client, user)).toBe(true);
     expect((await introductionRow(db.client, user))!.status).toBe("met");
     expect(await reconcileBrookeMeeting(db.client, user)).toBe(false);
+  });
+  it("does not count hidden Carly messages as a meaningful exchange", async () => {
+    db.tables.messages.filter((m: any) => m.sender === "tess").forEach((m: any) => { m.visible_at = "2099-01-01T00:00:00Z"; });
+    expect(await maybeOfferBrookeIntroduction(db.client, user, carlyConv, { initiation: false })).toBe(false);
   });
 });
 

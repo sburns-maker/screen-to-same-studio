@@ -10,7 +10,7 @@ import jade from "@/assets/avatars/jade-canon.jpg";
 // Placeholder contact avatars only — never identity references. Approved
 // canonical bytes are added as carly-canon.jpg / brooke-canon.jpg on upload.
 import carly from "@/assets/avatars/carly-pending.svg";
-import brooke from "@/assets/avatars/brooke-pending.svg";
+import brooke from "@/assets/avatars/brooke-canon.jpg";
 /** Existing UI assets are authoritative. Never replace these with generated outputs. */
 export const PROFILE_PORTRAITS = {
   tess: { avatar: tess, asset: "src/assets/tess.jpg" },
