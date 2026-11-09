@@ -33,6 +33,8 @@ export type GeneratedImage = { bytes: Uint8Array; mime: string; provider: string
 export interface ImageProvider {
   name: string;
   model: string;
+  /** Provider the character policy asked for; diagnostics compare it with `name`. */
+  configuredProvider?: string;
   referenceConditioning?: boolean;
   allowIdentityRetry?: boolean;
   /** With references: identity-conditioned edit (Tess first, Mabel second). Without: plain generation. */
@@ -285,6 +287,11 @@ export type PhotoDiagnostics = {
   providerError?: { code?: string; type?: string; param?: string };
   retryReasons?: string[];
   photography?: ReturnType<typeof photographyDiagnostics>;
+  characterKey?: string | null;
+  configuredProvider?: string;
+  selectedProvider?: string;
+  /** Failed generations are terminal; the action is never automatically re-requested. */
+  retryEligible?: boolean;
 };
 export class PhotoGenerationFailure extends Error {
   constructor(public diagnostics: PhotoDiagnostics) {
@@ -315,6 +322,9 @@ export async function generateTessImage(args: {
     validationStatus: "pending",
     failureReason: null,
     retryCount: 0,
+    characterKey: args.identity?.key ?? null,
+    configuredProvider: args.provider.configuredProvider ?? args.provider.name,
+    selectedProvider: args.provider.name,
     ...(args.photography ? {photography:photographyDiagnostics(args.photography,args.style)} : {}),
   };
   let stage = "preflight";
@@ -353,9 +363,9 @@ export async function generateTessImage(args: {
       // Optional photographic flavor is shortened only in this outgoing copy.
       const base = buildSpicyPrompt(
         args.identity!.name, args.identity!.age, args.scene, args.style ?? {},
-        args.type === "suggestive" ? "suggestive" : "mature_romantic",
+        args.type === "suggestive" ? "suggestive" : args.type === "mature_romantic" ? "mature_romantic" : "ordinary",
       );
-      const category = args.type === "suggestive" ? SUGGESTIVE_STYLE : MATURE_STYLE;
+      const category = args.type === "suggestive" ? SUGGESTIVE_STYLE : args.type === "mature_romantic" ? MATURE_STYLE : "";
       const personality = photoPersonalityPrompt(args.photography ?? {
         version: 1, character: args.identity!.key, scenario: null, candidates: [],
         location: null, availability: "free",
@@ -444,6 +454,8 @@ export async function generateTessImage(args: {
     } else {
       Object.assign(diagnostic, spicyFailureDiagnostics(error));
     }
+    if (diagnostic.providerError?.code === "moderation_blocked") diagnostic.failureReason = "provider_moderation_blocked";
+    diagnostic.retryEligible = false;
     throw new PhotoGenerationFailure(diagnostic);
   }
 }

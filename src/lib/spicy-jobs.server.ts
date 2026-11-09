@@ -23,7 +23,9 @@ type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
   expression: string | null;
-  type?: "mature_romantic" | "suggestive";
+  type?: "mature_romantic" | "suggestive" | "ordinary";
+  /** Original requested category (e.g. personal_selfie) for ordinary Spicy photos. */
+  photoType?: string;
   style?: PhotoStyle | null;
   photography?: PhotographyPlan;
   delivery?: "chat" | "lab";
@@ -163,7 +165,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
   return {
     generated_path: path,
     generated_image_id: job.action_id,
-    photo_type: job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",
+    photo_type: job.payload.type === "suggestive" ? "suggestive" : job.payload.type === "ordinary" ? (job.payload.photoType ?? "personal_selfie") : "mature_romantic",
     photo_identity: identity,
     photo_visual: {
       version: 1,
@@ -175,7 +177,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
   };
 }
 async function rememberCommittedPhoto(db: Client, job: Job) {
-  if (job.payload.delivery === "lab") return;
+  if (job.payload.delivery === "lab" || job.payload.type === "ordinary") return;
   const summary = deliveredRomanticPhotoMemory(
     CHARACTERS[job.character_key].preferredName,
     job.payload.type === "suggestive" ? "suggestive" : "mature_romantic",

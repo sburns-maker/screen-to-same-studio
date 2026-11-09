@@ -417,8 +417,13 @@ export function buildSpicyPrompt(
   age: number,
   scene: string,
   style: Record<string, unknown> = {},
-  type: "mature_romantic" | "suggestive" = "mature_romantic",
+  type: "mature_romantic" | "suggestive" | "ordinary" = "mature_romantic",
 ) {
+  if (type === "ordinary")
+    return buildSpicyPrompt(name, age, scene, style, "mature_romantic").replace(
+      /CATEGORY: [^\n]*/,
+      "CATEGORY: Ordinary everyday personal smartphone photo of a fictional adult. Friendly, natural and non-romantic; not sexualized, no lingerie or bedroom styling unless the established scene already shows it.",
+    );
   return `IDENTITY / REFERENCES: Reference 1 is the approved canonical design of ${name}, a fictional adult age ${age}. All references depict this same adult; preserve face, complexion, hair-color family and proportions. References do not prescribe wardrobe, pose or background. Never substitute a similar person.
 CATEGORY: ${type === "suggestive" ? "Strongly flirtatious adult portrait. Confident body language, playful expression and realistic intimate mood. Do not force disrobing or a new location." : "Private romantic non-explicit adult portrait."}\nWARDROBE: ${style["clothing_category"] ?? "Use the established outfit; never change clothing merely for variety."} Opaque clothing; retain current scene continuity.
 SCENE / LOCATION: ${scene}

@@ -143,3 +143,39 @@ it("normal photos and a disabled provider keep OpenAI without old API18 calls", 
   expect(mocks.refs).not.toHaveBeenCalled();
   expect(mocks.submit).not.toHaveBeenCalled();
 });
+import { configuredProviderFor } from "@/lib/photo-provider-policy";
+it.each(["brooke", "carly"] as const)("routes %s's standard selfie to SpicyAPI with her own reference", async (key) => {
+  const p = await configuredPhotoProvider(client, "owner", key, "personal_selfie", normal, "action", "conversation",
+    { scene: "coffee shop", expression: null, type: "mature_romantic" });
+  expect(p).toMatchObject({ name: "spicyapi", configuredProvider: "spicyapi", allowIdentityRetry: false });
+  await expect(p.generate("selfie", [new Blob([`${key}-approved-user-image`], { type: "image/jpeg" })])).rejects.toThrow("queued-test");
+  expect(mocks.submit.mock.calls[0]![3]).toBe(key);
+  expect(mocks.submit.mock.calls[0]![8]).toMatchObject({ type: "ordinary", photoType: "personal_selfie" });
+  expect(normal.generate).not.toHaveBeenCalled();
+});
+it.each(["brooke", "carly"] as const)("never falls back to OpenAI for %s when SpicyAPI is unavailable", async (key) => {
+  vi.stubEnv("SPICY_ENABLED", "false");
+  await expect(configuredPhotoProvider(client, "owner", key, "casual_selfie", normal, "a", "c", { scene: "x", expression: null })).rejects.toThrow(/require SpicyAPI/);
+  vi.stubEnv("SPICY_ENABLED", "true");
+  mocks.spicyEnabled = false;
+  await expect(configuredPhotoProvider(client, "owner", key, "casual_selfie", normal, "a", "c", { scene: "x", expression: null })).rejects.toThrow(/Enable SpicyAPI/);
+  vi.stubEnv("SPICY_API_KEY", "");
+  mocks.spicyEnabled = true;
+  await expect(configuredPhotoProvider(client, "owner", key, "casual_selfie", normal, "a", "c", { scene: "x", expression: null })).rejects.toThrow("SpicyAPI server secret missing");
+  expect(normal.generate).not.toHaveBeenCalled();
+});
+it("a SpicyAPI rejection propagates without trying OpenAI", async () => {
+  mocks.submit.mockReset().mockRejectedValue(new Error("spicy_http_400"));
+  const p = await configuredPhotoProvider(client, "owner", "brooke", "personal_selfie", normal, "a", "c", { scene: "x", expression: null });
+  await expect(p.generate("s", [new Blob(["brooke-approved-user-image"], { type: "image/jpeg" })])).rejects.toThrow("spicy_http_400");
+  expect(normal.generate).not.toHaveBeenCalled();
+  expect(mocks.submit).toHaveBeenCalledOnce();
+});
+it("other characters keep their providers; policy is one shared function for every entry point", async () => {
+  for (const key of ["tess", "maya", "claire", "riley", "jordan", "sienna", "kendra", "jade", "ben"] as const)
+    expect(await configuredPhotoProvider(client, "owner", key, "personal_selfie", normal)).toBe(normal);
+  expect(configuredProviderFor("brooke", "object")).toBe("ordinary");
+  expect(configuredProviderFor("carly", "intimate_selfie")).toBe("spicyapi");
+  expect(configuredProviderFor("tess", "mature_romantic")).toBe("spicyapi");
+  expect(configuredProviderFor("tess", "casual_selfie")).toBe("ordinary");
+});

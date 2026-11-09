@@ -4,6 +4,7 @@ import { CHARACTERS, type CharacterKey } from "./characters";
 import type { ImageProvider } from "./tess-image.server";
 import { spicyConfiguration, SPICY_CAST } from "./spicy-image.server";
 import { submitSpicyPhoto, type SpicyContext } from "./spicy-jobs.server";
+import { configuredProviderFor, spicyCategory, type SpicyCategory } from "./photo-provider-policy";
 /** Ordinary categories never enter this provider path. */
 export async function configuredPhotoProvider(
   db: SupabaseClient<Database>,
@@ -15,7 +16,19 @@ export async function configuredPhotoProvider(
   conversationId?: string,
   context?: SpicyContext,
 ): Promise<ImageProvider> {
-  if (type !== "mature_romantic" && type !== "suggestive") return ordinary;
+  const configured = configuredProviderFor(key, type);
+  if (configured === "ordinary") return ordinary;
+  const category = spicyCategory(type);
+  if (category === "ordinary") {
+    // Carly/Brooke person photos: SpicyAPI only, never an OpenAI fallback.
+    const label = `${key[0]!.toUpperCase()}${key.slice(1)}`;
+    if (process.env["SPICY_ENABLED"] !== "true") throw new Error(`${label} photos require SpicyAPI to be enabled`);
+    const pref = await db.from("photo_reference_state").select("spicy_enabled")
+      .eq("user_id", user).eq("character_key", key).maybeSingle();
+    if (pref.error) throw new Error("SpicyAPI migration or preferences unavailable");
+    if (!pref.data?.spicy_enabled) throw new Error(`Enable SpicyAPI for ${label} before generating photos`);
+    return spicyProvider(db, user, key, actionId, conversationId, context ? { ...context, photoType: type } : context, category);
+  }
   // Suggestive images are SpicyAPI-only. Never send a suggestive prompt or
   // canonical portrait to OpenAI/the ordinary provider as a silent fallback.
   if (process.env["SPICY_ENABLED"] !== "true") {
@@ -43,6 +56,19 @@ export async function configuredPhotoProvider(
     !CHARACTERS[key].romanticCapable
   )
     throw new Error("Adult non-nude romantic photo eligibility required");
+  return spicyProvider(db, user, key, actionId, conversationId, context, category);
+}
+
+async function spicyProvider(
+  db: SupabaseClient<Database>,
+  user: string,
+  key: CharacterKey,
+  actionId: string | undefined,
+  conversationId: string | undefined,
+  rawContext: SpicyContext | undefined,
+  category: SpicyCategory,
+): Promise<ImageProvider> {
+  const context = rawContext ? { ...rawContext, type: category } : undefined;
   const config = spicyConfiguration(key);
   if (!config.ready) throw new Error(config.reason);
   if (!actionId || !context) throw new Error("spicy_durable_photo_context_required");
@@ -68,6 +94,7 @@ export async function configuredPhotoProvider(
   const conversation = conversationId;
   return {
     name: "spicyapi",
+    configuredProvider: "spicyapi",
     model: config.model,
     referenceConditioning: true,
     allowIdentityRetry: false,
