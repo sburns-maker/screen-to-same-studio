@@ -32,6 +32,19 @@ describe("typed character photography", () => {
     expect(PHOTO_TENDENCIES.maya).toMatchObject({ chance: 0.75, hours: 6, messages: 3 });
     expect(photographyProfile("ben").captionVoice).toContain("platonic");
   });
+  it("distinguishes Carly and Brooke as adult dancers without forcing stage photos", () => {
+    const carly = photographyProfile("carly");
+    const brooke = photographyProfile("brooke");
+    expect(carly.captionVoice).toContain("adult exotic dancer");
+    expect(brooke.captionVoice).toContain("adult dancer");
+    expect(carly.wardrobe.join(" ")).toContain("never invent an outfit change");
+    expect(brooke.wardrobe.join(" ")).toContain("confirmed shift");
+    expect(carly.settings.join(" ")).toContain("established After Dark shift");
+    expect(brooke.settings.join(" ")).toContain("never assumed");
+    expect(carly.selfies).not.toEqual(brooke.selfies);
+    expect(carly.hours).toBe(4);
+    expect(brooke.hours).toBe(6);
+  });
   it("supports future profiles without granting identity approval or copying another character", () => {
     expect(photographyProfile("new-npc").key).toBe("unregistered");
     const npc = {
