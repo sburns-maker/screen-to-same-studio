@@ -50,9 +50,7 @@ describe("browser photo setup checks", () => {
     expect(status.migration).toBe("present");
     expect(status.tessReference).toBe("present");
     expect(status.canonicalReferences).toHaveLength(10);
-    // Brooke's supplied primary is bundled; Carly still awaits an owner portrait.
-    const pending = new Set(["carly"]);
-    expect(status.canonicalReferences.every((ref) => ref.status === (pending.has(ref.character) ? "unavailable" : "structurally_usable"))).toBe(true);
+    expect(status.canonicalReferences.every((ref) => ref.status === "structurally_usable")).toBe(true);
     expect(mocks.list).not.toHaveBeenCalled();
     expect(mocks.rpc).toHaveBeenCalledWith("deliver_photo_turn", { p_job_id: null });
     expect(JSON.stringify(status)).not.toMatch(/test-only-private-key|test-service-key/);
