@@ -15,7 +15,7 @@ describe("GPT-Live character voice identities", () => {
     expect(VOICE_DESIGN_KEYS).toEqual(Object.keys(VOICE_DESIGNS));
     expect(VOICE_DESIGNS.tess.description).toContain("never");
     expect(VOICE_DESIGNS.tess.description).toContain("never husky");
-    expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(9);
+    expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(11);
   });
   it("refuses missing and arbitrary stock voice names", () => {
     expect(customVoiceId("tess", {})).toBeNull();
