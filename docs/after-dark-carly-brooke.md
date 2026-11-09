@@ -67,3 +67,12 @@ Please check facial/tattoo/hair identity consistency in all generations before m
 6. Verify each character shows **Three references approved** with distinct hashes and no changed slots for other characters. Explicit adult confirmation and provider opt-in remain separate; uploading never enables paid generation.
 
 Private uploads use `tess-photos/<owner>/reference-uploads/<character>/<content-sha256>.jpg`, matching migration 0057's candidate validator. The authenticated server validates an owned conversation, private bucket, original JPEG dimensions, size, character binding and hashes before registration. The browser receives previews, not storage URLs.
+
+## Verification — November 9, 2026
+
+- Changed-path checks: **48 passed** (introduction, disposable migration compatibility, canonical bytes, private candidate import, reference interface, club label, photo setup).
+- Full available suite: **1813 passed, 8 failed, 55 skipped**. Remaining failures are six phone-call tests, one developer-photo test, and one provider-preference test, matching the previously reported categories; an old-code baseline was not rerun, so their pre-existing status is not independently proven here.
+- Automatic preview build/type validation: latest result **build OK**. No separate manual application build/typecheck was run because the platform performs them automatically.
+- Public mobile preview: no runtime errors or horizontal overflow. Real Carly/Brooke messaging and approved provider output remain **unverified**, since migration 0072 has not been applied and no production interaction or paid generation was authorized.
+- All three Brooke files were inspected visually. Primary and evening are 1086×1448; alternate is 142×193 and is deliberately not a usable reference slot.
+- No database writes, storage writes, paid API calls, publish, deployment, PR merge or PR creation were performed. PR creation is unavailable through the current tools. The repository contains the implementation and migration for review, not a fully activated release.
