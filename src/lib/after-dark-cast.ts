@@ -66,40 +66,54 @@ export function canUnlockAfterDarkContact(input: {
 /** Hook for writers: do not interpret a group invite as romantic consent. */
 export const AFTER_DARK_SOCIAL_RULES = [
   "Carly and Brooke are independent adult people, not one shared romance state.",
-  "Carly can mention Brooke before Brooke is unlocked, but cannot grant Brooke's number or consent herself.",
+  "Carly may share Brooke's number for moving help only after Brooke approves sharing and the player opts in.",
   "An invitation to a party or group outing never implies romantic or sexual consent.",
   "Any suggested one-on-one meeting requires the invited NPC to accept it independently.",
   "Interests, boundaries, and photo preferences are per character; never auto-copy them from Carly to Brooke.",
   "Do not imply all dancers share Carly's or Brooke's preferences.",
 ] as const;
 
+
 /**
- * Carly brings Brooke up organically during the first few meaningful player
- * exchanges, without manufacturing a meeting, phone number or agreement.
- * Turn count is the number of completed substantive player/Carly exchanges,
- * not total messages or background ticks. A declined or completed introduction
- * is terminal and must not be repeatedly suggested.
+ * Trigger the invitation after Carly's first meaningful conversation.
+ * Do not repeat it after offered or declined; avoid inappropriate interruptions.
  */
 export type BrookeIntroductionStatus =
-  | "not_mentioned" | "mentioned" | "invited" | "declined"
-  | "met" | "contact_accepted";
+  | "not_mentioned" | "text_offered" | "text_started"
+  | "help_arranged" | "met" | "contact_accepted" | "declined";
 
 export function nextBrookeIntroductionBeat(input: {
   completedCarlyExchanges: number;
   status: BrookeIntroductionStatus;
   naturalOpening: boolean;
-}): "none" | "mention" | "offer_group_meet" {
+}): "none" | "offer_help_text" {
   const { completedCarlyExchanges: turns, status, naturalOpening } = input;
-  if (!Number.isInteger(turns) || turns < 0 || !naturalOpening) return "none";
-  if (status === "not_mentioned" && turns >= 1 && turns <= 3) return "mention";
-  if (status === "mentioned" && turns >= 2) return "offer_group_meet";
-  return "none";
+  if (!Number.isInteger(turns) || turns < 1 || !naturalOpening) return "none";
+  return status === "not_mentioned" ? "offer_help_text" : "none";
 }
 
-/** Independent introduction pacing, not a forced date or automatic hookup. */
+/** Both parties opt into number exchange before any Brooke contact is created. */
+export function canStartBrookeHelpText(input: {
+  status: BrookeIntroductionStatus;
+  brookeAgreedToShareNumber: boolean;
+  userAcceptedIntroduction: boolean;
+}): boolean {
+  return input.status === "text_offered"
+    && input.brookeAgreedToShareNumber
+    && input.userAcceptedIntroduction;
+}
+
+export const BROOKE_MOVING_INTRO = {
+  initialCarlyLine: "Hey, random favor. My friend Brooke needs an extra set of hands moving something. She said it's okay to pass you her number if you're up for helping. Mind texting her? I think you'll like her.",
+  optionalBrookeFirstText: "Hey! Carly said you might be able to help me move a couple of things. No pressure, but I could definitely use another pair of hands. When might work for you?",
+  firstMeetingContext: "Meet Brooke at an agreed time to help move boxes or furniture; let their chemistry and the rest of the scene emerge naturally.",
+} as const;
+
 export const BROOKE_EARLY_INTRO_GUIDANCE = [
-  "Within Carly's first one to three substantive exchanges, naturally mention Brooke as her trusted coworker/friend when the conversation has a social opening.",
-  "Once the player shows curiosity, Carly can suggest that Brooke join an ordinary public group outing or a shared after-shift meal.",
-  "Brooke decides separately whether to attend, exchange numbers, flirt, or pursue romance. A declined invitation stays declined until Brooke herself initiates a new opportunity.",
-  "Never repeatedly mention Brooke in every turn, and never interrupt an urgent or emotionally serious topic for the introduction.",
+  "After the first substantive Carly conversation, have her ask if the player can help Brooke move boxes or a piece of furniture.",
+  "Brooke agrees to receive a text and the player accepts before exchanging a number.",
+  "Create Brooke's independent messaging contact as soon as both agree, before the first face-to-face meeting.",
+  "Brooke coordinates the move directly with the player; the help scene becomes their first in-person meeting.",
+  "Helping never implies consent to a date, flirtation, or intimacy.",
+  "Persist introduction status and do not repeat an invitation after it is offered, declined, or accepted.",
 ] as const;
