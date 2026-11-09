@@ -1,4 +1,5 @@
 // @vitest-environment node
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, expect, it, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
@@ -100,20 +101,20 @@ describe("Brooke introduction rules", () => {
 
 /** Minimal supabase-js stand-in over in-memory tables, enough for the introduction service. */
 function fakeDb() {
-  const tables: Record<string, Record<string, unknown>[]> = {
+  const tables: any = {
     after_dark_introductions: [], messages: [], conversations: [], characters: [], living_experiences: [],
   };
   const from = (name: string) => {
-    let rows = () => tables[name]!;
-    const filters: ((r: Record<string, unknown>) => boolean)[] = [];
+    const rows = (): any[] => tables[name];
+    const filters: ((r: any) => boolean)[] = [];
     let op: "select" | "update" | "insert" = "select", patch: Record<string, unknown> = {}, head = false;
     let order: [string, boolean] | null = null, inserted: Record<string, unknown>[] = [];
     const run = () => {
       if (op === "insert") return inserted;
-      let r = rows().filter(x => filters.every(f => f(x)));
+      let r: any[] = rows().filter(x => filters.every(f => f(x)));
       if (op === "update") { r.forEach(x => Object.assign(x, patch)); return r; }
       if (order) { const [k, asc] = order; r = [...r].sort((a, b) => String(a[k]).localeCompare(String(b[k])) * (asc ? 1 : -1)); }
-      return r.map(x => (name === "conversations" ? { ...x, character: tables.characters!.find(c => c.id === x.character_id) } : x));
+      return r.map(x => (name === "conversations" ? { ...x, character: tables.characters.find((c: any) => c.id === x.character_id) } : x));
     };
     const q: Record<string, unknown> = {
       select: (_c?: string, o?: { head?: boolean }) => { head = !!o?.head; return q; },
@@ -123,10 +124,10 @@ function fakeDb() {
       update: (p: Record<string, unknown>) => { op = "update"; patch = p; return q; },
       insert: (p: Record<string, unknown>) => {
         op = "insert";
-        if (name === "after_dark_introductions" && tables[name]!.some(r => r.user_id === p.user_id))
+        if (name === "after_dark_introductions" && tables[name].some((r: any) => r.user_id === p.user_id))
           return Object.assign(Promise.resolve({ error: { code: "23505" } }), q);
-        const row = { id: crypto.randomUUID(), brooke_consented: false, ...p };
-        tables[name]!.push(row); inserted = [row]; return q;
+        const row: any = { id: crypto.randomUUID(), brooke_consented: false, ...p };
+        tables[name].push(row); inserted = [row]; return q;
       },
       maybeSingle: async () => ({ data: run()[0] ?? null, error: null }),
       single: async () => ({ data: run()[0], error: null }),
