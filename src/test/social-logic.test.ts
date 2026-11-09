@@ -50,8 +50,11 @@ describe("canon social networks", () => {
     // platonic Kendra–Ben friendship.
     const isKendraBen = (l: { characterKey: string; otherKey: string }) =>
       [l.characterKey, l.otherKey].sort().join() === "ben,kendra";
+    // Carly and Brooke are canonically close friends and coworkers.
+    const isAfterDark = (l: { characterKey: string; otherKey: string }) =>
+      [l.characterKey, l.otherKey].sort().join() === "brooke,carly";
     for (const l of crossLinks) {
-      expect(l.level).toBe(isKendraBen(l) ? "friend" : "knows_of");
+      expect(l.level).toBe(isKendraBen(l) ? "friend" : isAfterDark(l) ? "close_friend" : "knows_of");
     }
     expect(crossLinks.filter(isKendraBen)).toHaveLength(2);
     // Claire and Jordan know nobody playable at start.

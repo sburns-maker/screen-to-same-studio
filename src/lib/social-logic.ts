@@ -68,8 +68,8 @@ export type LinkSeed = {
 export const CANON_NPCS: NpcSeed[] = [
   { characterKey: "carly", name: "Dez", relation: "After Dark bar manager", category: "coworker", blurb: "Fictional no-nonsense bar manager who covers Carly's bartending fill-ins and keeps staff areas private." },
   { characterKey: "carly", name: "Gina Reed", relation: "older sister in Pittsburgh", category: "family", blurb: "Fictional sister who calls on Sundays and still worries about Carly's night hours." },
-  { characterKey: "brooke", name: "Tasha", relation: "roommate and coworker", category: "friend", blurb: "Fictional roommate who dances at After Dark and runs the house group chat." },
-  { characterKey: "brooke", name: "Mel", relation: "roommate", category: "friend", blurb: "Fictional roommate and nursing student; early riser, terrible at moving furniture." },
+  { characterKey: "brooke", name: "Tasha Quinn", relation: "roommate and coworker", category: "friend", blurb: "Fictional roommate who dances at After Dark and runs the house group chat." },
+  { characterKey: "brooke", name: "Mel Ortiz", relation: "roommate", category: "friend", blurb: "Fictional roommate and nursing student; early riser, terrible at moving furniture." },
   { characterKey: "brooke", name: "Linda Halloway", relation: "mother in Erie", category: "family", blurb: "Fictional mom who sends long texts and wants Brooke to visit more." },
   { characterKey: "jade", name: "Maren", relation: "best friend since high school", category: "friend", blurb: "Fictional grounded best friend who enjoys Jade's wild ideas but expects her to follow through." },
   { characterKey: "jade", name: "Dani", relation: "director of clinical services", category: "coworker", blurb: "Fictional clinical lead at Harbor Point, practical about staffing, ethics and resident privacy." },
@@ -122,8 +122,8 @@ export const CANON_LINKS: LinkSeed[] = [
   { characterKey: "brooke", otherType: "character", otherKey: "carly", level: "close_friend", opinion: "The friend who looks out for everyone after shifts; a little wild, totally loyal.", reason: "Established After Dark friends and coworkers." },
   { characterKey: "carly", otherType: "npc", otherKey: "Dez", level: "familiar", opinion: "Fair boss, terrible music taste.", reason: "Carly's work." },
   { characterKey: "carly", otherType: "npc", otherKey: "Gina Reed", level: "family", opinion: "Overprotective but the person she calls first.", reason: "Carly's sister." },
-  { characterKey: "brooke", otherType: "npc", otherKey: "Tasha", level: "close_friend", opinion: "Roommate, coworker, chaos coordinator.", reason: "Brooke's roommate." },
-  { characterKey: "brooke", otherType: "npc", otherKey: "Mel", level: "friend", opinion: "Sweet, organized, useless with heavy boxes.", reason: "Brooke's roommate." },
+  { characterKey: "brooke", otherType: "npc", otherKey: "Tasha Quinn", level: "close_friend", opinion: "Roommate, coworker, chaos coordinator.", reason: "Brooke's roommate." },
+  { characterKey: "brooke", otherType: "npc", otherKey: "Mel Ortiz", level: "friend", opinion: "Sweet, organized, useless with heavy boxes.", reason: "Brooke's roommate." },
   { characterKey: "brooke", otherType: "npc", otherKey: "Linda Halloway", level: "family", opinion: "Loving, a lot, worth calling back.", reason: "Brooke's mother." },
   { characterKey: "jade", otherType: "npc", otherKey: "Maren", level: "close_friend", opinion: "Her favorite reality check; trusts her with both bad dates and wild plans.", reason: "Jade's independent best friend." },
   { characterKey: "jade", otherType: "npc", otherKey: "Dani", level: "friend", opinion: "Reliable creative partner who reins in impossible deadlines.", reason: "Jade's boutique coworker." },
@@ -147,7 +147,7 @@ export const CANON_LINKS: LinkSeed[] = [
 
   // Maya
   { characterKey: "maya", otherType: "npc", otherKey: "Greg", level: "familiar", opinion: "Fine as bosses go.", reason: "Canon: her boss." },
-  { characterKey: "maya", otherType: "npc", otherKey: "Tasha", level: "close_friend", opinion: "Would take a bullet, would also roast her.", reason: "Canon: coworker and close friend." },
+  { characterKey: "maya", otherType: "npc", otherKey: "Tasha Quinn", level: "close_friend", opinion: "Would take a bullet, would also roast her.", reason: "Canon: coworker and close friend." },
   { characterKey: "maya", otherType: "npc", otherKey: "Becca", level: "close_friend", opinion: "Misses her constantly.", reason: "Canon: college friend." },
   { characterKey: "maya", otherType: "npc", otherKey: "Andre", level: "acquaintance", opinion: "Useful to know.", reason: "Canon: venue DJ." },
   // Canon-adjacent: Maya "met the user through the trivia crowd" — she knows

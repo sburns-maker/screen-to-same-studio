@@ -79,7 +79,7 @@ describe("contact availability", () => {
   it("daytime contacts are asleep in the small hours", () => {
     const night = new Date("2026-10-21T07:00:00Z"); // 03:00 EDT
     for (const c of CHARACTER_LIST) {
-      if (c.key === "tess" || c.key === "riley") continue;
+      if (c.key === "tess" || c.key === "riley" || c.key === "carly" || c.key === "brooke") continue; // night workers
       expect(characterAvailability(c, night).availability).toBe("asleep");
     }
   });

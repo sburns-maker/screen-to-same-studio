@@ -91,6 +91,7 @@ vi.mock("@tanstack/react-query", () => ({
         },
 }));
 vi.mock("@/lib/tess.functions", () => ({ markRead: fixture.read, tessRespond: fixture.respond }));
+vi.mock("@/components/BrookeIntroductionPrompt", () => ({ BrookeIntroductionPrompt: () => null }));
 vi.mock("@/lib/photo-reference-library.functions", () => ({ refreshPendingPhotos: vi.fn() }));
 vi.mock("@/components/ProfileImageEditor", () => ({ ProfileImageEditor: () => null }));
 vi.mock("@/lib/profile-media.functions", () => ({ saveProfileImage: vi.fn() }));

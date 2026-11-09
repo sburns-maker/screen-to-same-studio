@@ -37,7 +37,7 @@ beforeEach(() => {
   mocks.refs.mockReset().mockImplementation(async (_db, _user, key) => [
     {
       url: `https://storage.example.com/${key}/canonical`,
-      blob: key === "jade" ? new Blob(["jade-approved-user-image"], { type: "image/jpeg" }) : (await canonicalProfile(key)).blob,
+      blob: ["jade", "carly", "brooke"].includes(key) ? new Blob([`${key}-approved-user-image`], { type: "image/jpeg" }) : (await canonicalProfile(key)).blob,
     },
   ]);
 });
