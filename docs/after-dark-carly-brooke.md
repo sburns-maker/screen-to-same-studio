@@ -21,8 +21,23 @@ They are crops from the approved concept poster. Smaller alternative crops lack 
 
 **Do not merge this staging-only branch expecting the contacts to appear in the app.** It captures approved identities and introduction policy while integration is pending.
 
-## Early introduction follow-up
-When full runtime integration is implemented, track `completedCarlyExchanges` and `BrookeIntroductionStatus` per owner/conversation. Within the **first 1–3 meaningful Carly exchanges**, naturally mention Brooke; after user curiosity, offer a group meal or social invitation. Do not generate an introduction when the scene context is urgent or awkward. Persist `mentioned`, `invited`, `declined`, `met`, and `contact_accepted` to prevent loops. The pure staging helper `nextBrookeIntroductionBeat` expresses the intended pacing, but it is **not yet wired into runtime messaging**.
+## First-conversation introduction: practical help
+After the first meaningful conversation Carly asks: "Hey, random favor. My friend Brooke needs an extra set of hands moving something. She said it's okay to pass you her number if you're up for helping. Mind texting her? I think you'll like her."
 
-## Portrait cleanup follow-up
-New concept renders were made and larger portrait preview crops exported separately in `after_dark_cleaner_previews.zip` for user review. These crops are **not true standalone high-resolution canonical portraits**, and upscaling does not restore details absent from poster-sized source images. Final photo integration requires separately generated, identity-matched high-resolution portrait sources (preferably at least 1024 px across the face/upper-body crop) and an independent quality check for face, hair, tattoo continuity, and uncropped clothing.
+- The player can decline without penalty. Carly does not keep nagging them.
+- Brooke explicitly opted into the introduction and the player accepts before her number is shared.
+- Unlock Brooke's texting contact at **mutual acceptance of contact exchange**, not after the move.
+- The player texts Brooke, Brooke schedules the moving help, and their first in-person meeting happens while moving a box or piece of furniture.
+- Relationship, flirtation, or any physical intimacy proceed separately; helping is not transactional.
+- The `nextBrookeIntroductionBeat` and `canStartBrookeHelpText` helpers and tests are staged, **not yet wired to the live phone system or server**.
+
+## Three reference photos per woman
+Exported as six separate JPGs in `after_dark_six_reference_photos.zip` (not yet uploaded to the in-app image reference library):
+- Carly_Reed_01_primary.jpg — 1024x1536, standalone generation
+- Carly_Reed_02_alternate.jpg — 1024x1536, standalone generation
+- Carly_Reed_03_evening_lower_resolution.jpg — 308x493, a different pose but from a composite; **replace before using as a canonical third slot**.
+- Brooke_Halloway_01_primary.jpg — 1086x1448, standalone generation
+- Brooke_Halloway_02_alternate.jpg — 1086x1448, standalone generation
+- Brooke_Halloway_03_evening.jpg — 1086x1448, standalone generation
+
+Please check facial/tattoo/hair identity consistency in all generations before making them canonical references. The exact images are intentionally not committed to source control or claimed uploaded to app storage. An authorized storage upload and third Carly replacement remain open work.
