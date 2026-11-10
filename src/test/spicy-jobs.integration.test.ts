@@ -124,7 +124,7 @@ async function submit(id = action) {
     "One fictional adult in opaque clothing",
     ["https://refs.example.com/canonical?token=private"],
     hash,
-    { scene: "at home", expression: null, style: { clothing_category: "blue sweater" } },
+    { scene: "at home", expression: null, type: "ordinary", photoType: "casual_selfie", style: { clothing_category: "blue sweater" } },
   );
 }
 async function pending() {
