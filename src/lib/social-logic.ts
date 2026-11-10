@@ -66,6 +66,7 @@ export type LinkSeed = {
 // ---------------------------------------------------------------------------
 
 export const CANON_NPCS: NpcSeed[] = [
+  { characterKey: "nina", name: "Lacey", relation: "sales coworker", category: "coworker", blurb: "A fictional coworker at Victoria’s Secret; independent friend, strict about customer privacy." },
   { characterKey: "carly", name: "Dez", relation: "After Dark bar manager", category: "coworker", blurb: "Fictional no-nonsense bar manager who covers Carly's bartending fill-ins and keeps staff areas private." },
   { characterKey: "carly", name: "Gina Reed", relation: "older sister in Pittsburgh", category: "family", blurb: "Fictional sister who calls on Sundays and still worries about Carly's night hours." },
   { characterKey: "brooke", name: "Tasha Quinn", relation: "roommate and coworker", category: "friend", blurb: "Fictional roommate who dances at After Dark and runs the house group chat." },
@@ -74,7 +75,6 @@ export const CANON_NPCS: NpcSeed[] = [
   { characterKey: "jade", name: "Maren", relation: "best friend since high school", category: "friend", blurb: "Fictional grounded best friend who enjoys Jade's wild ideas but expects her to follow through." },
   { characterKey: "jade", name: "Dani", relation: "director of clinical services", category: "coworker", blurb: "Fictional clinical lead at Harbor Point, practical about staffing, ethics and resident privacy." },
   { characterKey: "jade", name: "Aunt Val", relation: "aunt", category: "family", blurb: "Fictional aunt who taught Jade to love thrift stores and extravagant celebrations." },
-  { characterKey: "kendra", name: "Nina", relation: "best friend and gym partner", category: "friend", blurb: "Fictional best friend; morning workouts, reality-TV marathons and honest advice." },
   { characterKey: "kendra", name: "Marco", relation: "photographer she often works with", category: "coworker", blurb: "Fictional Altoona photographer who books Kendra for shoots; keeps client work private." },
   { characterKey: "sienna", name: "Avery", relation: "photography friend", category: "friend", blurb: "Fictional independent friend who exchanges photography ideas with Sienna; respects client privacy." },
   { characterKey: "sienna", name: "Ellis", relation: "bartending coworker", category: "coworker", blurb: "Fictional cocktail-bar coworker with their own shifts and opinions." },
@@ -128,7 +128,9 @@ export const CANON_LINKS: LinkSeed[] = [
   { characterKey: "jade", otherType: "npc", otherKey: "Maren", level: "close_friend", opinion: "Her favorite reality check; trusts her with both bad dates and wild plans.", reason: "Jade's independent best friend." },
   { characterKey: "jade", otherType: "npc", otherKey: "Dani", level: "friend", opinion: "Reliable creative partner who reins in impossible deadlines.", reason: "Jade's boutique coworker." },
   { characterKey: "jade", otherType: "npc", otherKey: "Aunt Val", level: "family", opinion: "Hilarious, fiercely supportive, a model for adventurous love.", reason: "Jade's aunt." },
-  { characterKey: "kendra", otherType: "npc", otherKey: "Nina", level: "close_friend", opinion: "Her ride-or-die; always tells her the truth.", reason: "Kendra's own best friend." },
+  { characterKey: "kendra", otherType: "character", otherKey: "nina", level: "close_friend", opinion: "Her ride-or-die, gym buddy and confidante; trusts her, but cannot know her private messages without real disclosure.", reason: "Pre-existing best friendship." },
+  { characterKey: "nina", otherType: "character", otherKey: "kendra", level: "close_friend", opinion: "Best friend since years ago; deeply loyal despite complicated private feelings.", reason: "Pre-existing best friendship." },
+  { characterKey: "nina", otherType: "npc", otherKey: "Lacey", level: "friend", opinion: "Trusted colleague with a very different approach to retail chaos.", reason: "Victoria's Secret sales coworkers." },
   { characterKey: "kendra", otherType: "npc", otherKey: "Marco", level: "familiar", opinion: "Reliable photographer, great eye, terrible playlists.", reason: "Kendra's own modeling work." },
   { characterKey: "kendra", otherType: "character", otherKey: "ben", level: "friend", opinion: "A genuinely good guy; like a big brother who roasts her.", reason: "User-set canon: platonic friends." },
   { characterKey: "ben", otherType: "character", otherKey: "kendra", level: "friend", opinion: "Fun, chaotic, a good friend; Sarah likes her too.", reason: "User-set canon: platonic friends." },
