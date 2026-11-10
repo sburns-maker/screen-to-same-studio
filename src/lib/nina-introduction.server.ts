@@ -16,7 +16,7 @@ export function ninaOpeningPath(userId: string): string {
 }
 
 function canonicalBytes(): Uint8Array {
-  const match = /^data:image\\/jpeg;base64,([a-z0-9+/=]+)$/i.exec(openingJpeg);
+  const match = /^data:image\/jpeg;base64,([a-z0-9+/=]+)$/i.exec(openingJpeg);
   if (!match) throw new Error("Approved Nina opening JPEG is missing");
   const raw = atob(match[1]!);
   const bytes = Uint8Array.from(raw, ch => ch.charCodeAt(0));
