@@ -8,7 +8,7 @@ export type PhotoProviderKind = "ordinary" | "spicyapi";
 export type SpicyCategory = "ordinary" | "mature_romantic" | "suggestive";
 
 /** Characters whose every person photo (selfies, candids, portraits) uses SpicyAPI. */
-export const SPICY_ALL_PERSON_PHOTOS = ["carly", "brooke"] as const;
+export const SPICY_ALL_PERSON_PHOTOS = ["carly", "brooke", "nina"] as const;
 
 const MATURE = new Set(["mature_romantic", "suggestive"]);
 
