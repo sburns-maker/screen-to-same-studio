@@ -79,7 +79,7 @@ export async function repairLegacyNinaIntroduction(
   const first = rows[0]!;
   if (first.sender !== "tess" || first.body !== oldTrivia) return "unchanged";
   const existingMd = first.metadata as Record<string, unknown> | null;
-  if (existingMd?.generated_path || existingMd?.photo) return "unchanged";
+  if (existingMd?.['generated_path'] || existingMd?.['photo']) return "unchanged";
 
   const path = await uploadNinaOpening(db, userId);
   const photoId = crypto.randomUUID();
