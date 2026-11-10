@@ -49,7 +49,7 @@ describe("browser photo setup checks", () => {
     const status = await photoSetupStatus("my-user-id");
     expect(status.migration).toBe("present");
     expect(status.tessReference).toBe("present");
-    expect(status.canonicalReferences).toHaveLength(10);
+    expect(status.canonicalReferences).toHaveLength(11);
     expect(status.canonicalReferences.every((ref) => ref.status === "structurally_usable")).toBe(true);
     expect(mocks.list).not.toHaveBeenCalled();
     expect(mocks.rpc).toHaveBeenCalledWith("deliver_photo_turn", { p_job_id: null });
