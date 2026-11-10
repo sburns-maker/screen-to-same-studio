@@ -33,10 +33,17 @@ BEGIN
  ] LOOP
    SELECT pg_get_functiondef(signature::regprocedure) INTO definition;
    IF position('''nina''' IN definition)>0 THEN CONTINUE; END IF;
+   -- Most post-0072 functions list Carly/Brooke together. Some relationship
+   -- guards have not admitted those characters; extend the Kendra/Jade pair
+   -- without changing unrelated commitment kinds or eligibility conditions.
    updated := replace(definition, '''carly'',''brooke''',
                                      '''carly'',''brooke'',''nina''');
    IF updated=definition THEN
-     RAISE EXCEPTION 'Expected Carly/Brooke cast allowlist absent: %', signature;
+     updated := replace(definition, '''kendra'',''jade''',
+                                       '''kendra'',''jade'',''nina''');
+   END IF;
+   IF updated=definition THEN
+     RAISE EXCEPTION 'Expected reviewed cast guard absent: %', signature;
    END IF;
    EXECUTE updated;
  END LOOP;
