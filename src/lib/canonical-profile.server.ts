@@ -12,9 +12,10 @@ import kendra from "@/assets/avatars/kendra-canon.jpg?inline";
 import jade from "@/assets/avatars/jade-canon.jpg?inline";
 import brooke from "@/assets/avatars/brooke-canon.jpg?inline";
 import carly from "@/assets/avatars/carly-canon.jpg?inline";
+import nina from "@/assets/avatars/nina-canon.jpg?inline";
 import { PROFILE_PORTRAITS } from "./character-portraits";
 import type { CharacterKey } from "./characters";
-const originals: Partial<Record<CharacterKey, string>> = { tess, maya, claire, jordan, ben, riley, sienna, kendra, jade, brooke, carly };
+const originals: Partial<Record<CharacterKey, string>> = { tess, maya, claire, jordan, ben, riley, sienna, kendra, jade, brooke, carly, nina };
 export function jpegDimensions(bytes: Uint8Array) {
   if (bytes.length < 4 || bytes.length > 4 * 1024 * 1024 || bytes[0] !== 255 || bytes[1] !== 216)
     throw new Error("Canonical profile is not a supported JPEG");
