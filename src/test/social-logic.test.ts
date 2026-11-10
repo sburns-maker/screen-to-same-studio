@@ -51,12 +51,15 @@ describe("canon social networks", () => {
     const isKendraBen = (l: { characterKey: string; otherKey: string }) =>
       [l.characterKey, l.otherKey].sort().join() === "ben,kendra";
     // Carly and Brooke are canonically close friends and coworkers.
+    const isKendraNina = (l: { characterKey: string; otherKey: string }) =>
+      [l.characterKey, l.otherKey].sort().join() === "kendra,nina";
     const isAfterDark = (l: { characterKey: string; otherKey: string }) =>
       [l.characterKey, l.otherKey].sort().join() === "brooke,carly";
     for (const l of crossLinks) {
-      expect(l.level).toBe(isKendraBen(l) ? "friend" : isAfterDark(l) ? "close_friend" : "knows_of");
+      expect(l.level).toBe(isKendraBen(l) ? "friend" : (isAfterDark(l) || isKendraNina(l)) ? "close_friend" : "knows_of");
     }
     expect(crossLinks.filter(isKendraBen)).toHaveLength(2);
+    expect(crossLinks.filter(isKendraNina)).toHaveLength(2);
     // Claire and Jordan know nobody playable at start.
     expect(crossLinks.some((l) => l.characterKey === "claire")).toBe(false);
     expect(crossLinks.some((l) => l.characterKey === "jordan")).toBe(false);

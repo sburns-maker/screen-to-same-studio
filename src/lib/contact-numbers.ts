@@ -15,6 +15,7 @@ export const CONTACT_DISPLAY_NUMBERS: Readonly<Record<string, string>> = Object.
   jade: "8146047261",
   carly: "8146093318",
   brooke: "8146093452",
+  nina: "8146093570",
   "rowan-ellis": "8146312847",
   "leah-moss": "8147426031",
   "nolan-reed": "8145098263",

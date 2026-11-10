@@ -84,6 +84,11 @@ async function loadConversations(supabase: Sb, userId: string): Promise<ConvRow[
 
 export async function seedConversation(supabase: Sb, userId: string, character: CharacterRow) {
   const def = characterFor(character.key);
+  // Upload the approved Nina-specific picture before creating her thread. If
+  // storage denies the photo, do not send a text claiming a photo was attached.
+  const ninaOpening = def.key === "nina"
+    ? await (await import("./nina-introduction.server")).uploadNinaOpening(supabase, userId)
+    : null;
   // New contacts inherit existing global simulation and messaging preferences.
   const { data: prefs } = await supabase.from("conversations")
     .select("show_sim_data,real_time_mode,typing_indicator,read_receipts")
@@ -97,10 +102,28 @@ export async function seedConversation(supabase: Sb, userId: string, character: 
     .select("*")
     .single();
   if (error) throw new Error(error.message);
-  await supabase.from("tess_state").insert({ conversation_id: conv.id, user_id: userId, ...def.seedState });
+  const state = await supabase.from("tess_state").insert({ conversation_id: conv.id, user_id: userId, ...def.seedState });
+  if (state.error) throw new Error("Character starting state unavailable");
   const opener = def.key === "tess" ? FIRST_MESSAGE : def.opener;
   if (opener) {
-    await supabase.from("messages").insert({ conversation_id: conv.id, user_id: userId, sender: "tess", body: opener });
+    const photoId = ninaOpening ? crypto.randomUUID() : null;
+    const md = ninaOpening && photoId
+      ? (await import("./nina-introduction.server")).ninaIntroMessageMetadata(ninaOpening, photoId)
+      : {};
+    const first = await supabase.from("messages").insert({
+      conversation_id: conv.id, user_id: userId, sender: "tess", body: opener, metadata: md,
+    }).select("id").single();
+    if (first.error || !first.data) throw new Error("Character introduction delivery unavailable");
+    if (ninaOpening && photoId) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const saved = await (supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient)
+        .from("nina_introductions").upsert({
+          user_id: userId, status: "delivered",
+          opening_message_id: first.data.id, opening_photo_id: photoId,
+          introduced_at: new Date().toISOString(),
+        }, { onConflict: "user_id", ignoreDuplicates: true });
+      if (saved.error) throw new Error("Nina introduction record unavailable");
+    }
   }
   return conv;
 }

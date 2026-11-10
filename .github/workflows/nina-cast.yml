@@ -1,0 +1,33 @@
+name: Nina cast and photo introduction
+on:
+  pull_request:
+    paths:
+      - "src/lib/nina-*"
+      - "src/lib/characters.ts"
+      - "src/lib/character-portraits.ts"
+      - "src/lib/canonical-profile.server.ts"
+      - "src/lib/photo-*.ts"
+      - "src/lib/phone-calls.ts"
+      - "src/lib/contact-numbers.ts"
+      - "src/lib/social-logic.ts"
+      - "src/lib/tess.functions.ts"
+      - "src/assets/avatars/nina-*.jpg"
+      - "drizzle/migrations/0075_nina_cast_and_introduction.sql"
+      - ".github/workflows/nina-cast.yml"
+  workflow_dispatch:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Verify the two approved portrait assets are present
+        run: |
+          test -s src/assets/avatars/nina-canon.jpg
+          test -s src/assets/avatars/nina-opening.jpg
+          file src/assets/avatars/nina-canon.jpg src/assets/avatars/nina-opening.jpg | grep -c "JPEG image" | grep -q "^2$"
+      - run: bunx vitest run src/lib/nina-cast.test.ts
+      - run: bunx tsc --noEmit
+      - run: bun run build

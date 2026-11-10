@@ -36,6 +36,7 @@ export const CHARACTER_VOICE_PRESETS: Record<VoiceDesignKey, { name: string; pro
   kendra: { name: "Kendra — Bright & Playful", prompt: VOICE_DESIGNS.kendra.description + HUMAN },
   carly: { name: "Carly — Bold & Teasing", prompt: VOICE_DESIGNS.carly.description + HUMAN },
   brooke: { name: "Brooke — Bright & Bubbly", prompt: VOICE_DESIGNS.brooke.description + HUMAN },
+  nina: { name: "Nina — Witty & Confident", prompt: VOICE_DESIGNS.nina.description + HUMAN },
   jade: { name: "Jade — Fearless & Warm", prompt: VOICE_DESIGNS.jade.description + HUMAN },
   sienna: { name: "Sienna — Confident & Warm", prompt: VOICE_DESIGNS.sienna.description + HUMAN },
   tess: { name: TESS_REFERENCE_VOICE_NAME, prompt: TESS_REFERENCE_VOICE_PROMPT },
