@@ -5,7 +5,7 @@ import { SEED_STATE } from "@/lib/tess-logic";
 
 describe("character roster", () => {
   it("includes the five original contacts and Riley", () => {
-    expect(CHARACTER_LIST.map((c) => c.key).sort()).toEqual(["ben", "brooke", "carly", "claire", "jade", "jordan", "kendra", "maya", "riley", "sienna", "tess"]);
+    expect(CHARACTER_LIST.map((c) => c.key).sort()).toEqual(["ben", "brooke", "carly", "claire", "jade", "jordan", "kendra", "maya", "nina", "riley", "sienna", "tess"]);
   });
 
   it("every character lives in or near ZIP 16602", () => {
