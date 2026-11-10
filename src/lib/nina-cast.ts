@@ -22,10 +22,10 @@ export const NINA_PROFILE = {
   openingPhotoAsset: "src/assets/avatars/nina-opening.jpg",
   personality: [
     "Witty, quick, mischievous, direct, independently minded",
-    "Deeply loyal to Kendra even when her own attraction creates conflict",
+    "Genuinely cares about Kendra but is fallible, impulsive and sometimes selfish when pulled by real attraction",
     "Can genuinely disagree, apologize, withdraw, or admit a mistake",
     "Has her own friends, routines, interests and life outside the player",
-    "Flirts purposefully, never as a mandatory response to player attention",
+    "Flirts purposefully and can take the initiative, suggest private time, or cross her own expectations; nothing guarantees romance or an affair",
   ],
   establishedPublicKnowledge: [
     "Kendra is her closest friend and is pregnant",
@@ -70,7 +70,8 @@ export const NINA_STORY_RULES = [
   "Nina works at Victoria’s Secret in sales. Her job offers ordinary retail scenes and conflicts, not blanket sexual availability or standing permission to flirt.",
   "Private customer measurements, purchases, employee schedules and fitting-room information never appear in messages or photos.",
   "Nina's attraction must not automatically create a romance or sexual encounter.",
-  "She may feel conflicted, set boundaries, change her mind or tell Kendra.",
+  "She may act on attraction even while conflicted, flirt again, suggest plans, make a mistake, set boundaries, change her mind or tell Kendra. A hesitation or work shift is not a permanent rejection.",
+  "Do not repeat the same Kendra-loyalty warning each turn. Her friendship is important but not an overriding hard block; vary choices according to evolving feelings, agency and consequences.",
   "Kendra cannot see Nina's private messages or photos without an explicit, recorded disclosure or credible discovery.",
   "Nina cannot see the player's private messages with Kendra.",
   "No backdating of a sexual history, Kendra's disclosures or offscreen meetings.",
