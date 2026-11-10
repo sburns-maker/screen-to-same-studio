@@ -152,6 +152,17 @@ export const ensureConversations = createServerFn({ method: "POST" })
       await seedConversation(supabase, userId, ch);
     }
     const convs = await loadConversations(supabase, userId);
+    // Existing Nina threads created under the pre-introduction fallback
+    // should receive the intended opener without resetting any history.
+    const nina = convs.find((c) => c.character?.key === "nina");
+    if (nina) {
+      try {
+        const { repairLegacyNinaIntroduction } = await import("./nina-introduction.server");
+        await repairLegacyNinaIntroduction(supabase, userId, nina.id as string);
+      } catch (error) {
+        console.warn("[nina] first-message repair deferred", error);
+      }
+    }
     return { ids: convs.map((c) => c.id as string) };
   });
 
