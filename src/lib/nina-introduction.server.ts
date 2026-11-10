@@ -52,3 +52,64 @@ export function ninaIntroMessageMetadata(path: string, photoId: string) {
     photo_source: NINA_INTRO_VERSION,
   };
 }
+
+/**
+ * Repair an already-created Nina conversation whose only initial message is
+ * the legacy Tess trivia opener. This happens when a conversation was created
+ * before the Nina introduction code became active. It is NOT a general history
+ * rewrite, and must never modify a conversation the user has replied to.
+ */
+export async function repairLegacyNinaIntroduction(
+  db: SupabaseClient,
+  userId: string,
+  conversationId: string,
+): Promise<"repaired" | "unchanged"> {
+  const { NINA_PROFILE } = await import("./nina-cast");
+  const oldTrivia = "Okay, important question. Did your team actually know any of those answers Friday or were you all confidently guessing?";
+  const { data: rows, error: listError } = await db.from("messages")
+    .select("id,sender,body,metadata")
+    .eq("user_id", userId)
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true })
+    .limit(3);
+  if (listError) throw new Error("Nina introduction inspection failed");
+  // Never rewrite anything once an exchange has started, or if there are
+  // multiple messages. No cross-character updates, no duplicate introduction.
+  if (!rows || rows.length !== 1) return "unchanged";
+  const first = rows[0]!;
+  if (first.sender !== "tess" || first.body !== oldTrivia) return "unchanged";
+  const existingMd = first.metadata as Record<string, unknown> | null;
+  if (existingMd?.generated_path || existingMd?.photo) return "unchanged";
+
+  const path = await uploadNinaOpening(db, userId);
+  const photoId = crypto.randomUUID();
+  const metadata = { ...(existingMd ?? {}), ...ninaIntroMessageMetadata(path, photoId) };
+  // Compare-and-swap the exact legacy body to prevent concurrent duplicate
+  // repair. Keep the original message id and timestamp (no timeline reset).
+  const { data: updated, error: updateError } = await db.from("messages")
+    .update({ body: NINA_PROFILE.openingText, metadata })
+    .eq("id", first.id)
+    .eq("user_id", userId)
+    .eq("conversation_id", conversationId)
+    .eq("sender", "tess")
+    .eq("body", oldTrivia)
+    .select("id")
+    .maybeSingle();
+  if (updateError) throw new Error("Nina opening message repair failed");
+  if (!updated) return "unchanged";
+
+  // The messaging/photo update is authoritative. The introduction ledger is
+  // an owner-scoped once-only marker; retry safely if a previous write failed.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error: ledgerError } = await (supabaseAdmin as unknown as SupabaseClient)
+    .from("nina_introductions")
+    .upsert({
+      user_id: userId,
+      status: "delivered",
+      opening_message_id: first.id,
+      opening_photo_id: photoId,
+      introduced_at: new Date().toISOString(),
+    }, { onConflict: "user_id", ignoreDuplicates: true });
+  if (ledgerError) console.warn("[nina] opening restored but intro ledger update deferred");
+  return "repaired";
+}
