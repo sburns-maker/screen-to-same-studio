@@ -44,6 +44,10 @@ export const VOICE_DESIGNS = {
     name: "Brooke — Bright & Bubbly",
     description: "An adult American woman, 26, from Erie, Pennsylvania. Bright, friendly, bubbly feminine voice with playful energy, giggles and practical clarity when planning. No real-person imitation, exaggerated breathiness or caricature.",
   },
+  nina: {
+    name: "Nina — Witty & Confident",
+    description: "Adult American woman, 27, from central Pennsylvania. Bright, expressive feminine midrange voice with quick confident humor, playful teasing and believable reflective warmth; natural pauses, never performative, breathy or a real person imitation.",
+  },
   jade: {
     name: "Jade — Impulsive & Bright",
     description: "A 25-year-old American woman from central Pennsylvania with an expressive, lively midrange feminine voice, quick spontaneous humor, warm slightly raspy laughter, confident playful timing and the ability to turn unexpectedly tender and sincere. Naturally connected speech with real pauses and emotional nuance; never scripted, exaggeratedly breathy or announcer-like.",
@@ -51,7 +55,7 @@ export const VOICE_DESIGNS = {
 } as const;
 export type VoiceDesignKey = keyof typeof VOICE_DESIGNS;
 /** Shared cast allowlist for creation, auditions and phone-voice assignment. */
-export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra", "carly", "brooke", "jade"] as const satisfies readonly VoiceDesignKey[];
+export const VOICE_DESIGN_KEYS = ["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra", "carly", "brooke", "jade", "nina"] as const satisfies readonly VoiceDesignKey[];
 
 /**
  * Longer script hint used only for custom voice creation (OpenAI rejects short
