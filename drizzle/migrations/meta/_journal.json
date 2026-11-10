@@ -519,6 +519,13 @@
       "when": 1794194540950,
       "tag": "0073_after_dark_activation_note",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1794305390061,
+      "tag": "0074_spicy_ordinary_photo_delivery",
+      "breakpoints": true
     }
   ]
 }
