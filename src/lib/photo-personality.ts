@@ -36,6 +36,19 @@ export type PhotographyProfile = {
   scenarios: Partial<Record<PhotoScenario, number>>;
 };
 export const PHOTOGRAPHY_PROFILES = {
+  nina: {
+    key: "nina",
+    styles: ["natural candid front-camera selfie", "varied playful portrait with realistic off-center framing", "modest outfit check when dressing up", "ordinary photo of a snack or coffee after work"],
+    expressions: ["mischievous warm smile", "confident direct gaze", "laughing naturally", "thoughtful look after a complicated conversation"],
+    settings: ["at home", "on a real errand", "personal break away from customers", "gym after a workout"],
+    wardrobe: ["actual current casual outfit", "established jeans and fitted tee", "work-safe top with jeans or trousers", "evening outfit only when established in scene"],
+    hairstyles: ["reference-compatible long dimensional blonde waves", "loosely tied-back blonde hair during actual retail shift"],
+    selfies: ["upright front-camera selfie", "natural slight three-quarter portrait", "realistic mirror outfit check when present", "ordinary activity detail"],
+    captionVoice: "Nina is a witty, independent Victoria’s Secret sales associate and Kendra’s loyal friend. A playful private photo is possible if willingly chosen; no automatic lingerie, sexual posing, customer images or fitting-room scenarios because of her job.",
+    spontaneity: 0.69, hours: 5, messages: 3,
+    subjects: "retail shift stories, work-safe outfits, gym with Kendra when truly established, coffee, reality TV, errands, and independently chosen non-explicit adult flirtation",
+    scenarios: { playful_reply: 1.5, outfit_check: 1.3, post_work: 1.3, at_home: 1.2 },
+  },
   carly: {
     key: "carly",
     styles: ["confident front-camera selfies with varied upright angles", "glamorous getting-ready mirror shots when a mirror is present", "candid nightlife or concert snapshots", "personal off-duty portraits that contrast with her confident stage persona"],
