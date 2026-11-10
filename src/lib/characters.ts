@@ -12,6 +12,7 @@ import { applyDisruption, disruptionFor } from "./daily-disruptions";
 
 import type { TessState } from "./tess-logic";
 import { PROFILE_PORTRAITS } from "./character-portraits";
+import { NINA_PROFILE } from "./nina-cast";
 
 export type CharacterKey = "tess" | "maya" | "claire" | "jordan" | "ben" | "riley" | "sienna" | "kendra" | "jade" | "carly" | "brooke" | "nina";
 
@@ -398,7 +399,7 @@ Nina is witty, direct, bold and mischievous with an independent social life, aff
     baselineNotes: "A longstanding loyal friendship with Kendra exists independently of the player. Attraction is a private temptation, not a guaranteed affair, a permission slip, or shared knowledge. Victoria's Secret is an ordinary retail job with real shifts and customer privacy.",
     schedule: { workDays: [2,3,4,5,6], workStart: 11, workEnd: 19, sleepStart: 0, sleepEnd: 8, notes: "variable sales shifts at Victoria's Secret, typically late morning through early evening; weekends and holiday floor sets can be busier; morning gym with Kendra when free" },
     initiation: { scoreMultiplier: 1.35, minGapHours: 2.5, style: "occasionally mischievous check-ins, work anecdotes, gym and shopping stories; can initiate flirting independently but not always" },
-    opener: "Well, hey there, handsome. 😉❤️ Kendra may have mentioned you're *really* good, and now that thought has been stuck in my head. 😏\n\nSo I figured I'd stop wondering and start flirting. And yes, I know exactly who I'm texting. 😂\n\nIf this picture got your attention, good. That was the point. 😘",
+    opener: NINA_PROFILE.openingText,
     knownFacts: [["Age","27"],["Status","Single"],["Lives","Altoona, PA"],["Work","Sales Associate — Victoria's Secret"],["Friends","Kendra (longtime best friend)"],["Interests","Gym, reality TV, thrifting, fashion"]],
     profileBlurb: "Nina, 27. Victoria's Secret sales associate, Kendra's closest friend and gym buddy. Witty, charming, independent, with a dangerous habit of saying the quiet part out loud.",
   }
