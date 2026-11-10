@@ -14,7 +14,7 @@ describe("live character call rules", () => {
     expect(LIVE_CALL_CHARACTERS).toContain("riley");
     expect(LIVE_CALL_CHARACTERS).toContain("sienna");
     expect(LIVE_CALL_CHARACTERS).toContain("kendra");
-    expect(LIVE_CALL_CHARACTERS).toHaveLength(11);
+    expect(LIVE_CALL_CHARACTERS).toHaveLength(12);
   });
   it("defaults to 5-minute calls, 20 a day and 2 hours a month", () => {
     expect(liveCallLimits({})).toEqual({ seconds: 300, leaseSeconds: 450, daily: 20, monthlySeconds: 7200 });
