@@ -2081,6 +2081,33 @@ export type Database = {
           },
         ]
       }
+      nina_introductions: {
+        Row: {
+          created_at: string
+          introduced_at: string | null
+          opening_message_id: string | null
+          opening_photo_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          introduced_at?: string | null
+          opening_message_id?: string | null
+          opening_photo_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          introduced_at?: string | null
+          opening_message_id?: string | null
+          opening_photo_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       npcs: {
         Row: {
           blurb: string
