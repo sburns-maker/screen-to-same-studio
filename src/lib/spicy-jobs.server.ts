@@ -19,6 +19,7 @@ import {
 } from "./spicy-image.server";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
+import { spicyDeliveryBoundaryAllows } from "./spicy-delivery-boundary";
 type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
@@ -287,7 +288,7 @@ export const processSpicyPhotos = createServerOnlyFn(async function processSpicy
           .eq("id", job.conversation_id)
           .maybeSingle();
         if (conversation.error) throw new Error("spicy_conversation_unavailable");
-        if (!conversation.data?.mature_photography || conversation.data.photo_boundary !== "none") {
+        if (!spicyDeliveryBoundaryAllows(job.payload, conversation.data)) {
           await finish(db, job, null, "spicy_boundary_changed");
           continue;
         }
