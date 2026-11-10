@@ -9,6 +9,7 @@ import kendra from "@/assets/avatars/kendra.jpg.asset.json";
 import jade from "@/assets/avatars/jade-canon.jpg";
 import carly from "@/assets/avatars/carly-canon.jpg";
 import brooke from "@/assets/avatars/brooke-canon.jpg";
+import nina from "@/assets/avatars/nina-canon.jpg";
 /** Existing UI assets are authoritative. Never replace these with generated outputs. */
 export const PROFILE_PORTRAITS = {
   tess: { avatar: tess, asset: "src/assets/tess.jpg" },
@@ -22,4 +23,5 @@ export const PROFILE_PORTRAITS = {
   jade: { avatar: jade, asset: "src/assets/avatars/jade-canon.jpg" },
   carly: { avatar: carly, asset: "src/assets/avatars/carly-canon.jpg" },
   brooke: { avatar: brooke, asset: "src/assets/avatars/brooke-canon.jpg" },
+  nina: { avatar: nina, asset: "src/assets/avatars/nina-canon.jpg" },
 } as const;
