@@ -34,8 +34,10 @@ export const NINA_PROFILE = {
     "Nina knows of the player through Kendra, but has not previously had a private chat",
   ],
   openingText: [
-    "I'm just going to say the quiet part out loud — Kendra may have mentioned you're good, and now that thought has been stuck in my head.",
+    "Well, hey there, handsome. 😉❤️",
+    "I'm just going to say the quiet part out loud. Kendra may have mentioned you're *really* good, and now that thought has been stuck in my head. 😏",
     "So I figured I'd stop wondering and start flirting.",
+    "And yes, I know exactly who I'm texting. 😂",
     "If this picture got your attention, good. That was the point. 😘",
   ].join("\n\n"),
 } as const;
