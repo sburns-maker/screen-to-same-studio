@@ -4,6 +4,8 @@ import {
   planPhotography,
   continuityPhotoStyle,
   deliveredPhotoHistory,
+  photographyGuidance,
+  photographyProfile,
   type DeliveredPhoto,
 } from "@/lib/photo-personality";
 import { selectPhotoComposition, repeatsCapture } from "@/lib/photo-composition";
@@ -122,6 +124,59 @@ describe("grounded photo capture", () => {
         now,
       ),
     ).toHaveLength(1);
+  });
+});
+
+describe("Sienna bar shift framing", () => {
+  it("provides several work-grounded subjects without requiring outfit or hairstyle changes", () => {
+    const profile = photographyProfile("sienna");
+    expect(profile.styles.some((value) => /cocktail-making detail/.test(value))).toBe(true);
+    expect(profile.selfies.some((value) => /bar-tool or drink detail/.test(value))).toBe(true);
+    expect(profile.selfies.some((value) => /counter/.test(value))).toBe(true);
+    expect(profile.wardrobe.some((value) => /consistent during the shift/.test(value))).toBe(true);
+  });
+
+  it("applies bar-shift guidance only when Sienna is physically at work", () => {
+    const base = {
+      character: "sienna",
+      key: "shift:photo",
+      now: new Date("2026-11-10T21:00:00Z"),
+      schedule: {
+        activity: "bartending",
+        detail: "behind the bar, quick pause between drinks",
+        availability: "limited" as const,
+      },
+    };
+    const shift = planPhotography(base);
+    expect(shift.location).toBe("work");
+    expect(photographyGuidance(shift)).toContain("SIENNA BAR-SHIFT VARIETY");
+    expect(photographyGuidance(shift)).toContain("never invent a photographer");
+    const home = planPhotography({
+      ...base,
+      key: "home:photo",
+      schedule: { activity: "at home", detail: "relaxing on the couch", availability: "free" },
+    });
+    expect(photographyGuidance(home)).not.toContain("SIENNA BAR-SHIFT VARIETY");
+  });
+
+  it("retains the last established work clothes across successive work images", () => {
+    const prior: DeliveredPhoto = {
+      character: "sienna",
+      at: "2026-11-10T20:30:00Z",
+      location: "work",
+      style: { ...oldStyle, clothing_category: "black cotton bar shirt", hairstyle: "loose copper-red hair" },
+      objects: [],
+    };
+    const plan = planPhotography({
+      character: "sienna",
+      key: "shift:followup",
+      now: new Date("2026-11-10T21:00:00Z"),
+      schedule: { activity: "bartending", detail: "behind the bar between orders", availability: "limited" },
+      previous: prior,
+    });
+    expect(plan.outfitLocked).toBe(true);
+    expect(plan.continuity.clothing).toBe("black cotton bar shirt");
+    expect(plan.continuity.hairstyle).toBe("loose copper-red hair");
   });
 });
 
