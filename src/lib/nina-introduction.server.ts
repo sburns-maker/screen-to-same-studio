@@ -29,12 +29,17 @@ function canonicalBytes(): Uint8Array {
 export async function uploadNinaOpening(db: SupabaseClient, userId: string): Promise<string> {
   const path = ninaOpeningPath(userId);
   const storage = db.storage.from("tess-photos");
-  const result = await storage.upload(path, canonicalBytes(), { contentType: "image/jpeg", upsert: false });
+  const approved = canonicalBytes();
+  const result = await storage.upload(path, approved, { contentType: "image/jpeg", upsert: false });
   if (result.error) {
     // Retries must not overwrite a delivered photo; the existing owned path
     // must be independently readable before it can count as uploaded.
     const existing = await storage.download(path);
     if (existing.error || !existing.data) throw new Error("Nina opening photo storage unavailable");
+    const prior = new Uint8Array(await existing.data.arrayBuffer());
+    // Never trust an unexpected file already stored under this deterministic key.
+    const equal = prior.length === approved.length && prior.every((byte, i) => byte === approved[i]);
+    if (!equal) throw new Error("Existing Nina opening file is not the approved canonical image");
   }
   return path;
 }
