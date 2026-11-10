@@ -11,7 +11,7 @@ export async function photoSetupStatus(userId: string, checkModel = false) {
   let migration: Check = "not checked";
   const { canonicalProfile } = await import("./canonical-profile.server");
   let resolveReference = canonicalProfile as (
-    key: "tess" | "maya" | "claire" | "jordan" | "ben" | "sienna" | "kendra" | "jade" | "carly" | "brooke",
+    key: "tess" | "maya" | "claire" | "jordan" | "ben" | "sienna" | "kendra" | "jade" | "carly" | "brooke" | "nina",
   ) => Promise<Omit<Awaited<ReturnType<typeof canonicalProfile>>, "asset"> & { asset: string }>;
   if (servicePresent) {
     const { currentCanonical } = await import("./profile-media.server");
@@ -19,7 +19,7 @@ export async function photoSetupStatus(userId: string, checkModel = false) {
     resolveReference = (key) => currentCanonical(supabaseAdmin, userId, key);
   }
   const canonicalReferences = await Promise.all(
-    (["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra", "jade", "carly", "brooke"] as const).map(async (key) => {
+    (["tess", "maya", "claire", "jordan", "ben", "sienna", "kendra", "jade", "carly", "brooke", "nina"] as const).map(async (key) => {
       try {
         const ref = await resolveReference(key);
         return {
