@@ -11,11 +11,11 @@ import { AUDITION_SCRIPT } from "@/lib/voice-studio-audition";
 
 describe("GPT-Live character voice identities", () => {
   it("has distinct non-impersonating designs for all primary contacts", () => {
-    expect(Object.keys(VOICE_DESIGNS)).toEqual(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra", "carly", "brooke", "jade"]);
+    expect(Object.keys(VOICE_DESIGNS)).toEqual(["tess", "maya", "claire", "jordan", "ben", "riley", "sienna", "kendra", "carly", "brooke", "nina", "jade"]);
     expect(VOICE_DESIGN_KEYS).toEqual(Object.keys(VOICE_DESIGNS));
     expect(VOICE_DESIGNS.tess.description).toContain("never");
     expect(VOICE_DESIGNS.tess.description).toContain("never husky");
-    expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(11);
+    expect(new Set(Object.values(VOICE_DESIGNS).map((x) => x.description)).size).toBe(12);
   });
   it("refuses missing and arbitrary stock voice names", () => {
     expect(customVoiceId("tess", {})).toBeNull();
