@@ -4318,6 +4318,17 @@ export type Database = {
         Returns: number
       }
       relationship_sync_tess: { Args: { p_user: string }; Returns: number }
+      repair_nina_legacy_intro: {
+        Args: {
+          p_body: string
+          p_conversation: string
+          p_expected_ids: string[]
+          p_metadata: Json
+          p_photo: string
+          p_user: string
+        }
+        Returns: boolean
+      }
       reserve_image_attempt: {
         Args: {
           p_action_id: string

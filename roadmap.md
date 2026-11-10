@@ -1,3 +1,4 @@
+- [x] Restore Nina's authored opening and approved photo; atomic repair preserves replies/paid media. Signed-in chat and photo verified; 7 focused tests passed. No publish or paid requests.
 - [x] Schedule Tess's non-graphic maternity event for November 10, 8 PM Eastern; signed-in calendar and scheduled experience verified, 22 tests passed. No start, birth record or publish.
 - [x] Sync Maya's Fanelli's date (Oct 25, 7pm) to calendar
 - [x] Patch plan parser: venue aliases, 'what about', 'it is', mid-message 'sounds good'
