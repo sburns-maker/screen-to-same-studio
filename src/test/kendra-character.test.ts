@@ -36,9 +36,9 @@ describe("Kendra Blake independent adult cast integration", () => {
     expect(CHARACTER_VOICE_PRESETS.kendra.prompt.length).toBeGreaterThan(40);
   });
   it("has her own friends plus a platonic friendship with Ben only", () => {
-    expect(CANON_NPCS.filter(n => n.characterKey === "kendra").map(n => n.category)).toEqual(["friend", "coworker"]);
+    expect(CANON_NPCS.filter(n => n.characterKey === "kendra").map(n => n.category)).toEqual(["coworker"]);
     const cross = CANON_LINKS.filter(n => n.characterKey === "kendra" && n.otherType === "character");
-    expect(cross.map(l => [l.otherKey, l.level])).toEqual([["ben", "friend"]]);
+    expect(cross.map(l => [l.otherKey, l.level])).toEqual([["ben", "friend"], ["nina", "close_friend"]]);
     expect(CHARACTERS.ben.romanticCapable).toBe(false);
   });
 });
