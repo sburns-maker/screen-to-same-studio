@@ -1,9 +1,8 @@
 /**
  * Nina: adult recurring character in Kendra's social circle.
  *
- * Intentionally isolated from the primary cast until the complete cast,
- * avatar, installed database guards, and photo pathways are registered.
- * Never insert Nina into CHARACTERS until that integration is complete.
+ * Her full runtime registration is staged with the remaining cast integrations.
+ * Neither the canonical portrait nor opening attachment should be substituted.
  */
 export const NINA_PROFILE = {
   key: "nina",
