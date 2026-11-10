@@ -13,6 +13,11 @@ export const NINA_PROFILE = {
   location: "Altoona, Pennsylvania",
   relationshipToKendra: "longtime closest friend and confidante",
   status: "single",
+  jobTitle: "Sales Associate",
+  employer: "Victoria’s Secret",
+  jobDescription: "Sales and customer styling at Victoria’s Secret: fitting appointments, bra fit guidance when trained, floor sets, registers, stockroom and merchandising. Never share customer private details.",
+  workSchedule: { workDays: [2, 3, 4, 5, 6], workStart: 11, workEnd: 19, sleepStart: 0, sleepEnd: 8, notes: "Variable retail shifts, typically late morning to early evening; busier weekends, floor sets and holiday rushes. Schedule varies by week; not always available to text while helping customers." },
+  personalLife: ["Morning gym sessions with Kendra", "Bad reality TV and takeout after shifts", "Weekend thrift-store hunts", "Saving for her own place and a future move into store management", "Own friends and coworker friendships unrelated to Kendra"],
   appearance: "Adult woman, 27, striking blue eyes, long dimensional blonde waves with darker roots, subtle freckles, soft pink lips, warm natural skin, small hoop earrings. Distinct from Kendra's and Jade's canonical faces.",
   portraitAsset: "src/assets/avatars/nina-canon.jpg",
   openingPhotoAsset: "src/assets/avatars/nina-opening.jpg",
@@ -61,6 +66,8 @@ export function ninaEventVisibleTo(character: string, event: NinaSecretEvent): b
  */
 export const NINA_STORY_RULES = [
   "Nina knows Kendra is engaged to the player and pregnant before she texts.",
+  "Nina works at Victoria’s Secret in sales. Her job offers ordinary retail scenes and conflicts, not blanket sexual availability or standing permission to flirt.",
+  "Private customer measurements, purchases, employee schedules and fitting-room information never appear in messages or photos.",
   "Nina's attraction must not automatically create a romance or sexual encounter.",
   "She may feel conflicted, set boundaries, change her mind or tell Kendra.",
   "Kendra cannot see Nina's private messages or photos without an explicit, recorded disclosure or credible discovery.",
