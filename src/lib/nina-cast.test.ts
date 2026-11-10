@@ -13,6 +13,10 @@ describe("Nina's independent introduction", () => {
   });
   it("requires individually approved identity and a recorded opener", () => {
     expect(NINA_PROFILE.openingPhotoAsset).toContain("nina-opening");
+    expect(NINA_PROFILE.employer).toBe("Victoria’s Secret");
+    expect(NINA_PROFILE.jobTitle).toBe("Sales Associate");
+    expect(NINA_PROFILE.workSchedule.workDays).toContain(6);
+    expect(NINA_PROFILE.jobDescription).toMatch(/customer private details/);
     expect(NINA_STORY_RULES.join(" ")).toMatch(/idempotent/);
     expect(NINA_STORY_RULES.join(" ")).toMatch(/canonical identity/);
   });
