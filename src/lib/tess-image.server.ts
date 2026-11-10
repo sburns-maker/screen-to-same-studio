@@ -1,7 +1,8 @@
 import { referencePoseGuidance } from "./photo-reference-prompt";
 import { ordinaryPhotoStyle, outfitContinuityPrompt } from "./photo-wardrobe";
 import { PendingPhotoTask, buildSpicyPrompt } from "./spicy-image.server";
-import { photoPersonalityPrompt, photographyDiagnostics, type PhotographyPlan } from "./photo-personality";
+import { photoPersonalityPrompt, photographyDiagnostics, photographyProfile, type PhotographyPlan } from "./photo-personality";
+import { composeSpicyPrompt, type SpicyPromptBudget } from "./spicy-prompt-budget";
 import { canonicalProfile } from "./canonical-profile.server";
 import { requireVisualScreen, screenPhotoVisuals } from "./photo-identity-qc.server";
 import type { CharacterKey } from "./characters";
@@ -41,7 +42,7 @@ export interface ImageProvider {
   generate(
     prompt: string,
     references: Blob[],
-    options?: { highQuality: boolean },
+    options?: { highQuality: boolean; promptBudget?: SpicyPromptBudget },
   ): Promise<GeneratedImage>;
 }
 
@@ -292,6 +293,8 @@ export type PhotoDiagnostics = {
   selectedProvider?: string;
   /** Failed generations are terminal; the action is never automatically re-requested. */
   retryEligible?: boolean;
+  /** Lengths and outcome only; never prompt text. */
+  promptBudget?: SpicyPromptBudget;
 };
 export class PhotoGenerationFailure extends Error {
   constructor(public diagnostics: PhotoDiagnostics) {
@@ -358,24 +361,39 @@ export async function generateTessImage(args: {
       : "";
     let prompt = `${buildImagePrompt(args.type, args.scene, args.expression, args.style, args.identity, args.photography)}${groupInstructions}\n\n${photoTextPrompt(text)}`;
     if (args.provider.name === "spicyapi") {
+      if (!args.identity) throw new Error("canonical_character_missing");
       // Seedream edit accepts at most 5,000 prompt characters. Preserve the
       // approved identity, actual scene and mandatory category guidance first.
       // Optional photographic flavor is shortened only in this outgoing copy.
       const base = buildSpicyPrompt(
-        args.identity!.name, args.identity!.age, args.scene, args.style ?? {},
+        args.identity.name, args.identity.age, args.scene, args.style ?? {},
         args.type === "suggestive" ? "suggestive" : args.type === "mature_romantic" ? "mature_romantic" : "ordinary",
       );
       const category = args.type === "suggestive" ? SUGGESTIVE_STYLE : args.type === "mature_romantic" ? MATURE_STYLE : "";
-      const personality = photoPersonalityPrompt(args.photography ?? {
-        version: 1, character: args.identity!.key, scenario: null, candidates: [],
-        location: null, availability: "free",
+      const plan = args.photography ?? {
+        version: 1 as const, character: args.identity.key, scenario: null, candidates: [],
+        location: null, availability: "free" as const,
         continuity: { hairstyle: null, clothing: null, objects: [], weather: null },
-        continuitySource: "current_context_only", continuityReason: "explicit scene",
-        outfitEpisode: "unestablished",
-      }, args.style);
-      const available = 5000 - base.length - category.length - 2;
-      if (available < 0) throw new Error("spicy_prompt_too_long");
-      prompt = `${base}\n${personality.slice(0, available)}\n${category}`;
+        continuitySource: "current_context_only" as const, continuityReason: "explicit scene",
+        outfitEpisode: "unestablished" as const,
+      };
+      const profile = photographyProfile(plan.character);
+      const composed = composeSpicyPrompt({
+        model: args.provider.model,
+        base,
+        personality: photoPersonalityPrompt(plan, args.style),
+        category,
+        type: args.type === "suggestive" ? "suggestive" : args.type === "mature_romantic" ? "mature_romantic" : "ordinary",
+        style: (args.style ?? {}) as Record<string, unknown>,
+        compact: { character: plan.character, location: plan.location, scenario: plan.scenario,
+          continuity: plan.continuity, styles: profile.styles, expressions: profile.expressions,
+          ordinaryWardrobe: args.type !== "mature_romantic" && args.type !== "suggestive" ? plan.ordinaryWardrobe ?? null : null },
+      });
+      diagnostic.promptBudget = composed.budget;
+      // One deterministic compaction only; an oversized prompt is never sent.
+      if (!composed.prompt) throw new Error("spicy_prompt_too_long");
+      prompt = composed.prompt;
+      diagnostic.referenceConditioning = !!canonical;
     }
     const references: Blob[] = [];
     if (canonical) references.push(canonical.blob); // Always primary, original portrait.
@@ -396,6 +414,7 @@ export async function generateTessImage(args: {
       stage = "provider_generation";
       const candidate = await args.provider.generate(retryPrompt, references, {
         highQuality: !!text && process.env["IMAGE_TEXT_HIGH_QUALITY"] === "true",
+        ...(diagnostic.promptBudget ? { promptBudget: diagnostic.promptBudget } : {}),
       });
       stage = "visual_screen";
       try {

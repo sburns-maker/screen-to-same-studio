@@ -23,3 +23,4 @@
 - [ ] Finish three strong references for each woman: waiting on a sharper Carly evening photo and a higher-resolution Brooke alternate (supplied alternate is 142×193).
 - [x] Applied Carly/Brooke database update (both characters registered, introduction gate live) and requested publish. Real in-game messaging not yet exercised.
 - [ ] Open completion PR: no PR creation tool is available in this project; changes are committed for review, not published.
+- [x] Repair SpicyAPI oversized prompts: shared 5,000-character budget, one deterministic compression, safe persisted diagnostics; 234 focused checks passed and automated build OK. No paid request or publish.

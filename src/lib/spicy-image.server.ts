@@ -1,4 +1,5 @@
 import { referencePoseGuidance } from "./photo-reference-prompt";
+import { spicyPromptLimit } from "./spicy-prompt-budget";
 import { createServerOnlyFn } from "@tanstack/react-start";
 import type { GeneratedImage } from "./tess-image.server";
 export const SPICY_BASE = "https://api.spicyapi.ai/api/v1";
@@ -172,7 +173,7 @@ export function providerHttps(raw: string) {
   return u;
 }
 export function buildSpicyRequest(model: string, prompt: string, images: string[]) {
-  if (prompt.length > 5000) throw new Error("spicy_prompt_too_long");
+  if (prompt.length > spicyPromptLimit(model)) throw new Error("spicy_prompt_too_long");
   if (
     !(SPICY_MODELS as readonly string[]).includes(model) ||
     !prompt.trim() ||

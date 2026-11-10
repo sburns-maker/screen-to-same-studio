@@ -98,7 +98,7 @@ async function spicyProvider(
     model: config.model,
     referenceConditioning: true,
     allowIdentityRetry: false,
-    async generate(prompt, primary) {
+    async generate(prompt, primary, options) {
       if (
         primary.length !== 1 ||
         (await portraitHash(new Uint8Array(await primary[0]!.arrayBuffer()))) !== hash
@@ -113,7 +113,7 @@ async function spicyProvider(
         prompt,
         references.map((r) => r.url),
         hash,
-        context,
+        { ...context, ...(options?.promptBudget ? { promptBudget: options.promptBudget } : {}) },
       );
     },
   };

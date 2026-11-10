@@ -1,1 +1,2 @@
 - Image provider choice lives only in `photo-provider-policy.ts` so entry points cannot diverge; no OpenAI fallback for Spicy-routed photos.
+- SpicyAPI prompts use the shared model budget in `spicy-prompt-budget.ts`: compress descriptive guidance once, retain identity/continuity/safety, and fail before submission if still over the limit.

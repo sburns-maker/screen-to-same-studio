@@ -20,6 +20,7 @@ import {
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
 import { spicyDeliveryBoundaryAllows } from "./spicy-delivery-boundary";
+import type { SpicyPromptBudget } from "./spicy-prompt-budget";
 type Client = SupabaseClient<Database>;
 export type SpicyContext = {
   scene: string;
@@ -30,6 +31,7 @@ export type SpicyContext = {
   style?: PhotoStyle | null;
   photography?: PhotographyPlan;
   delivery?: "chat" | "lab";
+  promptBudget?: SpicyPromptBudget;
 };
 type Job = {
   action_id: string;
@@ -162,6 +164,7 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
       facialIdentityVerified: false,
     } : {}),
     retryCount: 0,
+    ...(job.payload.promptBudget ? { promptBudget: job.payload.promptBudget } : {}),
   };
   return {
     generated_path: path,
