@@ -20,7 +20,7 @@ export async function configuredPhotoProvider(
   if (configured === "ordinary") return ordinary;
   const category = spicyCategory(type);
   if (category === "ordinary") {
-    // Carly/Brooke person photos: SpicyAPI only, never an OpenAI fallback.
+    // Carly/Brooke/Nina person photos: SpicyAPI only, never an OpenAI fallback.
     const label = `${key[0]!.toUpperCase()}${key.slice(1)}`;
     if (process.env["SPICY_ENABLED"] !== "true") throw new Error(`${label} photos require SpicyAPI to be enabled`);
     const pref = await db.from("photo_reference_state").select("spicy_enabled")
@@ -33,7 +33,7 @@ export async function configuredPhotoProvider(
   // canonical portrait to OpenAI/the ordinary provider as a silent fallback.
   if (process.env["SPICY_ENABLED"] !== "true") {
     if (type === "suggestive") throw new Error("Suggestive photos require SpicyAPI to be enabled");
-    if (key === "jade" || key === "carly" || key === "brooke") throw new Error(`${key[0]!.toUpperCase()}${key.slice(1)} private portraits require SpicyAPI to be enabled`);
+    if (key === "jade" || key === "carly" || key === "brooke" || key === "nina") throw new Error(`${key[0]!.toUpperCase()}${key.slice(1)} private portraits require SpicyAPI to be enabled`);
     return ordinary;
   }
   if (!(SPICY_CAST as readonly string[]).includes(key))
@@ -47,7 +47,7 @@ export async function configuredPhotoProvider(
   if (preference.error) throw new Error("SpicyAPI migration or preferences unavailable");
   if (!preference.data?.spicy_enabled) {
     if (type === "suggestive") throw new Error("Enable SpicyAPI for this character to test suggestive photos");
-    if (key === "jade" || key === "carly" || key === "brooke") throw new Error(`Enable SpicyAPI for ${key[0]!.toUpperCase()}${key.slice(1)} before generating private portraits`);
+    if (key === "jade" || key === "carly" || key === "brooke" || key === "nina") throw new Error(`Enable SpicyAPI for ${key[0]!.toUpperCase()}${key.slice(1)} before generating private portraits`);
     return ordinary;
   }
   if (
