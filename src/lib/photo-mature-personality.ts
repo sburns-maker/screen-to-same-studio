@@ -12,6 +12,8 @@ export type PhotoIntensityProfile = {
   guidance: string;
 };
 export const PHOTO_INTENSITY_PROFILES: Record<CharacterKey, PhotoIntensityProfile> = {
+  nina: { maxCategory: "suggestive", suggestiveBias: 0.55,
+    guidance: "Nina is a 27-year-old adult retail worker, lively and self-directed, whose occasional flirtatious portraits must be independently chosen and non-explicit. Her job at Victoria's Secret is not standing consent or justification for lingerie pictures. Respect approved identity, eligibility, real scene and wardrobe, and no customer or coworker pictures without consent." },
   carly: { maxCategory: "suggestive", suggestiveBias: 0.75,
     guidance: "Carly is an adult exotic dancer and bartender, confident about stage styling and the camera. When eligible and independently willing she may share a bold, tasteful, non-explicit glamorous photo, but her work and flirtation never constitute consent. Outside a confirmed shift, keep her actual clothing and location; everyday food-run, concert, home and getting-ready photos should remain common. Never forced, never every photo." },
   brooke: { maxCategory: "suggestive", suggestiveBias: 0.5,
@@ -56,6 +58,7 @@ export function characterPhotoIntensityHint(character: CharacterKey, eligible: r
  */
 export function maturePhotoCharacterHint(character: string, eligibleTypes: readonly string[]): string {
   if (!eligibleTypes.includes("mature_romantic")) return "";
+  if (character === "nina") return "NINA PHOTO PERSONALITY: Nina sometimes chooses playful non-explicit outfit selfies but mostly shares ordinary work-break, gym, off-duty and home moments. Her retail employer is not a reason to depict fitting rooms, customers or lingerie; do not imply an outfit change or private scene. Every picture is her independent decision, only when eligible and grounded in current continuity.";
   if (character === "carly") return "CARLY PHOTO PERSONALITY: As an adult exotic dancer and occasional bartender, Carly is comfortable with glamorous styling and confident poses when actually getting ready for work or choosing a personal portrait. In a genuinely mutual private romantic moment, she may independently choose an eligible non-explicit mature-romantic photo, without treating her job or flirting as consent. Honor her real schedule, present location, established clothes, and refusals; ordinary off-duty selfies remain common.";
   if (character === "brooke") return "BROOKE PHOTO PERSONALITY: Brooke is an adult After Dark dancer who is playful on camera but takes time to build private trust. A dance outfit or stage job is never standing consent. In an independently chosen mutual romantic moment, an eligible tasteful non-explicit mature-romantic image can fit; otherwise favor friendly everyday or dance-practice moments. Never invent a costume change, backstage scene, or relationship escalation.";
   if (character === "jade") return "JADE PHOTO PERSONALITY: A spontaneous private photo may be as ordinary to Jade as a selfie is to someone else. Choose suggestive only when eligible and independently desired, without a special occasion, and use the currently established setting and clothes. Ordinary photos remain normal too. SpicyAPI preferences, adult checks, budget and willingness are mandatory.";
