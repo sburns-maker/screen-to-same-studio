@@ -1,3 +1,4 @@
+- [x] Schedule Tess's non-graphic maternity event for November 10, 8 PM Eastern; signed-in calendar and scheduled experience verified, 22 tests passed. No start, birth record or publish.
 - [x] Sync Maya's Fanelli's date (Oct 25, 7pm) to calendar
 - [x] Patch plan parser: venue aliases, 'what about', 'it is', mid-message 'sounds good'
 - [x] Keep Sunburst image model default (user's deliberate change); updated stale tests

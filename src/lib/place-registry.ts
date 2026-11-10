@@ -70,7 +70,9 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   reservationRequired: false,
   invitationRequired: false,
   areas:
-    p.key === "civic:courthouse"
+    p.key === "medical:maternity"
+      ? ["arrival desk", "private maternity room", "recovery room"]
+      : p.key === "civic:courthouse"
       ? ["courthouse steps", "clerk's office", "ceremony room"]
       : p.kind === "restaurant"
       ? ["public dining area"]
@@ -84,6 +86,8 @@ export const PLACE_REGISTRY = TOWN_PLACES.map((p) => ({
   eventCategories:
     p.kind === "library" || p.kind === "bookshop"
       ? ["book_club", "meetup"]
+      : p.key === "medical:maternity"
+        ? ["meetup", "outing"]
       : p.key === "civic:courthouse"
         ? ["wedding", "meetup"]
         : p.key === "bar:4ds"

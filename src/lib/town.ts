@@ -200,6 +200,18 @@ export const TOWN_PLACES = [
     opens: 8,
     closes: 22,
   },
+  {
+    key: "medical:maternity",
+    label: "Altoona Maternity Center",
+    kind: "community",
+    community: "Altoona",
+    latitude: 40.518,
+    longitude: -78.399,
+    description:
+      "A fictional hospital maternity setting: arrival desk, private maternity room and recovery room. Non-graphic family scenes focus on reassurance, support and meeting the baby, with fictional clinical staff handling medical care off-screen. Not medical advice or a real hospital booking. A scheduled visit does not establish labor, a diagnosis or a completed birth; follow only witnessed player-led events, and do not invent a baby name, sex or medical result.",
+    opens: 0,
+    closes: 24,
+  },
   ...Object.values(WORKPLACES),
 ] as const;
 export type TownNpc = {

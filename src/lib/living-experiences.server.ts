@@ -6,6 +6,7 @@ import {
 } from "./experience-failure";
 import { experienceActionError } from "./experience-errors";
 import { synchronizeScene } from "./experience-scene.server";
+import { placeByKey } from "./place-registry";
 import { liveSceneInstructions, sceneContradiction } from "./experience-scene";
 import { followupCanStart } from "./calendar-view";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -327,7 +328,10 @@ export async function generateExperience(
       place.data.label,
     );
     const venue = live.current.locationLabel;
-    const liveInstructions = liveSceneInstructions(live.current);
+    const liveInstructions = liveSceneInstructions(live.current) +
+      (live.current.locationKey === "medical:maternity"
+        ? "\n" + (placeByKey(live.current.locationKey)?.description ?? "")
+        : "");
     const relationshipFacts: string[] = [];
     if (["tess", "maya", "riley", "claire", "jordan", "sienna", "kendra", "carly", "brooke"].includes(def.key)) {
       const { commitmentSnapshot } = await import("./relationship-commitments.server");
