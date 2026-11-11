@@ -82,7 +82,7 @@ export const CHARACTERS: Record<CharacterKey, CharacterDef> = {
       ["Work", "Operations manager at a veterinary practice"],
       ["Status", "Married to you — courthouse wedding, Nov 7, 2026"],
       ["Lives", "With you, at home, along with her rescue dog Mabel"],
-      ["Family", "Expecting your baby"],
+      ["Family", "Daughter Nora Burns, born Nov 10, 2026"],
       ["Met", "Trivia night"],
     ],
     profileBlurb:
