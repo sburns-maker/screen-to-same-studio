@@ -19,6 +19,10 @@ import {
 } from "./spicy-image.server";
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
+/** Owner-requested: these characters' SpicyAPI photos skip the external visual screener. */
+export const VISUAL_SCREEN_EXEMPT: readonly string[] = ["nina"];
+const screenExempt = (job: { payload: { type: string }; character_key: string }) =>
+  job.payload.type === "suggestive" || VISUAL_SCREEN_EXEMPT.includes(job.character_key);
 import { spicyDeliveryBoundaryAllows } from "./spicy-delivery-boundary";
 import type { SpicyPromptBudget } from "./spicy-prompt-budget";
 type Client = SupabaseClient<Database>;
@@ -158,8 +162,8 @@ function completedMetadata(job: Job, canonical: { asset: string; sha256: string 
     referenceConditioning: true,
     provider: "spicyapi",
     model: job.model,
-    validationStatus: job.payload.type === "suggestive" ? "provider_output_validated" : "screen_passed",
-    ...(job.payload.type === "suggestive" ? {
+    validationStatus: screenExempt(job) ? "provider_output_validated" : "screen_passed",
+    ...(screenExempt(job) ? {
       screeningMethod: "spicyapi_provider_policy_and_file_integrity",
       facialIdentityVerified: false,
     } : {}),
@@ -353,7 +357,7 @@ export const processSpicyPhotos = createServerOnlyFn(async function processSpicy
       // and SpicyAPI's own rules. Do not forward them to an external visual
       // checker (including OpenAI). The Spicy downloader validates the PNG
       // response type/signature and the worker verifies file integrity.
-      if (job.payload.type !== "suggestive") {
+      if (!screenExempt(job)) {
         try {
           await screenPhotoVisuals(
             canonical.blob,

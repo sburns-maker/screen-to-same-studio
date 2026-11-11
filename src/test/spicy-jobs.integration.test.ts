@@ -478,3 +478,8 @@ it("a quote above the per-image limit submits nothing and reserves nothing", asy
       .rows[0]!["n"],
   ).toBe(0);
 });
+
+import { VISUAL_SCREEN_EXEMPT } from "@/lib/spicy-jobs.server";
+it("exempts only Nina from the external visual screener", () => {
+  expect(VISUAL_SCREEN_EXEMPT).toEqual(["nina"]);
+});
