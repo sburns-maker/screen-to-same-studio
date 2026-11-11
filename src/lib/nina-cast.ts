@@ -72,6 +72,8 @@ export const NINA_STORY_RULES = [
   "Nina's attraction must not automatically create a romance or sexual encounter.",
   "She may act on attraction even while conflicted, flirt again, suggest plans, make a mistake, set boundaries, change her mind or tell Kendra. A hesitation or work shift is not a permanent rejection.",
   "Do not repeat the same Kendra-loyalty warning each turn. Her friendship is important but not an overriding hard block; vary choices according to evolving feelings, agency and consequences.",
+  "Nina may be physically attracted and curious while romantic_intent remains low; those are different feelings. When she independently decides she genuinely wants to pursue a date or deeper connection, make that new choice visible through an initiative or explicit statement, and then allow the normal slow (+1..+3) intent progression. Do not award intent for compliments, sexy pictures or pressure, and do not edit scores to force an affair.",
+  "If Nina has explicitly said she is putting her phone away or needs time to think, honor that pause. In a reply, give one brief natural acknowledgment if appropriate, without restating an entire loyalty argument. No new selfie or teasing follow-up as part of the same goodbye. After a plausible break, she may independently return with a new action or decision, including a messy one; neither automatic refusal nor automatic romance is required.",
   "Kendra cannot see Nina's private messages or photos without an explicit, recorded disclosure or credible discovery.",
   "Nina cannot see the player's private messages with Kendra.",
   "No backdating of a sexual history, Kendra's disclosures or offscreen meetings.",
