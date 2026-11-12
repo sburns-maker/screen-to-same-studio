@@ -1,3 +1,4 @@
+- [x] Apply Carly's requested visual-screen exception and recover her existing 9:02 PM photo without new generation; verified attachment in signed-in chat, 22 focused tests passed. No publish or score changes.
 - [x] Restore Nina's authored opening and approved photo; atomic repair preserves replies/paid media. Signed-in chat and photo verified; 7 focused tests passed. No publish or paid requests.
 - [x] Schedule Tess's non-graphic maternity event for November 10, 8 PM Eastern; signed-in calendar and scheduled experience verified, 22 tests passed. No start, birth record or publish.
 - [x] Sync Maya's Fanelli's date (Oct 25, 7pm) to calendar

@@ -20,7 +20,7 @@ import {
 import { currentCanonical, portraitHash } from "./profile-media.server";
 import { screenPhotoVisuals } from "./photo-identity-qc.server";
 /** Owner-requested: these characters' SpicyAPI photos skip the external visual screener. */
-export const VISUAL_SCREEN_EXEMPT: readonly string[] = ["nina"];
+export const VISUAL_SCREEN_EXEMPT: readonly string[] = ["nina", "carly"];
 const screenExempt = (job: { payload: { type?: string }; character_key: string }) =>
   job.payload.type === "suggestive" || VISUAL_SCREEN_EXEMPT.includes(job.character_key);
 import { spicyDeliveryBoundaryAllows } from "./spicy-delivery-boundary";

@@ -480,6 +480,6 @@ it("a quote above the per-image limit submits nothing and reserves nothing", asy
 });
 
 import { VISUAL_SCREEN_EXEMPT } from "@/lib/spicy-jobs.server";
-it("exempts only Nina from the external visual screener", () => {
-  expect(VISUAL_SCREEN_EXEMPT).toEqual(["nina"]);
+it("exempts Nina and Carly without changing other characters' screening", () => {
+  expect(VISUAL_SCREEN_EXEMPT).toEqual(["nina", "carly"]);
 });
