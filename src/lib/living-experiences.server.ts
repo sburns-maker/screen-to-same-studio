@@ -539,17 +539,20 @@ export async function generateExperience(
       },
       now,
     );
-    // Explicit, independently acknowledged adult encounter: the persistent
-    // experience turn is already committed before any pregnancy event can exist.
-    if(kind==="turn" && lastUser?.confirmed && def.age>=18 && def.romanticCapable) {
+    // Completed adult encounters: either the character's structured acknowledgement
+    // this turn, or deterministic reconciliation over recorded moments (also on
+    // finish). One encounter ID per experience, so repeated narration never re-rolls.
+    if((kind==="turn"||kind==="finish") && def.age>=18 && def.romanticCapable) {
       try {
-        const {verifyEncounterAction}=await import("./family-encounter-actions");
-        if(verifyEncounterAction(reply.encounter_action,reply.messages.join("\n"),lastUser.body)) {
+        const enc=await import("./family-encounter-actions");
+        const found=enc.reconcileExperienceEncounter(moments)
+          ?? (kind==="turn" && lastUser?.confirmed && enc.verifyEncounterAction(reply.encounter_action,reply.messages.join("\n"),lastUser.body) ? lastUser : null);
+        if(found) {
           const {recordVerifiedPregnancyOpportunity}=await import("./family-life.server");
           const configured=Number(process.env["FAMILY_PREGNANCY_PROBABILITY"] ?? "0.2");
           await recordVerifiedPregnancyOpportunity(db,{
-            userId:user,characterKey:def.key,encounterId:lastUser.id,
-            occurredAt:now.toISOString(),adultEligible:true,mutuallyAgreed:true,
+            userId:user,characterKey:def.key,encounterId:enc.experienceEncounterId(scene.id),
+            occurredAt:found.created_at,adultEligible:true,mutuallyAgreed:true,
             pregnancyPossible:true,probability:configured,
           });
         }

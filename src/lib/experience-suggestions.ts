@@ -66,6 +66,10 @@ const BY_ACTIVITY: Record<string, ExperienceStarter[]> = {
     { label: "Take my turn", draft: "I take my turn in the game and glance at you with a grin. " },
     { label: "Playfully tease", draft: "I smile. \"You're not going to let me win, are you?\"" },
   ],
+  private_moment: [
+    { label: "Stay close", draft: "I stay close beside you, enjoying the quiet. " },
+    { label: "Check in", draft: "I turn toward you softly. \"How are you feeling?\"" },
+  ],
   relaxing: [
     { label: "Stay awhile", draft: "I stay beside you, enjoying the quiet. " },
     { label: "Talk", draft: "I turn toward you. \"How are you feeling?\"" },
@@ -83,6 +87,9 @@ export function experienceStarters(
 ): ExperienceStarter[] {
   const indoorHome = scene?.locationKind === "home" && !/outside|front door|porch|doorstep|driveway/i.test(scene.area ?? "");
   if (indoorHome && (activity === "arriving" || activity === "at_front_door" || !activity)) return INDOOR_HOME;
-  const list = BY_ACTIVITY[activity ?? ""] ?? COMMON;
+  let list = BY_ACTIVITY[activity ?? ""] ?? COMMON;
+  // Park-specific starters belong only in a park.
+  if (activity === "walking" && scene?.locationKind && scene.locationKind !== "park")
+    list = list.filter((x) => !/find a bench|suggest coffee/i.test(x.label));
   return indoorHome ? list.filter((x) => !/go inside|say goodnight/i.test(x.label)) : list;
 }

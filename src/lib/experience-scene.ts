@@ -74,7 +74,7 @@ function transitionClause(
   const places = venueFromText(s);
   const destination = atResidence ? homeDestination : places.length === 1 ? places[0]!.key : null;
   const arrived =
-    /\b(?:arriv(?:e|ed|ing)|made it to|got (?:back )?to|pull(?:ed)? (?:up|in)|park(?:ed|s)? (?:outside|at|in front of|the car)|(?:we['’]re|we are|we['’]ve arrived) (?:now )?(?:at|inside|outside)|(?:walk|walked|step|stepped|go|went) (?:up )?(?:in(?:to)?|to)|reach(?:ed)?)\b/i.test(
+    /\b(?:arriv(?:e|ed|ing)|made it to|got (?:back )?to|pull(?:ed)? (?:up|in)|park(?:ed|s)? (?:outside|at|in front of|the car)|(?:we['’]re|we are|we['’]ve arrived) (?:now )?(?:at|inside|outside)|(?:walk|walked|step|stepped|go|went) (?:up )?(?:in(?:to)?|to)|(?:head|headed|heading|walk|walked|walking|travel|traveled|travelled) (?:back )?(?:over )?to|reach(?:ed)?)\b/i.test(
       s,
     );
   const driving =
@@ -202,6 +202,7 @@ function roomFrom(s: string) {
 }
 /** Completed entry into the home. Arriving at, or standing by, the door is not entry. */
 function homeEntry(s: string) {
+  if (/\bonce (?:we['’]re |we are )?(?:inside|through the (?:front )?door)\b/i.test(s)) return true;
   return /\b(?:we|i)\s+(?:(?:enter|entered|step|stepped|go|went|walk|walked|come|came|head|headed|make it|made it)\s+(?:(?:back\s+)?in(?:side)?\b|into\b|through\s+(?:the\s+)?(?:front\s+)?door\b(?:.{0,30}\b(?:in|inside|into)\b)?)|(?:follow|followed)\s+(?:(?:you|her|him|them|[a-z]+)\s+)?(?:in\b|inside\b|into\b|to\s+the\s+(?:couch|sofa|living room|kitchen))|(?:sit|sat)\s+down\s+in\s+the\s+living room)/i.test(s) ||
     /\b(?:pull|pulled|lead|led|leads)\s+(?:you|her|him|me)\s+(?:in|inside|into)\b/i.test(s) ||
     /\bwe\s+(?:settle|settled|sit|sat|get comfortable|got comfortable)\b.{0,30}\b(?:couch|sofa|living room)\b/i.test(s);
