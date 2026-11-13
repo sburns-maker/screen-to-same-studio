@@ -1,3 +1,3 @@
 - Image provider choice lives only in `photo-provider-policy.ts` so entry points cannot diverge; no OpenAI fallback for Spicy-routed photos.
 - SpicyAPI prompts use the shared model budget in `spicy-prompt-budget.ts`: compress descriptive guidance once, retain identity/continuity/safety, and fail before submission if still over the limit.
-- Active/paused experiences own their conversation: defer autonomous chat before intention mutation or AI reservation; scene entry accepts only same-experience resident invitation evidence, never global permission renewal.
+- Active/paused experiences own their conversation: defer autonomous chat before intention mutation or AI reservation; scene entry accepts only same-experience resident invitation evidence, never global permission renewal. Recorded indoor same-residence room transitions skip front-door access checks; new entry still checks access, and invitation withdrawals require hosting context.
