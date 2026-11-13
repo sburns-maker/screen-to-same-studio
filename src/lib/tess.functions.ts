@@ -352,6 +352,8 @@ async function runTurnUnlocked(
   const { generateTessReply, generateContactReply } = await import("./tess.server");
   const conv = await loadConversation(supabase, userId, conversationId);
   if (!conv) throw new Error("No conversation");
+  if (initiation && !initiation.developerPhoto && await (await import("./experience-chat-protection.server")).experienceBlocksChat(supabase, userId, conversationId))
+    return { count: 0, lastVisibleAt: null, photoSent: false, imageRequested: false, reason: "active_experience" };
   if (!voice && process.env["ENABLE_VOICE_CALLS"] === "true") {
     const live = await supabase.from("phone_calls").select("id").eq("user_id",userId).eq("conversation_id",conv.id).in("state",["calling","ringing","connecting","connected"]).gt("expires_at",new Date().toISOString()).limit(1);
     if (live.data?.length) throw new Error("Finish this contact's call before sending another message");

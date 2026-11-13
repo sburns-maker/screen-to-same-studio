@@ -4,6 +4,7 @@ import { messageReceipt, nearConversationEnd, parseOutbox, type QueuedMessage } 
 import { useChatViewport } from "@/lib/use-chat-viewport";
 import { ConversationCalls } from "@/components/ConversationCalls";
 import { PhotoAttachmentStatus } from "@/components/PhotoAttachmentStatus";
+import { photoCaptionVisible } from "@/lib/photo-caption";
 import { refreshPendingPhotos } from "@/lib/photo-reference-library.functions";
 import { ReactionBubble } from "@/components/ReactionBubble";
 import { ContactPending } from "@/components/ContactPending";
@@ -639,7 +640,7 @@ function Chat({ conversationId }: { conversationId: string }) {
                   })()}
                   {(m.metadata as {transcript_source?:string}|null)?.transcript_source === "live_call_capture" && <span className="px-2 text-[11px] text-muted-foreground">Phone call transcript</span>}
                   {!mine&&<NpcIntroductionChip messageId={m.id} text={m.body}/>}
-                  {m.body && <ReactionBubble
+                  {m.body && photoCaptionVisible(m.metadata) && <ReactionBubble
                     messageId={m.id}
                     conversationId={conversationId}
                     mine={mine}

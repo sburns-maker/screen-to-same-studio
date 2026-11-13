@@ -27,3 +27,4 @@
 - [x] Applied Carly/Brooke database update (both characters registered, introduction gate live) and requested publish. Real in-game messaging not yet exercised.
 - [ ] Open completion PR: no PR creation tool is available in this project; changes are committed for review, not published.
 - [x] Repair SpicyAPI oversized prompts: shared 5,000-character budget, one deterministic compression, safe persisted diagnostics; 234 focused checks passed and automated build OK. No paid request or publish.
+- [x] Repair Brooke's recorded home invitation and indoor scene with an audit, preserve pending reply for explicit Retry, defer autonomous chat during active/paused dinners, and hide undelivered captions. 61 distinct focused tests passed; signed-in dinner/chat checked. Photo failed screening and was not regenerated; old messages preserved. No publish.

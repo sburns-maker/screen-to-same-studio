@@ -4077,6 +4077,15 @@ export type Database = {
         }
         Returns: Json
       }
+      experience_home_invited: {
+        Args: {
+          p_evidence: string
+          p_experience: string
+          p_place: string
+          p_user: string
+        }
+        Returns: boolean
+      }
       experience_scene_apply: {
         Args: {
           p_plan: string

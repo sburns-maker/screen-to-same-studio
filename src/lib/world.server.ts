@@ -593,6 +593,9 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
               event: lifeEvent ? { ...lifeEvent } : {},
               chaos: conv.difficulty === "chaos" ? 2 : 1,
             });
+          // The in-person scene owns this conversation until explicit completion.
+          // Defer before expiring intentions, recovering replies, or reserving AI.
+          if (await (await import("./experience-chat-protection.server")).experienceBlocksChat(admin, userId, conv.id)) continue;
           // Practice conversations retain interactive testing; they never receive real-clock background messages.
           // Practice conversations also receive background messages (user choice).
           if (worldReady) {
