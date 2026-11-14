@@ -15,7 +15,7 @@ export async function financeCharacterContext(admin: Admin, userId: string, char
     .order("notified_at",{ascending:false}).limit(3);
   const salaries=(salaryResult.error ? [] : salaryResult.data??[]) as unknown as {asset_key:string;old_salary_cents:number;new_salary_cents:number;notified_at:string}[];
   if(!facts.data?.length && salaries.length===0)return "";
-  const subjects=(facts.data as unknown as {subject_key:string;disclosed_at:string}[]);
+  const subjects=((facts.data??[]) as unknown as {subject_key:string;disclosed_at:string}[]);
   const profile=await admin.from("finance_accounts" as never).select("company_name,job_title")
     .eq("user_id",userId).maybeSingle();
   if(profile.error || !profile.data)return "";
