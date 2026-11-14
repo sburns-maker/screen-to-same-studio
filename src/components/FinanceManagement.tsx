@@ -24,6 +24,7 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
   const [hirePay,setHirePay]=useState("3500");
   const [selected,setSelected]=useState("");
   const [recipient,setRecipient]=useState<(typeof cast)[number]>("tess");
+  const [disclosureAssetKey,setDisclosureAssetKey]=useState("");
 
   async function submit(cmd:FinanceCommand) {
     if(pending)return;
@@ -40,6 +41,9 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
   }
   const owned=finances.assets.filter(a=>a.owned);
   const active=owned.find(a=>a.key===selected)??owned[0];
+  const disclosureAsset=owned.find(a=>a.key===disclosureAssetKey)??owned[0];
+  const knownToRecipient=q.data?.disclosures.filter(d=>d.characterKey===recipient)??[];
+  const alreadyRevealed=!!disclosureAsset&&knownToRecipient.some(d=>d.subjectKey===disclosureAsset.key);
   const workers=finances.workers.filter(w=>w.assetKey===active?.key&&w.active);
   const handsOff=!!policies.data?.find(p=>p.assetKey===active?.key)?.handsOff;
   const level=q.data?.improvements.find(x=>x.assetKey===active?.key)?.level??0;
@@ -118,9 +122,21 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
         </select>
         <button type="button" disabled={pending} onClick={()=>void submit({command:"reveal_identity",payload:{characterKey:recipient}})}
           className="min-h-11 w-full rounded-xl border text-sm">Tell them your company and job title</button>
-        {owned.length>0&&<button type="button" disabled={pending} onClick={()=>active&&void submit({command:"reveal",payload:{characterKey:recipient,assetKey:active.key}})}
-          className="min-h-11 w-full rounded-xl border text-sm">Tell them you own {active?.label}</button>}
-        <p className="text-xs text-muted-foreground">Known facts: {q.data.disclosures.filter(d=>d.characterKey===recipient).map(d=>d.subjectKey==="identity"?"Your public career":finances.assets.find(a=>a.key===d.subjectKey)?.label??"Prior business ownership").join(", ")||"None yet"}</p>
+        {owned.length>0&&<>
+          <label className="block text-xs font-medium" htmlFor="finance-disclose-asset">Business or property to reveal</label>
+          <select id="finance-disclose-asset" value={disclosureAsset?.key??""}
+            onChange={e=>setDisclosureAssetKey(e.target.value)}
+            className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm">
+            {owned.map(a=><option key={a.key} value={a.key}>{a.label} · {a.category}</option>)}
+          </select>
+          <button type="button" disabled={pending||!disclosureAsset||alreadyRevealed}
+            onClick={()=>disclosureAsset&&void submit({command:"reveal",payload:{characterKey:recipient,assetKey:disclosureAsset.key}})}
+            className="min-h-11 w-full rounded-xl border px-3 text-sm disabled:opacity-50">
+            {alreadyRevealed?"They already know you own this":`Tell them you own ${disclosureAsset?.label??"this asset"}`}
+          </button>
+        </>}
+        {owned.length===0&&<p className="text-xs text-muted-foreground">Buy a fictional business or property to share an ownership fact.</p>}
+        <p className="text-xs text-muted-foreground">Known facts: {knownToRecipient.map(d=>d.subjectKey==="identity"?"Your public career":finances.assets.find(a=>a.key===d.subjectKey)?.label??"Prior ownership").join(", ")||"None yet"}</p>
       </section>
     </>}
   </section>;
