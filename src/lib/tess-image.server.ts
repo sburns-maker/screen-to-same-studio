@@ -1,3 +1,4 @@
+import { VISUAL_SCREEN_EXEMPT } from "./spicy-jobs.server";
 import { referencePoseGuidance } from "./photo-reference-prompt";
 import { ordinaryPhotoStyle, outfitContinuityPrompt } from "./photo-wardrobe";
 import { PendingPhotoTask, buildSpicyPrompt } from "./spicy-image.server";
@@ -418,7 +419,7 @@ export async function generateTessImage(args: {
       });
       stage = "visual_screen";
       try {
-        if (args.type !== "suggestive") {
+        if (args.type !== "suggestive" && !VISUAL_SCREEN_EXEMPT.includes(args.identity?.key ?? "")) {
           await screenPhotoVisuals(
             canonical?.blob ?? null,
             new Blob([new Uint8Array(candidate.bytes)], { type: candidate.mime }),
