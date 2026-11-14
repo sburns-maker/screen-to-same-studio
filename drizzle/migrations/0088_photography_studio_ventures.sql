@@ -95,7 +95,7 @@ begin
  today_local:=(now() at time zone 'America/New_York')::date;
  vday:=finance_virtual_date((a.created_at at time zone 'America/New_York')::date,today_local);
  if p_action='start' then
-  if exists(select 1 from finance_ventures where user_id=p_user and stage<>'cancelled')
+  if exists(select 1 from finance_ventures where user_id=p_user and stage not in ('cancelled','exited'))
   then raise exception 'Active photography venture already exists'; end if;
   p:=p_payload->>'path';
   if p not in ('existing','lease','build') or p is null then raise exception 'Choose a studio acquisition path'; end if;
