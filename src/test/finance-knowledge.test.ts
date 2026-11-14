@@ -15,7 +15,7 @@ function fakeDb() {
         eq:(key,value)=>{filters[key]=value;return q;},
         order:()=>q,
         limit:async()=>{
-          if(table!=="finance_disclosures"||filters.character_key!=="kendra")return {data:[],error:null};
+          if(table!=="finance_disclosures"||filters['character_key']!=="kendra")return {data:[],error:null};
           return {data:[{subject_key:"work:northlight",disclosed_at:"2026-11-14T12:00:00.000Z"}],error:null};
         },
         maybeSingle:async()=>({data:{company_name:"Northline Group",job_title:"Director of Special Projects"},error:null}),
@@ -33,13 +33,13 @@ describe("explicit private financial knowledge",()=>{
     expect(known).toContain("Northlight Studio");
     expect(known).toContain("fictional game world");
     expect(known).not.toContain("$5");
-    expect(calls.every(c=>c.filters.user_id==="player-one")).toBe(true);
-    expect(calls[0]?.filters.character_key).toBe("kendra");
+    expect(calls.every(c=>c.filters['user_id']==="player-one")).toBe(true);
+    expect(calls[0]?.filters['character_key']).toBe("kendra");
   });
   it("reveals nothing to another character",async()=>{
     const {admin,calls}=fakeDb();
     expect(await financeCharacterContext(admin,"player-one","riley")).toBe("");
     expect(calls).toHaveLength(1);
-    expect(calls[0]?.filters.character_key).toBe("riley");
+    expect(calls[0]?.filters['character_key']).toBe("riley");
   });
 });
