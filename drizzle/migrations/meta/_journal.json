@@ -561,6 +561,34 @@
       "when": 1794553993285,
       "tag": "0079_experience_indoor_room_continuity",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1794667666009,
+      "tag": "0080_private_wealth_economy",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1794667713866,
+      "tag": "0081_financial_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1794667747545,
+      "tag": "0082_financial_investments",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1794667767003,
+      "tag": "0083_employee_salary_notices",
+      "breakpoints": true
     }
   ]
 }

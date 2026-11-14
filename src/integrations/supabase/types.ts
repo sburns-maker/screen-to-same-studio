@@ -1161,6 +1161,406 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_accounts: {
+        Row: {
+          cash_cents: number
+          company_name: string
+          created_at: string
+          investments_cents: number
+          job_title: string
+          user_id: string
+          wealth_visibility: string
+        }
+        Insert: {
+          cash_cents?: number
+          company_name?: string
+          created_at?: string
+          investments_cents?: number
+          job_title?: string
+          user_id: string
+          wealth_visibility?: string
+        }
+        Update: {
+          cash_cents?: number
+          company_name?: string
+          created_at?: string
+          investments_cents?: number
+          job_title?: string
+          user_id?: string
+          wealth_visibility?: string
+        }
+        Relationships: []
+      }
+      finance_assets: {
+        Row: {
+          asset_key: string
+          baseline_revenue_cents: number
+          category: string
+          company_reserves_cents: number
+          label: string
+          loan_cents: number
+          loan_months_left: number
+          loan_rate_bps: number
+          monthly_cost_cents: number
+          monthly_profit_cents: number
+          owned: boolean
+          owner_draw_pct: number
+          owner_since: string | null
+          price_cents: number
+          staff_count: number
+          user_id: string
+          workplace_key: string | null
+        }
+        Insert: {
+          asset_key: string
+          baseline_revenue_cents?: number
+          category: string
+          company_reserves_cents?: number
+          label: string
+          loan_cents?: number
+          loan_months_left?: number
+          loan_rate_bps?: number
+          monthly_cost_cents?: number
+          monthly_profit_cents?: number
+          owned?: boolean
+          owner_draw_pct?: number
+          owner_since?: string | null
+          price_cents: number
+          staff_count?: number
+          user_id: string
+          workplace_key?: string | null
+        }
+        Update: {
+          asset_key?: string
+          baseline_revenue_cents?: number
+          category?: string
+          company_reserves_cents?: number
+          label?: string
+          loan_cents?: number
+          loan_months_left?: number
+          loan_rate_bps?: number
+          monthly_cost_cents?: number
+          monthly_profit_cents?: number
+          owned?: boolean
+          owner_draw_pct?: number
+          owner_since?: string | null
+          price_cents?: number
+          staff_count?: number
+          user_id?: string
+          workplace_key?: string | null
+        }
+        Relationships: []
+      }
+      finance_cycles: {
+        Row: {
+          applied_at: string
+          asset_key: string
+          cycle_month: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string
+          asset_key: string
+          cycle_month: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string
+          asset_key?: string
+          cycle_month?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_cycles_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: false
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
+      finance_disclosures: {
+        Row: {
+          character_key: string
+          disclosed_at: string
+          subject_key: string
+          user_id: string
+        }
+        Insert: {
+          character_key: string
+          disclosed_at?: string
+          subject_key: string
+          user_id: string
+        }
+        Update: {
+          character_key?: string
+          disclosed_at?: string
+          subject_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_expense_cycles: {
+        Row: {
+          cycle_month: string
+          expense_key: string
+          user_id: string
+        }
+        Insert: {
+          cycle_month: string
+          expense_key: string
+          user_id: string
+        }
+        Update: {
+          cycle_month?: string
+          expense_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_expense_cycles_user_id_expense_key_fkey"
+            columns: ["user_id", "expense_key"]
+            isOneToOne: false
+            referencedRelation: "finance_expenses"
+            referencedColumns: ["user_id", "expense_key"]
+          },
+        ]
+      }
+      finance_expenses: {
+        Row: {
+          active: boolean
+          created_at: string
+          expense_key: string
+          label: string
+          monthly_cents: number
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          expense_key?: string
+          label: string
+          monthly_cents: number
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          expense_key?: string
+          label?: string
+          monthly_cents?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_fund_cycles: {
+        Row: {
+          after_cents: number
+          before_cents: number
+          cycle_month: string
+          fund_key: string
+          growth_bps: number
+          user_id: string
+        }
+        Insert: {
+          after_cents: number
+          before_cents: number
+          cycle_month: string
+          fund_key: string
+          growth_bps: number
+          user_id: string
+        }
+        Update: {
+          after_cents?: number
+          before_cents?: number
+          cycle_month?: string
+          fund_key?: string
+          growth_bps?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_fund_cycles_user_id_fund_key_fkey"
+            columns: ["user_id", "fund_key"]
+            isOneToOne: false
+            referencedRelation: "finance_funds"
+            referencedColumns: ["user_id", "fund_key"]
+          },
+        ]
+      }
+      finance_funds: {
+        Row: {
+          balance_cents: number
+          fund_key: string
+          label: string
+          user_id: string
+        }
+        Insert: {
+          balance_cents?: number
+          fund_key: string
+          label: string
+          user_id: string
+        }
+        Update: {
+          balance_cents?: number
+          fund_key?: string
+          label?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_improvements: {
+        Row: {
+          asset_key: string
+          level: number
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          level?: number
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          level?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_improvements_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: true
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
+      finance_income_cycles: {
+        Row: {
+          created_at: string
+          cycle_month: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cycle_month: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cycle_month?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_ledger: {
+        Row: {
+          amount_cents: number
+          asset_key: string | null
+          cash_after_cents: number
+          created_at: string
+          event_type: string
+          id: string
+          note: string
+          request_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          asset_key?: string | null
+          cash_after_cents: number
+          created_at?: string
+          event_type: string
+          id?: string
+          note: string
+          request_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          asset_key?: string | null
+          cash_after_cents?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          note?: string
+          request_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_salary_notices: {
+        Row: {
+          asset_key: string
+          character_key: string
+          new_salary_cents: number
+          notified_at: string
+          old_salary_cents: number
+          request_id: string
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          character_key: string
+          new_salary_cents: number
+          notified_at?: string
+          old_salary_cents: number
+          request_id: string
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          character_key?: string
+          new_salary_cents?: number
+          notified_at?: string
+          old_salary_cents?: number
+          request_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_workers: {
+        Row: {
+          active: boolean
+          asset_key: string
+          character_key: string | null
+          display_name: string
+          role: string
+          salary_cents: number
+          user_id: string
+          worker_key: string
+        }
+        Insert: {
+          active?: boolean
+          asset_key: string
+          character_key?: string | null
+          display_name: string
+          role: string
+          salary_cents: number
+          user_id: string
+          worker_key: string
+        }
+        Update: {
+          active?: boolean
+          asset_key?: string
+          character_key?: string | null
+          display_name?: string
+          role?: string
+          salary_cents?: number
+          user_id?: string
+          worker_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_workers_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: false
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
       game_matches: {
         Row: {
           conversation_id: string
@@ -4129,6 +4529,93 @@ export type Database = {
       finalize_game_match: {
         Args: { p_id: string; p_summary: string; p_user_id: string }
         Returns: undefined
+      }
+      finance_action: {
+        Args: {
+          p_action: string
+          p_asset: string
+          p_finance?: boolean
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_funds_initialize: { Args: { p_user: string }; Returns: undefined }
+      finance_funds_snapshot: { Args: { p_user: string }; Returns: Json }
+      finance_funds_tick: {
+        Args: { p_real_day: string; p_user: string }
+        Returns: number
+      }
+      finance_initialize: { Args: { p_user: string }; Returns: undefined }
+      finance_manage: {
+        Args: {
+          p_command: string
+          p_payload: Json
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_management_snapshot: { Args: { p_user: string }; Returns: Json }
+      finance_monthly_tick: {
+        Args: { p_today?: string; p_user: string }
+        Returns: number
+      }
+      finance_owner_draw: {
+        Args: {
+          p_amount: number
+          p_asset: string
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_personal_expense_tick: {
+        Args: { p_real_day: string; p_user: string }
+        Returns: number
+      }
+      finance_set_draw_rate: {
+        Args: {
+          p_asset: string
+          p_rate: number
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_set_identity: {
+        Args: {
+          p_company: string
+          p_request: string
+          p_title: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_set_salary: {
+        Args: {
+          p_asset: string
+          p_request: string
+          p_salary: number
+          p_user: string
+          p_worker: string
+        }
+        Returns: Json
+      }
+      finance_snapshot: { Args: { p_user: string }; Returns: Json }
+      finance_trade: {
+        Args: {
+          p_amount: number
+          p_fund: string
+          p_request: string
+          p_side: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_virtual_date: {
+        Args: { p_real_day: string; p_start: string }
+        Returns: string
       }
       housing_adult_known: {
         Args: { p_person: string; p_user: string }

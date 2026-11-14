@@ -16,10 +16,10 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedCallsRouteImport } from './routes/_authenticated/calls'
 import { Route as AuthenticatedExperiencesRouteImport } from './routes/_authenticated/experiences'
 import { Route as AuthenticatedExploreRouteImport } from './routes/_authenticated/explore'
+import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedHomeRouteImport } from './routes/_authenticated/home'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated/inbox'
 import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
-import { Route as AuthenticatedFinancesRouteImport } from './routes/_authenticated/finances'
 import { Route as AuthenticatedPlansRouteImport } from './routes/_authenticated/plans'
 import { Route as AuthenticatedPpgArenaRouteImport } from './routes/_authenticated/ppg-arena'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
@@ -75,6 +75,11 @@ const AuthenticatedExploreRoute = AuthenticatedExploreRouteImport.update({
   path: '/explore',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedHomeRoute = AuthenticatedHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -88,11 +93,6 @@ const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
 const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
   id: '/people',
   path: '/people',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedFinancesRoute = AuthenticatedFinancesRouteImport.update({
-  id: '/finances',
-  path: '/finances',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedPlansRoute = AuthenticatedPlansRouteImport.update({
@@ -209,10 +209,10 @@ export interface FileRoutesByFullPath {
   '/calls': typeof AuthenticatedCallsRoute
   '/experiences': typeof AuthenticatedExperiencesRoute
   '/explore': typeof AuthenticatedExploreRoute
+  '/finances': typeof AuthenticatedFinancesRoute
   '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/people': typeof AuthenticatedPeopleRoute
-  '/finances': typeof AuthenticatedFinancesRoute
   '/plans': typeof AuthenticatedPlansRoute
   '/ppg-arena': typeof AuthenticatedPpgArenaRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -240,10 +240,10 @@ export interface FileRoutesByTo {
   '/calls': typeof AuthenticatedCallsRoute
   '/experiences': typeof AuthenticatedExperiencesRoute
   '/explore': typeof AuthenticatedExploreRoute
+  '/finances': typeof AuthenticatedFinancesRoute
   '/home': typeof AuthenticatedHomeRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/people': typeof AuthenticatedPeopleRoute
-  '/finances': typeof AuthenticatedFinancesRoute
   '/plans': typeof AuthenticatedPlansRoute
   '/ppg-arena': typeof AuthenticatedPpgArenaRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -273,10 +273,10 @@ export interface FileRoutesById {
   '/_authenticated/calls': typeof AuthenticatedCallsRoute
   '/_authenticated/experiences': typeof AuthenticatedExperiencesRoute
   '/_authenticated/explore': typeof AuthenticatedExploreRoute
+  '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/home': typeof AuthenticatedHomeRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/people': typeof AuthenticatedPeopleRoute
-  '/_authenticated/finances': typeof AuthenticatedFinancesRoute
   '/_authenticated/plans': typeof AuthenticatedPlansRoute
   '/_authenticated/ppg-arena': typeof AuthenticatedPpgArenaRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
@@ -306,10 +306,10 @@ export interface FileRouteTypes {
     | '/calls'
     | '/experiences'
     | '/explore'
+    | '/finances'
     | '/home'
     | '/inbox'
     | '/people'
-    | '/finances'
     | '/plans'
     | '/ppg-arena'
     | '/settings'
@@ -337,10 +337,10 @@ export interface FileRouteTypes {
     | '/calls'
     | '/experiences'
     | '/explore'
+    | '/finances'
     | '/home'
     | '/inbox'
     | '/people'
-    | '/finances'
     | '/plans'
     | '/ppg-arena'
     | '/settings'
@@ -369,10 +369,10 @@ export interface FileRouteTypes {
     | '/_authenticated/calls'
     | '/_authenticated/experiences'
     | '/_authenticated/explore'
+    | '/_authenticated/finances'
     | '/_authenticated/home'
     | '/_authenticated/inbox'
     | '/_authenticated/people'
-    | '/_authenticated/finances'
     | '/_authenticated/plans'
     | '/_authenticated/ppg-arena'
     | '/_authenticated/settings'
@@ -454,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedExploreRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/finances': {
+      id: '/_authenticated/finances'
+      path: '/finances'
+      fullPath: '/finances'
+      preLoaderRoute: typeof AuthenticatedFinancesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/home': {
       id: '/_authenticated/home'
       path: '/home'
@@ -473,13 +480,6 @@ declare module '@tanstack/react-router' {
       path: '/people'
       fullPath: '/people'
       preLoaderRoute: typeof AuthenticatedPeopleRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/finances': {
-      id: '/_authenticated/finances'
-      path: '/finances'
-      fullPath: '/finances'
-      preLoaderRoute: typeof AuthenticatedFinancesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/plans': {
@@ -622,10 +622,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCallsRoute: typeof AuthenticatedCallsRoute
   AuthenticatedExperiencesRoute: typeof AuthenticatedExperiencesRoute
   AuthenticatedExploreRoute: typeof AuthenticatedExploreRoute
+  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedHomeRoute: typeof AuthenticatedHomeRoute
   AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
   AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
-  AuthenticatedFinancesRoute: typeof AuthenticatedFinancesRoute
   AuthenticatedPlansRoute: typeof AuthenticatedPlansRoute
   AuthenticatedPpgArenaRoute: typeof AuthenticatedPpgArenaRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
@@ -649,10 +649,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCallsRoute: AuthenticatedCallsRoute,
   AuthenticatedExperiencesRoute: AuthenticatedExperiencesRoute,
   AuthenticatedExploreRoute: AuthenticatedExploreRoute,
+  AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedHomeRoute: AuthenticatedHomeRoute,
   AuthenticatedInboxRoute: AuthenticatedInboxRoute,
   AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
-  AuthenticatedFinancesRoute: AuthenticatedFinancesRoute,
   AuthenticatedPlansRoute: AuthenticatedPlansRoute,
   AuthenticatedPpgArenaRoute: AuthenticatedPpgArenaRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
