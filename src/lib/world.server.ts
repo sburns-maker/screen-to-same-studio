@@ -426,7 +426,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
         await (await import("./housing.server")).runHousingTick(admin,userId,now);
       } catch { report.errors.push("Housing changes deferred; existing homes retained"); }
       try {
-        const result = await admin.rpc("finance_monthly_tick" as never, { p_user: userId, p_today: now.toISOString().slice(0, 10) } as never);
+        const result = await admin.rpc("finance_monthly_tick" as never, { p_user: userId, p_today: new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(now) } as never);
         if (result.error && !["42883", "PGRST202"].includes(result.error.code)) report.errors.push("Finance settlement deferred; ledger unchanged");
       } catch { report.errors.push("Finance settlement deferred; ledger unchanged"); }
       try {
