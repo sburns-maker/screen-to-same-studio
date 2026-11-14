@@ -207,7 +207,7 @@ function FinancesPage() {
             </section>;
           })}
         </div>
-        <PhotographyStudioVentures />
+        <PhotographyStudioVentures virtualDate={state.virtualDate}/>
         <FinanceGovernance finances={state} />
         <FinanceManagement finances={state} />
         <FinanceInvestments finances={state} />
