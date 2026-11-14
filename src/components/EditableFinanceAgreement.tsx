@@ -8,7 +8,7 @@ const people=["tess","maya","claire","jordan","ben","sienna","kendra","riley","c
 type Character=typeof people[number];
 export function EditableFinanceAgreement({assetKey,characterKey,templateText,deliveredText,handsOff}:{
   assetKey:string;characterKey:string;templateText:string;
-  deliveredText?:string;handsOff:boolean;
+  deliveredText?:string|undefined;handsOff:boolean;
 }) {
   const load=useServerFn(loadFinanceAgreementDraft);
   const save=useServerFn(saveFinanceAgreementDraft);
