@@ -248,3 +248,117 @@ revoke all on function public.finance_split_partner_distributions() from public,
 drop trigger if exists finance_split_partner_distributions on finance_ledger;
 create trigger finance_split_partner_distributions after insert on finance_ledger
 for each row execute function public.finance_split_partner_distributions();
+
+-- Reconcile account balances after the source-ledger co-owner distribution trigger.
+create or replace function public.finance_monthly_tick(p_user uuid,p_today date default current_date)
+returns integer language plpgsql security definer set search_path=public
+as $$
+declare a finance_accounts%rowtype; b finance_assets%rowtype; m date;
+  cash_delta bigint; principal_payment bigint; interest_payment bigint; applied integer:=0; payroll bigint; named_count integer;
+  gross bigint; realized_revenue bigint; draw_amount bigint; shortfall bigint; months_owned integer;
+  virtual_today date; virtual_start date; virtual_owned_since date;
+begin
+  -- Background jobs must not create a millionaire account for users who never opted into finances.
+  if not exists(select 1 from finance_accounts where user_id=p_user) then return 0; end if;
+  select * into a from finance_accounts where user_id=p_user for update;
+  virtual_start:=(a.created_at at time zone 'America/New_York')::date;
+  virtual_today:=finance_virtual_date(virtual_start,p_today);
+  -- 1 real calendar day = 7 fictional finance days; never advance unrelated world events.
+  -- Settlements are bounded to 12 completed virtual months per request, never future months.
+  for b in select * from finance_assets where user_id=p_user and owned=true for update loop
+    virtual_owned_since:=finance_virtual_date(virtual_start,(b.owner_since at time zone 'America/New_York')::date);
+    for m in select gs::date from generate_series(
+      greatest(date_trunc('month',virtual_owned_since)::date, (date_trunc('month',virtual_today)-interval '12 months')::date),
+      (date_trunc('month',virtual_today)-interval '1 month')::date,interval '1 month') gs loop
+      insert into finance_cycles(user_id,asset_key,cycle_month) values(p_user,b.asset_key,m)
+      on conflict do nothing;
+      if not found then continue; end if;
+      interest_payment:=case when b.loan_cents>0 then (b.loan_cents*b.loan_rate_bps+119999)/120000 else 0 end;
+      principal_payment:=case when b.loan_months_left>0 then (b.loan_cents+b.loan_months_left-1)/b.loan_months_left else 0 end;
+      select coalesce(sum(salary_cents),0),count(*) into payroll,named_count from finance_workers where user_id=p_user and asset_key=b.asset_key and active;
+      payroll:=payroll+greatest(0,b.staff_count-named_count)*300000;
+      -- Revenue grows by 2% at three-month ownership milestones, capped at 200% of the initial revenue.
+      months_owned:=greatest(0,((extract(year from age(m,virtual_owned_since))::int)*12+
+        extract(month from age(m,virtual_owned_since))::int));
+      gross:=b.monthly_profit_cents;
+      if months_owned>0 and mod(months_owned,3)=0 then
+        gross:=least(ceil(gross*1.02)::bigint,b.baseline_revenue_cents*2);
+      end if;
+      -- Deterministic monthly customer demand swings between -6% and +6%,
+      -- based on the asset and virtual month, without changing the growth baseline.
+      realized_revenue:=(gross*(94+mod(hashtext(b.asset_key||':'||m::text)::bigint+2147483648,13)))/100;
+      cash_delta:=realized_revenue-b.monthly_cost_cents-payroll-principal_payment-interest_payment;
+      if cash_delta>=0 then
+        draw_amount:=floor(cash_delta*b.owner_draw_pct/100.0)::bigint;
+        update finance_assets set company_reserves_cents=company_reserves_cents+cash_delta-draw_amount,
+          monthly_profit_cents=gross,loan_cents=greatest(0,loan_cents-principal_payment),
+          loan_months_left=greatest(0,loan_months_left-1)
+        where user_id=p_user and asset_key=b.asset_key;
+        update finance_accounts set cash_cents=cash_cents+draw_amount
+          where user_id=p_user returning * into a;
+      else
+        shortfall:=greatest(0,-cash_delta-b.company_reserves_cents);
+        if a.cash_cents<shortfall then raise exception 'Unable to cover business operating deficit'; end if;
+        draw_amount:=-shortfall;
+        update finance_assets set company_reserves_cents=greatest(0,company_reserves_cents+cash_delta),
+          monthly_profit_cents=gross,loan_cents=greatest(0,loan_cents-principal_payment),
+          loan_months_left=greatest(0,loan_months_left-1)
+        where user_id=p_user and asset_key=b.asset_key;
+        update finance_accounts set cash_cents=cash_cents-shortfall
+          where user_id=p_user returning * into a;
+      end if;
+      insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
+      values(p_user,gen_random_uuid(),'monthly_settlement',b.asset_key,draw_amount,a.cash_cents,
+        'Operations / turnover '||(realized_revenue/100)::text||' USD, net '||(cash_delta/100)::text||' USD, owner draw '||(draw_amount/100)::text||' USD, month '||to_char(m,'YYYY-MM'));
+      -- A 50% partner payout may have adjusted the player's balance in the ledger
+      -- trigger. Reload before checking the next business's expenses.
+      select * into a from finance_accounts where user_id=p_user;
+      b.company_reserves_cents:=case when cash_delta>=0 then b.company_reserves_cents+cash_delta-draw_amount else greatest(0,b.company_reserves_cents+cash_delta) end;
+      b.monthly_profit_cents:=gross;
+      b.loan_cents:=greatest(0,b.loan_cents-principal_payment);
+      b.loan_months_left:=greatest(0,b.loan_months_left-1);
+      applied:=applied+1;
+    end loop;
+  end loop;
+  -- Player salary arrives monthly irrespective of asset ownership, but only once.
+  for m in select gs::date from generate_series(
+    greatest(date_trunc('month',virtual_start)::date,(date_trunc('month',virtual_today)-interval '12 months')::date),
+    (date_trunc('month',virtual_today)-interval '1 month')::date,interval '1 month') gs loop
+    insert into finance_income_cycles(user_id,cycle_month) values(p_user,m) on conflict do nothing;
+    if found then
+      update finance_accounts set cash_cents=cash_cents+10000000 where user_id=p_user returning * into a;
+      insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
+      values(p_user,gen_random_uuid(),'player_salary',null,10000000,a.cash_cents,'Virtual executive salary '||to_char(m,'YYYY-MM'));
+      applied:=applied+1;
+    end if;
+  end loop;
+  return applied;
+end $$;
+
+
+-- Once a character owns a fictional stake, no later user-only offer may overwrite it.
+create or replace function public.finance_no_second_equity_offer()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+ if exists(select 1 from finance_equity_stakes where user_id=new.user_id and asset_key=new.asset_key)
+ then raise exception 'Business already has an equity partner'; end if;
+ return new;
+end $$;
+revoke all on function public.finance_no_second_equity_offer() from public,anon,authenticated;
+drop trigger if exists finance_no_second_equity_offer on finance_equity_offers;
+create trigger finance_no_second_equity_offer before insert on finance_equity_offers
+for each row execute function public.finance_no_second_equity_offer();
+
+-- An active 50/50 partnership has only half of the portfolio value in the player's net worth.
+-- This is exposed separately so existing snapshot contracts remain backward-compatible.
+create or replace function public.finance_owned_equity_value(p_user uuid)
+returns bigint language sql security definer set search_path=public as $$
+ select coalesce(sum(
+   (a.price_cents + a.company_reserves_cents - a.loan_cents) *
+   (100-coalesce(s.percent,0))/100),0)::bigint
+ from finance_assets a left join finance_equity_stakes s
+  on s.user_id=a.user_id and s.asset_key=a.asset_key
+ where a.user_id=p_user and a.owned=true;
+$$;
+revoke all on function public.finance_owned_equity_value(uuid) from public,anon,authenticated;
+grant execute on function public.finance_owned_equity_value(uuid) to service_role;
