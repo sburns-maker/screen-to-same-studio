@@ -20,6 +20,12 @@ All money and assets here are fictional. No real-world payments, ownership or em
 - This financial clock does **not** advance relationships, character ages, pregnancy, work shifts or housing progression.
 - Accelerated financial history may show virtual months ahead of the actual date. These are never actual transactions or real salaries.
 
+## Discreet professional identity
+
+- Default parent-company name: **Northline Group**.
+- Default public job title: **Director of Special Projects**; intentionally broad so other characters do not infer billionaire ownership.
+- Both fields are editable by the player in Finances. Values are private finance-profile data; changes do not automatically cause character knowledge or reveal wealth.
+
 ## Activation
 Apply drizzle/migrations/0080_private_wealth_economy.sql to the deployment database, then deploy the app branch. A GitHub commit does not apply SQL by itself.
 
