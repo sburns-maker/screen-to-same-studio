@@ -74,6 +74,7 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
             value={active?.key??""} onChange={e=>setSelected(e.target.value)}>
             {owned.map(a=><option key={a.key} value={a.key}>{a.label}</option>)}
           </select>
+          {active?.category==="residential" ? <p className="text-sm text-muted-foreground">This is a personal residence. Business staffing and revenue upgrades do not apply; housing changes use the existing consent-based home system.</p> : <>
           <p className="text-sm">Improvement level: <strong>{level}/5</strong> · Next upgrade: {money(upgradePrice)}</p>
           <p className="text-xs text-muted-foreground">An upgrade costs 1% of acquisition value per next level (minimum $500), and raises the company's baseline revenue by 5% in the game.</p>
           <button type="button" disabled={pending||level>=5||finances.cashCents<upgradePrice}
@@ -98,6 +99,7 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
               onClick={()=>active&&void submit({command:"hire",payload:{assetKey:active.key,name:hireName.trim(),monthlyCents:cents(hirePay)}})}
               className="mt-2 min-h-11 rounded-xl border px-4 text-sm font-semibold">Hire employee</button>
           </div>
+          </>}
         </>}
       </section>
 
