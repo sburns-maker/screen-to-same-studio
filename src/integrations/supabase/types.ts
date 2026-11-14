@@ -1191,6 +1191,38 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_agreement_drafts: {
+        Row: {
+          asset_key: string
+          draft_text: string
+          recipient_character: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          draft_text: string
+          recipient_character: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          draft_text?: string
+          recipient_character?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_agreement_drafts_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: false
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
       finance_agreements: {
         Row: {
           asset_key: string
@@ -4755,6 +4787,20 @@ export type Database = {
           p_asset: string
           p_finance?: boolean
           p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_agreement_draft_read: {
+        Args: { p_asset: string; p_character: string; p_user: string }
+        Returns: Json
+      }
+      finance_agreement_draft_save: {
+        Args: {
+          p_asset: string
+          p_character: string
+          p_request: string
+          p_text: string
           p_user: string
         }
         Returns: Json
