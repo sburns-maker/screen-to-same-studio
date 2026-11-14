@@ -95,6 +95,7 @@ function FinancesPage() {
     <ScreenHeader title="Finances" backTo="/home" />
     <Screen>
       <p className="text-xs text-muted-foreground">Fictional world only · Private to your player account</p>
+      {state && <div className="mt-2 rounded-xl border p-3 text-sm"><strong>Accelerated finances: 1 real day = 1 game week</strong><p className="mt-1 text-muted-foreground">Financial date: {state.virtualDate} · Business settlements follow virtual months. Relationships and other world events stay on their existing clocks.</p></div>
       {q.isLoading && <p role="status">Loading finances…</p>}
       {q.error && <div role="alert" className="rounded-xl border p-4 text-sm">Finances are not ready. The new database migration must be applied. <button type="button" className="underline" onClick={() => void q.refetch()}>Retry</button></div>}
       {state && <>
