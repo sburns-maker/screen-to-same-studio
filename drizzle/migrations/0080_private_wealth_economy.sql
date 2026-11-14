@@ -141,9 +141,7 @@ grant execute on function public.finance_initialize(uuid) to service_role;
 -- Player-local financial calendar: each real date advances exactly seven virtual dates.
 -- This clock never changes social, relationship, pregnancy, housing or character schedules.
 create or replace function public.finance_virtual_date(p_start date,p_real_day date)
-returns date language sql immutable as $
-  select p_start + greatest(0,p_real_day-p_start)*7;
-$;
+returns date language sql immutable return p_start + greatest(0,p_real_day-p_start)*7;
 revoke all on function public.finance_virtual_date(date,date) from public,anon,authenticated;
 grant execute on function public.finance_virtual_date(date,date) to service_role;
 
