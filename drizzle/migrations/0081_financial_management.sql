@@ -87,6 +87,8 @@ begin
   v_key:=p_payload->>'assetKey';
   select * into b from finance_assets where user_id=p_user and asset_key=v_key for update;
   if not found or not b.owned then raise exception 'Owned asset required'; end if;
+  if p_command in ('hire','fire','upgrade') and b.category='residential' then
+   raise exception 'Residential property has no business payroll or upgrades'; end if;
   if p_command='hire' then
    v_label:=btrim(p_payload->>'name');
    if v_label is null or length(v_label) not between 2 and 60 or v_label ~ '[[:cntrl:]]'
