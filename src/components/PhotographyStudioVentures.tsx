@@ -26,7 +26,7 @@ const upgrades=[
 ];
 const stageLabel:Record<string,string>={
  research:"Due diligence",offer_pending:"Waiting on seller",
- offer_accepted:"Offer accepted",buildout:"Acquired — buildout",operating:"Studio operating",cancelled:"Cancelled",
+ offer_accepted:"Offer accepted",buildout:"Acquired — buildout",operating:"Studio operating",cancelled:"Cancelled",exited:"Sold / exited",
 };
 export function PhotographyStudioVentures(){
  const load=useServerFn(loadPhotographyVentures);
@@ -39,7 +39,7 @@ export function PhotographyStudioVentures(){
  const [style,setStyle]=useState<"portraits"|"hybrid"|"rental">("hybrid");
  const [customName,setCustomName]=useState("");
  const [showHistory,setShowHistory]=useState(false);
- const current=q.data?.ventures.find(v=>v.stage!=="cancelled");
+ const current=q.data?.ventures.find(v=>!(["cancelled","exited"].includes(v.stage)));
  const choice=opportunities.find(o=>o.path===current?.path);
  const costAfterClosing=current?.path==="lease"?65000:195000;
  const lowerOffer=current?Math.ceil(current.askingCents*0.85):0;
