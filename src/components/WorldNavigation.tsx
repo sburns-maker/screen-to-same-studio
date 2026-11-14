@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { CalendarDays, Compass, Home, Menu, MessageCircle, Phone, Settings, Users, Sparkles, SlidersHorizontal } from "lucide-react";
+import { CalendarDays, Compass, Home, Menu, MessageCircle, Phone, Settings, Users, Sparkles, SlidersHorizontal, Wallet } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const shortcuts = [
@@ -12,7 +12,7 @@ const shortcuts = [
 export function WorldNavigation() {
   const path = useLocation().pathname;
   if (/^\/(chat|encounter|call|live-call)\//.test(path)) return null;
-  const inMenu = ["/explore", "/plans", "/experiences", "/settings", "/debug"].some((p) => path === p || path.startsWith(p + "/"));
+  const inMenu = ["/explore", "/plans", "/experiences", "/finances", "/settings", "/debug"].some((p) => path === p || path.startsWith(p + "/"));
   return (
     <nav aria-label="Phone navigation" className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
       <div className="mx-auto grid max-w-xl grid-cols-5 px-1">
@@ -37,6 +37,7 @@ export function WorldNavigation() {
             <DropdownMenuItem asChild><Link to="/plans"><CalendarDays className="mr-2 h-4 w-4" />Calendar & plans</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/explore"><Compass className="mr-2 h-4 w-4" />Explore places</Link></DropdownMenuItem>
             <DropdownMenuItem asChild><Link to="/experiences" search={{ plan: "" }}><Sparkles className="mr-2 h-4 w-4" />Experiences</Link></DropdownMenuItem>
+            <DropdownMenuItem asChild><Link to="/finances"><Wallet className="mr-2 h-4 w-4" />Finances & businesses</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Behind the scenes</DropdownMenuLabel>
             <DropdownMenuItem asChild><Link to="/settings"><Settings className="mr-2 h-4 w-4" />Settings & privacy</Link></DropdownMenuItem>
