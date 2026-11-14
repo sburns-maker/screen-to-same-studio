@@ -11,6 +11,7 @@ on:
       - "drizzle/migrations/0086_finance_agreements_and_equity.sql"
       - "drizzle/migrations/0087_editable_finance_agreements.sql"
       - "drizzle/migrations/0088_photography_studio_ventures.sql"
+      - "drizzle/migrations/0089_photography_studio_bookings.sql"
       - "src/lib/finance*"
       - "src/routes/_authenticated/finances.tsx"
       - "src/components/FinanceManagement.tsx"
@@ -19,6 +20,7 @@ on:
       - "src/components/EditableFinanceAgreement.tsx"
       - "src/components/FinanceInvestments.tsx"
       - "src/components/PhotographyStudioVentures.tsx"
+      - "src/components/PhotographyStudioBookings.tsx"
       - "src/test/finance.test.ts"
       - "src/test/finance-knowledge.test.ts"
       - "src/test/fixtures/finance/**"
@@ -68,6 +70,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/editable-agreement-checks.sql
           psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0088_photography_studio_ventures.sql
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/photography-venture-checks.sql
+          psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0089_photography_studio_bookings.sql
+          psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/photography-bookings-checks.sql
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
