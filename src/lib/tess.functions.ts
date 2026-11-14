@@ -378,6 +378,12 @@ async function runTurnUnlocked(
   if(calendarAdmin && initiation?.developerPhoto!=="preview") {
     await (await import("./housing.server")).processHousingActions(calendarAdmin,userId,new Date());
   }
+  if(configuredPhotoAdmin && initiation?.developerPhoto!=="preview"){
+    try {
+      const {reconcileFinancialDecisions}=await import("./finance-review.server");
+      await reconcileFinancialDecisions(configuredPhotoAdmin,userId,conv.id);
+    } catch(error){console.warn("[finance] financial choices reconciliation deferred",error);}
+  }
   const worldReady = !!(deliveryProbe?.data as { worldVersion?: number } | null)?.worldVersion;
   if (photoAdmin && !voice && initiation?.developerPhoto === "preview") {
     const { inspectPhotoReservation, pendingPhotoResult } = await import("./photo-delivery.server");
@@ -981,6 +987,8 @@ async function runTurnUnlocked(
         ...(!initiation && !voice && recent.find(m => m.sender === "user")?.id ? { in_reply_to: recent.find(m => m.sender === "user")!.id } : {}),
         ...(i === 0 && reply.housing_actions?.length ? {housing_actions:reply.housing_actions} : {}),
         ...(i === 0 && supportsRelationshipCommitment(def.key) && ["propose", "accept", "decline"].includes(reply.commitment_action?.action ?? "") && reply.commitment_action.kind && reply.commitment_action.quote && body.includes(reply.commitment_action.quote) ? { commitment_action: reply.commitment_action } : {}),
+        ...(i === 0 && reply.finance_decision?.action && reply.finance_decision.quote && body.includes(reply.finance_decision.quote)
+          ? {finance_decision:reply.finance_decision}:{}),
         ...(i === 0 && reply.wedding_plan_action?.action && reply.wedding_plan_action.planId && reply.wedding_plan_action.quote && pendingWeddingIds.includes(reply.wedding_plan_action.planId) && body.includes(reply.wedding_plan_action.quote) ? { wedding_plan_action: reply.wedding_plan_action } : {}),
         ...(i === 0 && reply.pregnancy_character_action?.quote && pregnancyLifecycleIds.includes(reply.pregnancy_character_action.lifecycleId) && body.includes(reply.pregnancy_character_action.quote) ? {pregnancy_character_action:reply.pregnancy_character_action} : {}),
         ...(i === 0 && reply.pregnancy_disclosure_action?.eventId && reply.pregnancy_disclosure_action.quote && duePregnancyIds.includes(reply.pregnancy_disclosure_action.eventId) && body.includes(reply.pregnancy_disclosure_action.quote) ? { pregnancy_disclosure_action: reply.pregnancy_disclosure_action } : {}),
@@ -1080,6 +1088,12 @@ async function runTurnUnlocked(
   if (rows.length) {
     const { error } = await supabase.from("messages").insert(rows);
     if (error) throw new Error("Could not save reply");
+    if(configuredPhotoAdmin){
+      try {
+        const {reconcileFinancialDecisions}=await import("./finance-review.server");
+        await reconcileFinancialDecisions(configuredPhotoAdmin,userId,conv.id);
+      } catch(error){console.warn("[finance] saved decision reconciliation deferred",error);}
+    }
     if(configuredPhotoAdmin && pendingWeddingIds.length){
       try {
         const {reconcileVisibleWeddingDecisions}=await import("./family-wedding.server");
