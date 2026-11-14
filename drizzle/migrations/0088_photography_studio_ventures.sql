@@ -5,7 +5,7 @@ create table if not exists public.finance_ventures (
  venture_id uuid not null default gen_random_uuid(),
  path text not null check(path in ('existing','lease','build')),
  name text not null default 'Sienna Creative Studio',
- stage text not null default 'research' check(stage in ('research','offer_pending','offer_accepted','buildout','operating','cancelled')),
+ stage text not null default 'research' check(stage in ('research','offer_pending','offer_accepted','buildout','operating','cancelled','exited')),
  seller_price_cents bigint not null check(seller_price_cents>0),
  offer_cents bigint,
  settlement_cents bigint,
@@ -27,7 +27,7 @@ create table if not exists public.finance_ventures (
  unique(user_id,asset_key)
 );
 create unique index if not exists finance_one_active_studio_venture
- on public.finance_ventures(user_id) where stage not in ('cancelled');
+ on public.finance_ventures(user_id) where stage not in ('cancelled','exited');
 create table if not exists public.finance_venture_events (
  user_id uuid not null references auth.users(id) on delete cascade,
  venture_id uuid not null,
@@ -217,7 +217,7 @@ begin
     monthly_cost_cents=monthly_cost_cents+35000 where user_id=p_user and asset_key=v.asset_key;
    detail_text:='Started sustained local marketing campaign with higher bookings and recurring ad spend';
   elsif p_action='invite_sienna' then
-   if v.stage='cancelled' or v.sienna_involvement<>'not_discussed' then
+   if v.stage in ('cancelled','exited') or v.sienna_involvement<>'not_discussed' then
     raise exception 'Sienna invitation already recorded or venture cancelled'; end if;
    update finance_ventures set sienna_involvement='invited' where user_id=p_user and venture_id=p_venture;
    detail_text:='Player wishes to discuss creative role with Sienna; this is NOT acceptance or employment';
@@ -239,3 +239,23 @@ begin
 end $$;
 revoke all on function public.finance_venture_action(uuid,uuid,uuid,text,jsonb) from public,anon,authenticated;
 grant execute on function public.finance_venture_action(uuid,uuid,uuid,text,jsonb) to service_role;
+
+-- Selling a fully acquired studio through the existing asset-sale workflow must
+-- also close the venture, so it cannot continue generating fictional bookings.
+create or replace function public.finance_venture_sync_sale()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+ if old.owned=true and new.owned=false then
+  update finance_ventures set stage='exited'
+    where user_id=new.user_id and asset_key=new.asset_key and stage in ('buildout','operating');
+  insert into finance_venture_events(user_id,venture_id,event_type,cost_cents,detail)
+    select new.user_id,venture_id,'exit',0,
+      'Player sold the studio via normal finance asset sale; venture archived'
+    from finance_ventures where user_id=new.user_id and asset_key=new.asset_key and stage='exited';
+ end if;
+ return new;
+end $$;
+revoke all on function public.finance_venture_sync_sale() from public,anon,authenticated;
+drop trigger if exists finance_venture_sync_sale on public.finance_assets;
+create trigger finance_venture_sync_sale after update of owned on public.finance_assets
+ for each row execute function public.finance_venture_sync_sale();
