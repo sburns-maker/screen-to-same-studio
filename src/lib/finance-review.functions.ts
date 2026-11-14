@@ -17,7 +17,7 @@ export const reviewSchema=z.object({
     offerId:z.string().uuid(),assetKey:z.string(),characterKey:z.enum(charKeys),
     percentage:z.literal(50),
     status:z.enum(["pending","withdrawn","character_accepted","declined","finalized"]),
-    createdAt:z.string(),
+    createdAt:z.string(),termsText:z.string(),
   })),
 });
 export type FinanceReview=z.infer<typeof reviewSchema>;
