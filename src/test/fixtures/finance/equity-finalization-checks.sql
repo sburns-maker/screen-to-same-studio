@@ -105,10 +105,10 @@ begin
  req:=gen_random_uuid();
  perform finance_owner_draw(uid,req,'work:northlight',10000);
  if (select cash_cents from finance_accounts where user_id=uid)<>cash_before+5000
- then raise exception 'Player did not receive 50% of draw'; end if;
+ then raise exception 'Player did not receive 50 percent of draw'; end if;
  if (select character_balance_cents from finance_equity_stakes
   where user_id=uid and asset_key='work:northlight')<>partner_before+5000
- then raise exception 'Character did not receive equal 50% payout'; end if;
+ then raise exception 'Character did not receive equal 50 percent payout'; end if;
  if (select count(*) from finance_equity_payouts where user_id=uid and asset_key='work:northlight')<1
  then raise exception 'Shareholder payouts have no audit receipt'; end if;
  if (select company_reserves_cents from finance_assets where user_id=uid and asset_key='work:northlight')<>reserves_before-10000
@@ -131,7 +131,7 @@ begin
  -- The player cannot issue another 50% offer after finalization.
  begin
   perform finance_equity_offer_command(uid,gen_random_uuid(),'offer_half','work:northlight','claire',null);
-  raise exception 'Additional coowner offer allowed despite a recorded 50% stake';
+  raise exception 'Additional coowner offer allowed despite a recorded 50 percent stake';
  exception when raise_exception then
   if SQLERRM<>'Business already has an equity partner' then raise; end if;
  end;
