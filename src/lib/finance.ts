@@ -4,6 +4,7 @@ export const financeAssetSchema = z.object({
   workplaceKey: z.string().nullable(), priceCents: z.number(), monthlyProfitCents: z.number(),
   monthlyCostCents: z.number(), staffCount: z.number(), owned: z.boolean(),
   loanCents: z.number(), loanMonthsLeft: z.number(), ownerSince: z.string().nullable(),
+  baselineRevenueCents: z.number(), companyReservesCents: z.number(), ownerDrawPct: z.number(),
 });
 export const financeSnapshotSchema = z.object({
   cashCents: z.number(), investmentsCents: z.number(), visibility: z.enum(["private","disclosed"]),
