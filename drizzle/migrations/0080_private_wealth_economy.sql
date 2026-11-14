@@ -14,6 +14,9 @@ create table if not exists public.finance_assets (
   workplace_key text,
   price_cents bigint not null check (price_cents > 0),
   monthly_profit_cents bigint not null default 0,
+  baseline_revenue_cents bigint not null default 0,
+  company_reserves_cents bigint not null default 0 check(company_reserves_cents >= 0),
+  owner_draw_pct integer not null default 60 check(owner_draw_pct between 0 and 100),
   monthly_cost_cents bigint not null default 0,
   staff_count integer not null default 0,
   owner_since timestamptz,
@@ -114,6 +117,8 @@ begin
     (p_user,'work:delgrossos','DelGrosso’s Park','business',null,9500000000,240000000,35000000,180),
     (p_user,'work:horseshoe-curve','Horseshoe Curve Visitor Attraction','business',null,1600000000,60000000,10000000,20)
   on conflict do nothing;
+  update finance_assets set baseline_revenue_cents=monthly_profit_cents
+  where user_id=p_user and baseline_revenue_cents=0;
   insert into finance_workers(user_id,asset_key,worker_key,display_name,role,salary_cents,character_key)
   values
     (p_user,'work:upmc-altoona','riley','Riley','Clinical staff',8500000,'riley'),
@@ -149,6 +154,7 @@ begin
       'key',asset_key,'label',label,'category',category,'workplaceKey',workplace_key,
       'priceCents',price_cents,'monthlyProfitCents',monthly_profit_cents,
       'monthlyCostCents',monthly_cost_cents,'staffCount',staff_count,
+      'baselineRevenueCents',baseline_revenue_cents,'companyReservesCents',company_reserves_cents,'ownerDrawPct',owner_draw_pct,
       'owned',owned,'loanCents',loan_cents,'loanMonthsLeft',loan_months_left,
       'ownerSince',owner_since) order by category,label) from finance_assets where user_id=p_user),'[]'::jsonb),
     'transactions',coalesce((select jsonb_agg(to_jsonb(l) order by created_at desc)
@@ -209,6 +215,7 @@ returns integer language plpgsql security definer set search_path=public
 as $$
 declare a finance_accounts%rowtype; b finance_assets%rowtype; m date;
   cash_delta bigint; principal_payment bigint; interest_payment bigint; applied integer:=0; payroll bigint; named_count integer;
+  gross bigint; draw_amount bigint; shortfall bigint; months_owned integer;
 begin
   -- Background jobs must not create a millionaire account for users who never opted into finances.
   if not exists(select 1 from finance_accounts where user_id=p_user) then return 0; end if;
@@ -225,14 +232,38 @@ begin
       principal_payment:=case when b.loan_months_left>0 then (b.loan_cents+b.loan_months_left-1)/b.loan_months_left else 0 end;
       select coalesce(sum(salary_cents),0),count(*) into payroll,named_count from finance_workers where user_id=p_user and asset_key=b.asset_key and active;
       payroll:=payroll+greatest(0,b.staff_count-named_count)*300000;
-      cash_delta:=b.monthly_profit_cents-b.monthly_cost_cents-payroll-principal_payment-interest_payment;
-      -- A failed month must not silently create negative cash.
-      if a.cash_cents+cash_delta<0 then raise exception 'Business expenses exceed available fictional cash'; end if;
-      update finance_accounts set cash_cents=cash_cents+cash_delta where user_id=p_user returning * into a;
-      update finance_assets set loan_cents=greatest(0,loan_cents-principal_payment),
-        loan_months_left=greatest(0,loan_months_left-1) where user_id=p_user and asset_key=b.asset_key;
+      -- Revenue grows by 2% at three-month ownership milestones, capped at 200% of the initial revenue.
+      months_owned:=greatest(0,((extract(year from age(m,b.owner_since::date))::int)*12+
+        extract(month from age(m,b.owner_since::date))::int));
+      gross:=b.monthly_profit_cents;
+      if months_owned>0 and mod(months_owned,3)=0 then
+        gross:=least(ceil(gross*1.02)::bigint,b.baseline_revenue_cents*2);
+      end if;
+      cash_delta:=gross-b.monthly_cost_cents-payroll-principal_payment-interest_payment;
+      if cash_delta>=0 then
+        draw_amount:=floor(cash_delta*b.owner_draw_pct/100.0)::bigint;
+        update finance_assets set company_reserves_cents=company_reserves_cents+cash_delta-draw_amount,
+          monthly_profit_cents=gross,loan_cents=greatest(0,loan_cents-principal_payment),
+          loan_months_left=greatest(0,loan_months_left-1)
+        where user_id=p_user and asset_key=b.asset_key;
+        update finance_accounts set cash_cents=cash_cents+draw_amount
+          where user_id=p_user returning * into a;
+      else
+        shortfall:=greatest(0,-cash_delta-b.company_reserves_cents);
+        if a.cash_cents<shortfall then raise exception 'Unable to cover business operating deficit'; end if;
+        draw_amount:=-shortfall;
+        update finance_assets set company_reserves_cents=greatest(0,company_reserves_cents+cash_delta),
+          monthly_profit_cents=gross,loan_cents=greatest(0,loan_cents-principal_payment),
+          loan_months_left=greatest(0,loan_months_left-1)
+        where user_id=p_user and asset_key=b.asset_key;
+        update finance_accounts set cash_cents=cash_cents-shortfall
+          where user_id=p_user returning * into a;
+      end if;
       insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
-      values(p_user,gen_random_uuid(),'monthly_settlement',b.asset_key,cash_delta,a.cash_cents,'Monthly net operations after payroll '||to_char(m,'YYYY-MM'));
+      values(p_user,gen_random_uuid(),'monthly_settlement',b.asset_key,draw_amount,a.cash_cents,
+        'Operations / net '||(cash_delta/100)::text||' USD, owner draw '||(draw_amount/100)::text||' USD, month '||to_char(m,'YYYY-MM'));
+      b.company_reserves_cents:=greatest(0,b.company_reserves_cents+cash_delta-greatest(0,draw_amount));
+      b.monthly_profit_cents:=gross;
       b.loan_cents:=greatest(0,b.loan_cents-principal_payment);
       b.loan_months_left:=greatest(0,b.loan_months_left-1);
       applied:=applied+1;
@@ -275,3 +306,42 @@ begin
 end $$;
 revoke all on function public.finance_set_salary(uuid,uuid,text,text,bigint) from public,anon,authenticated;
 grant execute on function public.finance_set_salary(uuid,uuid,text,text,bigint) to service_role;
+
+create or replace function public.finance_owner_draw(p_user uuid,p_request uuid,p_asset text,p_amount bigint)
+returns jsonb language plpgsql security definer set search_path=public
+as $$
+declare a finance_accounts%rowtype; b finance_assets%rowtype;
+begin
+  if p_amount<=0 then raise exception 'Draw must be positive'; end if;
+  perform finance_initialize(p_user);
+  select * into a from finance_accounts where user_id=p_user for update;
+  if exists(select 1 from finance_ledger where user_id=p_user and request_id=p_request) then return finance_snapshot(p_user); end if;
+  select * into b from finance_assets where user_id=p_user and asset_key=p_asset for update;
+  if not found or not b.owned then raise exception 'Owned business required'; end if;
+  if b.company_reserves_cents<p_amount then raise exception 'Not enough company reserves'; end if;
+  update finance_assets set company_reserves_cents=company_reserves_cents-p_amount where user_id=p_user and asset_key=p_asset;
+  update finance_accounts set cash_cents=cash_cents+p_amount where user_id=p_user returning * into a;
+  insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
+  values(p_user,p_request,'owner_draw',p_asset,p_amount,a.cash_cents,'Personal owner draw from '||b.label);
+  return finance_snapshot(p_user);
+end $$;
+revoke all on function public.finance_owner_draw(uuid,uuid,text,bigint) from public,anon,authenticated;
+grant execute on function public.finance_owner_draw(uuid,uuid,text,bigint) to service_role;
+
+create or replace function public.finance_set_draw_rate(p_user uuid,p_request uuid,p_asset text,p_rate integer)
+returns jsonb language plpgsql security definer set search_path=public
+as $$
+declare a finance_accounts%rowtype;
+begin
+  if p_rate<0 or p_rate>100 then raise exception 'Draw percent must be 0 to 100'; end if;
+  perform finance_initialize(p_user);
+  select * into a from finance_accounts where user_id=p_user for update;
+  if exists(select 1 from finance_ledger where user_id=p_user and request_id=p_request) then return finance_snapshot(p_user); end if;
+  update finance_assets set owner_draw_pct=p_rate where user_id=p_user and asset_key=p_asset and owned;
+  if not found then raise exception 'Owned business required'; end if;
+  insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
+  values(p_user,p_request,'draw_policy',p_asset,0,a.cash_cents,'Owner draw percentage changed to '||p_rate||'%');
+  return finance_snapshot(p_user);
+end $$;
+revoke all on function public.finance_set_draw_rate(uuid,uuid,text,integer) from public,anon,authenticated;
+grant execute on function public.finance_set_draw_rate(uuid,uuid,text,integer) to service_role;
