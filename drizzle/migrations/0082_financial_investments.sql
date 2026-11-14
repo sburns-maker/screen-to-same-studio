@@ -60,6 +60,8 @@ begin
  if p_amount<=0 then raise exception 'Trade amount must be positive'; end if;
  if p_side not in ('buy','sell') then raise exception 'Invalid trade side'; end if;
  perform finance_funds_initialize(p_user);
+ -- Settle completed financial months before allocating new cash; no backdated returns.
+ perform finance_funds_tick(p_user,(now() at time zone 'America/New_York')::date);
  select * into a from finance_accounts where user_id=p_user for update;
  if exists(select 1 from finance_ledger where user_id=p_user and request_id=p_request)
   then return finance_funds_snapshot(p_user); end if;
