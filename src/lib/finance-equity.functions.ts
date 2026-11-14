@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const character=z.enum(["tess","maya","claire","jordan","ben","sienna","kendra","riley","carly","brooke","jade","nina"]);
 const offers=z.array(z.object({
   offerId:z.string().uuid(),assetKey:z.string(),characterKey:character,
-  percentage:z.literal(50),status:z.enum(["pending","withdrawn"]),createdAt:z.string(),
+  percentage:z.literal(50),status:z.enum(["pending","withdrawn","character_accepted","declined","finalized"]),createdAt:z.string(),
 }));
 export type EquityOffer=z.infer<typeof offers>[number];
 
