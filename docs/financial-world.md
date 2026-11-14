@@ -4,18 +4,18 @@ All money and assets here are fictional. No real-world payments, ownership or em
 
 ## First slice implemented
 
-- Per-player $25 million virtual cash and $15 million virtual investments; private by default.
+- Per-player $5 billion virtual cash and $3 billion virtual investments; private by default.
 - Server-side snapshot/actions; financial tables and RPCs only accessible to service role.
 - Cash and financed acquisitions (25% down, 8% APR, 120 months with declining principal), resale at listed book value. Idempotent request UUIDs and row locking.
-- Fictional After Dark, Northlight Studio and Copper Lens workplaces, plus a virtual townhouse and commercial property. Real institutions in the workplace registry cannot be purchased.
-- Monthly fixed operations, loans, recurring property expenses, ledger, history, and Finances UI under More.
+- 28 virtual purchasable businesses and properties. The virtual catalog includes replicas named for real Altoona institutions, such as UPMC Altoona at a player-selected fictional $2 billion valuation. No actual institution is for sale, its staff have not changed employers, and all pricing and modeled financials are invented.
+- Monthly business and rental operations, payroll of named characters and baseline unnamed staff, fictional player salary, loans, retained company reserves, owner draws (automatic 0–100% of after-expense monthly income or manual), and 2% revenue growth every 3 ownership months, capped at 200% of opening revenue. Salary changes are owner-only and do not alter employment autonomy.
 - Purchase and wealth-preference changes do NOT automatically reveal riches, modify character relationships, employment, or permission to enter their workplace.
 
 ## Activation
 Apply drizzle/migrations/0080_private_wealth_economy.sql to the deployment database, then deploy the app branch. A GitHub commit does not apply SQL by itself.
 
 ## Not yet implemented
-NPC employment compensation/raises, player salary and bills, property-linked housing move, business upgrades, fluctuating customer demand, explicit character-scoped reveal of ownership, and investment trading. Those are subsequent phases, not currently functional features.
+NPC hiring/firing, personally configurable expenses and bills, property-linked housing moves, upgrades, fluctuating customer demand, explicit character-scoped ownership reveals, investment trading, and full per-employee payroll for unnamed staff. Those are subsequent phases, not currently functional features.
 
 ## Security/test checklist
-Verify migration against isolated Postgres; RLS/service-role boundaries; concurrent requests; idempotency; monthly catchup; loans; mobile UX. No production deployment or test pass is claimed here.
+Verify migration against isolated Postgres; RLS/service-role boundaries; concurrent requests; idempotency; monthly catchup; loans; mobile UX. No production deployment or test pass is claimed here. SQL and UI need isolated-db execution and automated validation before merge.
