@@ -86,3 +86,20 @@ export const setDrawRate = createServerFn({ method: "POST" })
     if(result.error) throw new Error("Draw percentage could not be changed.");
     return financeSnapshotSchema.parse(result.data);
   });
+
+export const setProfessionalIdentity = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) => z.object({
+    requestId: z.string().uuid(),
+    companyName: z.string().trim().min(2).max(80),
+    jobTitle: z.string().trim().min(2).max(80),
+  }).parse(value))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const result = await db.rpc("finance_set_identity" as never,{
+      p_user:context.userId,p_request:data.requestId,
+      p_company:data.companyName,p_title:data.jobTitle,
+    } as never);
+    if (result.error) throw new Error(result.error.message==="Invalid professional identity" ? result.error.message : "Professional identity could not be saved.");
+    return financeSnapshotSchema.parse(result.data);
+  });
