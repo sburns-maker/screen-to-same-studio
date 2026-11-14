@@ -589,6 +589,27 @@
       "when": 1794667767003,
       "tag": "0083_employee_salary_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1794674569956,
+      "tag": "0084_hands_off_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1794674594525,
+      "tag": "0085_optional_equity_offers",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1794674678473,
+      "tag": "0086_finance_agreements_and_equity",
+      "breakpoints": true
     }
   ]
 }

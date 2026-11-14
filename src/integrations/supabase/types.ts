@@ -1191,6 +1191,47 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_agreements: {
+        Row: {
+          asset_key: string
+          delivered_at: string
+          policy_text: string
+          recipient_character: string
+          responded_at: string | null
+          response_message_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          delivered_at?: string
+          policy_text: string
+          recipient_character: string
+          responded_at?: string | null
+          response_message_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          delivered_at?: string
+          policy_text?: string
+          recipient_character?: string
+          responded_at?: string | null
+          response_message_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_agreements_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: false
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
       finance_assets: {
         Row: {
           asset_key: string
@@ -1301,6 +1342,143 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_equity_offers: {
+        Row: {
+          asset_key: string
+          character_responded_at: string | null
+          closed_at: string | null
+          created_at: string
+          offer_id: string
+          percentage: number
+          recipient_character: string
+          response_message_id: string | null
+          status: string
+          terms_text: string
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          character_responded_at?: string | null
+          closed_at?: string | null
+          created_at?: string
+          offer_id?: string
+          percentage: number
+          recipient_character: string
+          response_message_id?: string | null
+          status?: string
+          terms_text?: string
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          character_responded_at?: string | null
+          closed_at?: string | null
+          created_at?: string
+          offer_id?: string
+          percentage?: number
+          recipient_character?: string
+          response_message_id?: string | null
+          status?: string
+          terms_text?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_equity_offers_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: false
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
+      finance_equity_payouts: {
+        Row: {
+          amount_cents: number
+          asset_key: string
+          character_key: string
+          created_at: string
+          source_ledger_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          asset_key: string
+          character_key: string
+          created_at?: string
+          source_ledger_id: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          asset_key?: string
+          character_key?: string
+          created_at?: string
+          source_ledger_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_equity_payouts_source_ledger_id_fkey"
+            columns: ["source_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "finance_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_equity_payouts_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: false
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
+      }
+      finance_equity_stakes: {
+        Row: {
+          asset_key: string
+          character_balance_cents: number
+          character_key: string
+          finalized_at: string
+          percent: number
+          source_offer: string
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          character_balance_cents?: number
+          character_key: string
+          finalized_at?: string
+          percent: number
+          source_offer: string
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          character_balance_cents?: number
+          character_key?: string
+          finalized_at?: string
+          percent?: number
+          source_offer?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_equity_stakes_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: true
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+          {
+            foreignKeyName: "finance_equity_stakes_user_id_source_offer_fkey"
+            columns: ["user_id", "source_offer"]
+            isOneToOne: true
+            referencedRelation: "finance_equity_offers"
+            referencedColumns: ["user_id", "offer_id"]
+          },
+        ]
+      }
       finance_expense_cycles: {
         Row: {
           cycle_month: string
@@ -1409,6 +1587,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      finance_governance: {
+        Row: {
+          asset_key: string
+          conflict_recusal: boolean
+          hands_off: boolean
+          independent_hr: string
+          operating_manager: string
+          reports_to: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_key: string
+          conflict_recusal?: boolean
+          hands_off?: boolean
+          independent_hr?: string
+          operating_manager?: string
+          reports_to?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_key?: string
+          conflict_recusal?: boolean
+          hands_off?: boolean
+          independent_hr?: string
+          operating_manager?: string
+          reports_to?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_governance_user_id_asset_key_fkey"
+            columns: ["user_id", "asset_key"]
+            isOneToOne: true
+            referencedRelation: "finance_assets"
+            referencedColumns: ["user_id", "asset_key"]
+          },
+        ]
       }
       finance_improvements: {
         Row: {
@@ -4540,12 +4759,53 @@ export type Database = {
         }
         Returns: Json
       }
+      finance_deliver_agreement: {
+        Args: {
+          p_asset: string
+          p_character: string
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_equity_offer_command: {
+        Args: {
+          p_action: string
+          p_asset: string
+          p_character: string
+          p_offer: string
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_equity_offers_snapshot: {
+        Args: { p_user: string }
+        Returns: Json
+      }
+      finance_finalize_equity: {
+        Args: { p_offer: string; p_request: string; p_user: string }
+        Returns: Json
+      }
       finance_funds_initialize: { Args: { p_user: string }; Returns: undefined }
       finance_funds_snapshot: { Args: { p_user: string }; Returns: Json }
       finance_funds_tick: {
         Args: { p_real_day: string; p_user: string }
         Returns: number
       }
+      finance_governance_save: {
+        Args: {
+          p_asset: string
+          p_hands_off: boolean
+          p_independent_hr: string
+          p_manager: string
+          p_reports_to: string
+          p_request: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      finance_governance_snapshot: { Args: { p_user: string }; Returns: Json }
       finance_initialize: { Args: { p_user: string }; Returns: undefined }
       finance_manage: {
         Args: {
@@ -4561,6 +4821,7 @@ export type Database = {
         Args: { p_today?: string; p_user: string }
         Returns: number
       }
+      finance_owned_equity_value: { Args: { p_user: string }; Returns: number }
       finance_owner_draw: {
         Args: {
           p_amount: number
@@ -4574,6 +4835,11 @@ export type Database = {
         Args: { p_real_day: string; p_user: string }
         Returns: number
       }
+      finance_reconcile_character_message: {
+        Args: { p_message: string; p_user: string }
+        Returns: Json
+      }
+      finance_review_snapshot: { Args: { p_user: string }; Returns: Json }
       finance_set_draw_rate: {
         Args: {
           p_asset: string
