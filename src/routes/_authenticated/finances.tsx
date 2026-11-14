@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { changeFinances, loadFinances, setEmployeeSalary, ownerDraw, setDrawRate } from "@/lib/finance.functions";
+import { changeFinances, loadFinances, setEmployeeSalary, ownerDraw, setDrawRate, setProfessionalIdentity } from "@/lib/finance.functions";
 import { money, estimatedMonthlyPayment } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/finances")({
@@ -17,12 +17,14 @@ function FinancesPage() {
   const updateSalary = useServerFn(setEmployeeSalary);
   const takeDraw = useServerFn(ownerDraw);
   const changeDrawRate = useServerFn(setDrawRate);
+  const saveIdentity = useServerFn(setProfessionalIdentity);
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["player-finances"], queryFn: () => load() });
   const [pending, setPending] = useState("");
   const [selectedFinancing, setSelectedFinancing] = useState<Record<string, boolean>>({});
   const [category, setCategory] = useState("all");
   const [search, setSearch] = useState("");
+  const [identityDraft, setIdentityDraft] = useState<{companyName:string;jobTitle:string}|null>(null);
   const [payDrafts, setPayDrafts] = useState<Record<string,string>>({});
   const [drawDrafts,setDrawDrafts] = useState<Record<string,string>>({});
   const state = q.data;
@@ -89,6 +91,21 @@ function FinancesPage() {
     }catch(e){toast.error(e instanceof Error?e.message:"Draw rate failed");}
     finally{setPending("");}
   }
+  async function updateIdentity() {
+    if (!state || pending) return;
+    const values = identityDraft ?? {companyName:state.companyName,jobTitle:state.jobTitle};
+    if (values.companyName.trim().length<2 || values.jobTitle.trim().length<2 || values.companyName.length>80 || values.jobTitle.length>80) {
+      toast.error("Company name and title must be 2–80 characters"); return;
+    }
+    setPending("identity");
+    try {
+      const next = await saveIdentity({data:{...values,requestId:crypto.randomUUID()}});
+      qc.setQueryData(["player-finances"],next);
+      setIdentityDraft(null);
+      toast.success("Professional identity saved");
+    } catch(e) { toast.error(e instanceof Error ? e.message : "Unable to save"); }
+    finally { setPending(""); }
+  }
   const netWorth = (state?.cashCents ?? 0) + (state?.investmentsCents ?? 0) +
     owned.reduce((sum,a) => sum + a.priceCents + a.companyReservesCents - a.loanCents, 0);
   return <>
@@ -99,6 +116,20 @@ function FinancesPage() {
       {q.isLoading && <p role="status">Loading finances…</p>}
       {q.error && <div role="alert" className="rounded-xl border p-4 text-sm">Finances are not ready. The new database migration must be applied. <button type="button" className="underline" onClick={() => void q.refetch()}>Retry</button></div>}
       {state && <>
+        <section className="mt-3 rounded-2xl border bg-surface p-4">
+          <h2 className="font-display text-xl">Professional identity</h2>
+          <p className="mt-1 text-sm text-muted-foreground">A normal-sounding job that keeps your game-world empire discreet. Editing doesn't tell characters or reveal your assets.</p>
+          <label className="mt-3 block text-xs font-medium" htmlFor="finance-company">Company</label>
+          <input id="finance-company" maxLength={80} value={(identityDraft?.companyName ?? state.companyName)}
+            onChange={e=>setIdentityDraft(v=>({companyName:e.target.value,jobTitle:v?.jobTitle ?? state.jobTitle}))}
+            className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3 text-sm"/>
+          <label className="mt-3 block text-xs font-medium" htmlFor="finance-title">Your title</label>
+          <input id="finance-title" maxLength={80} value={(identityDraft?.jobTitle ?? state.jobTitle)}
+            onChange={e=>setIdentityDraft(v=>({companyName:v?.companyName ?? state.companyName,jobTitle:e.target.value}))}
+            className="mt-1 min-h-11 w-full rounded-xl border bg-background px-3 text-sm"/>
+          <button type="button" disabled={!!pending || !identityDraft} onClick={()=>void updateIdentity()}
+            className="mt-3 min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-40">Save identity</button>
+        </section>
         <section className="mt-3 rounded-2xl border bg-surface p-4">
           <h2 className="text-xs uppercase tracking-wider text-muted-foreground">Net worth</h2>
           <p className="font-display text-4xl">{money(netWorth)}</p>
