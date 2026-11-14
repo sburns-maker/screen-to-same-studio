@@ -121,18 +121,18 @@ begin
   where user_id=p_user and baseline_revenue_cents=0;
   insert into finance_workers(user_id,asset_key,worker_key,display_name,role,salary_cents,character_key)
   values
-    (p_user,'work:upmc-altoona','riley','Riley','Clinical staff',8500000,'riley'),
-    (p_user,'work:altoona-library','claire','Claire','Librarian',4900000,'claire'),
-    (p_user,'work:convention-center','maya','Maya','Events coordinator',5700000,'maya'),
-    (p_user,'work:eads','jordan','Jordan','Engineer',12000000,'jordan'),
-    (p_user,'work:sp-mccarl','ben','Ben','HVAC technician',6700000,'ben'),
-    (p_user,'work:after-dark','carly','Carly','Dancer / bartender',4800000,'carly'),
-    (p_user,'work:after-dark','brooke','Brooke','Dancer',4600000,'brooke'),
-    (p_user,'work:copper-lens','sienna','Sienna','Bartender',4200000,'sienna'),
-    (p_user,'work:northlight','kendra','Kendra','Photographer',6400000,'kendra'),
-    (p_user,'work:harbor-point','jade','Jade','Program manager',7800000,'jade'),
-    (p_user,'work:victorias-secret','nina','Nina','Retail associate',3900000,'nina'),
-    (p_user,'work:pleasant-valley-vet','tess','Tess','Veterinary staff',6200000,'tess')
+    (p_user,'work:upmc-altoona','riley','Riley','Clinical staff',708333,'riley'),
+    (p_user,'work:altoona-library','claire','Claire','Librarian',408333,'claire'),
+    (p_user,'work:convention-center','maya','Maya','Events coordinator',475000,'maya'),
+    (p_user,'work:eads','jordan','Jordan','Engineer',1000000,'jordan'),
+    (p_user,'work:sp-mccarl','ben','Ben','HVAC technician',558333,'ben'),
+    (p_user,'work:after-dark','carly','Carly','Dancer / bartender',400000,'carly'),
+    (p_user,'work:after-dark','brooke','Brooke','Dancer',383333,'brooke'),
+    (p_user,'work:copper-lens','sienna','Sienna','Bartender',350000,'sienna'),
+    (p_user,'work:northlight','kendra','Kendra','Photographer',533333,'kendra'),
+    (p_user,'work:harbor-point','jade','Jade','Program manager',650000,'jade'),
+    (p_user,'work:victorias-secret','nina','Nina','Retail associate',325000,'nina'),
+    (p_user,'work:pleasant-valley-vet','tess','Tess','Veterinary staff',516667,'tess')
   on conflict do nothing;
 end $$;
 revoke all on function public.finance_initialize(uuid) from public,anon,authenticated;
