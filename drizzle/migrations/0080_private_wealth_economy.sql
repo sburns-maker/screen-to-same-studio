@@ -138,6 +138,15 @@ end $$;
 revoke all on function public.finance_initialize(uuid) from public,anon,authenticated;
 grant execute on function public.finance_initialize(uuid) to service_role;
 
+-- Player-local financial calendar: each real date advances exactly seven virtual dates.
+-- This clock never changes social, relationship, pregnancy, housing or character schedules.
+create or replace function public.finance_virtual_date(p_start date,p_real_day date)
+returns date language sql immutable as $
+  select p_start + greatest(0,p_real_day-p_start)*7;
+$;
+revoke all on function public.finance_virtual_date(date,date) from public,anon,authenticated;
+grant execute on function public.finance_virtual_date(date,date) to service_role;
+
 create or replace function public.finance_snapshot(p_user uuid)
 returns jsonb language plpgsql security definer set search_path=public
 as $$
@@ -148,6 +157,8 @@ begin
   return jsonb_build_object(
     'cashCents',a.cash_cents,'investmentsCents',a.investments_cents,
     'visibility',a.wealth_visibility,
+    'financePace','7 virtual days per real day',
+    'virtualDate',finance_virtual_date((a.created_at at time zone 'America/New_York')::date,(now() at time zone 'America/New_York')::date)::text,
     'playerSalaryCents',10000000,
     'workers',coalesce((select jsonb_agg(jsonb_build_object('key',worker_key,'assetKey',asset_key,'name',display_name,'role',role,'salaryCents',salary_cents,'characterKey',character_key,'active',active) order by asset_key,display_name) from finance_workers where user_id=p_user),'[]'::jsonb),
     'assets',coalesce((select jsonb_agg(jsonb_build_object(
@@ -216,15 +227,20 @@ as $$
 declare a finance_accounts%rowtype; b finance_assets%rowtype; m date;
   cash_delta bigint; principal_payment bigint; interest_payment bigint; applied integer:=0; payroll bigint; named_count integer;
   gross bigint; draw_amount bigint; shortfall bigint; months_owned integer;
+  virtual_today date; virtual_start date; virtual_owned_since date;
 begin
   -- Background jobs must not create a millionaire account for users who never opted into finances.
   if not exists(select 1 from finance_accounts where user_id=p_user) then return 0; end if;
   select * into a from finance_accounts where user_id=p_user for update;
-  -- Settlements are bounded to 12 completed months per request, never future months.
+  virtual_start:=(a.created_at at time zone 'America/New_York')::date;
+  virtual_today:=finance_virtual_date(virtual_start,p_today);
+  -- 1 real calendar day = 7 fictional finance days; never advance unrelated world events.
+  -- Settlements are bounded to 12 completed virtual months per request, never future months.
   for b in select * from finance_assets where user_id=p_user and owned=true for update loop
+    virtual_owned_since:=finance_virtual_date(virtual_start,(b.owner_since at time zone 'America/New_York')::date);
     for m in select gs::date from generate_series(
-      greatest(date_trunc('month',coalesce(b.owner_since,now()))::date, (date_trunc('month',p_today)-interval '12 months')::date),
-      (date_trunc('month',p_today)-interval '1 month')::date,interval '1 month') gs loop
+      greatest(date_trunc('month',virtual_owned_since)::date, (date_trunc('month',virtual_today)-interval '12 months')::date),
+      (date_trunc('month',virtual_today)-interval '1 month')::date,interval '1 month') gs loop
       insert into finance_cycles(user_id,asset_key,cycle_month) values(p_user,b.asset_key,m)
       on conflict do nothing;
       if not found then continue; end if;
@@ -233,7 +249,7 @@ begin
       select coalesce(sum(salary_cents),0),count(*) into payroll,named_count from finance_workers where user_id=p_user and asset_key=b.asset_key and active;
       payroll:=payroll+greatest(0,b.staff_count-named_count)*300000;
       -- Revenue grows by 2% at three-month ownership milestones, capped at 200% of the initial revenue.
-      months_owned:=greatest(0,((extract(year from age(m,b.owner_since::date))::int)*12+
+      months_owned:=greatest(0,((extract(year from age(m,virtual_owned_since))::int)*12+
         extract(month from age(m,b.owner_since::date))::int));
       gross:=b.monthly_profit_cents;
       if months_owned>0 and mod(months_owned,3)=0 then
@@ -271,8 +287,8 @@ begin
   end loop;
   -- Player salary arrives monthly irrespective of asset ownership, but only once.
   for m in select gs::date from generate_series(
-    greatest(date_trunc('month',a.created_at)::date,(date_trunc('month',p_today)-interval '12 months')::date),
-    (date_trunc('month',p_today)-interval '1 month')::date,interval '1 month') gs loop
+    greatest(date_trunc('month',virtual_start)::date,(date_trunc('month',virtual_today)-interval '12 months')::date),
+    (date_trunc('month',virtual_today)-interval '1 month')::date,interval '1 month') gs loop
     insert into finance_income_cycles(user_id,cycle_month) values(p_user,m) on conflict do nothing;
     if found then
       update finance_accounts set cash_cents=cash_cents+10000000 where user_id=p_user returning * into a;
