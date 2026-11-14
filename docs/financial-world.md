@@ -27,10 +27,18 @@ All money and assets here are fictional. No real-world payments, ownership or em
 - Both fields are editable by the player in Finances. Values are private finance-profile data; changes do not automatically cause character knowledge or reveal wealth.
 
 ## Activation
-Apply drizzle/migrations/0080_private_wealth_economy.sql to the deployment database, then deploy the app branch. A GitHub commit does not apply SQL by itself.
+Apply drizzle/migrations/0080_private_wealth_economy.sql **then** drizzle/migrations/0081_financial_management.sql to the deployment database, then deploy the app branch. A GitHub commit does not apply SQL by itself.
+
+## Business-management extension (migration 0081)
+
+- Owner-only management commands: add/remove recurring household bills; hire and release simulated new staff; purchase up to five income-improving upgrades; disclose an owned asset or ordinary professional identity to one chosen character. All are written atomically with an idempotency request receipt.
+- Named original characters are protected from click-to-fire and forced relationship changes. Employee raises continue to use the salary tool from 0080. Business upgrades increase the stored monthly revenue baseline; month-by-month deterministic customer demand varies realized revenue by -6% to +6%.
+- Personal bills settle once per accelerated virtual month *starting no earlier than the bill creation month*; a separate per-bill ledger prevents double charging.
+- Character-scoped disclosed finance context is used by the existing AI conversation pipeline. No global wealth context is injected, and purchases do not automatically trigger a character reaction. The character can discuss a fact after an explicit reveal, but does not gain ownership of an employer or control over private records.
+- A purchased virtual home does not itself move an NPC or change the household. Use the existing housing-consent workflow to handle moving; financial title does not equal physical access.
 
 ## Not yet implemented
-NPC hiring/firing, personally configurable expenses and bills, property-linked housing moves, upgrades, fluctuating customer demand, explicit character-scoped ownership reveals, investment trading, and full per-employee payroll for unnamed staff. Those are subsequent phases, not currently functional features.
+Full autonomous NPC job applications/promotions/resignations, household move synchronization after a purchase, open-market investment trading, detailed individual employee records for initial unnamed staff, configurable player salary, and automated NPC reactions before the player explicitly discloses ownership. Those are subsequent phases, not currently functional features.
 
 ## Security/test checklist
-Verify migration against isolated Postgres; RLS/service-role boundaries; concurrent requests; idempotency; monthly catchup; loans; mobile UX. No production deployment or test pass is claimed here. SQL and UI need isolated-db execution and automated validation before merge.
+The dedicated `Private billionaire economy` GitHub workflow applies both migrations in disposable PostgreSQL, checks balance/loan/payroll/draw invariants, staffing, upgrades, private disclosures, recurring bills and repeat ticks, then runs finance unit tests. The broader CI workflows check TypeScript, build, and existing world behavior. Review live CI results before merge. No production deployment or migration is claimed here.
