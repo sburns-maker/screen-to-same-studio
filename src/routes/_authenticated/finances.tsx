@@ -8,6 +8,7 @@ import { changeFinances, loadFinances, setEmployeeSalary, ownerDraw, setDrawRate
 import { money, estimatedMonthlyPayment } from "@/lib/finance";
 import { FinanceManagement } from "@/components/FinanceManagement";
 import { FinanceInvestments } from "@/components/FinanceInvestments";
+import { FinanceGovernance } from "@/components/FinanceGovernance";
 
 export const Route = createFileRoute("/_authenticated/finances")({
   head: () => ({ meta: [{ title: "Finances — Living World" }] }),
@@ -199,6 +200,7 @@ function FinancesPage() {
             </section>;
           })}
         </div>
+        <FinanceGovernance finances={state} />
         <FinanceManagement finances={state} />
         <FinanceInvestments finances={state} />
         <h2 className="mt-7 text-lg font-semibold">Recent transactions</h2>
