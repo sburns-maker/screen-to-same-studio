@@ -24,6 +24,9 @@ begin
   if (response->>'cashCents')::bigint<>500000000000 then raise exception 'incorrect hidden starting cash'; end if;
   if (response->>'investmentsCents')::bigint<>300000000000 then raise exception 'incorrect investments'; end if;
   if response->>'visibility'<>'private' then raise exception 'wealth should start private'; end if;
+  if response->>'companyName'<>'Northline Group' or response->>'jobTitle'<>'Director of Special Projects' then raise exception 'wrong default professional identity'; end if;
+  response:=finance_set_identity(uid,gen_random_uuid(),'Northline Group','Regional Projects Coordinator');
+  if response->>'jobTitle'<>'Regional Projects Coordinator' then raise exception 'professional identity not persisted'; end if;
   if response->>'financePace'<>'7 virtual days per real day' then raise exception 'finance clock mode mismatch'; end if;
   if jsonb_array_length(response->'assets')<>28 then raise exception 'expected 28 purchasable game assets, got %',jsonb_array_length(response->'assets'); end if;
   if (select price_cents from finance_assets where user_id=uid and asset_key='work:upmc-altoona')<>200000000000 then
