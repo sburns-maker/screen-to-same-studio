@@ -3,8 +3,10 @@ on:
   pull_request:
     paths:
       - "drizzle/migrations/0080_private_wealth_economy.sql"
+      - "drizzle/migrations/0081_financial_management.sql"
       - "src/lib/finance*"
       - "src/routes/_authenticated/finances.tsx"
+      - "src/components/FinanceManagement.tsx"
       - "src/test/finance.test.ts"
       - "src/test/fixtures/finance/**"
       - ".github/workflows/financial-world.yml"
@@ -38,6 +40,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/setup.sql
           psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0080_private_wealth_economy.sql
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/checks.sql
+          psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0081_financial_management.sql
+          psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/management-checks.sql
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
