@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { loadFinanceManagement, updateFinanceManagement, type FinanceCommand } from "@/lib/finance-management.functions";
 import { money, type FinanceSnapshot } from "@/lib/finance";
 import { WORKPLACES } from "@/lib/workplaces";
+import { loadGovernance } from "@/lib/finance-governance.functions";
 
 const cast = [...new Set(Object.values(WORKPLACES).map(w=>w.character))];
 const cents = (input:string) => Math.round(Number(input)*100);
@@ -12,8 +13,10 @@ const cents = (input:string) => Math.round(Number(input)*100);
 export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
   const load=useServerFn(loadFinanceManagement);
   const action=useServerFn(updateFinanceManagement);
+  const loadGovernancePolicies=useServerFn(loadGovernance);
   const qc=useQueryClient();
   const q=useQuery({queryKey:["finance-management"],queryFn:()=>load(),retry:false});
+  const policies=useQuery({queryKey:["finance-governance"],queryFn:()=>loadGovernancePolicies(),retry:false});
   const [pending,setPending]=useState(false);
   const [expenseName,setExpenseName]=useState("");
   const [expenseAmount,setExpenseAmount]=useState("");
@@ -38,6 +41,7 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
   const owned=finances.assets.filter(a=>a.owned);
   const active=owned.find(a=>a.key===selected)??owned[0];
   const workers=finances.workers.filter(w=>w.assetKey===active?.key&&w.active);
+  const handsOff=!!policies.data?.find(p=>p.assetKey===active?.key)?.handsOff;
   const level=q.data?.improvements.find(x=>x.assetKey===active?.key)?.level??0;
   const upgradePrice=active?Math.max(50000,Math.floor(active.priceCents/100)*(level+1)):0;
 
@@ -82,9 +86,10 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
             className="min-h-11 rounded-xl border px-4 text-sm font-semibold">Purchase improvement</button>
           <div className="border-t pt-3">
             <h4 className="font-medium">Employees</h4>
+            {handsOff&&<p className="mt-1 text-xs text-muted-foreground">Hands-off ownership is active. Hiring, releasing and salary decisions are delegated to the independent operating team.</p>}
             {workers.map(w=><div key={w.key} className="flex items-center justify-between gap-2 py-2 text-sm">
               <span>{w.name} · {money(w.salaryCents)}/month</span>
-              {w.key.startsWith("hire:")&&<button type="button" disabled={pending}
+              {w.key.startsWith("hire:")&&!handsOff&&<button type="button" disabled={pending}
                 onClick={()=>active&&void submit({command:"fire",payload:{assetKey:active.key,workerKey:w.key}})}
                 className="rounded-lg border px-2 py-2 text-xs">Release</button>}
             </div>)}
@@ -95,7 +100,7 @@ export function FinanceManagement({finances}:{finances:FinanceSnapshot}) {
             <label className="mt-2 block text-xs font-medium" htmlFor="management-hire-pay">Monthly salary ($)</label>
             <input id="management-hire-pay" type="number" min="100" max="5000000" step="100" value={hirePay}
               onChange={e=>setHirePay(e.target.value)} className="min-h-11 w-full rounded-lg border bg-background px-3 text-sm"/>
-            <button type="button" disabled={pending||hireName.trim().length<2||!Number.isSafeInteger(cents(hirePay))||cents(hirePay)<10000||cents(hirePay)>500000000}
+            <button type="button" disabled={pending||handsOff||!policies.data||hireName.trim().length<2||!Number.isSafeInteger(cents(hirePay))||cents(hirePay)<10000||cents(hirePay)>500000000}
               onClick={()=>active&&void submit({command:"hire",payload:{assetKey:active.key,name:hireName.trim(),monthlyCents:cents(hirePay)}})}
               className="mt-2 min-h-11 rounded-xl border px-4 text-sm font-semibold">Hire employee</button>
           </div>
