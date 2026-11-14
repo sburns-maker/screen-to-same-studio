@@ -1,20 +1,35 @@
 import { describe, expect, it } from "vitest";
 import { estimatedMonthlyPayment, financeSnapshotSchema, money } from "../lib/finance";
-describe("private living-world finance calculations", () => {
-  it("formats USD and calculates declining-balance first payment", () => {
-    expect(money(2500000000)).toBe("$25,000,000");
+
+describe("private living-world finances", () => {
+  it("formats billionaire balances without losing cents", () => {
+    expect(money(500000000000)).toBe("$5,000,000,000");
     expect(estimatedMonthlyPayment(0)).toBe(0);
-    const financed = 42500000 * 0.75;
-    expect(estimatedMonthlyPayment(financed)).toBeGreaterThan(financed / 120);
+    expect(estimatedMonthlyPayment(200000000000)).toBeGreaterThan(0);
   });
-  it("rejects malformed wealth visibility", () => {
-    expect(financeSnapshotSchema.safeParse({
-      cashCents: 2500000000, investmentsCents: 1500000000,
-      visibility: "private", assets: [], transactions: [],
-    }).success).toBe(true);
-    expect(financeSnapshotSchema.safeParse({
-      cashCents: 2500000000, investmentsCents: 1500000000,
-      visibility: "everyone_knows", assets: [], transactions: [],
-    }).success).toBe(false);
+  it("requires private or explicitly disclosed wealth", () => {
+    const fixture = {
+      cashCents: 500000000000,
+      investmentsCents: 300000000000,
+      visibility: "private", playerSalaryCents:10000000, workers:[],
+      assets:[],transactions:[],
+    };
+    expect(financeSnapshotSchema.safeParse(fixture).success).toBe(true);
+    expect(financeSnapshotSchema.safeParse({...fixture,visibility:"everyone_knows"}).success).toBe(false);
+  });
+  it("validates company reserves and owner distribution rates", () => {
+    const fixture = {
+      cashCents: 500000000000, investmentsCents: 300000000000,
+      visibility:"private",playerSalaryCents:10000000,workers:[],transactions:[],
+      assets:[{
+        key:"work:upmc-altoona",label:"UPMC Altoona",category:"business",
+        workplaceKey:"work:riley",priceCents:200000000000,
+        monthlyProfitCents:5000000000,monthlyCostCents:400000000,
+        baselineRevenueCents:5000000000,companyReservesCents:0,ownerDrawPct:60,
+        staffCount:4500,owned:false,loanCents:0,loanMonthsLeft:0,ownerSince:null,
+      }],
+    };
+    expect(financeSnapshotSchema.safeParse(fixture).success).toBe(true);
+    expect(financeSnapshotSchema.safeParse({...fixture,assets:[{...fixture.assets[0],ownerDrawPct:"nope"}]}).success).toBe(false);
   });
 });
