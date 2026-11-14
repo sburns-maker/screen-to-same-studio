@@ -156,7 +156,7 @@ begin
  virtual_day:=finance_virtual_date(first_day,p_real_day);
  for e in select * from finance_expenses where user_id=p_user and active for update loop
   for m in select gs::date from generate_series(
-    greatest(date_trunc('month',first_day)::date,
+    greatest(date_trunc('month',finance_virtual_date(first_day,(e.created_at at time zone 'America/New_York')::date))::date,
       (date_trunc('month',virtual_day)-interval '12 months')::date),
     (date_trunc('month',virtual_day)-interval '1 month')::date,interval '1 month') gs loop
    insert into finance_expense_cycles(user_id,expense_key,cycle_month)
