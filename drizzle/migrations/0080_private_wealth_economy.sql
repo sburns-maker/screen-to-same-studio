@@ -129,7 +129,7 @@ begin
     (p_user,'work:victorias-secret','nina','Nina','Retail associate',3900000,'nina'),
     (p_user,'work:pleasant-valley-vet','tess','Tess','Veterinary staff',6200000,'tess')
   on conflict do nothing;
-end $;
+end $$;
 revoke all on function public.finance_initialize(uuid) from public,anon,authenticated;
 grant execute on function public.finance_initialize(uuid) to service_role;
 
@@ -240,7 +240,7 @@ begin
   end loop;
   -- Player salary arrives monthly irrespective of asset ownership, but only once.
   for m in select gs::date from generate_series(
-    (date_trunc('month',p_today)-interval '12 months')::date,
+    greatest(date_trunc('month',a.created_at)::date,(date_trunc('month',p_today)-interval '12 months')::date),
     (date_trunc('month',p_today)-interval '1 month')::date,interval '1 month') gs loop
     insert into finance_income_cycles(user_id,cycle_month) values(p_user,m) on conflict do nothing;
     if found then
@@ -251,7 +251,7 @@ begin
     end if;
   end loop;
   return applied;
-end $;
+end $$;
 revoke all on function public.finance_monthly_tick(uuid,date) from public,anon,authenticated;
 grant execute on function public.finance_monthly_tick(uuid,date) to service_role;
 
