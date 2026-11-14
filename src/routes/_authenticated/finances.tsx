@@ -78,7 +78,7 @@ function FinancesPage() {
                 <button type="button" disabled={!!pending} className="mt-3 min-h-11 w-full rounded-xl border font-medium" onClick={() => void act("sell",asset.key)}>Sell at book value</button>
               </> : <>
                 <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={financed} onChange={e => setSelectedFinancing(s=>({...s,[asset.key]:e.target.checked}))}/>Finance 75% over 10 years (8% APR)</label>
-                <p className="mt-1 text-xs text-muted-foreground">Due now: {money(down)}{financed ? " · initial estimated payment "+money(estimatedMonthlyPayment(asset.priceCents-down))+"/month" : ""}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Due now: {money(down)}{financed ? " · estimated first payment "+money(estimatedMonthlyPayment(asset.priceCents-down))+" (declines over time)" : ""}</p>
                 <button type="button" disabled={!!pending || state.cashCents < down} className="mt-3 min-h-11 w-full rounded-xl bg-primary px-4 font-medium text-primary-foreground disabled:opacity-40" onClick={() => void act("purchase",asset.key,financed)}>{pending === "purchase"+asset.key ? "Processing…" : "Buy business / property"}</button>
               </>}
             </section>;
