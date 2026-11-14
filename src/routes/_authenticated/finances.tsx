@@ -7,6 +7,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { changeFinances, loadFinances, setEmployeeSalary, ownerDraw, setDrawRate, setProfessionalIdentity } from "@/lib/finance.functions";
 import { money, estimatedMonthlyPayment } from "@/lib/finance";
 import { FinanceManagement } from "@/components/FinanceManagement";
+import { FinanceInvestments } from "@/components/FinanceInvestments";
 
 export const Route = createFileRoute("/_authenticated/finances")({
   head: () => ({ meta: [{ title: "Finances — Living World" }] }),
@@ -199,6 +200,7 @@ function FinancesPage() {
           })}
         </div>
         <FinanceManagement finances={state} />
+        <FinanceInvestments finances={state} />
         <h2 className="mt-7 text-lg font-semibold">Recent transactions</h2>
         <div className="mt-2 divide-y rounded-2xl border bg-surface">
           {state.transactions.length === 0 && <p className="p-4 text-sm text-muted-foreground">No transactions yet.</p>}
