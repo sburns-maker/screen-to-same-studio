@@ -54,11 +54,11 @@ export const updatePhotographyVenture=createServerFn({method:"POST"})
 .handler(async ({context,data})=>{
  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
  const payload:Record<string,unknown>={};
- if(data.action==="start"){payload.path=data.path;payload.name=data.name;}
- if(data.action==="inspect")payload.check=data.check;
- if(data.action==="offer"){payload.offerCents=data.offerCents;payload.financing=data.financing;}
- if(data.action==="upgrade")payload.upgrade=data.upgrade;
- if(data.action==="launch")payload.style=data.style;
+ if(data.action==="start"){payload['path']=data.path;payload['name']=data.name;}
+ if(data.action==="inspect")payload['check']=data.check;
+ if(data.action==="offer"){payload['offerCents']=data.offerCents;payload['financing']=data.financing;}
+ if(data.action==="upgrade")payload['upgrade']=data.upgrade;
+ if(data.action==="launch")payload['style']=data.style;
  const r=await db.rpc("finance_venture_action" as never,{
   p_user:context.userId,p_request:data.requestId,
   p_venture:"ventureId" in data?data.ventureId:null,
