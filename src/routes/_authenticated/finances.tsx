@@ -53,7 +53,7 @@ function FinancesPage() {
   async function saveSalary(assetKey: string,workerKey: string,current: number) {
     const raw=payDrafts[assetKey+":"+workerKey];
     const dollars=raw === undefined ? current/100 : Number(raw);
-    if (!Number.isFinite(dollars) || dollars < 0 || dollars > 500000000) return toast.error("Enter a valid monthly salary");
+    if (!Number.isFinite(dollars) || dollars < 0 || dollars > 500000000) { toast.error("Enter a valid monthly salary"); return; }
     setPending("salary:"+assetKey+":"+workerKey);
     try {
       const next=await updateSalary({data:{assetKey,workerKey,salaryCents:Math.round(dollars*100),requestId:crypto.randomUUID()}});
