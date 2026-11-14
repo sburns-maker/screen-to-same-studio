@@ -561,7 +561,7 @@ export async function generateExperience(
             if(enc.alreadyPregnant(ev.data as never,births.data??[])) break;
             await recordVerifiedPregnancyOpportunity(db,{
               userId:user,characterKey:def.key,encounterId,
-              occurredAt:all[i].created_at,adultEligible:true,mutuallyAgreed:true,
+              occurredAt:all[i]!.created_at,adultEligible:true,mutuallyAgreed:true,
               pregnancyPossible:true,probability:configured,
             });
           }
