@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { loadGovernance, saveGovernance } from "@/lib/finance-governance.functions";
 import type { FinanceSnapshot } from "@/lib/finance";
 import { loadEquityOffers, updateEquityOffer } from "@/lib/finance-equity.functions";
+import { FinanceLegalReview } from "./FinanceLegalReview";
 
 const defaults = {
   handsOff:true,
@@ -33,7 +34,7 @@ export function FinanceGovernance({finances}:{finances:FinanceSnapshot}) {
     reportsTo:saved.reportsTo,independentHr:saved.independentHr,
   }:defaults);
   const staffChangesAllowed=!saved?.handsOff;
-  const pendingOffer=oq.data?.find(o=>o.assetKey===selected?.key&&o.characterKey===recipient&&o.status==="pending");
+  const pendingOffer=oq.data?.find(o=>o.assetKey===selected?.key&&o.characterKey===recipient&&["pending","character_accepted"].includes(o.status));
   const policyText=selected ? `Fictional management policy for ${selected.label}: ${current.handsOff?
     "The owner is a passive, hands-off investor and does not supervise employees or make individual hiring, firing, pay, scheduling, disciplinary or performance decisions.":
     "The owner participates in management decisions under the usual fictional workplace rules."}
@@ -124,7 +125,7 @@ This is an in-game policy summary, not an executed contract, confirmed appointme
           {["tess","claire","riley","jordan","carly","brooke","kendra","nina","maya","sienna","jade","ben"].map(key=><option key={key} value={key}>{key.charAt(0).toUpperCase()+key.slice(1)}</option>)}
         </select>
         {pendingOffer ? <>
-          <p className="text-sm font-medium">Pending offer · 50% · awaiting {recipient}'s decision</p>
+          <p className="text-sm font-medium">{pendingOffer.status==="character_accepted"?"Character has accepted · awaiting your confirmation":"Pending offer · 50% · awaiting a decision"}</p>
           <button type="button" disabled={busy} onClick={()=>void withdrawHalf()}
             className="min-h-11 rounded-lg border px-3 text-sm">Withdraw offer</button>
         </> : <button type="button" disabled={busy||!saved?.handsOff||!!oq.error}
@@ -136,6 +137,7 @@ This is an in-game policy summary, not an executed contract, confirmed appointme
         <p className="text-xs text-muted-foreground">A pending offer is a topic your character can discuss; it is not proof of acceptance, a signed contract, or a transfer of any shares. A separate mutual agreement process is required before actual in-game co-ownership is activated.</p>
       </section>
       <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={()=>void copyPolicy()}>Copy written policy</button>
+      <FinanceLegalReview assetKey={selected.key} assetLabel={selected.label} characterKey={recipient} handsOff={!!saved?.handsOff}/>
       <p className="text-xs text-muted-foreground">
         {saved?.handsOff?"Saved hands-off ownership: direct staff hiring, firing and salary edits are blocked by the database.":"No active hands-off restriction is saved for this business."}
         {!staffChangesAllowed?" Salary decisions must go through the fictional operating manager.":""}
