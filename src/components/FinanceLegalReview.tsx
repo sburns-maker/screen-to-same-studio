@@ -63,6 +63,7 @@ export function FinanceLegalReview({assetKey,assetLabel,characterKey,handsOff}:{
         {doc?"Deliver updated agreement":"Deliver written agreement"}
       </button>
       {stake&&<p className="text-sm font-semibold">Recorded equity: {stake.percent}% for {stake.characterKey}. Character's accumulated distributions: {(stake.partnerBalanceCents/100).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0})}.</p>}
+      {offer&&<details className="rounded-lg border p-2"><summary className="cursor-pointer text-xs font-semibold">Read 50% ownership terms and risks</summary><p className="mt-2 whitespace-pre-line text-xs">{offer.termsText}</p></details>}
       {offer?.status==="character_accepted"&&!stake&&<p className="text-sm">This character explicitly accepted the 50% offer. Final confirmation is now available only if the independent agreement is acknowledged and hands-off governance is active.</p>}
       {offer?.status==="pending"&&<p className="text-xs text-muted-foreground">The ownership proposal is still awaiting the character's decision. Their agreement to employment boundaries alone does not count.</p>}
       {!stake&&<button type="button" disabled={!eligible||pending} onClick={()=>void confirmTransfer()}
