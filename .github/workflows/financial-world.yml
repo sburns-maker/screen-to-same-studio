@@ -8,10 +8,12 @@ on:
       - "drizzle/migrations/0083_employee_salary_notices.sql"
       - "drizzle/migrations/0084_hands_off_ownership.sql"
       - "drizzle/migrations/0085_optional_equity_offers.sql"
+      - "drizzle/migrations/0086_finance_agreements_and_equity.sql"
       - "src/lib/finance*"
       - "src/routes/_authenticated/finances.tsx"
       - "src/components/FinanceManagement.tsx"
       - "src/components/FinanceGovernance.tsx"
+      - "src/components/FinanceLegalReview.tsx"
       - "src/components/FinanceInvestments.tsx"
       - "src/test/finance.test.ts"
       - "src/test/finance-knowledge.test.ts"
@@ -56,8 +58,10 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0084_hands_off_ownership.sql
           psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0085_optional_equity_offers.sql
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/governance-checks.sql
+          psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0086_finance_agreements_and_equity.sql
+          psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/equity-finalization-checks.sql
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Run finance unit tests
-        run: bunx vitest run src/test/finance.test.ts src/test/finance-knowledge.test.ts
+        run: bunx vitest run src/test/finance.test.ts src/test/finance-knowledge.test.ts src/test/finance-character-decisions.test.ts
