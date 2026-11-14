@@ -11,7 +11,7 @@ describe("private living-world finances", () => {
     const fixture = {
       cashCents: 500000000000,
       investmentsCents: 300000000000,
-      visibility: "private", financePace:"7 virtual days per real day", virtualDate:"2026-11-14", playerSalaryCents:10000000, workers:[],
+      visibility: "private", companyName:"Northline Group", jobTitle:"Director of Special Projects", financePace:"7 virtual days per real day", virtualDate:"2026-11-14", playerSalaryCents:10000000, workers:[],
       assets:[],transactions:[],
     };
     expect(financeSnapshotSchema.safeParse(fixture).success).toBe(true);
@@ -20,7 +20,7 @@ describe("private living-world finances", () => {
   it("validates company reserves and owner distribution rates", () => {
     const fixture = {
       cashCents: 500000000000, investmentsCents: 300000000000,
-      visibility:"private",financePace:"7 virtual days per real day",virtualDate:"2026-11-14",playerSalaryCents:10000000,workers:[],transactions:[],
+      visibility:"private",companyName:"Northline Group",jobTitle:"Director of Special Projects",financePace:"7 virtual days per real day",virtualDate:"2026-11-14",playerSalaryCents:10000000,workers:[],transactions:[],
       assets:[{
         key:"work:upmc-altoona",label:"UPMC Altoona",category:"business",
         workplaceKey:"work:riley",priceCents:200000000000,
