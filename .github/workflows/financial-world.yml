@@ -5,6 +5,7 @@ on:
       - "drizzle/migrations/0080_private_wealth_economy.sql"
       - "drizzle/migrations/0081_financial_management.sql"
       - "drizzle/migrations/0082_financial_investments.sql"
+      - "drizzle/migrations/0083_employee_salary_notices.sql"
       - "src/lib/finance*"
       - "src/routes/_authenticated/finances.tsx"
       - "src/components/FinanceManagement.tsx"
@@ -47,6 +48,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/management-checks.sql
           psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0082_financial_investments.sql
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/investment-checks.sql
+          psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0083_employee_salary_notices.sql
+          psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/salary-checks.sql
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
