@@ -79,13 +79,18 @@ create or replace function public.finance_hands_off_staff_guard()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
   if exists(select 1 from finance_governance g
-    where g.user_id=new.user_id and g.asset_key=new.asset_key and g.hands_off=true)
-    and (
-      (tg_op='INSERT' and left(new.worker_key,5)='hire:')
-      or (tg_op='UPDATE' and (new.salary_cents is distinct from old.salary_cents
-                                  or new.active is distinct from old.active))
-    )
-  then raise exception 'Hands-off ownership: direct staff decisions are delegated'; end if;
+      where g.user_id=new.user_id and g.asset_key=new.asset_key and g.hands_off=true) then
+    if tg_op='INSERT' then
+      if left(new.worker_key,5)='hire:' then
+        raise exception 'Hands-off ownership: direct staff decisions are delegated';
+      end if;
+    elsif tg_op='UPDATE' then
+      if new.salary_cents is distinct from old.salary_cents
+         or new.active is distinct from old.active then
+        raise exception 'Hands-off ownership: direct staff decisions are delegated';
+      end if;
+    end if;
+  end if;
   return new;
 end $$;
 revoke all on function public.finance_hands_off_staff_guard() from public,anon,authenticated;
