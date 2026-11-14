@@ -42,6 +42,11 @@ alter table public.finance_equity_payouts enable row level security;
 revoke all on public.finance_agreements,public.finance_equity_stakes,public.finance_equity_payouts from anon,authenticated;
 grant select,insert,update,delete on public.finance_agreements,public.finance_equity_stakes,public.finance_equity_payouts to service_role;
 
+-- The term sheet applies to game-only equity. It is attached to each offer, and the
+-- character can read it before deciding. No legal liability or real shares are created.
+alter table finance_equity_offers add column if not exists terms_text text
+ not null default 'FICTIONAL 50/50 CO-OWNERSHIP TERMS: The recipient is offered 50% economic interest in this game business without requiring a payment. Both owners receive an equal share of future owner distributions; losses and business debts affect each side of the simulated economic interest equally, but there are no real personal guarantees or legal liabilities. Management stays delegated to an independent operator. Employment and relationship decisions stay separate. Neither owner can sell the whole company unilaterally; a future joint-sale or buyout agreement would be required. No taxes, real securities, actual corporate voting documents, or real property changes are created. The recipient may seek independent advice, request changes, or decline with no penalty.';
+
 -- Preserve existing offers while allowing a voluntary, source-backed decision.
 alter table finance_equity_offers drop constraint if exists finance_equity_offers_status_check;
 alter table finance_equity_offers add constraint finance_equity_offers_status_check
@@ -65,7 +70,10 @@ begin
    'assetKey',asset_key,'characterKey',character_key,'percent',percent,
    'partnerBalanceCents',character_balance_cents,'finalizedAt',finalized_at) order by finalized_at desc)
    from finance_equity_stakes where user_id=p_user),'[]'::jsonb),
- 'offers',finance_equity_offers_snapshot(p_user));
+ 'offers',coalesce((select jsonb_agg(jsonb_build_object(
+  'offerId',offer_id,'assetKey',asset_key,'characterKey',recipient_character,
+  'percentage',percentage,'status',status,'createdAt',created_at,'termsText',terms_text)
+  order by created_at desc) from finance_equity_offers where user_id=p_user),'[]'::jsonb));
 end $$;
 revoke all on function public.finance_review_snapshot(uuid) from public,anon,authenticated;
 grant execute on function public.finance_review_snapshot(uuid) to service_role;
