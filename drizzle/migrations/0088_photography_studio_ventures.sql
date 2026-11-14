@@ -220,7 +220,7 @@ begin
    if v.stage in ('cancelled','exited') or v.sienna_involvement<>'not_discussed' then
     raise exception 'Sienna invitation already recorded or venture cancelled'; end if;
    update finance_ventures set sienna_involvement='invited' where user_id=p_user and venture_id=p_venture;
-   detail_text:='Player wishes to discuss creative role with Sienna; this is NOT acceptance or employment';
+   detail_text:='Player disclosed a proposed photography studio to Sienna; no agreement or employment';
   else
    raise exception 'Unknown venture action';
   end if;
