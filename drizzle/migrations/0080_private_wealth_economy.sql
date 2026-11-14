@@ -227,7 +227,7 @@ returns integer language plpgsql security definer set search_path=public
 as $$
 declare a finance_accounts%rowtype; b finance_assets%rowtype; m date;
   cash_delta bigint; principal_payment bigint; interest_payment bigint; applied integer:=0; payroll bigint; named_count integer;
-  gross bigint; draw_amount bigint; shortfall bigint; months_owned integer;
+  gross bigint; realized_revenue bigint; draw_amount bigint; shortfall bigint; months_owned integer;
   virtual_today date; virtual_start date; virtual_owned_since date;
 begin
   -- Background jobs must not create a millionaire account for users who never opted into finances.
@@ -251,12 +251,15 @@ begin
       payroll:=payroll+greatest(0,b.staff_count-named_count)*300000;
       -- Revenue grows by 2% at three-month ownership milestones, capped at 200% of the initial revenue.
       months_owned:=greatest(0,((extract(year from age(m,virtual_owned_since))::int)*12+
-        extract(month from age(m,b.owner_since::date))::int));
+        extract(month from age(m,virtual_owned_since))::int));
       gross:=b.monthly_profit_cents;
       if months_owned>0 and mod(months_owned,3)=0 then
         gross:=least(ceil(gross*1.02)::bigint,b.baseline_revenue_cents*2);
       end if;
-      cash_delta:=gross-b.monthly_cost_cents-payroll-principal_payment-interest_payment;
+      -- Deterministic monthly customer demand swings between -6% and +6%,
+      -- based on the asset and virtual month, without changing the growth baseline.
+      realized_revenue:=(gross*(94+mod(hashtext(b.asset_key||':'||m::text)::bigint+2147483648,13)))/100;
+      cash_delta:=realized_revenue-b.monthly_cost_cents-payroll-principal_payment-interest_payment;
       if cash_delta>=0 then
         draw_amount:=floor(cash_delta*b.owner_draw_pct/100.0)::bigint;
         update finance_assets set company_reserves_cents=company_reserves_cents+cash_delta-draw_amount,
@@ -278,7 +281,7 @@ begin
       end if;
       insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
       values(p_user,gen_random_uuid(),'monthly_settlement',b.asset_key,draw_amount,a.cash_cents,
-        'Operations / net '||(cash_delta/100)::text||' USD, owner draw '||(draw_amount/100)::text||' USD, month '||to_char(m,'YYYY-MM'));
+        'Operations / turnover '||(realized_revenue/100)::text||' USD, net '||(cash_delta/100)::text||' USD, owner draw '||(draw_amount/100)::text||' USD, month '||to_char(m,'YYYY-MM'));
       b.company_reserves_cents:=case when cash_delta>=0 then b.company_reserves_cents+cash_delta-draw_amount else greatest(0,b.company_reserves_cents+cash_delta) end;
       b.monthly_profit_cents:=gross;
       b.loan_cents:=greatest(0,b.loan_cents-principal_payment);
