@@ -15,11 +15,11 @@ export async function financeCharacterContext(admin: Admin, userId: string, char
     .order("notified_at",{ascending:false}).limit(3);
   const salaries=(salaryResult.error ? [] : salaryResult.data??[]) as unknown as {asset_key:string;old_salary_cents:number;new_salary_cents:number;notified_at:string}[];
   const offerResult=await admin.from("finance_equity_offers" as never)
-    .select("offer_id,asset_key,percentage,status,created_at")
+    .select("offer_id,asset_key,percentage,status,created_at,terms_text")
     .eq("user_id",userId).eq("recipient_character",character)
     .order("created_at",{ascending:false}).limit(6);
   const offers=(offerResult.error?[]:offerResult.data??[]) as unknown as
-    {offer_id:string;asset_key:string;percentage:number;status:string;created_at:string}[];
+    {offer_id:string;asset_key:string;percentage:number;status:string;created_at:string;terms_text:string}[];
   const agreementResult=await admin.from("finance_agreements" as never)
     .select("asset_key,policy_text,status,delivered_at")
     .eq("user_id",userId).eq("recipient_character",character)
@@ -72,7 +72,7 @@ export async function financeCharacterContext(admin: Admin, userId: string, char
   const proposals=offers.map(o=>{
     const asset=assetData.find(a=>a.asset_key===o.asset_key);
     if(!asset||!asset.owned)return "";
-    if(o.status==="pending")return `The player has offered you OPTIONAL ${o.percentage}% ownership of ${asset.label}, offerId=${o.offer_id}, assetKey=${o.asset_key}. This is pending and entirely separate from agreeing to workplace boundaries. If you explicitly accept or decline the equity offer in your own visible words, use finance_decision action accept_offer or decline_offer with this exact offerId, assetKey and exact quote. Do NOT accept ownership before the independent written agreement has been acknowledged. You may defer, seek advice, negotiate terms or decline without consequences.`;
+    if(o.status==="pending")return `The player has offered you OPTIONAL ${o.percentage}% ownership of ${asset.label}, offerId=${o.offer_id}, assetKey=${o.asset_key}. Full fictional term sheet: ${o.terms_text}. This is pending and entirely separate from agreeing to workplace boundaries. If you explicitly accept or decline the equity offer in your own visible words, use finance_decision action accept_offer or decline_offer with this exact offerId, assetKey and exact quote. Do NOT accept ownership before the independent written agreement has been acknowledged. You may defer, seek advice, negotiate terms or decline without consequences.`;
     if(o.status==="character_accepted")return `You explicitly accepted an offer for ${o.percentage}% of ${asset.label}; the player has NOT yet finalized the purely fictional share transfer. Do not claim to be a co-owner until finalization has been recorded.`;
     if(o.status==="declined")return `You declined the ${o.percentage}% ownership offer for ${asset.label}. The player should respect that decision, and it does not affect your job, marriage or relationship.`;
     return "";
