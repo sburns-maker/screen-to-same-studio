@@ -18,10 +18,13 @@ begin
   if has_function_privilege('authenticated','public.finance_action(uuid,uuid,text,text,boolean)','EXECUTE') then
     raise exception 'authenticated role should not call finance_action directly';
   end if;
+  if finance_virtual_date(date '2026-11-14',date '2026-11-15')<>date '2026-11-21' then raise exception '1 real day must equal 7 virtual days'; end if;
+  if finance_virtual_date(date '2026-11-14',date '2026-11-14')<>date '2026-11-14' then raise exception 'finance must start at player account date'; end if;
   response:=finance_snapshot(uid);
   if (response->>'cashCents')::bigint<>500000000000 then raise exception 'incorrect hidden starting cash'; end if;
   if (response->>'investmentsCents')::bigint<>300000000000 then raise exception 'incorrect investments'; end if;
   if response->>'visibility'<>'private' then raise exception 'wealth should start private'; end if;
+  if response->>'financePace'<>'7 virtual days per real day' then raise exception 'finance clock mode mismatch'; end if;
   if jsonb_array_length(response->'assets')<>28 then raise exception 'expected 28 purchasable game assets, got %',jsonb_array_length(response->'assets'); end if;
   if (select price_cents from finance_assets where user_id=uid and asset_key='work:upmc-altoona')<>200000000000 then
     raise exception 'UPMC fictional valuation should be $2bn';
@@ -37,8 +40,9 @@ begin
   response:=finance_set_salary(uid,id,'work:after-dark','carly',650000);
   salary:=(select salary_cents from finance_workers where user_id=uid and asset_key='work:after-dark' and worker_key='carly');
   if salary<>650000 then raise exception 'salary adjustment not applied'; end if;
-  months:=finance_monthly_tick(uid,(current_date+interval '5 months')::date);
+  months:=finance_monthly_tick(uid,(current_date+interval '16 days')::date);
   if months<1 then raise exception 'business monthly settlement did not run'; end if;
+  if finance_monthly_tick(uid,(current_date+interval '16 days')::date)<>0 then raise exception 'duplicate world tick paid same virtual month twice'; end if;
   if (select monthly_profit_cents from finance_assets where user_id=uid and asset_key='work:after-dark')<=
      (select baseline_revenue_cents from finance_assets where user_id=uid and asset_key='work:after-dark') then
     raise exception 'quarterly revenue did not increase';
