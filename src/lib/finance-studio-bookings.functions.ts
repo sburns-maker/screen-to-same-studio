@@ -14,8 +14,8 @@ const action=z.discriminatedUnion("action",[
  z.object({action:z.literal("schedule"),requestId:z.string().uuid(),ventureId:z.string().uuid(),
    service:z.enum(["portrait","family","branding","rental"]),
    virtualDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/)}),
- z.object({action:z.enum(["complete","cancel"]),requestId:z.string().uuid(),ventureId:z.string().uuid(),
-   sessionId:z.string().uuid()}),
+ z.object({action:z.literal("complete"),requestId:z.string().uuid(),ventureId:z.string().uuid(),sessionId:z.string().uuid()}),
+ z.object({action:z.literal("cancel"),requestId:z.string().uuid(),ventureId:z.string().uuid(),sessionId:z.string().uuid()}),
 ]);
 export type StudioSessionAction=z.infer<typeof action>;
 
