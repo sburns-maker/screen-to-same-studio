@@ -53,7 +53,7 @@ export function PhotographyStudioVentures(){
       action.action==="start"?"Begin researching this fictional studio? No acquisition happens yet.":
       action.action==="close"?"Close on this fictional studio? You will pay the closing amount and may still need to renovate before it earns money.":
       action.action==="launch"?"Open the studio and begin simulated business settlements?":
-      action.action==="invite_sienna"?"Record that you want to discuss the creative opportunity with Sienna? This does not mean she agreed.":
+      action.action==="invite_sienna"?"Tell Sienna about the creative opportunity in her character context? This does not mean she agreed.":
       "Cancel this acquisition? Research fees are not refunded."
     ))return;
   setPending(true);
@@ -184,8 +184,8 @@ export function PhotographyStudioVentures(){
     <p className="text-xs text-muted-foreground">Discussion: {current.siennaInvolvement==="invited"?"Invitation recorded; no acceptance presumed":"Not yet discussed"}</p>
     <button type="button" disabled={pending||current.siennaInvolvement!=="not_discussed"}
      className="min-h-11 rounded-xl border px-4 text-sm disabled:opacity-40"
-     onClick={()=>send("invite_sienna")}>Mark studio idea ready to discuss with Sienna</button>
-    <p className="text-xs text-muted-foreground">When invited, her character can learn about the proposal in conversation. No payroll or co-ownership is created, and the character decides how she feels about it.</p>
+     onClick={()=>send("invite_sienna")}>Tell Sienna about the studio idea</button>
+    <p className="text-xs text-muted-foreground">This tells her character about the proposal; she can discuss it in conversation. No payroll or co-ownership is created, and the character decides how she feels about it.</p>
    </div>
    {["research","offer_pending","offer_accepted"].includes(current.stage)&&
     <button type="button" disabled={pending} onClick={()=>send("cancel")}
