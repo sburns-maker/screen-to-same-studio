@@ -34,9 +34,9 @@ begin
   response:=finance_action(uid,id,'purchase','work:after-dark',false);
   if (response->>'cashCents')::bigint<>balance_after then raise exception 'duplicate purchase changed balance'; end if;
   id:=gen_random_uuid();
-  response:=finance_set_salary(uid,id,'work:after-dark','carly',12000000);
+  response:=finance_set_salary(uid,id,'work:after-dark','carly',650000);
   salary:=(select salary_cents from finance_workers where user_id=uid and asset_key='work:after-dark' and worker_key='carly');
-  if salary<>12000000 then raise exception 'salary adjustment not applied'; end if;
+  if salary<>650000 then raise exception 'salary adjustment not applied'; end if;
   months:=finance_monthly_tick(uid,(current_date+interval '5 months')::date);
   if months<1 then raise exception 'business monthly settlement did not run'; end if;
   if (select monthly_profit_cents from finance_assets where user_id=uid and asset_key='work:after-dark')<=
