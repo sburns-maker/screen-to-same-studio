@@ -9,6 +9,7 @@ import { money, estimatedMonthlyPayment } from "@/lib/finance";
 import { FinanceManagement } from "@/components/FinanceManagement";
 import { FinanceInvestments } from "@/components/FinanceInvestments";
 import { FinanceGovernance } from "@/components/FinanceGovernance";
+import { loadFinanceReview } from "@/lib/finance-review.functions";
 
 export const Route = createFileRoute("/_authenticated/finances")({
   head: () => ({ meta: [{ title: "Finances — Living World" }] }),
@@ -17,6 +18,8 @@ export const Route = createFileRoute("/_authenticated/finances")({
 function FinancesPage() {
   const load = useServerFn(loadFinances);
   const change = useServerFn(changeFinances);
+  const loadReview = useServerFn(loadFinanceReview);
+  const equityReview = useQuery({queryKey:["finance-review"],queryFn:()=>loadReview(),retry:false});
   const updateSalary = useServerFn(setEmployeeSalary);
   const takeDraw = useServerFn(ownerDraw);
   const changeDrawRate = useServerFn(setDrawRate);
@@ -110,7 +113,8 @@ function FinancesPage() {
     finally { setPending(""); }
   }
   const netWorth = (state?.cashCents ?? 0) + (state?.investmentsCents ?? 0) +
-    owned.reduce((sum,a) => sum + a.priceCents + a.companyReservesCents - a.loanCents, 0);
+    owned.reduce((sum,a) => Math.floor(sum + (a.priceCents + a.companyReservesCents - a.loanCents) *
+    (100-(equityReview.data?.stakes.find(st=>st.assetKey===a.key)?.percent??0))/100), 0);
   return <>
     <ScreenHeader title="Finances" backTo="/home" />
     <Screen>
@@ -191,7 +195,9 @@ function FinancesPage() {
                     <div className="flex items-center gap-2"><input id={"pay-"+asset.key+"-"+w.key} type="number" min="0" max="500000000" step="100" value={payDrafts[asset.key+":"+w.key] ?? String(w.salaryCents/100)} onChange={e=>setPayDrafts(d=>({...d,[asset.key+":"+w.key]:e.target.value}))} className="min-w-0 flex-1 rounded-lg border bg-background px-2 py-2 text-sm"/><button type="button" disabled={!!pending} onClick={()=>void saveSalary(asset.key,w.key,w.salaryCents)} className="rounded-lg border px-3 py-2 text-sm">Save</button></div>
                   </div>)}
                 </details>}
-                <button type="button" disabled={!!pending} className="mt-3 min-h-11 w-full rounded-xl border font-medium" onClick={() => void act("sell",asset.key)}>Sell at book value</button>
+                {equityReview.data?.stakes.some(st=>st.assetKey===asset.key)
+                  ? <p className="mt-3 rounded-xl border p-3 text-xs text-muted-foreground">Jointly owned business: a sale requires both fictional owners. Unilateral sale is disabled.</p>
+                  : <button type="button" disabled={!!pending} className="mt-3 min-h-11 w-full rounded-xl border font-medium" onClick={() => void act("sell",asset.key)}>Sell at book value</button>}
               </> : <>
                 <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={financed} onChange={e => setSelectedFinancing(s=>({...s,[asset.key]:e.target.checked}))}/>Finance 75% over 10 years (8% APR)</label>
                 <p className="mt-1 text-xs text-muted-foreground">Due now: {money(down)}{financed ? " · estimated first payment "+money(estimatedMonthlyPayment(asset.priceCents-down))+" (declines over time)" : ""}</p>
