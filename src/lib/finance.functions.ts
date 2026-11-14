@@ -32,3 +32,24 @@ export const changeFinances = createServerFn({ method: "POST" })
     }
     return financeSnapshotSchema.parse(result.data);
   });
+
+export const setEmployeeSalary = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) => z.object({
+    requestId: z.string().uuid(),
+    assetKey: z.string().max(90),
+    workerKey: z.string().max(90),
+    salaryCents: z.number().int().min(0).max(50000000000),
+  }).parse(value))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const result = await db.rpc("finance_set_salary" as never, {
+      p_user: context.userId,p_request: data.requestId,p_asset: data.assetKey,
+      p_worker: data.workerKey,p_salary: data.salaryCents,
+    } as never);
+    if (result.error) {
+      const allowed = ["Salary out of bounds","Business ownership required","Unknown active employee"];
+      throw new Error(allowed.includes(result.error.message) ? result.error.message : "Could not update fictional salary.");
+    }
+    return financeSnapshotSchema.parse(result.data);
+  });
