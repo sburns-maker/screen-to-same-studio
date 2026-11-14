@@ -7,6 +7,8 @@ export const financeAssetSchema = z.object({
 });
 export const financeSnapshotSchema = z.object({
   cashCents: z.number(), investmentsCents: z.number(), visibility: z.enum(["private","disclosed"]),
+  playerSalaryCents: z.number(),
+  workers: z.array(z.object({ key:z.string(), assetKey:z.string(), name:z.string(), role:z.string(), salaryCents:z.number(), characterKey:z.string().nullable(), active:z.boolean() })),
   assets: z.array(financeAssetSchema),
   transactions: z.array(z.object({
     event_type: z.string(), amount_cents: z.number(), cash_after_cents: z.number(),
