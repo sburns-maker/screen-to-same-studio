@@ -53,3 +53,36 @@ export const setEmployeeSalary = createServerFn({ method: "POST" })
     }
     return financeSnapshotSchema.parse(result.data);
   });
+
+export const ownerDraw = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) => z.object({
+    requestId: z.string().uuid(), assetKey: z.string().max(90),
+    amountCents: z.number().int().positive().max(100000000000000),
+  }).parse(value))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const result = await db.rpc("finance_owner_draw" as never, {
+      p_user: context.userId,p_request: data.requestId,p_asset: data.assetKey,p_amount: data.amountCents,
+    } as never);
+    if(result.error) {
+      const known=["Draw must be positive","Owned business required","Not enough company reserves"];
+      throw new Error(known.includes(result.error.message)?result.error.message:"Owner draw could not be completed.");
+    }
+    return financeSnapshotSchema.parse(result.data);
+  });
+
+export const setDrawRate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) => z.object({
+    requestId: z.string().uuid(), assetKey: z.string().max(90),
+    percent: z.number().int().min(0).max(100),
+  }).parse(value))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin: db } = await import("@/integrations/supabase/client.server");
+    const result = await db.rpc("finance_set_draw_rate" as never, {
+      p_user: context.userId,p_request: data.requestId,p_asset: data.assetKey,p_rate: data.percent,
+    } as never);
+    if(result.error) throw new Error("Draw percentage could not be changed.");
+    return financeSnapshotSchema.parse(result.data);
+  });
