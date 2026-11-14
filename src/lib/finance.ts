@@ -20,5 +20,5 @@ export function money(cents: number) {
 export function estimatedMonthlyPayment(principalCents: number, months = 120, rate = 0.08): number {
   if (!principalCents) return 0;
   const r = rate / 12;
-  return Math.ceil(principalCents * r / (1 - Math.pow(1 + r, -months)));
+  return Math.ceil(principalCents / months + principalCents * r);
 }
