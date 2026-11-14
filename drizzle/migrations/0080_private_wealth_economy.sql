@@ -87,11 +87,11 @@ begin
   insert into finance_accounts(user_id) values(p_user) on conflict do nothing;
   insert into finance_assets(user_id,asset_key,label,category,workplace_key,price_cents,monthly_profit_cents,monthly_cost_cents,staff_count)
   values
-    (p_user,'work:after-dark','After Dark','business','work:carly',42500000,620000,0,14),
-    (p_user,'work:northlight','Northlight Studio','business','work:kendra',18500000,240000,0,5),
-    (p_user,'work:copper-lens','Copper Lens Cocktail Bar','business','work:sienna',31000000,410000,0,11),
+    (p_user,'work:after-dark','After Dark','business','work:carly',42500000,9000000,2200000,14),
+    (p_user,'work:northlight','Northlight Studio','business','work:kendra',18500000,4200000,850000,5),
+    (p_user,'work:copper-lens','Copper Lens Cocktail Bar','business','work:sienna',31000000,6800000,1600000,11),
     (p_user,'property:riverview','Riverview Townhouse','residential',null,29500000,0,35000,0),
-    (p_user,'property:market-street','Market Street Retail Building','commercial',null,69000000,725000,130000,0)
+    (p_user,'property:market-street','Market Street Retail Building','commercial',null,69000000,1800000,350000,0)
 ,
     (p_user,'work:upmc-altoona','UPMC Altoona','business','work:riley',200000000000,5000000000,400000000,4500),
     (p_user,'work:altoona-library','Altoona Area Public Library','business','work:claire',1400000000,50000000,15000000,35),
@@ -188,15 +188,15 @@ begin
       debt:=case when p_finance then b.price_cents*75/100 else 0 end;
       amount:=-(b.price_cents-debt);
       if a.cash_cents+amount<0 then raise exception 'Insufficient fictional funds'; end if;
-      update finance_assets set owned=true,owner_since=now(),loan_cents=debt,
+      update finance_assets set owned=true,owner_since=now(),loan_cents=debt,company_reserves_cents=0,
         loan_months_left=case when p_finance then 120 else 0 end where user_id=p_user and asset_key=p_asset;
       event_name:='purchase'; note_text:='Acquired '||b.label||case when p_finance then ' with 25% down' else ' outright' end;
     elsif p_action='sell' and b.owned then
       -- fixed book-value resale in first version; no speculation-driven gains.
-      amount:=b.price_cents-b.loan_cents;
-      update finance_assets set owned=false,owner_since=null,loan_cents=0,loan_months_left=0
+      amount:=b.price_cents-b.loan_cents+b.company_reserves_cents;
+      update finance_assets set owned=false,owner_since=null,loan_cents=0,loan_months_left=0,company_reserves_cents=0
       where user_id=p_user and asset_key=p_asset;
-      event_name:='sale';note_text:='Sold '||b.label||' at listed value; outstanding loan repaid';
+      event_name:='sale';note_text:='Sold '||b.label||' at listed value, repaid loan and distributed retained reserves';
     else
       raise exception 'Asset action not allowed';
     end if;
@@ -262,7 +262,7 @@ begin
       insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
       values(p_user,gen_random_uuid(),'monthly_settlement',b.asset_key,draw_amount,a.cash_cents,
         'Operations / net '||(cash_delta/100)::text||' USD, owner draw '||(draw_amount/100)::text||' USD, month '||to_char(m,'YYYY-MM'));
-      b.company_reserves_cents:=greatest(0,b.company_reserves_cents+cash_delta-greatest(0,draw_amount));
+      b.company_reserves_cents:=case when cash_delta>=0 then b.company_reserves_cents+cash_delta-draw_amount else greatest(0,b.company_reserves_cents+cash_delta) end;
       b.monthly_profit_cents:=gross;
       b.loan_cents:=greatest(0,b.loan_cents-principal_payment);
       b.loan_months_left:=greatest(0,b.loan_months_left-1);
