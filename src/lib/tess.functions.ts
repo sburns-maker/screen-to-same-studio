@@ -509,6 +509,11 @@ async function runTurnUnlocked(
   if(ownProfile)worldKnowledge.unshift(ownProfile);
   worldKnowledge.unshift(...chronologyLines);
 
+  if (photoAdmin && !initiation?.developerPhoto) {
+    const { financeCharacterContext } = await import("./finance-context.server");
+    const financeKnown = await financeCharacterContext(photoAdmin, userId, def.key).catch(() => "");
+    if (financeKnown) worldKnowledge.push(financeKnown);
+  }
   const { sharedPlanContext } = await import("./shared-world.server");
   const shared = await sharedPlanContext(supabase, userId, def.key, now);
   if (shared) worldKnowledge.unshift(`ACTIVE SHARED PLAN: ${shared.summary} Photos may show only you, objects or the environment; group portraits are not supported.`);
