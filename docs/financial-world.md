@@ -11,6 +11,15 @@ All money and assets here are fictional. No real-world payments, ownership or em
 - Monthly business and rental operations, payroll of named characters and baseline unnamed staff, fictional player salary, loans, retained company reserves, owner draws (automatic 0–100% of after-expense monthly income or manual), and 2% revenue growth every 3 ownership months, capped at 200% of opening revenue. Salary changes are owner-only and do not alter employment autonomy.
 - Purchase and wealth-preference changes do NOT automatically reveal riches, modify character relationships, employment, or permission to enter their workplace.
 
+## Financial time acceleration
+
+- Fixed pace: **one real calendar day advances seven days on the financial clock** (anchored to first creation of the player finance account, using the America/New_York date).
+- In-game monthly salary, business operations, payroll, loan payments and automatic owner draws trigger whenever the accelerated finance date crosses a complete virtual calendar month (approximately every 4–5 real days).
+- Revenue rises 2% every three *virtual ownership months*, to a maximum of twice the initial business revenue. Manual owner draws remain immediate.
+- Monthly settlements remain idempotent by (player, asset, virtual month). The world job may run every 30 minutes, but the finance time moves only once per real calendar day.
+- This financial clock does **not** advance relationships, character ages, pregnancy, work shifts or housing progression.
+- Accelerated financial history may show virtual months ahead of the actual date. These are never actual transactions or real salaries.
+
 ## Activation
 Apply drizzle/migrations/0080_private_wealth_economy.sql to the deployment database, then deploy the app branch. A GitHub commit does not apply SQL by itself.
 
