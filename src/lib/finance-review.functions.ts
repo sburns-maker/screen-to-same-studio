@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { governanceSchema } from "./finance-governance.functions";
 
 const charKeys=["tess","maya","claire","jordan","ben","sienna","kendra","riley","carly","brooke","jade","nina"] as const;
 export const reviewSchema=z.object({
