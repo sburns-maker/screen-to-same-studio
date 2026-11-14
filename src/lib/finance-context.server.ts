@@ -25,11 +25,16 @@ export async function financeCharacterContext(admin: Admin, userId: string, char
     .select("asset_key,label,owned").eq("user_id",userId).in("asset_key",assetKeys):null;
   if(assets?.error)return "";
   const assetData=(assets?.data??[]) as unknown as {asset_key:string;label:string;owned:boolean}[];
+  const governance=assetKeys.length?await admin.from("finance_governance" as never)
+    .select("asset_key,hands_off,operating_manager,reports_to,independent_hr,conflict_recusal")
+    .eq("user_id",userId).in("asset_key",assetKeys):null;
+  const policies=(governance?.error?[]:governance?.data??[]) as unknown as {asset_key:string;hands_off:boolean;operating_manager:string;reports_to:string;independent_hr:string;conflict_recusal:boolean}[];
   const known=subjects.map(f=>{
     if(f.subject_key==="identity")return `Player told you their employer is ${identity.company_name} and their job title is ${identity.job_title}.`;
     const a=assetData.find(x=>x.asset_key===f.subject_key);
     if(!a)return "";
-    return a.owned?`Player explicitly told you they bought ${a.label} in this fictional game world.`:
+    const g=policies.find(p=>p.asset_key===a.asset_key);
+    return a.owned?`Player explicitly told you they bought ${a.label} in this fictional game world. ${g?.hands_off ? `The player has recorded a hands-off owner policy: daily operations go to ${g.operating_manager}; staff report through ${g.reports_to}; employment conflicts are referred to ${g.independent_hr}. The owner is recused from personal relationship-related employment decisions. This is a fictional written policy, not proof that a manager has accepted the role or a legally signed agreement. You may reasonably ask for confirmed appointments and documentation. The player is not your direct supervisor under the recorded policy.` : "The player has not recorded a hands-off operational delegation for this asset."}`:
       `Player previously told you they owned ${a.label}, but ownership has since changed; don't assume they still own it.`;
   }).filter(Boolean);
   const notices=salaries.map(n=>{
