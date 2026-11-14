@@ -67,3 +67,40 @@ export const finalizeFinanceEquity=createServerFn({method:"POST"})
     ? result.error.message:"Could not finalize the in-game equity transfer.");
    return reviewSchema.parse(result.data);
  });
+
+const agreementDraftSchema=z.object({text:z.string(),updatedAt:z.string()}).nullable();
+const draftKeySchema=z.object({
+  assetKey:z.string().min(1).max(90),
+  characterKey:z.enum(charKeys),
+});
+
+export const loadFinanceAgreementDraft=createServerFn({method:"POST"})
+ .middleware([requireSupabaseAuth])
+ .inputValidator((value:unknown)=>draftKeySchema.parse(value))
+ .handler(async ({context,data})=>{
+  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
+  const result=await db.rpc("finance_agreement_draft_read" as never,{
+    p_user:context.userId,p_asset:data.assetKey,p_character:data.characterKey,
+  } as never);
+  if(result.error)throw new Error("Full document editing requires migration 0087.");
+  return agreementDraftSchema.parse(result.data);
+ });
+
+export const saveFinanceAgreementDraft=createServerFn({method:"POST"})
+ .middleware([requireSupabaseAuth])
+ .inputValidator((value:unknown)=>draftKeySchema.extend({
+   requestId:z.string().uuid(),
+   text:z.string().trim().min(150).max(12000),
+ }).parse(value))
+ .handler(async ({context,data})=>{
+  const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
+  const result=await db.rpc("finance_agreement_draft_save" as never,{
+    p_user:context.userId,p_request:data.requestId,
+    p_asset:data.assetKey,p_character:data.characterKey,p_text:data.text,
+  } as never);
+  if(result.error)throw new Error(
+    ["Invalid agreement draft","Save hands-off governance first",
+     "Owned operating business required","Unknown character"].includes(result.error.message)
+     ?result.error.message:"Could not save written policy draft.");
+  return agreementDraftSchema.parse(result.data);
+ });
