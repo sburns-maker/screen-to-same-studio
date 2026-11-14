@@ -3,6 +3,7 @@ import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { money } from "@/lib/finance";
+import { PhotographyStudioBookings } from "./PhotographyStudioBookings";
 import { loadPhotographyVentures,updatePhotographyVenture,type PhotographyVentureAction } from "@/lib/finance-ventures.functions";
 
 const opportunities=[
@@ -28,7 +29,7 @@ const stageLabel:Record<string,string>={
  research:"Due diligence",offer_pending:"Waiting on seller",
  offer_accepted:"Offer accepted",buildout:"Acquired — buildout",operating:"Studio operating",cancelled:"Cancelled",exited:"Sold / exited",
 };
-export function PhotographyStudioVentures(){
+export function PhotographyStudioVentures({virtualDate}:{virtualDate:string}){
  const load=useServerFn(loadPhotographyVentures);
  const change=useServerFn(updatePhotographyVenture);
  const qc=useQueryClient();
@@ -178,6 +179,7 @@ export function PhotographyStudioVentures(){
       </button>
      </>}
    </div>}
+   {current.stage==="operating"&&<PhotographyStudioBookings ventureId={current.id} virtualDate={virtualDate}/>}
    <div className="rounded-2xl border bg-surface p-4 space-y-2">
     <h4 className="font-semibold">Sienna's role and independence</h4>
     <p className="text-sm">Your idea is to let Sienna pursue photography creatively while you handle capital and administrative support. This is a proposal, not a job assignment or her consent.</p>
