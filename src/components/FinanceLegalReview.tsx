@@ -3,10 +3,11 @@ import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { loadFinanceReview,provideFinanceAgreement,finalizeFinanceEquity } from "@/lib/finance-review.functions";
+import { EditableFinanceAgreement } from "./EditableFinanceAgreement";
 
 /** Reviewable written boundaries + source-backed co-ownership, never unilateral consent. */
-export function FinanceLegalReview({assetKey,assetLabel,characterKey,handsOff}:{
-  assetKey:string;assetLabel:string;characterKey:string;handsOff:boolean;
+export function FinanceLegalReview({assetKey,assetLabel,characterKey,handsOff,templateText}:{
+  assetKey:string;assetLabel:string;characterKey:string;handsOff:boolean;templateText:string;
 }) {
   const load=useServerFn(loadFinanceReview);
   const provide=useServerFn(provideFinanceAgreement);
@@ -58,6 +59,9 @@ export function FinanceLegalReview({assetKey,assetLabel,characterKey,handsOff}:{
       {doc?.status==="acknowledged"&&<p className="text-xs text-muted-foreground">Boundaries acknowledged. The character won't be prompted to repeat this unresolved request unless the governance changes.</p>}
       {doc?.status==="needs_revision"&&<p className="text-xs text-muted-foreground">The management policy changed; send the revised terms before expecting a new acknowledgment.</p>}
       {doc&&<details className="rounded-lg border p-2"><summary className="cursor-pointer text-xs font-semibold">Read the delivered written agreement</summary><p className="mt-2 text-xs whitespace-pre-line">{doc.policyText}</p></details>}
+      <EditableFinanceAgreement key={assetKey+":"+characterKey}
+        assetKey={assetKey} characterKey={characterKey} templateText={templateText}
+        deliveredText={doc?.policyText} handsOff={handsOff}/>
       <button type="button" disabled={pending||!handsOff||!!stake}
         onClick={()=>void deliver()} className="min-h-11 rounded-lg border px-3 text-sm font-medium disabled:opacity-40">
         {doc?"Deliver updated agreement":"Deliver written agreement"}
