@@ -144,7 +144,8 @@ as $$
 declare a finance_accounts%rowtype; b finance_assets%rowtype; m date;
   cash_delta bigint; principal_payment bigint; interest_payment bigint; applied integer:=0;
 begin
-  perform finance_initialize(p_user);
+  -- Background jobs must not create a millionaire account for users who never opted into finances.
+  if not exists(select 1 from finance_accounts where user_id=p_user) then return 0; end if;
   select * into a from finance_accounts where user_id=p_user for update;
   -- Settlements are bounded to 12 completed months per request, never future months.
   for b in select * from finance_assets where user_id=p_user and owned=true for update loop
