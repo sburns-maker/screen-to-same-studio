@@ -541,20 +541,30 @@ export async function generateExperience(
     );
     // Completed adult encounters: either the character's structured acknowledgement
     // this turn, or deterministic reconciliation over recorded moments (also on
-    // finish). One encounter ID per experience, so repeated narration never re-rolls.
+    // finish). One ID per distinct encounter; skipped while already pregnant.
     if((kind==="turn"||kind==="finish") && def.age>=18 && def.romanticCapable) {
       try {
         const enc=await import("./family-encounter-actions");
-        const found=enc.reconcileExperienceEncounter(moments)
-          ?? (kind==="turn" && lastUser?.confirmed && enc.verifyEncounterAction(reply.encounter_action,reply.messages.join("\n"),lastUser.body) ? lastUser : null);
-        if(found) {
+        const all=enc.reconcileExperienceEncounters(moments);
+        if(!all.length && kind==="turn" && lastUser?.confirmed && enc.verifyEncounterAction(reply.encounter_action,reply.messages.join("\n"),lastUser.body)) all.push(lastUser);
+        if(all.length) {
           const {recordVerifiedPregnancyOpportunity}=await import("./family-life.server");
           const configured=Number(process.env["FAMILY_PREGNANCY_PROBABILITY"] ?? "0.2");
-          await recordVerifiedPregnancyOpportunity(db,{
-            userId:user,characterKey:def.key,encounterId:enc.experienceEncounterId(scene.id),
-            occurredAt:found.created_at,adultEligible:true,mutuallyAgreed:true,
-            pregnancyPossible:true,probability:configured,
-          });
+          for(let i=0;i<all.length;i++) {
+            const encounterId=enc.experienceEncounterId(scene.id,i);
+            const [ev,births]=await Promise.all([
+              db.from("family_pregnancy_events").select("encounter_id,status,random_roll,probability,occurred_at").eq("user_id",user).eq("character_key",def.key),
+              db.from("family_children").select("born_at").eq("user_id",user).eq("parent_character_key",def.key),
+            ]);
+            if(ev.error||births.error) throw new Error("Pregnancy status unavailable");
+            if((ev.data??[]).some(e=>e.encounter_id===encounterId)) continue;
+            if(enc.alreadyPregnant(ev.data as never,births.data??[])) break;
+            await recordVerifiedPregnancyOpportunity(db,{
+              userId:user,characterKey:def.key,encounterId,
+              occurredAt:all[i].created_at,adultEligible:true,mutuallyAgreed:true,
+              pregnancyPossible:true,probability:configured,
+            });
+          }
         }
       }catch(error){console.warn("[family-life] verified encounter processing deferred",error);}
     }

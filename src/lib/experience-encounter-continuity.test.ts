@@ -68,3 +68,27 @@ describe("context-sensitive suggestions", () => {
     expect(experienceStarters("private_moment", { locationKind: "home", area: "inside" }).map((x) => x.label)).not.toContain("Find a bench");
   });
 });
+
+import { reconcileExperienceEncounters, alreadyPregnant } from "./family-encounter-actions";
+describe("multiple encounters per experience", () => {
+  const t = (source: string, id: string, body: string) => ({ id, source, body, confirmed: true, created_at: `2026-11-14T0${id}:00:00Z` });
+  const ms = [
+    t("character", "1", "I want to, too."),
+    t("user", "2", "We have sex for the first time, letting the moment remain private."),
+    t("character", "3", "Yeah. I'm up for it."),
+    t("user", "4", "We have sex a second time that evening."),
+    t("user", "5", "I keep thinking about earlier, I'm glad it happened."),
+  ];
+  it("each completed encounter gets its own roll id; first keeps legacy id", () => {
+    expect(reconcileExperienceEncounters(ms).map(m => m.id)).toEqual(["2", "4"]);
+    expect(experienceEncounterId("x", 0)).toBe("experience:x");
+    expect(experienceEncounterId("x", 1)).toBe("experience:x:encounter-2");
+  });
+  it("no new roll while already pregnant; allowed again after birth", () => {
+    const pos = { status: "positive", random_roll: 0.1, probability: 0.2, occurred_at: "2026-01-01" };
+    expect(alreadyPregnant([pos], [])).toBe(true);
+    expect(alreadyPregnant([{ ...pos, status: "pending" }], [])).toBe(true);
+    expect(alreadyPregnant([{ ...pos, status: "pending", random_roll: 0.5 }], [])).toBe(false);
+    expect(alreadyPregnant([pos], [{ born_at: "2026-09-01" }])).toBe(false);
+  });
+});
