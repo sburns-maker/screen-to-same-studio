@@ -6,7 +6,7 @@ const path=z.enum(["existing","lease","build"]);
 const style=z.enum(["portraits","hybrid","rental"]);
 const venture=z.object({
  id:z.string().uuid(),path,name:z.string(),
- stage:z.enum(["research","offer_pending","offer_accepted","buildout","operating","cancelled"]),
+ stage:z.enum(["research","offer_pending","offer_accepted","buildout","operating","cancelled","exited"]),
  askingCents:z.number(),offerCents:z.number().nullable(),settlementCents:z.number().nullable(),
  revenueCents:z.number(),costCents:z.number(),inspectionFlags:z.number(),
  buildoutFlags:z.number(),marketingLevel:z.number(),
