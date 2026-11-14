@@ -31,7 +31,14 @@ export async function financeCharacterContext(admin: Admin, userId: string, char
     .eq("user_id",userId).eq("character_key",character).limit(4);
   const stakes=(stakesResult.error?[]:stakesResult.data??[]) as unknown as
     {asset_key:string;percent:number}[];
-  if(!facts.data?.length && salaries.length===0 && offers.length===0 && agreements.length===0 && stakes.length===0)return "";
+  // A studio is private until the player deliberately invites Sienna to discuss it.
+  const studioResult=character==="sienna"?await admin.from("finance_ventures" as never)
+    .select("name,stage,sienna_involvement")
+    .eq("user_id",userId).eq("sienna_involvement","invited")
+    .order("created_at",{ascending:false}).limit(1):null;
+  const invitedStudios=(studioResult?.error?[]:studioResult?.data??[]) as unknown as
+    {name:string;stage:string;sienna_involvement:string}[];
+  if(!facts.data?.length && salaries.length===0 && offers.length===0 && agreements.length===0 && stakes.length===0 && invitedStudios.length===0)return "";
   const subjects=((facts.data??[]) as unknown as {subject_key:string;disclosed_at:string}[]);
   const profile=await admin.from("finance_accounts" as never).select("company_name,job_title")
     .eq("user_id",userId).maybeSingle();
@@ -81,6 +88,8 @@ export async function financeCharacterContext(admin: Admin, userId: string, char
     const asset=assetData.find(a=>a.asset_key===st.asset_key);
     return asset?`You hold a recorded ${st.percent}% fictional game-world ownership stake in ${asset.label}. In-game distributions are split, but independent management and professional boundaries remain in effect. This is not real legal title or an actual employer change.`:"";
   }).filter(Boolean);
-  if(!known.length && !notices.length && !proposals.length && !docs.length && !equity.length)return "";
-  return `PRIVATE DISCLOSED FINANCIAL KNOWLEDGE (facts explicitly shared WITH YOU, not with other characters): ${[...known,...notices,...docs,...proposals,...equity].join(" ")} All purchases and job changes are fictional game scenarios even when a real organization name appears. You may react in your own character voice, with your own feelings, questions or concerns, particularly if this is your fictional workplace. You are not required to approve, admire or reciprocate affection. You do NOT know the player's wealth, investments, other assets, company ownership structure, salary, or undisclosed acquisitions. Never imply real-world corporate ownership, access to private staff or medical records, or an automatic change to your employment. Do not treat an ownership reveal as a completed in-person interaction.`;
+  const studioInvitations=invitedStudios.map(x=>
+    `The player explicitly shared their idea of a fictional photography studio called "${x.name}" with you (stage: ${x.stage}). This is an invitation only, NOT evidence that you accepted a position, employment, a gift, ownership or partnership. You have said that you love photography and would rather focus on taking photos than managing paperwork or repairs. Decide freely whether you like the idea, what kind of photography you would shoot, and whether you'd want any role or none. You can decline without relationship consequences. This is disclosed in your private character context only; avoid assuming details beyond what was disclosed.`);
+  if(!known.length && !notices.length && !proposals.length && !docs.length && !equity.length && !studioInvitations.length)return "";
+  return `PRIVATE DISCLOSED FINANCIAL KNOWLEDGE (facts explicitly shared WITH YOU, not with other characters): ${[...known,...notices,...docs,...proposals,...equity,...studioInvitations].join(" ")} All purchases and job changes are fictional game scenarios even when a real organization name appears. You may react in your own character voice, with your own feelings, questions or concerns, particularly if this is your fictional workplace. You are not required to approve, admire or reciprocate affection. You do NOT know the player's wealth, investments, other assets, company ownership structure, salary, or undisclosed acquisitions. Never imply real-world corporate ownership, access to private staff or medical records, or an automatic change to your employment. Do not treat an ownership reveal as a completed in-person interaction.`;
 }

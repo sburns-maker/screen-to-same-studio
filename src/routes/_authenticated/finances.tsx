@@ -9,6 +9,7 @@ import { money, estimatedMonthlyPayment } from "@/lib/finance";
 import { FinanceManagement } from "@/components/FinanceManagement";
 import { FinanceInvestments } from "@/components/FinanceInvestments";
 import { FinanceGovernance } from "@/components/FinanceGovernance";
+import { PhotographyStudioVentures } from "@/components/PhotographyStudioVentures";
 import { loadFinanceReview } from "@/lib/finance-review.functions";
 
 export const Route = createFileRoute("/_authenticated/finances")({
@@ -206,6 +207,7 @@ function FinancesPage() {
             </section>;
           })}
         </div>
+        <PhotographyStudioVentures virtualDate={state.virtualDate}/>
         <FinanceGovernance finances={state} />
         <FinanceManagement finances={state} />
         <FinanceInvestments finances={state} />
