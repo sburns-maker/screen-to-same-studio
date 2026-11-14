@@ -39,7 +39,7 @@ describe("explicit private financial knowledge",()=>{
   it("reveals nothing to another character",async()=>{
     const {admin,calls}=fakeDb();
     expect(await financeCharacterContext(admin,"player-one","riley")).toBe("");
-    expect(calls).toHaveLength(3);
+    expect(calls).toHaveLength(5);
     expect(calls[0]?.filters['character_key']).toBe("riley");
   });
 });
