@@ -26,6 +26,8 @@ export const loadFinanceReview=createServerFn({method:"POST"})
  .middleware([requireSupabaseAuth])
  .handler(async ({context})=>{
    const {supabaseAdmin:db}=await import("@/integrations/supabase/client.server");
+   const {reconcileFinancialDecisions}=await import("./finance-review.server");
+   await reconcileFinancialDecisions(db,context.userId);
    const result=await db.rpc("finance_review_snapshot" as never,{p_user:context.userId} as never);
    if(result.error)throw new Error("Written agreements and equity records require migration 0086.");
    return reviewSchema.parse(result.data);
