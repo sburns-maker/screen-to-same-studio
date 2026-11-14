@@ -121,7 +121,7 @@ This is an in-game policy summary, not an executed contract, confirmed appointme
         <label className="block text-xs font-medium" htmlFor="coowner-recipient">Person to offer ownership to</label>
         <select id="coowner-recipient" value={recipient} onChange={e=>setRecipient(e.target.value as typeof recipient)}
           className="min-h-11 w-full rounded-xl border bg-background px-3 text-sm">
-          {["tess","claire","riley","jordan","carly","brooke","kendra","nina","maya","sienna","jade","ben"].map(key=><option key={key} value={key}>{key[0].toUpperCase()+key.slice(1)}</option>)}
+          {["tess","claire","riley","jordan","carly","brooke","kendra","nina","maya","sienna","jade","ben"].map(key=><option key={key} value={key}>{key.charAt(0).toUpperCase()+key.slice(1)}</option>)}
         </select>
         {pendingOffer ? <>
           <p className="text-sm font-medium">Pending offer · 50% · awaiting {recipient}'s decision</p>
