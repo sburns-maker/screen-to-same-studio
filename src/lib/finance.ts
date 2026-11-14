@@ -9,6 +9,7 @@ export const financeAssetSchema = z.object({
 export const financeSnapshotSchema = z.object({
   cashCents: z.number(), investmentsCents: z.number(), visibility: z.enum(["private","disclosed"]),
   playerSalaryCents: z.number(),
+  companyName: z.string(), jobTitle: z.string(),
   financePace: z.literal("7 virtual days per real day"),
   virtualDate: z.string(),
   workers: z.array(z.object({ key:z.string(), assetKey:z.string(), name:z.string(), role:z.string(), salaryCents:z.number(), characterKey:z.string().nullable(), active:z.boolean() })),
