@@ -4,6 +4,8 @@ create table if not exists public.finance_accounts (
   cash_cents bigint not null default 500000000000 check (cash_cents >= 0),
   investments_cents bigint not null default 300000000000 check (investments_cents >= 0),
   wealth_visibility text not null default 'private' check (wealth_visibility in ('private','disclosed')),
+  company_name text not null default 'Northline Group',
+  job_title text not null default 'Director of Special Projects',
   created_at timestamptz not null default now()
 );
 create table if not exists public.finance_assets (
@@ -155,6 +157,7 @@ begin
   return jsonb_build_object(
     'cashCents',a.cash_cents,'investmentsCents',a.investments_cents,
     'visibility',a.wealth_visibility,
+    'companyName',a.company_name,'jobTitle',a.job_title,
     'financePace','7 virtual days per real day',
     'virtualDate',finance_virtual_date((a.created_at at time zone 'America/New_York')::date,(now() at time zone 'America/New_York')::date)::text,
     'playerSalaryCents',10000000,
@@ -359,3 +362,30 @@ begin
 end $$;
 revoke all on function public.finance_set_draw_rate(uuid,uuid,text,integer) from public,anon,authenticated;
 grant execute on function public.finance_set_draw_rate(uuid,uuid,text,integer) to service_role;
+
+
+-- A deliberately ordinary public-facing identity; stored privately per player.
+-- Editing it does not send a message to any character or reveal underlying assets.
+create or replace function public.finance_set_identity(
+  p_user uuid,p_request uuid,p_company text,p_title text
+) returns jsonb language plpgsql security definer set search_path=public
+as $$
+declare a finance_accounts%rowtype;
+begin
+  if p_company is null or length(btrim(p_company))<2 or length(btrim(p_company))>80
+     or p_title is null or length(btrim(p_title))<2 or length(btrim(p_title))>80
+     or p_company ~ '[[:cntrl:]]' or p_title ~ '[[:cntrl:]]'
+    then raise exception 'Invalid professional identity'; end if;
+  perform finance_initialize(p_user);
+  select * into a from finance_accounts where user_id=p_user for update;
+  if exists(select 1 from finance_ledger where user_id=p_user and request_id=p_request) then
+    return finance_snapshot(p_user);
+  end if;
+  update finance_accounts set company_name=btrim(p_company),job_title=btrim(p_title)
+  where user_id=p_user returning * into a;
+  insert into finance_ledger(user_id,request_id,event_type,asset_key,amount_cents,cash_after_cents,note)
+  values(p_user,p_request,'professional_identity',null,0,a.cash_cents,'Updated fictional professional identity');
+  return finance_snapshot(p_user);
+end $$;
+revoke all on function public.finance_set_identity(uuid,uuid,text,text) from public,anon,authenticated;
+grant execute on function public.finance_set_identity(uuid,uuid,text,text) to service_role;
