@@ -438,6 +438,14 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
           report.errors.push("Personal financial expenses deferred; ledger unchanged");
       } catch { report.errors.push("Personal financial expenses deferred; ledger unchanged"); }
       try {
+        const result = await admin.rpc("finance_funds_tick" as never,{
+          p_user:userId,
+          p_real_day:new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(now),
+        } as never);
+        if(result.error && !["42883","PGRST202"].includes(result.error.code))
+          report.errors.push("Virtual investment settlement deferred");
+      } catch { report.errors.push("Virtual investment settlement deferred"); }
+      try {
         const { runSharedWorldTick } = await import("./shared-world.server");
         await runSharedWorldTick(admin, userId, now);
       } catch {
