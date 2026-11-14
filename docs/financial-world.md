@@ -37,8 +37,30 @@ Apply drizzle/migrations/0080_private_wealth_economy.sql **then** drizzle/migrat
 - Character-scoped disclosed finance context is used by the existing AI conversation pipeline. No global wealth context is injected, and purchases do not automatically trigger a character reaction. The character can discuss a fact after an explicit reveal, but does not gain ownership of an employer or control over private records.
 - A purchased virtual home does not itself move an NPC or change the household. Use the existing housing-consent workflow to handle moving; financial title does not equal physical access.
 
+## Virtual investment extension (migration 0082)
+
+- Three private fictional funds: Broad Market (initial $3 billion), Income and Growth. Owner cash can be allocated or sold between funds atomically; no actual public-market transactions occur.
+- Fund returns are deterministic, can be negative, and are settled once per completed accelerated virtual calendar month. Each trade first settles already-completed months so new investments cannot receive past gains.
+- A per-fund virtual-month receipt prevents duplicates; the total portfolio market value is reconciled into the account investment balance. This is not a real investment calculator or an external price feed.
+
+## Character-specific pay notices (migration 0083)
+
+- A salary adjustment records a private pay notice only for the named character affected, with the old and new simulated salary. Their AI conversation context receives their own pay information, without revealing who controls the workplace or who else got a raise.
+- Repeated salary-change request IDs create no extra notice. Other characters have no visibility into those pay notices.
+
 ## Not yet implemented
-Full autonomous NPC job applications/promotions/resignations, household move synchronization after a purchase, open-market investment trading, detailed individual employee records for initial unnamed staff, configurable player salary, and automated NPC reactions before the player explicitly discloses ownership. Those are subsequent phases, not currently functional features.
+Full autonomous NPC job applications/promotions/resignations, household move synchronization after a purchase, brokerage or real-security price feeds, detailed individual employee records for initial unnamed staff, configurable player salary, and automated NPC reactions before the player explicitly discloses ownership. Those are subsequent phases, not currently functional features.
 
 ## Security/test checklist
-The dedicated `Private billionaire economy` GitHub workflow applies both migrations in disposable PostgreSQL, checks balance/loan/payroll/draw invariants, staffing, upgrades, private disclosures, recurring bills and repeat ticks, then runs finance unit tests. The broader CI workflows check TypeScript, build, and existing world behavior. Review live CI results before merge. No production deployment or migration is claimed here.
+The dedicated `Private billionaire economy` GitHub workflow applies all four finance migrations in disposable PostgreSQL, checks balance/loan/payroll/draw invariants, staffing, upgrades, private disclosures, recurring bills and repeat ticks, then runs finance unit tests. The broader CI workflows check TypeScript, build, and existing world behavior. Review live CI results before merge. No production deployment or migration is claimed here.
+
+## Deployment gate
+
+1. Confirm a point-in-time production database backup and an SQL dry-run against a disposable database with the current production schema, not just the finance fixture.
+2. Review and apply migrations 0080, 0081, 0082 and 0083 **in ascending order** before publishing UI code.
+3. Run `Private billionaire economy` and the full pull-request check suite, including TypeScript and build. Check for unrelated baseline failures before blaming finance.
+4. On a non-production account, verify private wealth setup, a $2B fictional UPMC purchase, an employee raise, a new hired worker, one upgrade, a monthly bill, confidential disclosure, investment trade, and accelerated month settlement.
+5. Verify player-to-player isolation and the specific character's financial-knowledge prompt. Check no real institutions appear as actual sellers/employers.
+6. Promote the app code only after database migration and end-to-end review. Keep PR as draft until this gate is satisfied. If rollback is needed, revert the app deployment before touching financial database tables. Preserve ledgers, pending purchases and balances; **never drop the new tables as a quick rollback**.
+
+This branch has not been deployed to production. The tests use simulated balances and synthetic users.
