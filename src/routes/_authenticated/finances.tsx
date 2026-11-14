@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Screen, ScreenHeader } from "@/components/ScreenHeader";
-import { changeFinances, loadFinances } from "@/lib/finance.functions";
+import { changeFinances, loadFinances, setEmployeeSalary } from "@/lib/finance.functions";
 import { money, estimatedMonthlyPayment } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/finances")({
@@ -14,11 +14,19 @@ export const Route = createFileRoute("/_authenticated/finances")({
 function FinancesPage() {
   const load = useServerFn(loadFinances);
   const change = useServerFn(changeFinances);
+  const updateSalary = useServerFn(setEmployeeSalary);
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["player-finances"], queryFn: () => load() });
   const [pending, setPending] = useState("");
   const [selectedFinancing, setSelectedFinancing] = useState<Record<string, boolean>>({});
+  const [category, setCategory] = useState("all");
+  const [search, setSearch] = useState("");
+  const [payDrafts, setPayDrafts] = useState<Record<string,string>>({});
   const state = q.data;
+  const visibleAssets = (state?.assets ?? []).filter(a =>
+    (category === "all" || (category === "owned" ? a.owned : a.category === category)) &&
+    a.label.toLowerCase().includes(search.toLowerCase())
+  );
   async function act(action: "purchase"|"sell"|"hide"|"disclose", assetKey = "", financed = false) {
     const id = action + assetKey;
     if (pending) return;
@@ -35,6 +43,22 @@ function FinancesPage() {
     } finally { setPending(""); }
   }
   const owned = state?.assets.filter(a => a.owned) ?? [];
+  const payroll = (assetKey: string, headcount: number) => {
+    const workers=(state?.workers ?? []).filter(w=>w.assetKey===assetKey && w.active);
+    return workers.reduce((sum,w)=>sum+w.salaryCents,0)+Math.max(0,headcount-workers.length)*300000;
+  };
+  async function saveSalary(assetKey: string,workerKey: string,current: number) {
+    const raw=payDrafts[assetKey+":"+workerKey];
+    const dollars=raw === undefined ? current/100 : Number(raw);
+    if (!Number.isFinite(dollars) || dollars < 0 || dollars > 500000000) return toast.error("Enter a valid monthly salary");
+    setPending("salary:"+assetKey+":"+workerKey);
+    try {
+      const next=await updateSalary({data:{assetKey,workerKey,salaryCents:Math.round(dollars*100),requestId:crypto.randomUUID()}});
+      qc.setQueryData(["player-finances"],next);
+      toast.success("Salary updated");
+    } catch(e) { toast.error(e instanceof Error ? e.message : "Salary update failed"); }
+    finally { setPending(""); }
+  }
   const netWorth = (state?.cashCents ?? 0) + (state?.investmentsCents ?? 0) +
     owned.reduce((sum,a) => sum + a.priceCents - a.loanCents, 0);
   return <>
@@ -51,7 +75,7 @@ function FinancesPage() {
             <div><dt className="text-muted-foreground">Available cash</dt><dd className="font-semibold">{money(state.cashCents)}</dd></div>
             <div><dt className="text-muted-foreground">Investments</dt><dd className="font-semibold">{money(state.investmentsCents)}</dd></div>
             <div><dt className="text-muted-foreground">Owned assets</dt><dd className="font-semibold">{owned.length}</dd></div>
-            <div><dt className="text-muted-foreground">Monthly net operations*</dt><dd className="font-semibold">{money(owned.reduce((s,a)=>s+a.monthlyProfitCents-a.monthlyCostCents,0))}</dd></div>
+            <div><dt className="text-muted-foreground">Monthly net operations*</dt><dd className="font-semibold">{money(owned.reduce((s,a)=>s+a.monthlyProfitCents-a.monthlyCostCents-payroll(a.key,a.staffCount),0))}</dd></div>
           </dl>
           <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border p-3 text-sm">
             <div><div className="font-medium">Secretly wealthy</div><p className="text-xs text-muted-foreground">Other characters are never automatically told your financial balance.</p></div>
@@ -62,19 +86,29 @@ function FinancesPage() {
           </div>
           <p className="mt-2 text-xs text-muted-foreground">Changing this preference does not send a message or automatically reveal amounts to characters. Disclosure is controlled separately in conversation.</p>
         </section>
+        <p className="mt-2 text-sm">Your simulated executive salary: <strong>{money(state.playerSalaryCents)}/month</strong></p>
         <h2 className="mt-7 text-lg font-semibold">Business & property marketplace</h2>
         <p className="mb-3 text-sm text-muted-foreground">Only fictional assets can be purchased. Your acquisition does not grant access to staff-only areas or control a character's relationships.</p>
+        <div className="mb-3 space-y-2"><input aria-label="Search assets" className="min-h-11 w-full rounded-xl border bg-background px-3 text-sm" placeholder="Search 28 properties and businesses…" value={search} onChange={e=>setSearch(e.target.value)}/><div className="flex gap-2 overflow-x-auto">{["all","owned","business","commercial","residential"].map(v=><button type="button" key={v} aria-pressed={category===v} onClick={()=>setCategory(v)} className={"rounded-full border px-3 py-2 text-xs capitalize "+(category===v?"bg-primary text-primary-foreground":"")}>{v}</button>)}</div></div>
         <div className="space-y-3">
-          {state.assets.map(asset => {
+          {visibleAssets.map(asset => {
             const financed = !!selectedFinancing[asset.key];
             const down = financed ? Math.floor(asset.priceCents / 4) : asset.priceCents;
             return <section key={asset.key} className="rounded-2xl border bg-surface p-4">
               <div className="flex justify-between gap-2"><div><h3 className="font-semibold">{asset.label}</h3><p className="text-xs capitalize text-muted-foreground">{asset.category}{asset.workplaceKey ? " · Existing character workplace" : ""}</p></div><span className="text-xs font-medium">{asset.owned ? "Owned" : "Available"}</span></div>
               <div className="mt-3 flex items-center justify-between text-sm"><span>Listed value</span><strong>{money(asset.priceCents)}</strong></div>
-              <div className="mt-1 flex items-center justify-between text-sm"><span>Estimated monthly operations*</span><strong>{money(asset.monthlyProfitCents-asset.monthlyCostCents)}</strong></div>
-              {asset.staffCount > 0 && <p className="mt-1 text-xs text-muted-foreground">{asset.staffCount} simulated staff</p>}
+              <div className="mt-1 flex items-center justify-between text-sm"><span>Estimated monthly operations*</span><strong>{money(asset.monthlyProfitCents-asset.monthlyCostCents-payroll(asset.key,asset.staffCount))}</strong></div>
+              {asset.staffCount > 0 && <p className="mt-1 text-xs text-muted-foreground">{asset.staffCount} simulated staff · monthly payroll {money(payroll(asset.key,asset.staffCount))} (unnamed staff at $3,000/month)</p>}
               {asset.owned ? <>
                 {asset.loanCents > 0 && <p className="mt-2 text-xs">Loan outstanding: {money(asset.loanCents)} · {asset.loanMonthsLeft} months</p>}
+                {state.workers.filter(w=>w.assetKey===asset.key).length > 0 && <details className="mt-3 rounded-xl border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">Manage named employee salaries</summary>
+                  <p className="mt-1 text-xs text-muted-foreground">Monthly fictional pay; changes do not automatically alter character knowledge or employment status.</p>
+                  {state.workers.filter(w=>w.assetKey===asset.key).map(w=><div key={w.key} className="mt-3 space-y-1">
+                    <label className="text-xs font-medium" htmlFor={"pay-"+asset.key+"-"+w.key}>{w.name} · {w.role}</label>
+                    <div className="flex items-center gap-2"><input id={"pay-"+asset.key+"-"+w.key} type="number" min="0" max="500000000" step="100" value={payDrafts[asset.key+":"+w.key] ?? String(w.salaryCents/100)} onChange={e=>setPayDrafts(d=>({...d,[asset.key+":"+w.key]:e.target.value}))} className="min-w-0 flex-1 rounded-lg border bg-background px-2 py-2 text-sm"/><button type="button" disabled={!!pending} onClick={()=>void saveSalary(asset.key,w.key,w.salaryCents)} className="rounded-lg border px-3 py-2 text-sm">Save</button></div>
+                  </div>)}
+                </details>}
                 <button type="button" disabled={!!pending} className="mt-3 min-h-11 w-full rounded-xl border font-medium" onClick={() => void act("sell",asset.key)}>Sell at book value</button>
               </> : <>
                 <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={financed} onChange={e => setSelectedFinancing(s=>({...s,[asset.key]:e.target.checked}))}/>Finance 75% over 10 years (8% APR)</label>
