@@ -137,7 +137,7 @@ This is an in-game policy summary, not an executed contract, confirmed appointme
         <p className="text-xs text-muted-foreground">A pending offer is a topic your character can discuss; it is not proof of acceptance, a signed contract, or a transfer of any shares. A separate mutual agreement process is required before actual in-game co-ownership is activated.</p>
       </section>
       <button type="button" className="min-h-11 rounded-lg border px-3 text-sm" onClick={()=>void copyPolicy()}>Copy written policy</button>
-      <FinanceLegalReview assetKey={selected.key} assetLabel={selected.label} characterKey={recipient} handsOff={!!saved?.handsOff}/>
+      <FinanceLegalReview assetKey={selected.key} assetLabel={selected.label} characterKey={recipient} handsOff={!!saved?.handsOff} templateText={policyText}/>
       <p className="text-xs text-muted-foreground">
         {saved?.handsOff?"Saved hands-off ownership: direct staff hiring, firing and salary edits are blocked by the database.":"No active hands-off restriction is saved for this business."}
         {!staffChangesAllowed?" Salary decisions must go through the fictional operating manager.":""}
