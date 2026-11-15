@@ -7,6 +7,7 @@ import { Screen, ScreenHeader } from "@/components/ScreenHeader";
 import { changeFinances, loadFinances, setEmployeeSalary, ownerDraw, setDrawRate, setProfessionalIdentity } from "@/lib/finance.functions";
 import { money, estimatedMonthlyPayment } from "@/lib/finance";
 import { FinanceManagement } from "@/components/FinanceManagement";
+import { RentalPropertyManagement } from "@/components/RentalPropertyManagement";
 import { FinanceInvestments } from "@/components/FinanceInvestments";
 import { FinanceGovernance } from "@/components/FinanceGovernance";
 import { PhotographyStudioVentures } from "@/components/PhotographyStudioVentures";
@@ -210,6 +211,7 @@ function FinancesPage() {
         <PhotographyStudioVentures virtualDate={state.virtualDate}/>
         <FinanceGovernance finances={state} />
         <FinanceManagement finances={state} />
+        <RentalPropertyManagement finances={state} />
         <FinanceInvestments finances={state} />
         <h2 className="mt-7 text-lg font-semibold">Recent transactions</h2>
         <div className="mt-2 divide-y rounded-2xl border bg-surface">

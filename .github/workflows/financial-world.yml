@@ -12,9 +12,11 @@ on:
       - "drizzle/migrations/0087_editable_finance_agreements.sql"
       - "drizzle/migrations/0088_photography_studio_ventures.sql"
       - "drizzle/migrations/0089_photography_studio_bookings.sql"
+      - "drizzle/migrations/0090_rental_property_management.sql"
       - "src/lib/finance*"
       - "src/routes/_authenticated/finances.tsx"
       - "src/components/FinanceManagement.tsx"
+      - "src/components/RentalPropertyManagement.tsx"
       - "src/components/FinanceGovernance.tsx"
       - "src/components/FinanceLegalReview.tsx"
       - "src/components/EditableFinanceAgreement.tsx"
@@ -72,8 +74,14 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/photography-venture-checks.sql
           psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0089_photography_studio_bookings.sql
           psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/photography-bookings-checks.sql
+          psql -v ON_ERROR_STOP=1 -f drizzle/migrations/0090_rental_property_management.sql
+          psql -v ON_ERROR_STOP=1 -f src/test/fixtures/finance/rental-checks.sql
       - uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Run finance unit tests
         run: bunx vitest run src/test/finance.test.ts src/test/finance-knowledge.test.ts src/test/finance-character-decisions.test.ts
+      - name: Verify TypeScript
+        run: bunx tsc --noEmit
+      - name: Verify production build
+        run: bun run build
