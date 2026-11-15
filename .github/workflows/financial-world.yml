@@ -81,3 +81,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Run finance unit tests
         run: bunx vitest run src/test/finance.test.ts src/test/finance-knowledge.test.ts src/test/finance-character-decisions.test.ts
+      - name: Verify TypeScript
+        run: bunx tsc --noEmit
+      - name: Verify production build
+        run: bun run build
