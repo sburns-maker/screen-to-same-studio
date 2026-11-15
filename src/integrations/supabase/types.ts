@@ -1771,6 +1771,169 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_studio_sessions: {
+        Row: {
+          booked_at: string
+          completed_at: string | null
+          cost_cents: number
+          deposit_cents: number
+          price_cents: number
+          service: string
+          session_id: string
+          session_virtual_date: string
+          status: string
+          user_id: string
+          venture_id: string
+        }
+        Insert: {
+          booked_at?: string
+          completed_at?: string | null
+          cost_cents: number
+          deposit_cents: number
+          price_cents: number
+          service: string
+          session_id?: string
+          session_virtual_date: string
+          status?: string
+          user_id: string
+          venture_id: string
+        }
+        Update: {
+          booked_at?: string
+          completed_at?: string | null
+          cost_cents?: number
+          deposit_cents?: number
+          price_cents?: number
+          service?: string
+          session_id?: string
+          session_virtual_date?: string
+          status?: string
+          user_id?: string
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_studio_sessions_user_id_venture_id_fkey"
+            columns: ["user_id", "venture_id"]
+            isOneToOne: false
+            referencedRelation: "finance_ventures"
+            referencedColumns: ["user_id", "venture_id"]
+          },
+        ]
+      }
+      finance_venture_events: {
+        Row: {
+          cost_cents: number
+          created_at: string
+          detail: string
+          event_id: string
+          event_type: string
+          user_id: string
+          venture_id: string
+        }
+        Insert: {
+          cost_cents?: number
+          created_at?: string
+          detail: string
+          event_id?: string
+          event_type: string
+          user_id: string
+          venture_id: string
+        }
+        Update: {
+          cost_cents?: number
+          created_at?: string
+          detail?: string
+          event_id?: string
+          event_type?: string
+          user_id?: string
+          venture_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_venture_events_user_id_venture_id_fkey"
+            columns: ["user_id", "venture_id"]
+            isOneToOne: false
+            referencedRelation: "finance_ventures"
+            referencedColumns: ["user_id", "venture_id"]
+          },
+        ]
+      }
+      finance_ventures: {
+        Row: {
+          asset_key: string | null
+          base_monthly_cost_cents: number
+          base_monthly_revenue_cents: number
+          buildout_flags: number
+          created_at: string
+          financing: string
+          inspected_at: string | null
+          inspection_flags: number
+          marketing_level: number
+          name: string
+          offer_cents: number | null
+          offer_due_virtual: string | null
+          offer_expires_virtual: string | null
+          opened_at: string | null
+          operating_style: string
+          path: string
+          seller_price_cents: number
+          settlement_cents: number | null
+          sienna_involvement: string
+          stage: string
+          user_id: string
+          venture_id: string
+        }
+        Insert: {
+          asset_key?: string | null
+          base_monthly_cost_cents: number
+          base_monthly_revenue_cents: number
+          buildout_flags?: number
+          created_at?: string
+          financing?: string
+          inspected_at?: string | null
+          inspection_flags?: number
+          marketing_level?: number
+          name?: string
+          offer_cents?: number | null
+          offer_due_virtual?: string | null
+          offer_expires_virtual?: string | null
+          opened_at?: string | null
+          operating_style?: string
+          path: string
+          seller_price_cents: number
+          settlement_cents?: number | null
+          sienna_involvement?: string
+          stage?: string
+          user_id: string
+          venture_id?: string
+        }
+        Update: {
+          asset_key?: string | null
+          base_monthly_cost_cents?: number
+          base_monthly_revenue_cents?: number
+          buildout_flags?: number
+          created_at?: string
+          financing?: string
+          inspected_at?: string | null
+          inspection_flags?: number
+          marketing_level?: number
+          name?: string
+          offer_cents?: number | null
+          offer_due_virtual?: string | null
+          offer_expires_virtual?: string | null
+          opened_at?: string | null
+          operating_style?: string
+          path?: string
+          seller_price_cents?: number
+          settlement_cents?: number | null
+          sienna_involvement?: string
+          stage?: string
+          user_id?: string
+          venture_id?: string
+        }
+        Relationships: []
+      }
       finance_workers: {
         Row: {
           active: boolean
@@ -4915,6 +5078,20 @@ export type Database = {
         Returns: Json
       }
       finance_snapshot: { Args: { p_user: string }; Returns: Json }
+      finance_studio_session_action: {
+        Args: {
+          p_command: string
+          p_payload?: Json
+          p_request: string
+          p_user: string
+          p_venture: string
+        }
+        Returns: Json
+      }
+      finance_studio_sessions_snapshot: {
+        Args: { p_user: string }
+        Returns: Json
+      }
       finance_trade: {
         Args: {
           p_amount: number
@@ -4925,6 +5102,17 @@ export type Database = {
         }
         Returns: Json
       }
+      finance_venture_action: {
+        Args: {
+          p_action: string
+          p_payload?: Json
+          p_request: string
+          p_user: string
+          p_venture: string
+        }
+        Returns: Json
+      }
+      finance_venture_snapshot: { Args: { p_user: string }; Returns: Json }
       finance_virtual_date: {
         Args: { p_real_day: string; p_start: string }
         Returns: string

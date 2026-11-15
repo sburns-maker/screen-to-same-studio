@@ -617,6 +617,20 @@
       "when": 1794678162181,
       "tag": "0087_editable_finance_agreements",
       "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1794703024478,
+      "tag": "0088_photography_studio_ventures",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1794703065352,
+      "tag": "0089_photography_studio_bookings",
+      "breakpoints": true
     }
   ]
 }
