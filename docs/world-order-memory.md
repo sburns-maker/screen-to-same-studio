@@ -65,6 +65,17 @@ Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes Wor
 - Do not generate repetitive WorldWire filler for each day skip. Relevant character posts and missions drive story.
 - **Scope:** this is a stronger scripted/deterministic playable campaign loop with freeform AI narration, not yet a full autonomous long-term government/conquest simulator. Basic public-mandate milestones, candidate standing and an earned presidential outcome are now deterministic game states. Full election mechanics, military conquest, detailed government control, a truly autonomous world director, durable DB persistence and cross-world history remain engineering work.
 
+## Living social life and usable world assets — PR #248
+- At 4 million followers the player must receive a small but noticeable stream of spontaneous incoming DMs, not only AI replies to player-initiated messages. Initial simulation generates up to three bounded messages per new game day with no background AI calls, then uses the authenticated AI server when the player replies.
+- The cast includes **10 modeled celebrities** in an explicitly alternate-history setting (Sabrina Carpenter, Taylor Swift, Zendaya, Rihanna, Dua Lipa, Selena Gomez, Pedro Pascal, Ryan Reynolds, Beyoncé, Billie Eilish), plus a tour coordinator, reporters, organizers, investors, and local citizens. All famous-person statements and interactions are game fiction, not actual communications.
+- A celebrity must not endlessly say they are "too busy". For a meeting request, an AI character should respond specifically and propose a time/place or a definite alternative. The player can use the **Invite to meet** action to make an in-game appointment, travel to that city, and attend it once the game day arrives. Successful meetings create durable trust, story history and personal memories, without guaranteed romance or endorsement.
+- The new searchable DM inbox includes previews and unread markers. Direct chats do not advance time; incoming messages are scheduled on existing player-driven day transitions, not a Tess-style automatic 15/30-minute tick.
+- `src/lib/world-order-social-life.ts`: social roster, bounded incoming mail, per-contact read state and meetup engine. `src/lib/world-order-open-world.ts`: travel, real assets/ownership, upgrades, management income, hosting social events, and direct negotiations.
+- The Life screen contains an agenda for upcoming meetups, seven cities, six purchasable enterprises, and political/social event controls. Existing worlds migrate in place through `readSave` without wiping history; sandbox state is still browser-local.
+- Characters retain distinct private memory namespaces. Never reuse Tess's messages, character history, or worker for this game.
+- These are concrete playable systems with deterministic reactions and character AI-on-demand, **not** a claim of a fully autonomous 200-person AI world yet.
+- Development lives on `feature/world-order-open-world-actions-20261122`, draft PR #248 targeting `main`. Do not merge without CI and interactive smoke tests.
+
 ## Memory invariants
 - Persist a world-scoped canonical event ledger including day, actor, subjects, public/private scope, provenance, and idempotency key.
 - Important anchors (marriage, pregnancy, childbirth, election results, ownership, office appointments) are durable structured state, never inferred solely from AI text or overwritten silently.
