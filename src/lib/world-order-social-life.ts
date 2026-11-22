@@ -69,11 +69,19 @@ export function arrangeMeetup(life:SocialLife,contact:SocialContact,day:number,p
  ? person.name+" says yes. You're meeting tomorrow for "+person.scene+"."
  : person.name+" says yes. You're invited to "+person.city+" tomorrow for "+person.scene+"."};
 }
-export function completeMeetup(life:SocialLife,contact:SocialContact,day:number,city:string):{life:SocialLife;message:string}|null{
+export type MeetupApproach="personal"|"career"|"fun";
+export function completeMeetup(life:SocialLife,contact:SocialContact,day:number,city:string,approach:MeetupApproach="personal"):{life:SocialLife;message:string}|null{
  const visit=life.visits.find(v=>v.contact===contact&&v.status==="planned");
  if(!visit||day<visit.day||city!==visit.city)return null;
- const message="You spend time with "+SOCIAL_CAST[contact].name+" at a "+visit.kind+" in "+city+". You discuss your lives, ambitions, and the latest headlines. The connection grows, but no relationship is assumed.";
- return {life:{...life,rapport:{...life.rapport,[contact]:clamp((life.rapport[contact]??35)+15)},
+ const person=SOCIAL_CAST[contact];
+ const story={
+  personal:"You ask how life has really been lately, listen without interruptions, and share a little about what you've been through. The conversation turns surprisingly personal.",
+  career:"You trade ideas about your ambitions and the projects you hope to build. Some proposals interest "+person.name+"; others get a skeptical smile.",
+  fun:"You leave the headlines outside and enjoy the evening. There's laughter, an unexpected story, and a memorable moment away from the cameras.",
+ }[approach];
+ const message="You meet "+person.name+" for "+visit.kind+" in "+city+". "+story+" You part on good terms, without making promises on their behalf.";
+ const gain=approach==="personal"?16:approach==="fun"?11:8;
+ return {life:{...life,rapport:{...life.rapport,[contact]:clamp((life.rapport[contact]??35)+gain)},
  visits:life.visits.map(v=>v===visit?{...v,status:"completed" as const,outcome:message}:v)},message};
 }
 export function unreadFrom(chat:readonly {from:string;id:number}[],seenByContact:Record<string,number>,contact:string):number {
