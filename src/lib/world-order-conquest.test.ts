@@ -4,14 +4,14 @@ const ready={president:true,influence:90,cash:1_000_000,trust:80,militaryCapacit
 const moveCtx={cash:1_000_000,defense:80,trust:80,legitimacy:80};
 describe("World Order multi-stage world expansion",()=>{
  it("starts all countries independent, and keeps older saves compatible",()=>{
-  expect(newConquestWorld().territory.Canada).toBe("independent");
+  expect(newConquestWorld().territory["Canada"]).toBe("independent");
   expect(restoreConquestWorld(undefined)).toEqual(newConquestWorld());
   expect(restoreConquestWorld({worldTension:200}).worldTension).toBe(100);
  });
  it("keeps state ambitions secret outside the global power disclosure workflow",()=>{
   const c=beginConquestCampaign(newConquestWorld(),"Canada","diplomacy",61,ready)!;
   expect(c.state.campaigns[0]?.stage).toBe(0);
-  expect(c.state.territory.Canada).toBe("independent");
+  expect(c.state.territory["Canada"]).toBe("independent");
   expect(c.summary).not.toMatch(/world domination|take over the world/i);
  });
  it("gates campaigns behind presidency, resources and relevant diplomatic capabilities",()=>{
@@ -28,7 +28,7 @@ describe("World Order multi-stage world expansion",()=>{
    expect(decision).not.toBeNull();
    world=decision!.state;
   }
-  expect(world.territory.Brazil).toBe("partner");
+  expect(world.territory["Brazil"]).toBe("partner");
   expect(world.campaigns.find(c=>c.id===id)?.stage).toBeGreaterThanOrEqual(4);
  });
  it("rejects double decisions within one day and rejects duplicate active campaigns",()=>{
@@ -47,13 +47,24 @@ describe("World Order multi-stage world expansion",()=>{
   expect(move.state.territory["United States"]).toBe("independent");
   expect(move.supportDelta).toBeLessThan(0);
  });
+ it("can earn contested protectorate status only after a long conflict and negotiated settlement",()=>{
+  let world=beginConquestCampaign(newConquestWorld(),"Brazil","military",5,ready)!.state;
+  const id=activeCampaign(world,"Brazil")!.id;
+  for(let day=6; day<=15 && activeCampaign(world,"Brazil");day++){
+   const action=day===15?"compromise":"negotiate";
+   const result=campaignMove(world,id,action,day,moveCtx)!;
+   world=result.state;
+  }
+  expect(world.territory["Brazil"]).toBe("protectorate");
+  expect(world.campaigns[0]?.stage).toBeGreaterThanOrEqual(8);
+ });
  it("can withdraw and preserve completed campaign history",()=>{
   let world=beginConquestCampaign(newConquestWorld(),"France","economic",60,ready)!.state;
   const id=activeCampaign(world,"France")!.id;
   const result=campaignMove(world,id,"withdraw",61,moveCtx)!;
   expect(result.ended).toBe(true);
   expect(result.state.campaigns.find(c=>c.id===id)?.status).toBe("withdrawn");
-  expect(result.state.territory.France).toBe("independent");
+  expect(result.state.territory["France"]).toBe("independent");
   expect(restoreConquestWorld(result.state).campaigns[0]?.log.length).toBe(1);
  });
 });
