@@ -8,7 +8,7 @@ describe("World Order empire dividends", () => {
   const world=newConquestWorld();
   expect(empireTotals(world)).toEqual({
    incomePerDay:0,militaryStrength:0,influence:0,power:0,
-   controlled:0,partners:0,protectorates:0,contributors:0,
+   controlled:0,partners:0,protectorates:0,occupied:0,contributors:0,
   });
   expect(empireDailyIncome(world)).toBe(0);
  });
