@@ -108,10 +108,22 @@ export const WORLD_ORDER_LEADER_ROLES = [
   { key: "un_leadership", role: "world_leader", office: "United Nations leadership", location: "New York, United States" },
 ] as const;
 export const WORLD_ORDER_CAST_RULES = {
-  activeCharactersTarget: 12,
-  scalableCatalogTarget: 1000,
+  activeCharactersTarget: 16,
+  activeCharactersMax: 20,
+  perWorldCharacterCap: 200,
+  scalableCatalogTarget: 200,
   disclosure: "FICTIONAL WORLD ORDER SIMULATION",
   privacy: "A character may only know public events, explicitly shared facts or directly witnessed interactions; gossip may be wrong.",
   canon: "Established facts may not be silently replaced; contradictions must be reconciled as events with explicit provenance.",
   agency: "Characters have independent goals; fame does not compel attraction, endorsements or votes.",
 };
+
+/** Limit named NPCs within one save; countries and unnamed background population do not use slots. */
+export function canAddWorldCharacter(currentCount: number): boolean {
+  return Number.isSafeInteger(currentCount) && currentCount >= 0 && currentCount < WORLD_ORDER_CAST_RULES.perWorldCharacterCap;
+}
+
+/** Simulation wakes only a bounded set for AI actions; all others keep structured state. */
+export function scheduledActiveCharacters(count: number): number {
+  return Math.max(0, Math.min(WORLD_ORDER_CAST_RULES.activeCharactersMax, Math.floor(Number.isFinite(count) ? count : 0)));
+}
