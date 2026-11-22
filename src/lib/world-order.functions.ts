@@ -6,7 +6,7 @@ import { memoriesForContact } from "./world-order-rules";
 const speaker = z.enum(["Sabrina", "Maya", "Elena"]);
 const fact = z.object({
   key: z.string().trim().min(2).max(80),
-  summary: z.string().trim().min(5).max(240),
+  summary: z.string().trim().min(5).max(700),
   visibility: z.enum(["shared", "private"]),
 });
 const message = z.object({
