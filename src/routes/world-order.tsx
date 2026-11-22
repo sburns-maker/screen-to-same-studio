@@ -406,6 +406,7 @@ function WorldOrder() {
   const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
+  const unreadTotal = SOCIAL_CONTACTS.reduce((sum,c)=>sum+unreadFrom(save.chat,save.socialLife.seenByContact,c),0);
   const nav = [["feed", Newspaper, "Feed"], ["messages", MessageCircle, "DMs"], ["activities", Heart, "Story"], ["life", UsersRound, "Life"], ["world", Globe2, "World"]] as const;
   const initials = (name: string) => name.split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join("").toUpperCase();
   const avatar = (name: string, highlighted = false) => <span className={"grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-extrabold " + (highlighted ? "bg-amber-300 text-slate-950" : "bg-[#34465f] text-slate-100")}>{initials(name)}</span>;
@@ -440,8 +441,8 @@ function WorldOrder() {
           ].map(item => <div key={item.label} className="rounded-2xl border border-slate-800 bg-[#172236] px-2 py-3 text-center"><p className="text-xl font-bold tabular-nums">{item.value}</p><p className="mt-1 text-[11px] text-slate-400">{item.label}</p></div>)}
         </div>
         <nav aria-label="World Order navigation" className="mb-5 grid grid-cols-5 rounded-2xl border border-slate-800 bg-[#172236] p-1">
-          {nav.map(([name, Icon, label]) => <button key={name} onClick={() => setTab(name)} aria-current={tab === name ? "page" : undefined}
-            className={"flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-xs font-semibold transition " + (tab === name ? "bg-amber-300 text-slate-950" : "text-slate-400 hover:bg-slate-800")}><Icon size={19}/>{label}</button>)}
+          {nav.map(([name, Icon, label]) => <button key={name} onClick={() => name === "messages" ? openContact(selectedContact) : setTab(name)} aria-current={tab === name ? "page" : undefined}
+            className={"flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-xs font-semibold transition " + (tab === name ? "bg-amber-300 text-slate-950" : "text-slate-400 hover:bg-slate-800")}><Icon size={19}/><span>{label}{name==="messages" && unreadTotal>0 ? " · "+unreadTotal : ""}</span></button>)}
         </nav>
         {tab === "feed" && <section className="space-y-3">
           {campaignScene && <div className="rounded-2xl border border-amber-300/40 bg-gradient-to-r from-[#273952] to-[#172236] p-4">
