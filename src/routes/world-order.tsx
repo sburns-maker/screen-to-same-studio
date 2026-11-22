@@ -1,9 +1,10 @@
+import { openBackstageScene, restoreBackstageScene, appendBackstageTurn, finishBackstageScene, type BackstageScene } from "@/lib/world-order-backstage";
 import { empireTotals, empireDailyIncome } from "@/lib/world-order-empire";
 import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
+import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction, worldOrderBackstageReply } from "@/lib/world-order.functions";
 import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, consolidateControl, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
 import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, canMessageOfficial, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
@@ -30,14 +31,14 @@ type Save = {
   followers: number; reputation: number; influence: number; cubaSupport: number;
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
   directorMode: DirectorMode; directorEventIds: string[];
-  rescuePhase: RescuePhase; rescueLog: RescueRecord[];
+  rescuePhase: RescuePhase; rescueLog: RescueRecord[]; backstage: BackstageScene | null;
   campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife; globalPower: GlobalPower; conquest: ConquestWorld;
 };
 const KEY = "world-order-v1";
 const REPLAY_BACKUP_KEY = "world-order-v1-last-replay-backup";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(), globalPower: newGlobalPower(), conquest: newConquestWorld(),
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], backstage: null, memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(), globalPower: newGlobalPower(), conquest: newConquestWorld(),
   posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "Sabrina Carpenter is onstage. The crowd is roaring and the lights are blazing. Something unsettling is unfolding near the barricade." }],
   chat: [],
   events: ["Day 1: You are attending Sabrina Carpenter's concert."],
@@ -98,6 +99,7 @@ function readSave(): Save {
     return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign), openWorld: restoreOpenWorld(v.openWorld), socialLife: restoreSocialLife(v.socialLife), globalPower: restoreGlobalPower(v.globalPower), conquest: restoreConquestWorld(v.conquest),
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
+      backstage: restoreBackstageScene(v.backstage, rescuedBefore && v.chapter === "interview", Array.isArray(v.completed) && v.completed.includes("interview")),
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
       directorEventIds: Array.isArray(v.directorEventIds) ? v.directorEventIds : [],
       memories: Array.isArray(v.memories) ? v.memories : structuredClone(INITIAL.memories) };
@@ -110,6 +112,7 @@ function WorldOrder() {
   const [replyError, setReplyError] = useState("");
   const generateReply = useServerFn(worldOrderReply);
   const narrateRescue = useServerFn(worldOrderRescueAction);
+  const narrateBackstage = useServerFn(worldOrderBackstageReply);
   const narrateCampaign = useServerFn(worldOrderCampaignAction);
   const [campaignDraft, setCampaignDraft] = useState("");
   const [campaignBusy, setCampaignBusy] = useState(false);
@@ -117,6 +120,9 @@ function WorldOrder() {
   const [rescueDraft, setRescueDraft] = useState("");
   const [sceneBusy, setSceneBusy] = useState(false);
   const [sceneError, setSceneError] = useState("");
+  const [backstageDraft,setBackstageDraft] = useState("");
+  const [backstageBusy,setBackstageBusy] = useState(false);
+  const [backstageError,setBackstageError] = useState("");
   const [tab, setTab] = useState<Tab>("feed");
   const [draft, setDraft] = useState("");
   const [expandedComments, setExpandedComments] = useState<number[]>([]);
@@ -176,7 +182,7 @@ function WorldOrder() {
       events: [...s.events, "Day " + s.day + " · Concert: " + record.narrative].slice(-100) };
     const outcome = rescueOutcome(log);
     const finished = advance({
-      ...s, rescuePhase: 3, rescueLog: log, chapter: "interview",
+      ...s, rescuePhase: 3, rescueLog: log, backstage: openBackstageScene(), chapter: "interview",
       followers: outcome.followers, reputation: outcome.reputation, influence: outcome.influence,
       completed: [...s.completed, "rescue"],
       memories: [...s.memories.filter(m => m.key !== "world:concert-rescue"), {
@@ -196,7 +202,7 @@ function WorldOrder() {
     const ending = record.phase === 2;
     mutate(s => commitRescueRecord(s, record));
     setSceneError("");
-    if (ending) setTab("feed");
+    if (ending) setTab("activities");
   }
   async function takeFreeformRescueAction() {
     const action = rescueDraft.trim();
@@ -213,14 +219,44 @@ function WorldOrder() {
       const record: RescueRecord = { phase, action, narrative: result.narration, approach: result.approach };
       mutate(s => commitRescueRecord(s, record));
       setRescueDraft("");
-      if (phase === 2) setTab("feed");
+      if (phase === 2) setTab("activities");
     } catch (error) {
       setSceneError(error instanceof Error ? error.message : "The narrator could not continue. Retry or choose an action.");
     } finally { setSceneBusy(false); }
   }
+  async function continueBackstage() {
+    const action=backstageDraft.trim();
+    const scene=save.backstage;
+    if(!ready||!scene||scene.status!=="open"||!action||action.length>700||backstageBusy)return;
+    setBackstageBusy(true);setBackstageError("");
+    try {
+      const result=await narrateBackstage({data:{action,history:scene.turns.slice(-24)}});
+      mutate(s=>{
+        if(s.backstage?.status!=="open")return s;
+        const withPlayer=appendBackstageTurn(s.backstage,"player",action);
+        return {...s,backstage:appendBackstageTurn(withPlayer,result.speaker,result.reply)};
+      });
+      setBackstageDraft("");
+    } catch(e){setBackstageError(e instanceof Error?e.message:"The conversation couldn't continue. Please try again.");}
+    finally{setBackstageBusy(false);}
+  }
+  function leaveBackstage() {
+    if(save.backstage?.status!=="open"||backstageBusy)return;
+    mutate(s=>{
+      if(s.backstage?.status!=="open")return s;
+      const scene=finishBackstageScene(s.backstage);
+      const personal=scene.turns.filter(t=>t.speaker==="player"||t.speaker==="Sabrina").slice(-8)
+        .map(t=>t.speaker+": "+t.text).join(" ").slice(0,600);
+      return {...s,backstage:scene,
+        memories:personal?[...s.memories.filter(m=>m.key!=="Sabrina:backstage-conversation"),
+          {key:"Sabrina:backstage-conversation",summary:personal,visibility:"private" as const}].slice(-60):s.memories,
+        events:[...s.events,"Day "+s.day+": You and Sabrina spoke privately backstage before you left."].slice(-100),
+      };
+    });
+  }
   function completeInterview(choice: "question" | "joke" | "facts") {
     mutate(s => {
-      if (s.completed.includes("interview")) return s;
+      if (s.completed.includes("interview") || s.backstage?.status==="open") return s;
       const lines = {
         question: "During a televised interview beside Sabrina, you ask the president a pointed question about public accountability. The president's response backfires.",
         joke: "A sharp, spontaneous joke about the president's remarks goes viral. Supporters cheer; opponents are furious.",
@@ -529,7 +565,7 @@ function WorldOrder() {
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
     if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
-  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
+  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? save.backstage?.status==="open" ? "Backstage with Sabrina" : "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const empire = empireTotals(save.conquest);
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
@@ -537,8 +573,8 @@ function WorldOrder() {
   const nav = [["feed", Newspaper, "Feed"], ["messages", MessageCircle, "DMs"], ["activities", Heart, "Story"], ["life", UsersRound, "Life"], ["world", Globe2, "World"]] as const;
   const initials = (name: string) => name.split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join("").toUpperCase();
   const avatar = (name: string, highlighted = false) => <span className={"grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-extrabold " + (highlighted ? "bg-amber-300 text-slate-950" : "bg-[#34465f] text-slate-100")}>{initials(name)}</span>;
-  const chapterTag = save.chapter === "rescue" ? "CHAPTER 01 · THE CONCERT" : save.chapter === "interview" ? "CHAPTER 02 · LIVE TELEVISION" : save.route === "undecided" ? "CHAPTER 03 · THE CUBA CRISIS" : "OPEN WORLD · YOUR LEGACY";
-  const title = save.chapter === "rescue" ? "One night changes everything." : save.chapter === "interview" ? "The whole world is watching." : save.route === "undecided" ? "A country at a crossroads." : "Your power has consequences.";
+  const chapterTag = save.chapter === "rescue" ? "CHAPTER 01 · THE CONCERT" : save.chapter === "interview" && save.backstage?.status==="open" ? "CHAPTER 01 · BACKSTAGE" : save.chapter === "interview" ? "CHAPTER 02 · LIVE TELEVISION" : save.route === "undecided" ? "CHAPTER 03 · THE CUBA CRISIS" : "OPEN WORLD · YOUR LEGACY";
+  const title = save.chapter === "rescue" ? "One night changes everything." : save.chapter === "interview" && save.backstage?.status==="open" ? "The cameras are outside. She is here." : save.chapter === "interview" ? "The whole world is watching." : save.route === "undecided" ? "A country at a crossroads." : "Your power has consequences.";
   return (
     <main className="min-h-dvh bg-[#09111f] text-slate-100 selection:bg-amber-300/30">
       <div className="mx-auto max-w-3xl px-4 pb-20 pt-5 sm:px-6">
@@ -557,7 +593,7 @@ function WorldOrder() {
           <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-amber-300/10 blur-3xl"/>
           <p className="relative text-[10px] font-bold uppercase tracking-[.22em] text-amber-300">{chapterTag}</p>
           <h2 className="relative mt-2 max-w-sm font-display text-3xl leading-tight">{title}</h2>
-          <p className="relative mt-3 max-w-md text-sm leading-6 text-slate-300">{save.chapter === "rescue" ? "You're at Sabrina Carpenter's concert. You notice something security hasn't seen. The next move is yours." : save.chapter === "interview" ? "Your rescue went viral. Now a televised interview puts you in the political spotlight." : save.route === "undecided" ? "A crisis in Cuba opens unexpected doors. You'll have to earn influence." : "The next decision is waiting in Havana. Powerful people are watching."}</p>
+          <p className="relative mt-3 max-w-md text-sm leading-6 text-slate-300">{save.chapter === "rescue" ? "You're at Sabrina Carpenter's concert. You notice something security hasn't seen. The next move is yours." : save.chapter === "interview" && save.backstage?.status==="open" ? "Sabrina is safe, and you are backstage together. Speak and act naturally. Leave when you decide." : save.chapter === "interview" ? "Your rescue went viral. Now a televised interview puts you in the political spotlight." : save.route === "undecided" ? "A crisis in Cuba opens unexpected doors. You'll have to earn influence." : "The next decision is waiting in Havana. Powerful people are watching."}</p>
           <button onClick={() => setTab("activities")} className="relative mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-amber-300 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-200">Continue story <span aria-hidden="true">→</span></button>
         </section>
         <div className="mb-4 grid grid-cols-3 gap-2">
@@ -644,7 +680,24 @@ function WorldOrder() {
                 <p className="mt-2 text-[11px] text-slate-400">The scene advances one beat per action; game day advances when the rescue is complete.</p>
               </div>
             </>}
-            {save.chapter === "interview" && <><p className="text-sm leading-7 text-slate-300">You're on national television alongside Sabrina. The host asks about the president's public response to the attack. Millions of people are watching.</p><div className="space-y-2">{([["question", "Ask a pointed question about accountability"],["joke", "Deliver a perfectly timed joke"],["facts", "Challenge the statement with specific facts"]] as const).map(([id,label]) => <button key={id} onClick={() => completeInterview(id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-700 bg-[#0c1524] px-4 py-4 text-left text-sm hover:border-amber-300">{label}<span className="text-amber-300">→</span></button>)}</div></>}
+            {save.chapter === "interview" && save.backstage?.status==="open" && <>
+              <p className="text-sm leading-7 text-slate-300">The attack is over. Security is outside. You and Sabrina are in the dressing room, and the conversation is yours to play out. No game day passes while you talk.</p>
+              <div className="space-y-3">
+                {save.backstage.turns.map((turn,i)=><div key={i} className={"rounded-xl p-3 text-sm leading-7 "+(turn.speaker==="player"?"ml-5 bg-amber-300 text-slate-950":"mr-5 bg-[#0c1524] text-slate-200")}>
+                  <p className={"mb-1 text-xs font-bold "+(turn.speaker==="player"?"text-slate-700":"text-amber-300")}>{turn.speaker==="player"?"You":turn.speaker}</p>
+                  <p className="whitespace-pre-wrap">{turn.text}</p>
+                </div>)}
+              </div>
+              <label htmlFor="backstage-action" className="block text-xs font-bold uppercase tracking-widest text-amber-300">What do you say or do?</label>
+              <textarea id="backstage-action" rows={4} maxLength={700} value={backstageDraft} onChange={e=>setBackstageDraft(e.target.value)} placeholder="I sit beside Sabrina and ask if she's hurt…" className="w-full resize-y rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-sm text-slate-100 placeholder:text-slate-500"/>
+              <button onClick={()=>void continueBackstage()} disabled={!backstageDraft.trim()||backstageBusy} className="w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">{backstageBusy?"Sabrina is responding…":"Continue conversation"}</button>
+              {backstageError&&<p role="alert" className="text-sm text-red-300">{backstageError}</p>}
+              <div className="border-t border-slate-700 pt-4">
+                <button onClick={leaveBackstage} disabled={backstageBusy} className="rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-200 disabled:opacity-40">Leave backstage and continue story →</button>
+                <p className="mt-2 text-xs text-slate-400">You decide when this scene ends. Your conversation is saved, with important personal details retained in Sabrina's private memory.</p>
+              </div>
+            </>}
+            {save.chapter === "interview" && save.backstage?.status!=="open" && <><p className="text-sm leading-7 text-slate-300">You're on national television alongside Sabrina. The host asks about the president's public response to the attack. Millions of people are watching.</p><div className="space-y-2">{([["question", "Ask a pointed question about accountability"],["joke", "Deliver a perfectly timed joke"],["facts", "Challenge the statement with specific facts"]] as const).map(([id,label]) => <button key={id} onClick={() => completeInterview(id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-700 bg-[#0c1524] px-4 py-4 text-left text-sm hover:border-amber-300">{label}<span className="text-amber-300">→</span></button>)}</div></>}
             {save.chapter === "cuba" && save.route === "undecided" && <><p className="text-sm leading-7 text-slate-300">A constitutional crisis unfolds in Cuba. Reformers, investors, and diplomats are competing to shape the future. You have influence, but no guaranteed path to power.</p><div className="space-y-2">{(Object.entries(ENDINGS) as [keyof typeof ENDINGS, typeof ENDINGS.reform][]).map(([id,v]) => <button key={id} onClick={() => chooseCuba(id)} className="w-full rounded-xl border border-slate-700 bg-[#0c1524] px-4 py-4 text-left hover:border-amber-300"><strong className="text-sm text-amber-200">{v.title} →</strong><span className="mt-1 block text-xs leading-relaxed text-slate-400">{v.summary}</span></button>)}</div></>}
             {save.chapter === "cuba" && save.route !== "undecided" && campaignScene && <>
               <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
