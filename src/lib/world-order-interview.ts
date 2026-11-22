@@ -27,8 +27,7 @@ export function classifyInterviewTone(action:string):InterviewTone{
 }
 export function addInterviewExchange(scene:InterviewScene,action:string,reply:string,speaker:"host"|"Sabrina"|"audience"="host"):InterviewScene{
  if(scene.status!=="open"||!action.trim()||!reply.trim())return scene;
- return {...scene,tone:classifyInterviewTone(action),turns:[
-  ...scene.turns,{speaker:"player",text:action.trim().slice(0,900)},{speaker,text:reply.trim().slice(0,1100)},
- ].slice(-50)};
+ const turns:InterviewTurn[]=[...scene.turns,{speaker:"player",text:action.trim().slice(0,900)},{speaker,text:reply.trim().slice(0,1100)}];
+ return {...scene,tone:classifyInterviewTone(action),turns:turns.slice(-50)};
 }
 export function closeInterviewScene(scene:InterviewScene):InterviewScene{return {...scene,status:"finished"};}
