@@ -105,6 +105,29 @@ export function currentCampaignScene(route: CampaignRoute, campaign: CampaignSta
   if (stage % 4 === 3) {
     const milestone = Math.floor(stage / 4);
     const currentPosition = campaign.position;
+    if (currentPosition === "president") {
+      const governance = [
+        ["A confidence vote over health reform", "Doctors and opposition delegates challenge the government's access plan.", "Rafael Morales"],
+        ["A cabinet reshuffle", "Two ministers disagree over the direction of your administration.", "Elena Valdés"],
+        ["The regional autonomy dispute", "Provincial representatives demand a larger say in public decisions.", "Sofía Reyes"],
+        ["An independent ethics inquiry", "A review panel questions whether a senior adviser has a conflict of interest.", "Nora Wells"],
+        ["A diplomatic accountability hearing", "Foreign partners ask you to explain the terms of a proposed accord.", "Elena Valdés"],
+        ["The public infrastructure audit", "Auditors say major projects face delays and cost pressures.", "Lucía Herrera"],
+      ] as const;
+      const issue = governance[(milestone - 3 + governance.length) % governance.length]!;
+      return {
+        id: "governance-confidence:" + milestone,
+        title: issue[0], location: "Havana · National assembly", character: issue[2],
+        objective: "Maintain accountable leadership while facing organized opposition",
+        setup: issue[1] + " This is the assembly's oversight hearing number " + (milestone - 2) +
+          " under your government. Members cite your most recent public decisions and demand specific answers.",
+        choices: [
+          option("hearing", "Open the records and answer publicly", "Welcome scrutiny and negotiate solutions.", 8, 2, 7, "Elena", 10, "Representatives receive the requested records and debate a practical reform."),
+          option("compromise", "Propose an amended policy with deadlines", "Build a working agreement across factions.", 6, 7, 5, "Lucía", 8, "Several opposing delegates agree to revised terms and future review."),
+          option("executive", "Use executive authority to bypass objections", "Act quickly while risking an institutional backlash.", -12, 12, -13, "Sofía", -14, "The policy moves forward, but watchdogs and opposition parties challenge the procedure."),
+        ],
+      };
+    }
     return {
       id: "leadership-mandate:" + milestone,
       title: currentPosition === "president" ? "A vote of confidence" :
