@@ -1,3 +1,10 @@
+## Country scale — 82 playable nations
+- The game now offers **82 selectable countries beyond Cuba** in `src/lib/world-order-countries.ts` (83 nations including Cuba). This fulfills the player's requested scale of at least 75 controllable countries, without creating hundreds of AI actors.
+- Every listed country participates in diplomatic contact, multi-day diplomatic/economic/military campaigns, earned partner or protectorate outcomes, and a separate negotiated direct-control step after a successful campaign. Ownership is saved as `controlled` rather than just showing `owned`.
+- Use the World → Global campaigns search and region filters; show 12 country cards per page, with count of controlled countries and allies. The original six leader characters retain named identities, while other countries use generic fictional government representatives to minimize AI cost.
+- Save migrations populate new countries while retaining earlier campaign outcomes, player properties, relationships and private-strategy decisions. Keep ongoing costs low and mechanics manageable.
+- Do not silently expose the private world-conquest goal to other characters. Only direct interactions, public declarations or known in-world events can reveal it.
+
 ## Multi-stage global expansion
 - The first draft of global power had diplomatic and defense buttons but no enduring strategy campaign. `src/lib/world-order-conquest.ts` adds persistent nation-to-nation campaign objects with stages, resistance, progress, global tension, decisions, public reactions and outcome states.
 - World → Global campaigns displays each target country, current stage, progress, resistance, history, and actions. Available approaches include diplomatic union, economic expansion, and strategic military confrontation; one decision consumes one game day and changes canonical country state.
