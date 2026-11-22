@@ -1,6 +1,6 @@
 import {COUNTRY_NAMES,COUNTRY_REGIONS,COUNTRY_RECORDS} from "./world-order-countries";
 import {describe,it,expect} from "vitest";
-import {newConquestWorld,restoreConquestWorld,beginConquestCampaign,campaignMove,consolidateControl,activeCampaign} from "./world-order-conquest";
+import {newConquestWorld,restoreConquestWorld,beginConquestCampaign,campaignMove,consolidateControl,governOccupation,activeCampaign} from "./world-order-conquest";
 const ready={president:true,influence:90,cash:1_000_000,trust:80,militaryCapacity:80};
 const moveCtx={cash:1_000_000,defense:80,trust:80,legitimacy:80};
 describe("World Order multi-stage world expansion",()=>{
@@ -107,6 +107,36 @@ describe("World Order multi-stage world expansion",()=>{
   expect(world.campaigns.find(c=>c.id===id)!.status).toBe("active");
   // The player can still negotiate after the old 12-turn cutoff.
   expect(campaignMove(world,id,"compromise",23,moveCtx)).not.toBeNull();
+ });
+ it("surprise offensive can end in occupation and later direct rule after rebuilding",()=>{
+  let world=beginConquestCampaign(newConquestWorld(),"Guatemala","military",10,ready)!.state;
+  const id=activeCampaign(world,"Guatemala")!.id;
+  world=campaignMove(world,id,"surprise",11,moveCtx)!.state;
+  expect(campaignMove(world,id,"surprise",12,moveCtx)).toBeNull();
+  for(let d=12;d<=18&&activeCampaign(world,"Guatemala");d++){
+    world=campaignMove(world,id,"negotiate",d,moveCtx)!.state;
+  }
+  expect(world.territory["Guatemala"]).toBe("occupied");
+  expect(restoreConquestWorld(world).territory["Guatemala"]).toBe("occupied");
+  let won=world.campaigns.find(c=>c.id===id)!;
+  expect(consolidateControl(world,"Guatemala",won.lastDecisionDay+2,{president:true,cash:999999,legitimacy:80})).toBeNull();
+  let day=won.lastDecisionDay+1;
+  while(world.campaigns.find(c=>c.id===id)!.resistance>40){
+    world=governOccupation(world,"Guatemala",day++,"autonomy",{cash:100000})!.state;
+  }
+  won=world.campaigns.find(c=>c.id===id)!;
+  expect(consolidateControl(world,"Guatemala",won.lastDecisionDay+2,{president:true,cash:999999,legitimacy:80})!.state.territory["Guatemala"]).toBe("controlled");
+ });
+ it("financing an uprising produces a contested protectorate, not instantaneous annexation",()=>{
+  let world=beginConquestCampaign(newConquestWorld(),"Guatemala","uprising",20,ready)!.state;
+  const id=activeCampaign(world,"Guatemala")!.id;
+  world=campaignMove(world,id,"fund",21,moveCtx)!.state;
+  world=campaignMove(world,id,"fund",22,moveCtx)!.state;
+  for(let d=23;d<34&&activeCampaign(world,"Guatemala");d++){
+    world=campaignMove(world,id,"persuade",d,moveCtx)!.state;
+  }
+  expect(world.territory["Guatemala"]).toBe("protectorate");
+  expect(world.campaigns.find(c=>c.id===id)?.uprisingSupport).toBe(2);
  });
  it("can withdraw and preserve completed campaign history",()=>{
   let world=beginConquestCampaign(newConquestWorld(),"France","economic",60,ready)!.state;
