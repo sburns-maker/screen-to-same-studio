@@ -5,19 +5,19 @@ import { COUNTRY_NAMES, COUNTRY_RECORDS, isForeignCountry, type ForeignCountry }
  * Gameplay concerns legitimacy, diplomacy, economy, resistance and political
  * consequences, never tactical targeting, weapons or real operational guidance.
  */
-export type CampaignMethod="diplomacy"|"economic"|"military";
+export type CampaignMethod="diplomacy"|"economic"|"military"|"uprising";
 export type CampaignStatus="active"|"won"|"lost"|"withdrawn";
-export type TerritoryStatus="independent"|"partner"|"protectorate"|"controlled";
+export type TerritoryStatus="independent"|"partner"|"protectorate"|"occupied"|"controlled";
 export type WorldCampaign={
  id:string; country:ForeignCountry; method:CampaignMethod; status:CampaignStatus;
  stage:number; progress:number; resistance:number; internationalConcern:number;
- startedDay:number; lastDecisionDay:number; log:{day:number;choice:string;text:string}[];
+ startedDay:number; lastDecisionDay:number; surpriseUsed?:boolean; uprisingSupport?:number; log:{day:number;choice:string;text:string}[];
 };
 export type ConquestWorld={
  campaigns:WorldCampaign[]; territory:Record<string,TerritoryStatus>;
  worldTension:number; prestige:number; lastHeadline:string;
 };
-export type CampaignMove="negotiate"|"invest"|"persuade"|"pressure"|"defend"|"compromise"|"withdraw";
+export type CampaignMove="negotiate"|"invest"|"persuade"|"pressure"|"defend"|"compromise"|"withdraw"|"surprise"|"fund";
 export type CampaignDecisionResult={
  state:ConquestWorld; summary:string; influenceDelta:number; supportDelta:number; cost:number;
  country:ForeignCountry; ended:boolean;
@@ -35,12 +35,12 @@ export function restoreConquestWorld(raw:unknown):ConquestWorld {
  const r=raw as Partial<ConquestWorld>;
  const validCountry=isForeignCountry;
  const campaigns=Array.isArray(r.campaigns)?r.campaigns.filter((c):c is WorldCampaign=>Boolean(c&&validCountry(c.country)&&
-  ["diplomacy","economic","military"].includes(c.method)&&["active","won","lost","withdrawn"].includes(c.status)&&
+  ["diplomacy","economic","military","uprising"].includes(c.method)&&["active","won","lost","withdrawn"].includes(c.status)&&
   Number.isInteger(c.stage)&&c.stage>=0&&c.stage<=1000&&Number.isFinite(c.progress)&&Number.isFinite(c.resistance)))
   .slice(-160).map(c=>({...c,progress:clamp(c.progress),resistance:clamp(c.resistance),
    internationalConcern:clamp(c.internationalConcern||0),log:Array.isArray(c.log)?c.log.slice(-40):[]})):[];
  const territory={...fresh.territory};
- for(const country of countries)if(["independent","partner","protectorate","controlled"].includes(r.territory?.[country]??"")) {
+ for(const country of countries)if(["independent","partner","protectorate","occupied","controlled"].includes(r.territory?.[country]??"")) {
   territory[country]=r.territory![country]!;
  }
  return {campaigns,territory,worldTension:Number.isFinite(r.worldTension)?clamp(r.worldTension!):fresh.worldTension,
@@ -55,20 +55,22 @@ export function beginConquestCampaign(world:ConquestWorld,country:ForeignCountry
  if(method==="diplomacy"&&context.trust<40)return null;
  if(method==="economic"&&context.influence<45)return null;
  if(method==="military"&&context.militaryCapacity<55)return null;
+ if(method==="uprising"&&context.influence<60)return null;
  const resistance=openingResistance[country];
  const campaign:WorldCampaign={
   id:country.replaceAll(" ","-").toLowerCase()+":"+day+":"+method,
-  country,method,status:"active",stage:0,progress:method==="diplomacy"?22:method==="economic"?18:9,
-  resistance,internationalConcern:method==="military"?32:method==="economic"?12:5,
-  startedDay:day,lastDecisionDay:day-1,log:[],
+  country,method,status:"active",stage:0,progress:method==="diplomacy"?22:method==="economic"?18:method==="uprising"?12:9,
+  resistance,internationalConcern:method==="military"?32:method==="uprising"?25:method==="economic"?12:5,
+  startedDay:day,lastDecisionDay:day-1,surpriseUsed:false,uprisingSupport:0,log:[],
  };
  const text=method==="diplomacy"
   ? "You begin private talks with "+country+" about a voluntary regional partnership. Its government insists on sovereign equality."
   : method==="economic"
   ? "Your government launches an ambitious economic partnership proposal toward "+country+". Local businesses and lawmakers scrutinize the terms."
+  : method==="uprising" ? "A fictional opposition movement in "+country+" requests clandestine political financing. The operation risks exposure, backlash, and a contested transition."
   : "A major geopolitical crisis opens between Cuba and "+country+". Its leaders mobilize political resistance; international mediators demand de-escalation.";
  const next={...world,campaigns:[...world.campaigns,campaign].slice(-160),
-  worldTension:clamp(world.worldTension+(method==="military"?20:method==="economic"?5:2)),lastHeadline:text};
+  worldTension:clamp(world.worldTension+(method==="military"?20:method==="uprising"?12:method==="economic"?5:2)),lastHeadline:text};
  return {state:next,summary:text,influenceDelta:method==="military"?-3:3,supportDelta:method==="military"?-6:1,
   cost:15000,country,ended:false};
 }
@@ -76,10 +78,12 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
  context:{cash:number;defense:number;trust:number;legitimacy:number}):CampaignDecisionResult|null{
  const existing=world.campaigns.find(c=>c.id===id);
  if(!existing||existing.status!=="active"||day<=existing.lastDecisionDay||!Number.isSafeInteger(day))return null;
- const prices:Record<CampaignMove,number>={negotiate:3500,invest:22000,persuade:8000,pressure:9000,defend:18000,compromise:5000,withdraw:0};
+ const prices:Record<CampaignMove,number>={negotiate:3500,invest:22000,persuade:8000,pressure:9000,defend:18000,compromise:5000,withdraw:0,surprise:28000,fund:16000};
  if(context.cash<prices[move])return null;
- if(existing.method!=="military"&&move==="defend")return null;
- if(existing.method==="military"&&move==="invest")return null;
+ if(existing.method!=="military"&&["defend","surprise"].includes(move))return null;
+ if(existing.method!=="uprising"&&move==="fund")return null;
+ if((existing.method==="military"||existing.method==="uprising")&&move==="invest")return null;
+ if(move==="surprise"&&existing.surpriseUsed)return null;
  let progress=0,resistance=0,tension=0,concern=0,prestige=0,support=0,influence=0;
  let narrative="";
  switch(move){
@@ -101,6 +105,12 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
   case "compromise":
    progress=7;resistance=-13;tension=-8;concern=-10;support=3;prestige=2;
    narrative="A mediated compromise lowers tensions and moves negotiations forward, although both sides retain their independence.";break;
+  case "surprise":
+   progress=29;resistance=17;tension=24;concern=26;support=-12;prestige=-4;
+   narrative="A surprise offensive gains momentum in the fictional conflict. Emergency displacement and international condemnation follow; the outcome remains contested.";break;
+  case "fund":
+   progress=17;resistance=-4;tension=8;concern=18;support=-4;
+   narrative="A clandestinely funded uprising gains supporters in "+existing.country+". Journalists uncover allegations of foreign financing; the movement demands autonomy in its decisions.";break;
   case "withdraw":
    narrative="You end the campaign. "+existing.country+" remains independent, and observers debate whether restraint came too late.";break;
  }
@@ -111,9 +121,17 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
  let status:CampaignStatus=move==="withdraw"?"withdrawn":"active";
  let control:TerritoryStatus="independent";
  if(status==="active" && stage>=4 && newProgress>=75 && newResistance<=60 &&
-   existing.method!=="military"){
+   (existing.method==="diplomacy"||existing.method==="economic")){
    status="won"; control="partner";prestige+=12;
    narrative+=" After prolonged public negotiations, a voluntary cooperation union is ratified. "+existing.country+" retains its own democratic institutions.";
+ }else if(status==="active" && existing.method==="military" && (existing.surpriseUsed||move==="surprise") &&
+   stage>=6 && newProgress>=90 && newResistance<=55 && context.defense>=65){
+   status="won";control="occupied";prestige-=3;tension+=16;
+   narrative+=" After an extended campaign, forces occupy key government institutions. "+existing.country+" is now occupied, not annexed: civil resistance, legitimacy, and reconstruction remain unresolved.";
+ }else if(status==="active" && existing.method==="uprising" && stage>=6 &&
+   newProgress>=88 && newResistance<=45 && (existing.uprisingSupport||0)+(move==="fund"?1:0)>=2){
+   status="won";control="protectorate";prestige+=1;tension+=5;
+   narrative+=" The insurgent coalition wins a contested political transition and signs a provisional security pact with Cuba. It remains a protectorate, with opposition groups demanding a vote.";
  }else if(status==="active" && stage>=8 && newProgress>=88 && newResistance<=35 &&
    existing.method==="military" && move==="compromise" && world.worldTension<65){
    // Winning a confrontation is not the same as controlling a country.
@@ -126,6 +144,7 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
    status="lost";narrative+=" The prolonged initiative collapses amid domestic resistance and mounting costs.";
  }
  const updated:WorldCampaign={...existing,stage,progress:newProgress,resistance:newResistance,status,
+  surpriseUsed:Boolean(existing.surpriseUsed||move==="surprise"),uprisingSupport:(existing.uprisingSupport||0)+(move==="fund"?1:0),
   internationalConcern:clamp(existing.internationalConcern+concern),lastDecisionDay:day,
   log:[...existing.log,{day,choice:move,text:narrative}].slice(-40)};
  const headline=existing.country+" · "+narrative;
@@ -149,12 +168,39 @@ export function consolidateControl(world:ConquestWorld,country:ForeignCountry,da
  const current=world.territory[country];
  const completed=[...world.campaigns].reverse().find(c=>c.country===country&&c.status==="won");
  if(!context.president||context.cash<25000||context.legitimacy<45||!completed||
-  (current!=="partner"&&current!=="protectorate")||
+  (current!=="partner"&&current!=="protectorate"&&current!=="occupied")||
   day<=completed.lastDecisionDay+1)return null;
- const summary=country+" enters your international union following a negotiated integration agreement. "+
-   "It becomes a governed territory in this alternate-history simulation; local opposition and autonomy questions remain.";
+ if(current==="occupied"&&completed.resistance>40)return null;
+ const summary=current==="occupied"
+   ?country+" passes from disputed military occupation into direct administration after a costly consolidation process. Resistance, reconstruction, and international criticism remain."
+   :country+" enters your international union following a negotiated integration agreement. It becomes a governed territory in this alternate-history simulation; local opposition and autonomy questions remain.";
  const next:ConquestWorld={...world,
    territory:{...world.territory,[country]:"controlled"},prestige:clamp(world.prestige+8),
-   worldTension:clamp(world.worldTension+5),lastHeadline:summary};
+   worldTension:clamp(world.worldTension+(current==="occupied"?12:5)),lastHeadline:summary};
  return {state:next,cost:25000,influenceDelta:5,supportDelta:0,country,ended:true,summary};
+}
+
+/**
+ * Govern a recently occupied country through broad, non-tactical decisions.
+ * Reduced unrest permits eventual integration; neglect can prolong occupation.
+ */
+export function governOccupation(world:ConquestWorld,country:ForeignCountry,day:number,
+ action:"services"|"autonomy"|"security",context:{cash:number}):CampaignDecisionResult|null{
+ const won=[...world.campaigns].reverse().find(c=>c.country===country&&c.status==="won"&&c.method==="military");
+ if(world.territory[country]!=="occupied"||!won||day<=won.lastDecisionDay)return null;
+ const cost=action==="services"?18000:action==="autonomy"?7000:12000;
+ if(context.cash<cost)return null;
+ const delta=action==="services"?-14:action==="autonomy"?-19:7;
+ const tension=action==="services"?-3:action==="autonomy"?-6:9;
+ const narrative=action==="services"
+  ?country+" receives food, medical assistance, and rebuilding funds. Public opposition eases while local councils request an elected transition."
+  :action==="autonomy"
+  ?country+" gains a civilian autonomy charter and independent local oversight, reducing occupation resistance."
+  :country+" tightens emergency security under occupation. Some unrest subsides, but civic resistance and international criticism rise.";
+ const updated={...won,resistance:clamp(won.resistance+delta),lastDecisionDay:day,
+  log:[...won.log,{day,choice:action,text:narrative}].slice(-40)};
+ const next={...world,campaigns:world.campaigns.map(c=>c.id===won.id?updated:c),
+  worldTension:clamp(world.worldTension+tension),lastHeadline:narrative};
+ return {state:next,summary:narrative,influenceDelta:0,supportDelta:action==="security"?-3:2,
+  cost,country,ended:false};
 }
