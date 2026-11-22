@@ -895,6 +895,7 @@ function WorldOrder() {
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Under your control</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>save.conquest.territory[c]==="controlled").length}</p></div>
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Allies and protectorates</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>["partner","protectorate"].includes(save.conquest.territory[c]??"")).length}</p></div>
             </div>
+            <p className="mt-3 text-xs text-amber-200">Available treasury: $ {save.openWorld.cash.toLocaleString()} · Integration requires $25,000, legitimacy 45+, and a day after settlement.</p>
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input aria-label="Search countries" value={countrySearch} onChange={e=>{setCountrySearch(e.target.value);setCountryPage(0);}} placeholder="Search 82 countries…" className="min-w-0 rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white"/>
               <select aria-label="Filter by region" value={regionFilter} onChange={e=>{setRegionFilter(e.target.value as WorldRegion | "All");setCountryPage(0);}} className="rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white">
@@ -906,6 +907,9 @@ function WorldOrder() {
               .slice(countryPage*12,countryPage*12+12).map(country=>{
               const active=activeCampaign(save.conquest,country);
               const last=[...save.conquest.campaigns].reverse().find(c=>c.country===country);
+              const lastWon=[...save.conquest.campaigns].reverse().find(c=>c.country===country&&c.status==="won");
+              const canIntegrate=save.campaign.position==="president"&&save.openWorld.cash>=25000&&save.globalPower.legitimacy>=45&&!!lastWon&&save.day+1>lastWon.lastDecisionDay+1;
+              const integrateReason=save.openWorld.cash<25000?"Need $25,000 cash (available: $"+save.openWorld.cash.toLocaleString()+").":save.globalPower.legitimacy<45?"Need at least 45 legitimacy (current: "+save.globalPower.legitimacy+").":lastWon&&save.day+1<=lastWon.lastDecisionDay+1?"Wait one more game day after the agreement.":save.campaign.position!=="president"?"Presidential authority is required.":"Complete an international campaign first.";
               return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{(FOREIGN_LEADERS as Partial<Record<ForeignCountry,{name:string}>>)[country]?.name??COUNTRY_RECORDS[country].region+" · Government"}</p></div>
@@ -924,7 +928,7 @@ function WorldOrder() {
                 </div>:save.conquest.territory[country]==="independent"?
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-slate-400">{COUNTRY_RECORDS[country].region} · Resistance {COUNTRY_RECORDS[country].resistance}% · Diplomatic trust {save.globalPower.relations[country].trust}</p>
-                    {save.globalPower.relations[country].trust<40 && <button onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200">Open diplomatic channel · $2,500</button>}
+                    {save.globalPower.relations[country].trust<40 && <div className="space-y-1"><button disabled={save.openWorld.cash<2500} onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Open diplomatic channel · $2,500</button>{save.openWorld.cash<2500&&<p className="text-xs text-amber-200">Need $2,500 cash. Available: $ {save.openWorld.cash.toLocaleString()}. Earn income by advancing game days or expanding your businesses.</p>}</div>}
                     <div className="flex flex-wrap gap-2">{([
                     ["diplomacy","Diplomatic campaign"],["economic","Economic expansion"],["military","Military standoff"]
                   ] as [CampaignMethod,string][]).map(([method,label])=><button key={method}
@@ -933,7 +937,7 @@ function WorldOrder() {
                     className="rounded-full border border-amber-300/40 px-3 py-2 text-xs text-amber-100 disabled:opacity-30">{label}</button>)}</div></div>:
                   <div className="mt-2 space-y-2">
                     <p className="text-xs text-emerald-300">{save.conquest.territory[country]==="controlled"?"Part of your international union.":"An earned agreement is in place."}</p>
-                    {save.conquest.territory[country]!=="controlled"&&<button onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200">Negotiate direct control · $25k</button>}
+                    {save.conquest.territory[country]!=="controlled"&&<div className="space-y-2"><button disabled={!canIntegrate} onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Negotiate direct control · $25k</button>{!canIntegrate&&<p className="text-xs text-amber-200">{integrateReason}</p>}</div>}
                   </div>}
               </div>;
             })}</div>
