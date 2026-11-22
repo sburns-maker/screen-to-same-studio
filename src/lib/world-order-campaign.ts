@@ -113,7 +113,7 @@ export function applyCampaignChoice(route: CampaignRoute, state: CampaignState, 
   const scene = currentCampaignScene(route, state);
   const choice = scene.choices.find(c => c.id === id);
   if (!choice || !Number.isInteger(day) || day < 1) return null;
-  const relations = { ...state.relations, [choice.actor]: clamp(50 + (state.relations[choice.actor] ?? 0) - 50 + choice.trust) };
+  const relations = { ...state.relations };
   // Relations start neutral (50) and can rise or fall with decisions.
   relations[choice.actor] = clamp((state.relations[choice.actor] ?? 50) + choice.trust);
   const next: CampaignState = {
