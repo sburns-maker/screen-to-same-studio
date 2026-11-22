@@ -432,7 +432,7 @@ function TessBackgroundPauseRow() {
   return <div className="rounded-xl border p-4">
     <div className="flex items-center justify-between gap-4">
       <div><p className="text-[15px] font-semibold">Pause AI Town background updates</p>
-        <p className="mt-1 text-xs text-muted-foreground">Prevents Tess and the other AI Town contacts from starting background chats, calls, photos and simulated events while you are away. Existing messages are kept. World Order is unaffected.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Pauses scheduled AI Town character updates and new background chats while you are away. Existing messages remain; already-queued deliveries may still complete. World Order is unaffected.</p>
       </div>
       <Switch aria-label="Pause AI Town background updates" checked={status.data?.paused === true}
         disabled={status.isLoading || saving || status.isError}
