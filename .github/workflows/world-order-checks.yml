@@ -12,17 +12,17 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22'
-      - name: Install dependencies
-        run: npm install --no-audit --no-fund
+          bun-version: 'latest'
+      - name: Install dependencies from committed Bun lockfile
+        run: bun install --frozen-lockfile
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: bunx tsc --noEmit
       - name: Unit tests
-        run: npm test -- --run
+        run: bun run test
       - name: Production build
-        run: npm run build
+        run: bun run build
