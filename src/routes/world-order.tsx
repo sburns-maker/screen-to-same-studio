@@ -140,6 +140,7 @@ function WorldOrder() {
     const loaded = readSave();
     // Populate a modest inbox for existing high-follower worlds, without
     // changing game day or replaying the rescue. No AI calls happen here.
+    if (loaded.backstage?.status==="open") setTab("activities");
     const incoming = incomingSocialWave(loaded.day, loaded.followers, loaded.chapter, loaded.socialLife.incomingIds);
     setSave(incoming.length ? {
       ...loaded,
@@ -608,6 +609,12 @@ function WorldOrder() {
             className={"flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-xs font-semibold transition " + (tab === name ? "bg-amber-300 text-slate-950" : "text-slate-400 hover:bg-slate-800")}><Icon size={19}/><span>{label}{name==="messages" && unreadTotal>0 ? " · "+unreadTotal : ""}</span></button>)}
         </nav>
         {tab === "feed" && <section className="space-y-3">
+          {save.backstage?.status==="open" && <div className="rounded-2xl border border-amber-300/60 bg-[#26354b] p-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Backstage · Active scene</p>
+            <h3 className="mt-2 font-display text-2xl">Sabrina is waiting for your answer.</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-200">The concert emergency is over, but your private conversation isn't. Continue speaking with her before moving on to the interview.</p>
+            <button onClick={()=>setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-950">Return backstage →</button>
+          </div>}
           {campaignScene && <div className="rounded-2xl border border-amber-300/40 bg-gradient-to-r from-[#273952] to-[#172236] p-4">
             <p className="text-[11px] font-bold uppercase tracking-widest text-amber-300">Your next mission · {campaignScene.location}</p>
             <h3 className="mt-2 font-display text-2xl">{campaignScene.title}</h3>
