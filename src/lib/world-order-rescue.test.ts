@@ -4,8 +4,8 @@ import { RESCUE_BEATS, rescueAdvancePhase, rescueChoice, rescueOutcome, type Res
 describe("World Order concert rescue", () => {
   it("begins before the attack is resolved, with three playable beats", () => {
     expect(RESCUE_BEATS).toHaveLength(3);
-    expect(RESCUE_BEATS[0].scene).toContain("Security hasn't reacted");
-    expect(RESCUE_BEATS[0].choices).toHaveLength(3);
+    expect(RESCUE_BEATS[0]!.scene).toContain("Security hasn't reacted");
+    expect(RESCUE_BEATS[0]!.choices).toHaveLength(3);
   });
   it("advances one scene beat at a time", () => {
     expect(rescueAdvancePhase(0)).toBe(1);
