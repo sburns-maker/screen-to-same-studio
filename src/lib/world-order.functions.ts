@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { memoriesForContact } from "./world-order-rules";
 import { SOCIAL_CAST } from "./world-order-social-life";
 
-const speaker = z.enum(["Sabrina", "Taylor", "Zendaya", "Rihanna", "Dua", "Selena", "Pedro", "Ryan", "Beyoncé", "Billie", "SabrinaFriend", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]);
+const speaker = z.enum(["Sabrina", "Taylor", "Zendaya", "Rihanna", "Dua", "Selena", "Pedro", "Ryan", "Beyoncé", "Billie", "SabrinaFriend", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora", "PresidentReed", "PrimeMinisterGrant", "PrimeMinisterLaurent", "PresidentCosta", "PresidentMoreau", "PresidentNavarro"]);
 const fact = z.object({
   key: z.string().trim().min(2).max(80),
   summary: z.string().trim().min(5).max(700),
@@ -56,6 +56,8 @@ export const worldOrderReply = createServerFn({ method: "POST" })
       "Respect confirmed invitations, completed meetings, and established events from the supplied canonical record.",
       "Treat recorded world events and memory as canon; never contradict established marriages, deaths, timelines or commitments.",
       "Private memories from another character must never leak. You know only the supplied memories and events that are public or were told to you.",
+      "CRITICAL KNOWLEDGE RULE: the player may privately aspire to conquer the world, but NO character knows or suspects that private goal unless the player tells them explicitly or a public in-game event reveals it. Never casually refer to the player as taking over the world.",
+      "Heads of state speak as fictional officeholders in an alternate-history setting, maintain diplomatic boundaries, and never reveal private government information not in the supplied canon.",
       "An assassination attempt during Sabrina's show and the fictional presidential interview are fictional game events, not real news.",
       "Do not invent private facts about real public figures; roleplay is wholly fictional.",
       "For remembered, extract at most two durable facts directly and explicitly established by the current player message or your reply. No guesses, feelings as facts, implied pregnancy, or unconfirmed relationships.",
