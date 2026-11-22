@@ -1,3 +1,9 @@
+## Automatic empire contributions and replay
+- Every controlled country automatically grants income, military strength, influence and global power through `src/lib/world-order-empire.ts`. Cooperation partners and protectorates grant smaller bonuses; no duplicate yields when a country changes status. The fictional per-country rating is intentionally a game-balancing value rather than real-world combat power.
+- Income is paid once during each game-day advance. Military bonuses count toward strategic campaign eligibility and defense comparisons; empire influence and half the power score contribute to campaign leverage. The World screen shows empire dividends and combined power.
+- This is **derived state** calculated from `conquest.territory`; no duplicate ledger or per-country maintenance chores. Existing local saves migrate without losing character messages or geopolitical achievements.
+- The player can choose **Start fresh playthrough** in World → Save options. This saves the current world to a separate browser-local `world-order-v1-last-replay-backup` key, then restarts Day 1; **Restore previous playthrough** reloads it. Backup exists only in the same browser, and browser/site-data deletion can erase it. Replaying never affects Tess or Peer Center HQ.
+
 ## Country scale — 82 playable nations
 - The game now offers **82 selectable countries beyond Cuba** in `src/lib/world-order-countries.ts` (83 nations including Cuba). This fulfills the player's requested scale of at least 75 controllable countries, without creating hundreds of AI actors.
 - Every listed country participates in diplomatic contact, multi-day diplomatic/economic/military campaigns, earned partner or protectorate outcomes, and a separate negotiated direct-control step after a successful campaign. Ownership is saved as `controlled` rather than just showing `owned`.
