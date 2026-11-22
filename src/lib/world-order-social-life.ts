@@ -45,7 +45,7 @@ export function incomingSocialWave(day:number,followers:number,chapter:"rescue"|
  const count=followers>=1_000_000?3:2;
  const out:IncomingDM[]=[];
  for(let offset=0;offset<candidates.length&&out.length<count;offset++){
-  const contact=candidates[(day*3+offset*5)%candidates.length]!;
+  const contact=offset===0 && day%3===1 ? "Sabrina" : candidates[(day*3+offset*5)%candidates.length]!;
   const id="inbound:"+day+":"+contact;
   if(already.includes(id)||out.some(o=>o.contact===contact))continue;
   const person=SOCIAL_CAST[contact];
