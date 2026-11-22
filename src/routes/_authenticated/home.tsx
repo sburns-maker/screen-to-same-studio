@@ -44,7 +44,7 @@ function Home() {
       <Link to="/world-order" className="mb-5 block rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
         <span className="text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-300">New game mode · Prototype</span>
         <strong className="mt-1 block font-display text-2xl">World Order: The Accidental King</strong>
-        <span className="mt-1 block text-sm text-muted-foreground">A fictional concert rescue, a viral political interview, and a branching future in Cuba. Separate save; AI replies coming later.</span>
+        <span className="mt-1 block text-sm text-muted-foreground">Play the concert rescue yourself, shape a viral political interview, and follow a branching path toward Cuba. Separate World Order save; AI conversations available in the preview.</span>
         <span className="mt-3 block text-sm font-semibold">Play World Order →</span>
       </Link>
       <p className="mb-4 text-sm text-muted-foreground">What would you like to open?</p>
