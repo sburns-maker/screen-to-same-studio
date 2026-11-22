@@ -85,7 +85,10 @@ function readSave(): Save {
           tone: (migrated.rescueLog as RescueRecord[] | undefined)?.[2]?.approach ?? "care",
         }))
       : legacyWall;
-    return { ...structuredClone(INITIAL), ...migrated, posts: upgradedPosts, campaign: normalizeCampaign(v.campaign),
+    const cleanPosts = upgradedPosts.filter(p =>
+      !(p.author === "WorldWire" && p.category === "Update" &&
+        (p.body.startsWith("Another day passes.") || p.body.startsWith("Time passes. Unresolved decisions"))));
+    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign),
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
@@ -362,6 +365,12 @@ function WorldOrder() {
             className={"flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-xs font-semibold transition " + (tab === name ? "bg-amber-300 text-slate-950" : "text-slate-400 hover:bg-slate-800")}><Icon size={19}/>{label}</button>)}
         </nav>
         {tab === "feed" && <section className="space-y-3">
+          {campaignScene && <div className="rounded-2xl border border-amber-300/40 bg-gradient-to-r from-[#273952] to-[#172236] p-4">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-amber-300">Your next mission · {campaignScene.location}</p>
+            <h3 className="mt-2 font-display text-2xl">{campaignScene.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-300">{campaignScene.character} is waiting for your decision. {campaignScene.objective}.</p>
+            <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-5 py-2.5 text-xs font-bold text-slate-950">Enter scene →</button>
+          </div>}
           <div className="rounded-2xl border border-slate-700 bg-[#172236] p-4">
             <div className="mb-3 flex items-center gap-3">{avatar("You", true)}<div><p className="text-sm font-bold">Your story</p><p className="text-xs text-slate-400">Public post · +1 game day</p></div></div>
             <textarea id="wo-post" aria-label="Your social post" disabled={save.chapter === "rescue"} maxLength={1200} rows={2} value={draft} onChange={e => setDraft(e.target.value)} placeholder="What's happening in your world?" className="w-full resize-y rounded-xl border border-slate-700 bg-[#0b1423] p-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-300 focus:outline-none"/>
