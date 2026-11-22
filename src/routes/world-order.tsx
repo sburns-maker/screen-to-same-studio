@@ -2,10 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction } from "@/lib/world-order.functions";
+import { socialReactionWave, appendMissingReactions, addCommentToPost, type SocialPost } from "@/lib/world-order-social";
 import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
 import { directorEvent, type DirectorMode } from "@/lib/world-order-director";
 import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldMemory } from "@/lib/world-order-rules";
-import { ArrowLeft, CalendarDays, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Repeat2 } from "lucide-react";
 
 export const Route = createFileRoute("/world-order")({
   head: () => ({ meta: [{ title: "World Order — The Accidental King" }, { name: "description", content: "A fictional modern-Earth political and social life simulation." }] }),
@@ -14,7 +15,7 @@ export const Route = createFileRoute("/world-order")({
 
 type Chapter = "rescue" | "interview" | "cuba";
 type Tab = "feed" | "messages" | "activities" | "world";
-type Post = { id: number; author: string; body: string; day: number; category: string };
+type Post = SocialPost;
 type Chat = { id: number; from: "player" | "Sabrina" | "Maya" | "Elena"; body: string; day: number };
 type Memory = WorldMemory;
 type Save = {
@@ -28,9 +29,9 @@ const KEY = "world-order-v1";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
   playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [],
-  posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "FICTIONAL SCENARIO · Sabrina Carpenter's concert is underway. The crowd is roaring. Something unsettling is unfolding near the stage. What happens next is up to you." }],
+  posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "Sabrina Carpenter is onstage. The crowd is roaring and the lights are blazing. Something unsettling is unfolding near the barricade." }],
   chat: [],
-  events: ["Day 1: You are attending Sabrina Carpenter's fictional concert."],
+  events: ["Day 1: You are attending Sabrina Carpenter's concert."],
 };
 const ENDINGS = {
   reform: {
@@ -66,7 +67,14 @@ function readSave(): Save {
       events: v.events.filter((e: string) => !e.includes("You intervene during a fictional concert attack")),
       memories: (v.memories ?? []).filter((m: Memory) => m.key !== "world:concert-rescue"),
     } : v;
-    return { ...structuredClone(INITIAL), ...migrated,
+    const alreadyReactions = (migrated.posts as Post[]).some(p => p.handle === "@julesatshows");
+    // Existing test saves keep their choices and chat history while gaining the missing reaction wave.
+    const upgradedPosts = rescuedBefore && !alreadyReactions
+      ? appendMissingReactions(migrated.posts as Post[], socialReactionWave("rescue", 2, {
+          tone: (migrated.rescueLog as RescueRecord[] | undefined)?.[2]?.approach ?? "care",
+        }))
+      : migrated.posts;
+    return { ...structuredClone(INITIAL), ...migrated, posts: upgradedPosts,
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
@@ -86,6 +94,8 @@ function WorldOrder() {
   const [sceneError, setSceneError] = useState("");
   const [tab, setTab] = useState<Tab>("feed");
   const [draft, setDraft] = useState("");
+  const [expandedComments, setExpandedComments] = useState<number[]>([]);
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [dm, setDm] = useState("");
   const [selectedContact, setSelectedContact] = useState<"Sabrina" | "Maya" | "Elena">("Sabrina");
   useEffect(() => { setSave(readSave()); setReady(true); }, []);
@@ -99,7 +109,7 @@ function WorldOrder() {
       trigger, alreadyEmittedIds: s.directorEventIds,
     });
     const additions = [
-      newPost("WorldWire", headline, day, "Update"),
+      ...(trigger !== "public_post" ? [newPost("WorldWire", headline, day, "Update")] : []),
       ...(event ? [newPost(event.author, event.summary, day, event.category)] : []),
     ];
     return {
@@ -107,7 +117,7 @@ function WorldOrder() {
       influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
       cubaSupport: Math.max(0, s.cubaSupport + (event?.supportDelta ?? 0)),
       directorEventIds: event ? [...s.directorEventIds, event.id].slice(-120) : s.directorEventIds,
-      posts: [...additions, ...s.posts].slice(0, 100),
+      posts: [...additions, ...s.posts].slice(0, 160),
       events: [...s.events, `Day ${day}: ${headline}`,
         ...(event ? [`Day ${day} · ${event.author}: ${event.summary}`] : [])].slice(-100),
     };
@@ -125,8 +135,12 @@ function WorldOrder() {
       memories: [...s.memories.filter(m => m.key !== "world:concert-rescue"), {
         key: "world:concert-rescue", summary: outcome.summary.slice(0, 500), visibility: "shared" as const,
       }],
-    }, "Sabrina survived the fictional concert attack. Your actions become a viral story.");
-    return { ...finished, posts: [newPost("WorldWire", outcome.summary, finished.day, "Breaking"), ...finished.posts],
+    }, "Concert attack stopped. Sabrina Carpenter safe after an audience member helps security.");
+    const reactions = socialReactionWave("rescue", finished.day, { tone: log[2]?.approach ?? "care" });
+    return { ...finished, posts: appendMissingReactions([
+        newPost("WorldWire", "The concert emergency is over, and Sabrina is safe. A bystander's intervention is being shared across social media as fans and reporters react.", finished.day, "Breaking"),
+        ...finished.posts.filter(p => !(p.author === "WorldWire" && p.category === "Update" && p.day === finished.day)),
+      ], reactions),
       chat: [...finished.chat, { id: Date.now() + Math.random(), from: "Sabrina", body: outcome.sabrinaMessage, day: finished.day }] };
   }
   function takeRescueChoice(choice: RescueChoice) {
@@ -161,12 +175,15 @@ function WorldOrder() {
     mutate(s => {
       if (s.completed.includes("interview")) return s;
       const lines = {
-        question: "During a fictional televised interview beside Sabrina, you ask the president a pointed question about public accountability. The president's response backfires.",
-        joke: "A sharp, spontaneous joke about the president's fictional remarks goes viral. Supporters cheer; opponents are furious.",
-        facts: "You calmly challenge the president's fictional claims with documented contradictions. The interview becomes a national talking point.",
+        question: "During a televised interview beside Sabrina, you ask the president a pointed question about public accountability. The president's response backfires.",
+        joke: "A sharp, spontaneous joke about the president's remarks goes viral. Supporters cheer; opponents are furious.",
+        facts: "You calmly challenge the president's claims with documented contradictions. The interview becomes a national talking point.",
       };
       const next = advance({ ...s, chapter: "cuba", followers: s.followers + (choice === "joke" ? 2700000 : 1800000), reputation: Math.min(100, s.reputation + (choice === "facts" ? 12 : 4)), influence: s.influence + 25, completed: [...s.completed, "interview"] }, lines[choice]);
-      return { ...next, posts: [newPost("Political Dispatch", "A Cuban reform coalition has invited the viral concert hero to discuss a fictional political and economic transition.", next.day, "World"), ...next.posts], chat: [...next.chat, { id: Date.now(), from: "Elena", day: next.day, body: "My name is Elena. I help organize a reform coalition in Havana. Would you hear us out?" }] };
+      return { ...next, posts: appendMissingReactions([
+        newPost("Political Dispatch", "Reform organizers in Havana have invited the concert hero to a conversation about Cuba's political future.", next.day, "World"),
+        ...next.posts,
+      ], socialReactionWave("interview", next.day)), chat: [...next.chat, { id: Date.now(), from: "Elena", day: next.day, body: "My name is Elena. I help organize a reform coalition in Havana. Would you hear us out?" }] };
     });
     setTab("feed");
   }
@@ -174,7 +191,7 @@ function WorldOrder() {
     mutate(s => {
       if (s.route !== "undecided") return s;
       const next = advance({ ...s, route, influence: s.influence + 20, cubaSupport: route === "reform" ? 18 : 10, completed: [...s.completed, "cuba-opening"] }, ENDINGS[route].event);
-      return { ...next, chat: [...next.chat, { id: Date.now(), from: "Elena", day: next.day, body: "The path you've chosen will have consequences. Cuba isn't a prize to be handed over—people here will decide whether to trust you." }] };
+      return { ...next, posts: appendMissingReactions(next.posts, socialReactionWave("cuba", next.day, { route })), chat: [...next.chat, { id: Date.now(), from: "Elena", day: next.day, body: "The path you've chosen will have consequences. Cuba isn't a prize to be handed over—people here will decide whether to trust you." }] };
     });
     setTab("world");
   }
