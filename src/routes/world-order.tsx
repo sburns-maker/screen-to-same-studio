@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { worldOrderReply, worldOrderRescueAction } from "@/lib/world-order.functions";
+import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState, type CampaignRoute } from "@/lib/world-order-campaign";
 import { socialReactionWave, appendMissingReactions, addCommentToPost, type SocialPost } from "@/lib/world-order-social";
 import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
@@ -100,6 +100,10 @@ function WorldOrder() {
   const [replyError, setReplyError] = useState("");
   const generateReply = useServerFn(worldOrderReply);
   const narrateRescue = useServerFn(worldOrderRescueAction);
+  const narrateCampaign = useServerFn(worldOrderCampaignAction);
+  const [campaignDraft, setCampaignDraft] = useState("");
+  const [campaignBusy, setCampaignBusy] = useState(false);
+  const [campaignError, setCampaignError] = useState("");
   const [rescueDraft, setRescueDraft] = useState("");
   const [sceneBusy, setSceneBusy] = useState(false);
   const [sceneError, setSceneError] = useState("");
@@ -261,7 +265,7 @@ function WorldOrder() {
       setReplyError(error instanceof Error ? error.message : "AI reply unavailable. Your message has been saved.");
     } finally { setReplying(false); }
   }
-  function completeCampaignDecision(choiceId: string) {
+  function completeCampaignDecision(choiceId: string, customNarration?: string) {
     if (save.chapter !== "cuba" || save.route === "undecided") return;
     mutate(s => {
       if (s.route === "undecided" || s.chapter !== "cuba") return s;
@@ -278,6 +282,7 @@ function WorldOrder() {
       };
       const lead = actorName[result.choice.actor] ?? result.choice.actor;
       const reaction = newPost(lead, result.choice.outcome, next.day, "Politics");
+      const completeOutcome = customNarration ? customNarration + " " + result.choice.outcome : result.choice.outcome;
       const privateReply = {
         id: Date.now() + Math.random(), from: result.choice.actor as WorldContact, day: next.day,
         body: result.choice.trust >= 0
@@ -286,13 +291,30 @@ function WorldOrder() {
       };
       return { ...next,
         posts: [reaction, ...next.posts.filter(p => !(p.author === "WorldWire" && p.day === next.day && p.category === "Update"))].slice(0, 160),
+        events: [...next.events, ...(customNarration ? ["Day " + next.day + " · Your words: " + customNarration] : [])].slice(-100),
         chat: [...next.chat, privateReply],
         memories: [...next.memories.filter(m => m.key !== "world:campaign-latest"), {
-          key: "world:campaign-latest", summary: result.choice.outcome, visibility: "shared" as const,
+          key: "world:campaign-latest", summary: completeOutcome.slice(0, 650), visibility: "shared" as const,
         }],
       };
     });
     setTab("activities");
+  }
+  async function takeFreeformCampaignAction() {
+    const action = campaignDraft.trim();
+    if (!action || action.length > 700 || campaignBusy || !ready || !campaignScene || save.route === "undecided" || save.chapter !== "cuba") return;
+    setCampaignBusy(true); setCampaignError("");
+    try {
+      const result = await narrateCampaign({ data: {
+        route: save.route, sceneTitle: campaignScene.title, sceneSetup: campaignScene.setup,
+        choices: campaignScene.choices.map(c => ({ id: c.id, title: c.title })),
+        action, recentEvents: save.events.slice(-8).map(e => e.slice(0, 400)),
+      } });
+      completeCampaignDecision(result.choiceId, result.narration);
+      setCampaignDraft("");
+    } catch(error) {
+      setCampaignError(error instanceof Error ? error.message : "Could not continue that scene. Try another action.");
+    } finally { setCampaignBusy(false); }
   }
   function nextDay() {
     if (save.chapter === "rescue") return;
@@ -412,6 +434,11 @@ function WorldOrder() {
                 <span className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-100"><span>{choice.title}</span><span className="text-amber-300">→</span></span>
                 <span className="mt-1 block text-xs leading-5 text-slate-400">{choice.detail}</span>
               </button>)}</div>
+              <div className="border-t border-slate-700 pt-4"><label htmlFor="campaign-freeform" className="mb-2 block text-xs font-bold uppercase tracking-widest text-slate-400">Or speak in your own words</label>
+                <textarea id="campaign-freeform" maxLength={700} rows={3} value={campaignDraft} onChange={e=>setCampaignDraft(e.target.value)} placeholder="I turn to the delegates and tell them…" className="w-full resize-y rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-amber-300 focus:outline-none"/>
+                <button disabled={!campaignDraft.trim() || campaignBusy} onClick={()=>void takeFreeformCampaignAction()} className="mt-2 w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">{campaignBusy ? "The room is reacting…" : "Speak · Continue scene"}</button>
+                {campaignError && <p role="alert" className="mt-2 text-xs text-red-300">{campaignError}</p>}
+              </div>
               <p className="text-[11px] text-slate-500">Each decision advances one day and changes public support, stability, relationships or influence. Nobody automatically hands you power.</p>
             </>}
           </div>
