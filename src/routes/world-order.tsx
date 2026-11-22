@@ -1,5 +1,5 @@
 import { createInterviewScene, restoreInterviewScene, addInterviewExchange, closeInterviewScene, type InterviewScene } from "@/lib/world-order-interview";
-import { openBackstageScene, restoreBackstageScene, appendBackstageTurn, finishBackstageScene, type BackstageScene } from "@/lib/world-order-backstage";
+import { openBackstageScene, restoreBackstageScene, appendBackstageTurn, finishBackstageScene, deriveLiveSceneContinuity, type BackstageScene } from "@/lib/world-order-backstage";
 import { empireTotals, empireDailyIncome } from "@/lib/world-order-empire";
 import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -237,7 +237,7 @@ function WorldOrder() {
     if(!ready||!scene||scene.status!=="open"||!action||action.length>700||backstageBusy)return;
     setBackstageBusy(true);setBackstageError("");
     try {
-      const result=await narrateBackstage({data:{action,history:scene.turns.slice(-24)}});
+      const result=await narrateBackstage({data:{action,history:scene.turns.slice(-40),sceneContinuity:scene.continuity??deriveLiveSceneContinuity(scene.turns)}});
       mutate(s=>{
         if(s.backstage?.status!=="open")return s;
         const withPlayer=appendBackstageTurn(s.backstage,"player",action);
@@ -257,7 +257,7 @@ function WorldOrder() {
       return {...s,backstage:scene,
         memories:personal?[...s.memories.filter(m=>m.key!=="Sabrina:backstage-conversation"),
           {key:"Sabrina:backstage-conversation",summary:personal,visibility:"private" as const}].slice(-60):s.memories,
-        events:[...s.events,"Day "+s.day+": You and Sabrina spoke privately backstage before you left."].slice(-100),
+        events:[...s.events,"Day "+s.day+": You and Sabrina completed a live scene; final location: "+(scene.continuity??deriveLiveSceneContinuity(scene.turns)).location+"."].slice(-100),
       };
     });
   }
@@ -590,7 +590,8 @@ function WorldOrder() {
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
     if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
-  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? save.backstage?.status==="open" ? "Backstage with Sabrina" : "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
+  const liveSceneLocation = save.backstage?.status==="open" ? (save.backstage.continuity??deriveLiveSceneContinuity(save.backstage.turns)).location : "backstage";
+  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? save.backstage?.status==="open" ? "With Sabrina · "+liveSceneLocation : "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const empire = empireTotals(save.conquest);
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
@@ -598,8 +599,8 @@ function WorldOrder() {
   const nav = [["feed", Newspaper, "Feed"], ["messages", MessageCircle, "DMs"], ["activities", Heart, "Story"], ["life", UsersRound, "Life"], ["world", Globe2, "World"]] as const;
   const initials = (name: string) => name.split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join("").toUpperCase();
   const avatar = (name: string, highlighted = false) => <span className={"grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-extrabold " + (highlighted ? "bg-amber-300 text-slate-950" : "bg-[#34465f] text-slate-100")}>{initials(name)}</span>;
-  const chapterTag = save.chapter === "rescue" ? "CHAPTER 01 · THE CONCERT" : save.chapter === "interview" && save.backstage?.status==="open" ? "CHAPTER 01 · BACKSTAGE" : save.chapter === "interview" ? "CHAPTER 02 · LIVE TELEVISION" : save.route === "undecided" ? "CHAPTER 03 · THE CUBA CRISIS" : "OPEN WORLD · YOUR LEGACY";
-  const title = save.chapter === "rescue" ? "One night changes everything." : save.chapter === "interview" && save.backstage?.status==="open" ? "The cameras are outside. She is here." : save.chapter === "interview" ? "The whole world is watching." : save.route === "undecided" ? "A country at a crossroads." : "Your power has consequences.";
+  const chapterTag = save.chapter === "rescue" ? "CHAPTER 01 · THE CONCERT" : save.chapter === "interview" && save.backstage?.status==="open" ? "CHAPTER 01 · LIVE ESCAPE" : save.chapter === "interview" ? "CHAPTER 02 · LIVE TELEVISION" : save.route === "undecided" ? "CHAPTER 03 · THE CUBA CRISIS" : "OPEN WORLD · YOUR LEGACY";
+  const title = save.chapter === "rescue" ? "One night changes everything." : save.chapter === "interview" && save.backstage?.status==="open" ? "Your story with Sabrina continues." : save.chapter === "interview" ? "The whole world is watching." : save.route === "undecided" ? "A country at a crossroads." : "Your power has consequences.";
   return (
     <main className="min-h-dvh bg-[#09111f] text-slate-100 selection:bg-amber-300/30">
       <div className="mx-auto max-w-3xl px-4 pb-20 pt-5 sm:px-6">
@@ -618,7 +619,7 @@ function WorldOrder() {
           <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-amber-300/10 blur-3xl"/>
           <p className="relative text-[10px] font-bold uppercase tracking-[.22em] text-amber-300">{chapterTag}</p>
           <h2 className="relative mt-2 max-w-sm font-display text-3xl leading-tight">{title}</h2>
-          <p className="relative mt-3 max-w-md text-sm leading-6 text-slate-300">{save.chapter === "rescue" ? "You're at Sabrina Carpenter's concert. You notice something security hasn't seen. The next move is yours." : save.chapter === "interview" && save.backstage?.status==="open" ? "Sabrina is safe, and you are backstage together. Speak and act naturally. Leave when you decide." : save.chapter === "interview" ? "Your rescue went viral. Now a televised interview puts you in the political spotlight." : save.route === "undecided" ? "A crisis in Cuba opens unexpected doors. You'll have to earn influence." : "The next decision is waiting in Havana. Powerful people are watching."}</p>
+          <p className="relative mt-3 max-w-md text-sm leading-6 text-slate-300">{save.chapter === "rescue" ? "You're at Sabrina Carpenter's concert. You notice something security hasn't seen. The next move is yours." : save.chapter === "interview" && save.backstage?.status==="open" ? "Current location: "+liveSceneLocation+". The scene follows your decisions and preserves events as they unfold." : save.chapter === "interview" ? "Your rescue went viral. Now a televised interview puts you in the political spotlight." : save.route === "undecided" ? "A crisis in Cuba opens unexpected doors. You'll have to earn influence." : "The next decision is waiting in Havana. Powerful people are watching."}</p>
           <button onClick={() => setTab("activities")} className="relative mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-amber-300 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-200">Continue story <span aria-hidden="true">→</span></button>
         </section>
         <div className="mb-4 grid grid-cols-3 gap-2">
@@ -634,9 +635,9 @@ function WorldOrder() {
         </nav>
         {tab === "feed" && <section className="space-y-3">
           {save.backstage?.status==="open" && <div className="rounded-2xl border border-amber-300/60 bg-[#26354b] p-4">
-            <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Backstage · Active scene</p>
+            <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Live scene · {liveSceneLocation}</p>
             <h3 className="mt-2 font-display text-2xl">Sabrina is waiting for your answer.</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-200">The concert emergency is over, but your private conversation isn't. Continue speaking with her before moving on to the interview.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-200">Your ongoing scene with Sabrina is waiting. Resume where you left off before continuing to the interview.</p>
             <button onClick={()=>setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-sm font-semibold text-slate-950">Return backstage →</button>
           </div>}
           {campaignScene && <div className="rounded-2xl border border-amber-300/40 bg-gradient-to-r from-[#273952] to-[#172236] p-4">
@@ -712,7 +713,7 @@ function WorldOrder() {
               </div>
             </>}
             {save.chapter === "interview" && save.backstage?.status==="open" && <>
-              <p className="text-sm leading-7 text-slate-300">The attack is over. Security is outside. You and Sabrina are in the dressing room, and the conversation is yours to play out. No game day passes while you talk.</p>
+              <p className="text-sm leading-7 text-slate-300">Current location: {liveSceneLocation}. Keep acting and talking with Sabrina wherever the story takes you. No game day passes until you end this scene.</p>
               <div className="space-y-3">
                 {save.backstage.turns.map((turn,i)=><div key={i} className={"rounded-xl p-3 text-sm leading-7 "+(turn.speaker==="player"?"ml-5 bg-amber-300 text-slate-950":"mr-5 bg-[#0c1524] text-slate-200")}>
                   <p className={"mb-1 text-xs font-bold "+(turn.speaker==="player"?"text-slate-700":"text-amber-300")}>{turn.speaker==="player"?"You":turn.speaker}</p>
@@ -724,7 +725,7 @@ function WorldOrder() {
               <button onClick={()=>void continueBackstage()} disabled={!backstageDraft.trim()||backstageBusy} className="w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">{backstageBusy?"Sabrina is responding…":"Continue conversation"}</button>
               {backstageError&&<p role="alert" className="text-sm text-red-300">{backstageError}</p>}
               <div className="border-t border-slate-700 pt-4">
-                <button onClick={leaveBackstage} disabled={backstageBusy} className="rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-200 disabled:opacity-40">Leave backstage and continue story →</button>
+                <button onClick={leaveBackstage} disabled={backstageBusy} className="rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-200 disabled:opacity-40">Finish this scene and continue story →</button>
                 <p className="mt-2 text-xs text-slate-400">You decide when this scene ends. Your conversation is saved, with important personal details retained in Sabrina's private memory.</p>
               </div>
             </>}
