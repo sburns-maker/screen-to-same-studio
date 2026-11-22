@@ -19,6 +19,18 @@ Updated 2026-11-21. This file describes World Order only. Do not modify Tess or 
 - Real-world officeholder names must be date-verified when starting a session rather than hardcoded.
 - Maintain bounded active AI cast to limit cost; a much larger dormant NPC directory can exist cheaply as structured data.
 
+## Ultimate campaign objective: world domination
+- The player may eventually pursue control or dominance over the entire simulated world; Cuba is a possible first power base, not the final act. Completing an early Cuba arc must not end the campaign.
+- Allow diplomatic unification and coercive/military conquest as distinct campaign strategies, as well as mixed routes that change over time.
+- Diplomatic strategy includes negotiations, treaties, federations, economic partnerships, electoral or constitutional power transitions, influence, alliances and voluntary integration.
+- Military strategy exists as high-level fictional grand strategy: mobilization, defense, invasions, occupation, sanctions, casualties, resistance, legitimacy and international reaction. Outcomes are modeled abstractly, not as real-world tactical instructions.
+- Conquering territory and winning durable control are separate objectives. Populations and institutions can resist occupation; rebellion, humanitarian consequences, instability, and foreign counteralliances must be represented.
+- Powers and regions use a state machine (independent, allied, dependent, occupied, annexed, federation member) with changes recorded in an auditable event ledger. Map colors, leaders and relations must derive from canonical state—not AI narration alone.
+- No guaranteed success or scripted easy victories. The world can form coalitions, negotiate peace, retaliate, fracture or accommodate the player's rising power.
+- Make national management accessible: summary dashboards for influence, stability, resources, military strength and diplomatic relationships, without granular national budgets.
+- There can be several possible end states: a united voluntary world federation, coercive global hegemony, fragmented sphere-of-influence system, failed conquest, or ongoing open-world play.
+- A late-game multi-country turn should remain affordable through deterministic strategic simulation plus focused AI narration for key characters and events.
+
 ## Memory invariants
 - Persist a world-scoped canonical event ledger including day, actor, subjects, public/private scope, provenance, and idempotency key.
 - Important anchors (marriage, pregnancy, childbirth, election results, ownership, office appointments) are durable structured state, never inferred solely from AI text or overwritten silently.
