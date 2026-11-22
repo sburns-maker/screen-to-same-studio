@@ -1,4 +1,4 @@
-import type { ForeignCountry } from "./world-order-global-power";
+import { COUNTRY_NAMES, COUNTRY_RECORDS, isForeignCountry, type ForeignCountry } from "./world-order-countries";
 
 /**
  * Abstract, alternate-history great-power campaigns.
@@ -7,7 +7,7 @@ import type { ForeignCountry } from "./world-order-global-power";
  */
 export type CampaignMethod="diplomacy"|"economic"|"military";
 export type CampaignStatus="active"|"won"|"lost"|"withdrawn";
-export type TerritoryStatus="independent"|"partner"|"protectorate";
+export type TerritoryStatus="independent"|"partner"|"protectorate"|"controlled";
 export type WorldCampaign={
  id:string; country:ForeignCountry; method:CampaignMethod; status:CampaignStatus;
  stage:number; progress:number; resistance:number; internationalConcern:number;
@@ -23,10 +23,8 @@ export type CampaignDecisionResult={
  country:ForeignCountry; ended:boolean;
 };
 const clamp=(n:number)=>Math.min(100,Math.max(0,n));
-const countries=["United States","United Kingdom","Canada","Brazil","France","Mexico"] as const;
-const openingResistance:Record<ForeignCountry,number>={
- "United States":92,"United Kingdom":84,"Canada":78,"Brazil":69,"France":85,"Mexico":72,
-};
+const countries=COUNTRY_NAMES;
+const openingResistance=Object.fromEntries(COUNTRY_NAMES.map(name=>[name,COUNTRY_RECORDS[name].resistance])) as Record<ForeignCountry,number>;
 export function newConquestWorld():ConquestWorld {
  return {campaigns:[],territory:Object.fromEntries(countries.map(c=>[c,"independent"])) as Record<string,TerritoryStatus>,
    worldTension:8,prestige:0,lastHeadline:""};
@@ -35,14 +33,14 @@ export function restoreConquestWorld(raw:unknown):ConquestWorld {
  const fresh=newConquestWorld();
  if(!raw||typeof raw!=="object")return fresh;
  const r=raw as Partial<ConquestWorld>;
- const validCountry=(v:unknown):v is ForeignCountry=>typeof v==="string"&&countries.includes(v as ForeignCountry);
+ const validCountry=isForeignCountry;
  const campaigns=Array.isArray(r.campaigns)?r.campaigns.filter((c):c is WorldCampaign=>Boolean(c&&validCountry(c.country)&&
   ["diplomacy","economic","military"].includes(c.method)&&["active","won","lost","withdrawn"].includes(c.status)&&
   Number.isInteger(c.stage)&&c.stage>=0&&c.stage<=1000&&Number.isFinite(c.progress)&&Number.isFinite(c.resistance)))
-  .slice(-80).map(c=>({...c,progress:clamp(c.progress),resistance:clamp(c.resistance),
+  .slice(-160).map(c=>({...c,progress:clamp(c.progress),resistance:clamp(c.resistance),
    internationalConcern:clamp(c.internationalConcern||0),log:Array.isArray(c.log)?c.log.slice(-40):[]})):[];
  const territory={...fresh.territory};
- for(const country of countries)if(["independent","partner","protectorate"].includes(r.territory?.[country]??"")) {
+ for(const country of countries)if(["independent","partner","protectorate","controlled"].includes(r.territory?.[country]??"")) {
   territory[country]=r.territory![country]!;
  }
  return {campaigns,territory,worldTension:Number.isFinite(r.worldTension)?clamp(r.worldTension!):fresh.worldTension,
@@ -69,7 +67,7 @@ export function beginConquestCampaign(world:ConquestWorld,country:ForeignCountry
   : method==="economic"
   ? "Your government launches an ambitious economic partnership proposal toward "+country+". Local businesses and lawmakers scrutinize the terms."
   : "A major geopolitical crisis opens between Cuba and "+country+". Its leaders mobilize political resistance; international mediators demand de-escalation.";
- const next={...world,campaigns:[...world.campaigns,campaign].slice(-80),
+ const next={...world,campaigns:[...world.campaigns,campaign].slice(-160),
   worldTension:clamp(world.worldTension+(method==="military"?20:method==="economic"?5:2)),lastHeadline:text};
  return {state:next,summary:text,influenceDelta:method==="military"?-3:3,supportDelta:method==="military"?-6:1,
   cost:15000,country,ended:false};
@@ -140,4 +138,23 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
 }
 export function activeCampaign(world:ConquestWorld,country:ForeignCountry):WorldCampaign|undefined{
  return world.campaigns.find(c=>c.country===country&&c.status==="active");
+}
+
+/**
+ * A final political integration step after an earned, completed campaign.
+ * This intentionally takes another day; an alliance alone is not a takeover.
+ */
+export function consolidateControl(world:ConquestWorld,country:ForeignCountry,day:number,
+ context:{president:boolean;cash:number;legitimacy:number}):CampaignDecisionResult|null{
+ const current=world.territory[country];
+ const completed=[...world.campaigns].reverse().find(c=>c.country===country&&c.status==="won");
+ if(!context.president||context.cash<25000||context.legitimacy<45||!completed||
+  (current!=="partner"&&current!=="protectorate")||
+  day<=completed.lastDecisionDay+1)return null;
+ const summary=country+" enters your international union following a negotiated integration agreement. "+
+   "It becomes a governed territory in this alternate-history simulation; local opposition and autonomy questions remain.";
+ const next:ConquestWorld={...world,
+   territory:{...world.territory,[country]:"controlled"},prestige:clamp(world.prestige+8),
+   worldTension:clamp(world.worldTension+5),lastHeadline:summary};
+ return {state:next,cost:25000,influenceDelta:5,supportDelta:0,country,ended:true,summary};
 }
