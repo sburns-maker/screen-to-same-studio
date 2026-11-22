@@ -32,6 +32,13 @@ Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes Wor
 - There can be several possible end states: a united voluntary world federation, coercive global hegemony, fragmented sphere-of-influence system, failed conquest, or ongoing open-world play.
 - A late-game multi-country turn should remain affordable through deterministic strategic simulation plus focused AI narration for key characters and events.
 
+## Social network and immersion
+- The player should see multiple independent, contrasting social-media reactions after major events, not only WorldWire bulletins. Fan accounts, eyewitnesses, journalists, political skeptics, local organizers and businesspeople post distinct takes, with handles, simulated engagement, comment threads, likes, and replies.
+- The first release uses deterministic scripted reaction waves for rescue, televised interview and Cuba. Player-written posts generate limited context-sensitive feedback; deeper AI-generated character reactions remain future work.
+- The full three-beat rescue transcript lives in world history and character memory. The public feed uses concise breaking reports, social reactions, and comment threads, rather than a wall of AI narration.
+- Keep a single clear alternate-history disclosure in the game's UI chrome and in underlying AI prompts, **not** repetitive "fictional" qualifiers inside every news headline, scene description or dialogue. Real-world facts and fictional incidents must still be distinguishable to players by context.
+- Migrate existing browser saves in place: preserve story progress, DMs and learned canon, replace overly long rescue news posts with short headlines, and append missing reactions idempotently.
+
 ## World Director — Balanced (default)
 - The default mode is Balanced: at most one deterministic, contextual background event every **2 fictional days**. Realistic = every 5 days; Chaotic = daily.
 - Director reacts to rescue/interview/Cuba chapter and the player's chosen Cuba strategy, with plausible press, business, citizen and political developments.
