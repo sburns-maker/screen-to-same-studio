@@ -26,6 +26,17 @@ describe("World Order live scene continuity",()=>{
   expect(state.establishedFacts.join(" ")).toContain("last guard's fate is unknown");
   expect(state.establishedFacts.join(" ")).toContain("fighting each other");
  });
+ it("keeps the military conflict even after more than forty conversation messages",()=>{
+  let scene=openBackstageScene();
+  scene=appendBackstageTurn(scene,"player","In Havana, Cuba I reach a military checkpoint. Two military units begin firing on each other.");
+  for(let i=0;i<30;i++){
+    scene=appendBackstageTurn(scene,"player","I tell Sabrina we will be okay, message "+i);
+    scene=appendBackstageTurn(scene,"Sabrina","She nods, message "+i);
+  }
+  expect(scene.turns).toHaveLength(40);
+  expect(scene.continuity?.location).toBe("Havana streets / military checkpoint");
+  expect(scene.continuity?.establishedFacts.join(" ")).toContain("fighting each other");
+ });
  it("does not mistake an airport destination for a completed arrival",()=>{
   const scene=appendBackstageTurn(openBackstageScene(),"player","I head toward the military airport on the streets of Havana. Soldiers at a checkpoint stop us.");
   expect(deriveLiveSceneContinuity(scene.turns).location).toBe("Havana streets / military checkpoint");
