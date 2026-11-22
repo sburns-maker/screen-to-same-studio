@@ -1,0 +1,28 @@
+name: World Order preview checks
+on:
+  pull_request:
+    paths:
+      - 'src/routes/world-order.tsx'
+      - 'src/lib/world-order*'
+      - 'src/routes/_authenticated/home.tsx'
+      - '.github/workflows/world-order-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 'latest'
+      - name: Install dependencies from committed Bun lockfile
+        run: bun install --frozen-lockfile
+      - name: Production build (generates TanStack route tree)
+        run: bun run build
+      - name: Typecheck
+        run: bunx tsc --noEmit
+      - name: Focused World Order unit tests
+        run: bunx vitest run src/lib/world-order-rules.test.ts src/lib/world-order-director.test.ts src/lib/world-order-cast.test.ts src/lib/world-order-rescue.test.ts
