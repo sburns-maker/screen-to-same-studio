@@ -1,7 +1,7 @@
 /** Pure rules shared by UI, server and tests. Never expose API credentials here. */
 export type WorldMemory = { key: string; summary: string; visibility: "shared" | "private" };
-export type WorldContact = "Sabrina" | "Maya" | "Elena";
-export const WORLD_CONTACTS: readonly WorldContact[] = ["Sabrina", "Maya", "Elena"] as const;
+export type WorldContact = "Sabrina" | "Maya" | "Elena" | "Sofía" | "Lucía" | "Rafael" | "Mercer" | "Nora";
+export const WORLD_CONTACTS: readonly WorldContact[] = ["Sabrina", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"] as const;
 
 /** Ordinary chat never advances the game day; posts and completed activities advance exactly once. */
 export function nextGameDay(currentDay: number, action: "dm" | "post" | "activity"): number {
