@@ -130,22 +130,19 @@ export function currentCampaignScene(route: CampaignRoute, campaign: CampaignSta
     }
     return {
       id: "leadership-mandate:" + milestone,
-      title: currentPosition === "president" ? "A vote of confidence" :
-        currentPosition === "candidate" ? "The national ballot" :
+      title: currentPosition === "candidate" ? "The national ballot" :
         currentPosition === "delegate" ? "A presidential nomination" : "A seat at the table",
       location: "Havana · Public assembly",
       character: "Elena Valdés",
-      objective: currentPosition === "president" ? "Maintain a public mandate" : "Seek a legitimate mandate—or earn more support",
-      setup: currentPosition === "president" ?
-        "An opposition coalition calls for a confidence review of your administration. Elena reminds you that power is conditional: your critics are citizens too." :
-        currentPosition === "candidate" ?
+      objective: "Seek a legitimate mandate—or earn more support",
+      setup: currentPosition === "candidate" ?
         "Ahead of public review " + (milestone + 1) + ", candidates prepare for a national contest. Independent observers insist that a fair vote matters more than your popularity on television. Your opponents are campaigning hard." :
         currentPosition === "delegate" ?
         "At review " + (milestone + 1) + ", the transition assembly is choosing its official nominees. Elena says your coalition has grown, but other candidates have formidable supporters and independent agendas." :
         "An assembly opens debate over new civic leadership. Elena asks whether your support extends beyond viral fame and whether you will accept a decision that goes against you." +
         " This is the " + (milestone + 1) + "th formal leadership review; delegates cite the latest coalition decisions.",
       choices: [
-        option("mandate", currentPosition === "president" ? "Submit to a public confidence review" : "Seek a public mandate", "Public support and stability determine what happens.", 1, 3, -2, "Elena", 3, "You present your case to the public."),
+        option("mandate", "Seek a public mandate", "Public support and stability determine what happens.", 1, 3, -2, "Elena", 3, "You present your case to the public."),
         option("coalition", "Negotiate a broader coalition first", "Strengthen your position with legitimate partners.", 9, 4, 8, "Elena", 12, "Your coalition invites rival groups into structured talks."),
         option("pressure", "Demand immediate recognition", "Risk resistance and declining public trust.", -8, 9, -13, "Elena", -15, "A contentious demand for recognition divides the assembly."),
       ],
