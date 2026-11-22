@@ -318,7 +318,7 @@ function WorldOrder() {
         reputation:Math.min(100,s.reputation+(scene.tone==="facts"?12:4)),
         influence:s.influence+25,completed:[...s.completed,"interview"],
         memories:spoken?[...s.memories.filter(m=>m.key!=="world:televised-interview"),
-          {key:"world:televised-interview",summary:spoken,visibility:"shared" as const}].slice(-60):s.memories,
+          {key:"world:televised-interview",summary:spoken.slice(0,650),visibility:"shared" as const}].slice(-60):s.memories,
       },summary);
       return {...next,posts:appendMissingReactions([
         newPost("Political Dispatch","Reform organizers in Havana have invited the concert hero to a conversation about Cuba's political future.",next.day,"World"),
@@ -377,7 +377,7 @@ function WorldOrder() {
         contact, day: current.day, chapter: current.chapter, route: current.route,
         reputation: current.reputation, influence: current.influence,
         worldEvents: current.events.slice(-30).map(e => e.slice(0, 400)),
-        memories: memoriesForContact(current.memories, contact),
+        memories: memoriesForContact(current.memories, contact).map(memory => ({...memory,summary:memory.summary.slice(0,700),key:memory.key.slice(0,80)})),
         recentMessages: current.chat.filter(m => m.from === contact || (m.from === "player" && m.body.startsWith(`To ${contact}:`))).slice(-30).map(m => ({
           from: m.from, day: m.day, body: m.body.replace(/^To [^:]+: /, "").slice(0, 800),
         })),
