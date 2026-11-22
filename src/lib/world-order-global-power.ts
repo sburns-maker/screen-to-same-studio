@@ -132,3 +132,13 @@ export function nationalAction(power:GlobalPower,action:NationalAction,
 export function publicStrategyStatement(power:GlobalPower):string|null{
  return power.strategy==="disclosed"?"The player publicly stated an ambition to reshape global political leadership.":null;
 }
+
+/** Leaders only participate in direct messaging once a formal channel exists. */
+export function leaderCountryForContact(contact:string):ForeignCountry|null{
+ for(const country of countries)if(FOREIGN_LEADERS[country].key===contact)return country;
+ return null;
+}
+export function canMessageOfficial(power:GlobalPower,contact:string):boolean{
+ const country=leaderCountryForContact(contact);
+ return country===null || power.relations[country].status!=="neutral";
+}
