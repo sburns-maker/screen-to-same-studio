@@ -1,3 +1,5 @@
+import { COUNTRY_NAMES, type ForeignCountry } from "./world-order-countries";
+export type { ForeignCountry } from "./world-order-countries";
 /**
  * Nation-to-nation sandbox simulation. All officials and events are invented
  * characters in an alternate-history world, never representations of real
@@ -11,7 +13,7 @@ export const FOREIGN_LEADERS = {
   "France": { name:"President Émile Moreau", office:"President", city:"Paris", key:"PresidentMoreau" },
   "Mexico": { name:"President Isabel Navarro", office:"President", city:"Mexico City", key:"PresidentNavarro" },
 } as const;
-export type ForeignCountry=keyof typeof FOREIGN_LEADERS;
+
 export type DiplomaticMode="contact"|"summit"|"trade"|"treaty"|"pressure";
 export type DefenseMode="readiness"|"training"|"modernize"|"mobilize"|"standdown";
 export type GrandStrategy="private"|"disclosed";
@@ -21,7 +23,7 @@ export type GlobalPower={
   relations:Record<ForeignCountry,ForeignRelation>;
   completedActions:string[]; lastEvent:string;
 };
-const countries=Object.keys(FOREIGN_LEADERS) as ForeignCountry[];
+const countries=COUNTRY_NAMES;
 const clamp=(n:number)=>Math.max(0,Math.min(100,n));
 export function newGlobalPower():GlobalPower{
  return {strategy:"private",defense:12,capacity:8,legitimacy:50,
@@ -67,7 +69,7 @@ export function nationalAction(power:GlobalPower,action:NationalAction,
  if(action.type==="military"){
    // High-level political simulation only. No unit locations, operations,
    // attack planning, weapon selection, or specific tactical details.
-   if(!context.president || !FOREIGN_LEADERS[action.country])return null;
+   if(!context.president || !countries.includes(action.country))return null;
    const relation=power.relations[action.country];
    const cost=action.mode==="intervene"?65000:action.mode==="show-force"?25000:7000;
    if(context.cash<cost || (action.mode==="intervene" && (power.defense<55||power.capacity<40)))return null;
@@ -109,13 +111,14 @@ export function nationalAction(power:GlobalPower,action:NationalAction,
    return {state:next,cashCost:v.cost,influenceDelta:action.mode==="mobilize"?4:2,
       supportDelta:action.mode==="mobilize"?-5:1,summary:v.message,source:"Defense Ministry",publicEvent:true};
  }
- const leader=FOREIGN_LEADERS[action.country];
- if(!leader)return null;
+ const leader=FOREIGN_LEADERS[action.country as keyof typeof FOREIGN_LEADERS];
+ if(!countries.includes(action.country))return null;
+ const official=leader?.name??("The government of "+action.country);
  const old=power.relations[action.country];
  const costs:Record<DiplomaticMode,number>={contact:2500,summit:12000,trade:18000,treaty:22000,pressure:7500};
  if(context.cash<costs[action.mode] || (action.mode==="treaty" && old.trust<55))return null;
  const lookup:Record<DiplomaticMode,{trust:number,trade:number,message:string}> = {
- contact:{trust:8,trade:0,message:"A diplomatic channel opens with "+leader.name+". Both sides agree to exchange proposals."},
+ contact:{trust:8,trade:0,message:"A diplomatic channel opens with "+official+". Both sides agree to exchange proposals."},
  summit:{trust:12,trade:2,message:"You and "+leader.name+" hold a summit. The meeting yields preliminary commitments, not an automatic alliance."},
  trade:{trust:6,trade:15,message:"Trade teams from Cuba and "+action.country+" negotiate a commercial framework with public oversight."},
  treaty:{trust:10,trade:8,message:"Cuba and "+action.country+" sign a limited cooperation agreement. Domestic approval and enforcement remain necessary."},
@@ -136,7 +139,7 @@ export function publicStrategyStatement(power:GlobalPower):string|null{
 
 /** Leaders only participate in direct messaging once a formal channel exists. */
 export function leaderCountryForContact(contact:string):ForeignCountry|null{
- for(const country of countries)if(FOREIGN_LEADERS[country].key===contact)return country;
+ for(const [country,leader] of Object.entries(FOREIGN_LEADERS))if(leader.key===contact)return country as ForeignCountry;
  return null;
 }
 export function canMessageOfficial(power:GlobalPower,contact:string):boolean{
