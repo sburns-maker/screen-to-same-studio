@@ -92,6 +92,22 @@ describe("World Order multi-stage world expansion",()=>{
   expect(world.territory["Brazil"]).toBe("protectorate");
   expect(world.campaigns[0]?.stage).toBeGreaterThanOrEqual(8);
  });
+ it("does not force a loss at 100% momentum when resistance prevents ratification",()=>{
+  let world=beginConquestCampaign(newConquestWorld(),"Belize","economic",10,ready)!.state;
+  const id=activeCampaign(world,"Belize")!.id;
+  for(let day=11;day<=22 && activeCampaign(world,"Belize");day++){
+   // Strong investment progress paired with political resistance deliberately prevents a deal.
+   const current=world.campaigns.find(c=>c.id===id)!;
+   world={...world,campaigns:world.campaigns.map(c=>c.id===id?{...c,resistance:85,progress:100}:c)};
+   const result=campaignMove(world,id,"pressure",day,moveCtx)!;
+   world=result.state;
+   expect(result.state.campaigns.find(c=>c.id===id)!.progress).toBe(100);
+  }
+  expect(world.campaigns.find(c=>c.id===id)!.stage).toBeGreaterThanOrEqual(12);
+  expect(world.campaigns.find(c=>c.id===id)!.status).toBe("active");
+  // The player can still negotiate after the old 12-turn cutoff.
+  expect(campaignMove(world,id,"compromise",23,moveCtx)).not.toBeNull();
+ });
  it("can withdraw and preserve completed campaign history",()=>{
   let world=beginConquestCampaign(newConquestWorld(),"France","economic",60,ready)!.state;
   const id=activeCampaign(world,"France")!.id;
