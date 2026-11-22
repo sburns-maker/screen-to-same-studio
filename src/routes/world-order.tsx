@@ -137,7 +137,7 @@ function WorldOrder() {
     ];
     return {
       ...s, day,
-      chat: [...s.chat, ...dmWave.map((m, i) => ({ id: day * 100000 + i + 50, from: m.contact, body: m.body, day: m.day }))].slice(-500),
+      chat: [...s.chat, ...dmWave.map((m, i) => ({ id: Date.now() + i + Math.random(), from: m.contact, body: m.body, day: m.day }))].slice(-500),
       socialLife: { ...s.socialLife, incomingIds: [...s.socialLife.incomingIds, ...dmWave.map(m => m.id)].slice(-500) },
       influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
       cubaSupport: Math.max(0, s.cubaSupport + (event?.supportDelta ?? 0)),
@@ -461,7 +461,25 @@ function WorldOrder() {
         </section>}
         {tab === "messages" && <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#172236]">
           <div className="border-b border-slate-800 px-4 py-4"><h2 className="font-display text-2xl">Private messages</h2><p className="mt-1 text-xs text-slate-400">Conversations do not advance time</p></div>
-          <div className="flex gap-2 overflow-x-auto p-3">{(["Sabrina", "Maya", "Elena", ...(save.chapter === "cuba" ? ["Sofía", "Lucía", "Rafael", "Mercer", "Nora"] as const : [])] as WorldContact[]).map(c => <button key={c} onClick={() => setSelectedContact(c)} className={"shrink-0 rounded-full border px-4 py-2 text-sm " + (selectedContact === c ? "border-amber-300 bg-amber-300 font-semibold text-slate-950" : "border-slate-700 text-slate-300")}>{c}</button>)}</div>
+          <div className="border-b border-slate-800 p-3">
+            <input aria-label="Search contacts" value={contactSearch} onChange={e=>setContactSearch(e.target.value)} placeholder="Search celebrities, press, friends…" className="mb-3 w-full rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500"/>
+            <div className="max-h-56 space-y-1 overflow-y-auto">
+              {SOCIAL_CONTACTS.filter(c => SOCIAL_CAST[c].name.toLowerCase().includes(contactSearch.toLowerCase()) || SOCIAL_CAST[c].role.toLowerCase().includes(contactSearch.toLowerCase())).map(c => {
+                const last = [...save.chat].reverse().find(m=>m.from===c||m.body.startsWith("To "+c+":"));
+                const unread = unreadFrom(save.chat,save.socialLife.seenByContact,c);
+                return <button key={c} onClick={()=>openContact(c)} className={"flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left "+(selectedContact===c?"bg-amber-300 text-slate-950":"hover:bg-[#26364d]")}>
+                  <span className={"grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold "+(selectedContact===c?"bg-slate-950 text-amber-300":"bg-slate-700 text-slate-100")}>{c[0]}</span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{SOCIAL_CAST[c].name}</span><span className={"block truncate text-[11px] "+(selectedContact===c?"text-slate-700":"text-slate-400")}>{last?.body.replace(/^To [^:]+: /,"")??SOCIAL_CAST[c].role}</span></span>
+                  {unread>0&&<span className="rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">{unread}</span>}
+                </button>;
+              })}
+            </div>
+          </div>
+          <div className="flex items-center justify-between gap-2 bg-[#213047] px-4 py-3">
+            <div><p className="text-sm font-semibold">{SOCIAL_CAST[selectedContact].name}</p><p className="text-xs text-slate-400">{SOCIAL_CAST[selectedContact].role} · {SOCIAL_CAST[selectedContact].city}</p></div>
+            <button disabled={save.chapter==="rescue"} onClick={()=>planMeetup(selectedContact)} className="rounded-full border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-300 disabled:opacity-40">Invite to meet</button>
+          </div>
+          {socialNotice&&<p role="status" className="border-b border-slate-800 px-4 py-3 text-xs text-amber-200">{socialNotice}</p>}
           <div className="flex min-h-48 flex-col gap-3 border-y border-slate-800 bg-[#0c1524] p-4">
             {save.chat.filter(m => m.from === selectedContact || (m.from === "player" && m.body.startsWith("To " + selectedContact + ":"))).map(m => <div key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed " + (m.from === "player" ? "ml-auto rounded-br-sm bg-amber-300 text-slate-950" : "mr-auto rounded-bl-sm bg-[#34445e] text-slate-100")}><span className="mb-1 block text-[10px] font-bold opacity-60">{m.from === "player" ? "You" : m.from} · Day {m.day}</span>{m.body.replace(/^To [^:]+: /, "")}</div>)}
             {!save.chat.some(m => m.from === selectedContact || m.body.startsWith("To " + selectedContact + ":")) && <p className="my-auto text-center text-xs text-slate-500">{selectedContact === "Sabrina" && save.chapter === "rescue" ? "Sabrina hasn't met you yet. Your story begins at the concert." : "No conversation yet. Say hello."}</p>}
