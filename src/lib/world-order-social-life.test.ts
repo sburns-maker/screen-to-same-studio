@@ -11,6 +11,7 @@ describe("World Order celebrity social life",()=>{
   const first=incomingSocialWave(7,4_000_000,"cuba",[]);
   expect(first).toHaveLength(3);
   expect(new Set(first.map(m=>m.contact)).size).toBe(3);
+  expect(first[0]?.contact).toBe("Sabrina");
   expect(incomingSocialWave(7,4_000_000,"cuba",first.map(m=>m.id))).toHaveLength(0);
   expect(incomingSocialWave(1,4_000_000,"rescue",[])).toHaveLength(0);
  });
