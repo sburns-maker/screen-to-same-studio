@@ -130,12 +130,13 @@ export const worldOrderBackstageReply = createServerFn({ method: "POST" })
       speaker:z.enum(["player","Sabrina","security","staff"]),
       text:z.string().max(900),
     })).max(40),
+    sceneContinuity:z.object({location:z.enum(["backstage","in vehicle","Havana streets / military checkpoint","military airfield"]),establishedFacts:z.array(z.string().max(250)).max(30)}).optional(),
   }).strict().parse(raw))
   .handler(async ({data,context})=>{
     if(!context.userId)throw new Error("Sign in to continue the scene");
     const {runStructured}=await import("./text-ai.server");
     const {deriveLiveSceneContinuity,contradictsSceneLocation}=await import("./world-order-backstage");
-    const continuity=deriveLiveSceneContinuity(data.history,data.action);
+    const continuity=deriveLiveSceneContinuity(data.history,data.action,data.sceneContinuity);
     const schema=z.object({speaker:z.enum(["Sabrina","security","staff"]),reply:z.string().trim().min(15).max(900)});
     const instructions=[
       "You narrate a continuous, player-directed alternate-history action/relationship scene.",
