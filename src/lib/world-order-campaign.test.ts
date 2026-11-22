@@ -34,7 +34,7 @@ describe("World Order continuing Cuba campaign", () => {
     }
     expect(state.stage).toBe(10);
     expect(state.decisions).toHaveLength(10);
-    expect(currentCampaignScene("diplomacy", state).id).toBe("diplomacy-elections");
+    expect(currentCampaignScene("diplomacy", state).id).toBe("diplomacy-media");
   });
   it("never repeats the opening town hall after stage four", () => {
     for (const route of ["reform", "investment", "diplomacy"] as const) {
