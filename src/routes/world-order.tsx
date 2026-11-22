@@ -326,6 +326,67 @@ function WorldOrder() {
       setCampaignError(error instanceof Error ? error.message : "Could not continue that scene. Try another action.");
     } finally { setCampaignBusy(false); }
   }
+  function openContact(contact: WorldContact) {
+    setSelectedContact(contact); setSocialNotice(""); setTab("messages");
+    mutate(s => ({ ...s, socialLife: { ...s.socialLife, seenByContact: {
+      ...s.socialLife.seenByContact,
+      [contact]: Math.max(0, ...s.chat.filter(m => m.from === contact).map(m => m.id)),
+    } } }));
+  }
+  function planMeetup(contact: WorldContact) {
+    if (save.chapter === "rescue") return;
+    const result = arrangeMeetup(save.socialLife, contact, save.day, save.openWorld.city);
+    setSocialNotice(result.message);
+    if (!result.visit || save.socialLife.visits.some(v=>v.contact===contact&&v.status==="planned")) return;
+    mutate(s => ({ ...s, socialLife: result.life,
+      chat: [...s.chat, { id: Date.now() + Math.random(), from: contact, day: s.day, body: result.message }],
+      events: [...s.events, "Day " + s.day + ": " + result.message].slice(-100),
+    }));
+  }
+  function meetContact(contact: WorldContact) {
+    const visit = save.socialLife.visits.find(v => v.contact === contact && v.status === "planned");
+    if (!visit) return;
+    if (save.openWorld.city !== visit.city) {
+      setSocialNotice("Travel to " + visit.city + " first using Life → Travel.");
+      setTab("life"); return;
+    }
+    if (save.day < visit.day) {
+      setSocialNotice("The meetup is booked for Day " + visit.day + ". Advance time or enjoy another activity."); return;
+    }
+    const outcome = completeMeetup(save.socialLife, contact, save.day, save.openWorld.city);
+    if (!outcome) return;
+    mutate(s => {
+      const next = advance(s, outcome.message);
+      return { ...next, socialLife: outcome.life,
+        chat: [...next.chat, { id: Date.now() + Math.random(), from: contact, day: next.day, body: "I had a really good time. We should do something again soon." }],
+        memories: [...next.memories, { key: contact.toLowerCase() + ":meetup-" + s.day, summary: outcome.message.slice(0, 500), visibility: "private" as const }].slice(-60),
+      };
+    });
+    setSocialNotice(outcome.message);
+  }
+  function takeWorldAction(action: WorldAction) {
+    if (save.chapter === "rescue") return;
+    const result = applyOpenWorldAction(save.openWorld, action, save.day + 1);
+    if (!result) { setSocialNotice("Not available. Check your cash, city, ownership or existing contacts."); return; }
+    mutate(s => {
+      const applied = applyOpenWorldAction(s.openWorld, action, s.day + 1);
+      if (!applied) return s;
+      const next = advance(s, applied.headline);
+      const earnings = ventureIncome(applied.state);
+      return {
+        ...next, openWorld: { ...applied.state, cash: applied.state.cash + earnings },
+        influence: Math.max(0, next.influence + applied.influenceChange),
+        reputation: Math.max(0, Math.min(100, next.reputation + applied.reputationChange)),
+        cubaSupport: Math.max(0, Math.min(100, next.cubaSupport + applied.supportChange)),
+        posts: [newPost(applied.who, applied.headline, next.day, applied.category), ...next.posts].slice(0, 160),
+        memories: [...next.memories.filter(m => m.key !== "world:assets"), {
+          key: "world:assets", summary: "Owned assets: " + applied.state.ventures.map(v => VENTURES[v.id].name + " level " + v.level).join(", ") +
+          ". Current city: " + applied.state.city, visibility: "shared" as const,
+        }].slice(-60),
+      };
+    });
+    setSocialNotice(result.headline);
+  }
   function nextDay() {
     if (save.chapter === "rescue") return;
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
