@@ -21,7 +21,7 @@ export function restoreBackstageScene(value:unknown,rescued:boolean,interviewFin
 export function appendBackstageTurn(scene:BackstageScene,speaker:BackstageTurn["speaker"],text:string):BackstageScene {
  if(scene.status!=="open"||!text.trim())return scene;
  const continuity=speaker==="player"?deriveLiveSceneContinuity([],text,scene.continuity??deriveLiveSceneContinuity(scene.turns)):scene.continuity;
- return {...scene,turns:[...scene.turns,{speaker,text:text.trim().slice(0,900)}].slice(-40),continuity};
+ return {...scene,turns:[...scene.turns,{speaker,text:text.trim().slice(0,900)}].slice(-40),...(continuity?{continuity}:{})};
 }
 export function finishBackstageScene(scene:BackstageScene):BackstageScene {
  return {...scene,status:"finished"};
