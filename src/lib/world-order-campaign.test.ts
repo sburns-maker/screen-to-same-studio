@@ -36,6 +36,35 @@ describe("World Order continuing Cuba campaign", () => {
     expect(state.decisions).toHaveLength(10);
     expect(currentCampaignScene("diplomacy", state).title).toContain("Round");
   });
+  it("requires a public mandate and adequate support before granting office", () => {
+    let state = initialCampaign();
+    const firstOptions = ["listen", "investigate", "election"];
+    for (let i=0;i<3;i++) state = applyCampaignChoice("reform", state, firstOptions[i]!, i + 4)!.state;
+    expect(state.position).toBe("outsider");
+    expect(currentCampaignScene("reform", state).id).toContain("leadership-mandate");
+    state = applyCampaignChoice("reform", state, "mandate", 7)!.state;
+    expect(state.position).toBe("delegate");
+  });
+  it("can eventually earn elected office through repeated legitimate milestones", () => {
+    let state = initialCampaign();
+    for (let i=0; i<12; i++) {
+      const scene = currentCampaignScene("reform", state);
+      const preferred = scene.choices.find(c => c.id === "mandate" || c.id === "listen" ||
+        c.id === "investigate" || c.id === "election") ?? scene.choices[0]!;
+      state = applyCampaignChoice("reform", state, preferred.id, i+3)!.state;
+    }
+    expect(state.position).toBe("president");
+    expect(state.decisions.some(d=>d.outcome.includes("president following"))).toBe(true);
+  });
+  it("refuses an early power grab with weak support", () => {
+    let state = initialCampaign();
+    state = applyCampaignChoice("investment", state, "investor", 2)!.state;
+    state = applyCampaignChoice("investment", state, "contracts", 3)!.state;
+    state = applyCampaignChoice("investment", state, "exclusive", 4)!.state;
+    const attempt = applyCampaignChoice("investment", state, "mandate", 5)!;
+    expect(attempt.state.position).toBe("outsider");
+    expect(attempt.choice.outcome).toContain("falls short");
+  });
   it("restores prior worlds that do not yet have campaign state", () => {
     expect(normalizeCampaign(undefined)).toEqual(initialCampaign());
     expect(normalizeCampaign({ stage: 3, support: 600, stability: -2 }).support).toBe(100);
