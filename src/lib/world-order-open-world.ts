@@ -2,7 +2,7 @@
  * Persistent open-world sandbox activities. Mechanics are deterministic,
  * replayable, and independent of the story mission scheduler.
  */
-export type City = "Havana" | "Miami" | "New York" | "Washington" | "London" | "Paris";
+export type City = "Havana" | "Miami" | "New York" | "Washington" | "London" | "Paris" | "Los Angeles";
 export type VentureId = "nightclub" | "media" | "housing" | "shipping" | "studio" | "foundation";
 export type Venture = { id: VentureId; level: number };
 export type OpenWorld = {
@@ -23,13 +23,13 @@ export type ActionResult = {
   reputationChange: number; supportChange: number;
   headline: string; category: string; who: string;
 };
-export const CITIES: City[] = ["Havana", "Miami", "New York", "Washington", "London", "Paris"];
+export const CITIES: City[] = ["Havana", "Miami", "New York", "Washington", "London", "Paris", "Los Angeles"];
 export const VENTURES: Record<VentureId, { name: string; city: City; cost: number; upgrade: number; income: number; description: string }> = {
   nightclub: { name: "After Dark", city: "Miami", cost: 125_000, upgrade: 60_000, income: 16_000, description: "Nightlife, parties, celebrity connections" },
   media: { name: "Independent Media Network", city: "New York", cost: 160_000, upgrade: 90_000, income: 24_000, description: "Influence how stories reach the world" },
   housing: { name: "Housing Development", city: "Havana", cost: 90_000, upgrade: 55_000, income: 11_000, description: "Build homes, set standards, handle tenants" },
   shipping: { name: "Caribbean Shipping", city: "Havana", cost: 180_000, upgrade: 100_000, income: 27_000, description: "Trade, logistics, economic leverage" },
-  studio: { name: "Creative Studio", city: "Los Angeles" as City, cost: 110_000, upgrade: 65_000, income: 13_000, description: "Music, film, and creative business" },
+  studio: { name: "Creative Studio", city: "Los Angeles", cost: 110_000, upgrade: 65_000, income: 13_000, description: "Music, film, and creative business" },
   foundation: { name: "Community Foundation", city: "Havana", cost: 70_000, upgrade: 40_000, income: 0, description: "Public programs and social capital" },
 };
 export const CONTACTS = [
