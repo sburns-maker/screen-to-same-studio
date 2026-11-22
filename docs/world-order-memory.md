@@ -46,6 +46,15 @@ Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes Wor
 - The initial Director does not make paid AI calls; character dialogue still uses the existing authenticated server AI endpoint.
 - These are initial prototype mechanics, not yet the eventual large-scale AI autonomous world simulation.
 
+## Campaign scene progression — no recycled intro events
+- The first version mistakenly used `campaign.stage % 4`, replaying Rafael's first town hall and the same press/assembly prompts every four game actions. Merely adding "new critics" to old dialog was not acceptable.
+- `src/lib/world-order-campaign-episodes.ts` now contains 36 authored, distinct encounters (12 each for reform, investment and diplomacy) with choices and durable effects. The three initial encounters are used only once per world.
+- The existing stage counter maps directly to a new authored encounter; stage 12 in the reform route now presents a coastal storm-response mission rather than Rafael's opening town hall. No save reset or loss of established political position is necessary.
+- After route-specific encounters, subsequent missions cross into economic, civic and diplomatic issues from other branches; later dynamic pressures are generated from campaign support, stability and recent decisions, with distinct IDs per stage.
+- Public-mandate milestones are interleaved, with different questions for outsiders, delegates, candidates and presidents. An elected president faces distinct governance crises rather than the same nomination scene.
+- A 55-decision regression walk on each route asserts no repeated mission IDs and migration tests confirm preservation of saved candidate standing and relationships.
+- The authored encounters and post-authored pressure engine are interim gameplay, not a claim that the future AI World Director autonomously generates wholly new events.
+
 ## Active Cuba campaign gameplay (post-opening)
 - Selecting the reform, investment, or diplomacy route must begin a playable scene immediately. The game must never dead-end at a static summary and an "advance one day" button.
 - `src/lib/world-order-campaign.ts` provides three distinct initial interactive encounters per route plus recurring public-mandate milestones, with character dialogue, choices, concrete support/stability/influence/trust changes, recorded decisions and subsequent rounds.
