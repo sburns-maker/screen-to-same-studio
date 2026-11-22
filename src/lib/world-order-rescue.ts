@@ -42,7 +42,7 @@ export function rescueAdvancePhase(phase: RescuePhase): RescuePhase {
 }
 export function rescueOutcome(records: RescueRecord[]) {
   if (records.length !== 3 || records.some((r, i) => r.phase !== i)) throw new Error("Complete all three rescue beats in order");
-  const last = records[2].approach;
+  const last = records[2]!.approach;
   return {
     followers: last === "leadership" ? 3_400_000 : last === "care" ? 1_900_000 : 2_350_000,
     reputation: last === "care" ? 78 : last === "evidence" ? 75 : 68,
