@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
-import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife } from "@/lib/world-order-social-life";
+import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState } from "@/lib/world-order-campaign";
 import { socialReactionWave, appendMissingReactions, addCommentToPost, type SocialPost } from "@/lib/world-order-social";
 import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
@@ -120,6 +120,7 @@ function WorldOrder() {
   const [selectedContact, setSelectedContact] = useState<WorldContact>("Sabrina");
   const [contactSearch, setContactSearch] = useState("");
   const [socialNotice, setSocialNotice] = useState("");
+  const [meetupFocus, setMeetupFocus] = useState<WorldContact | null>(null);
   useEffect(() => {
     const loaded = readSave();
     // Populate a modest inbox for existing high-follower worlds, without
@@ -355,7 +356,7 @@ function WorldOrder() {
       events: [...s.events, "Day " + s.day + ": " + result.message].slice(-100),
     }));
   }
-  function meetContact(contact: WorldContact) {
+  function meetContact(contact: WorldContact, approach: MeetupApproach) {
     const visit = save.socialLife.visits.find(v => v.contact === contact && v.status === "planned");
     if (!visit) return;
     if (save.openWorld.city !== visit.city) {
@@ -365,7 +366,7 @@ function WorldOrder() {
     if (save.day < visit.day) {
       setSocialNotice("The meetup is booked for Day " + visit.day + ". Advance time or enjoy another activity."); return;
     }
-    const outcome = completeMeetup(save.socialLife, contact, save.day, save.openWorld.city);
+    const outcome = completeMeetup(save.socialLife, contact, save.day, save.openWorld.city, approach);
     if (!outcome) return;
     mutate(s => {
       const next = advance(s, outcome.message);
@@ -375,6 +376,7 @@ function WorldOrder() {
       };
     });
     setSocialNotice(outcome.message);
+    setMeetupFocus(null);
   }
   function takeWorldAction(action: WorldAction) {
     if (save.chapter === "rescue") return;
@@ -567,7 +569,13 @@ function WorldOrder() {
             <h3 className="font-display text-2xl">Upcoming meetups</h3>
             <p className="my-2 text-xs text-slate-400">Travel to the planned city and attend on or after the scheduled game day.</p>
             {save.socialLife.visits.filter(v=>v.status==="planned").length===0 && <p className="rounded-xl bg-[#0c1524] p-3 text-sm">Nothing booked. Invite somebody from DMs!</p>}
-            {save.socialLife.visits.filter(v=>v.status==="planned").map(v=><div key={v.contact + v.day} className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#0c1524] p-3"><div><p className="text-sm font-semibold">{SOCIAL_CAST[v.contact].name}</p><p className="text-xs text-slate-400">{v.kind} · {v.city} · Day {v.day}</p></div><button onClick={()=>meetContact(v.contact)} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Attend</button></div>)}
+            {save.socialLife.visits.filter(v=>v.status==="planned").map(v=><div key={v.contact + v.day} className="mt-2 rounded-xl bg-[#0c1524] p-3">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">{SOCIAL_CAST[v.contact].name}</p><p className="text-xs text-slate-400">{v.kind} · {v.city} · Day {v.day}</p></div><button onClick={()=>setMeetupFocus(meetupFocus===v.contact?null:v.contact)} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Meet →</button></div>
+              {meetupFocus===v.contact && <div className="mt-3 space-y-2 border-t border-slate-700 pt-3">
+                <p className="text-xs leading-relaxed text-slate-300">You're going to meet {SOCIAL_CAST[v.contact].name}. How would you like to spend your time?</p>
+                {([["personal","Have a real personal conversation"],["career","Talk business, careers and ambitions"],["fun","Enjoy the night and have some fun"]] as [MeetupApproach,string][]).map(([approach,label])=><button key={approach} onClick={()=>meetContact(v.contact,approach)} className="block w-full rounded-xl border border-slate-700 p-3 text-left text-xs text-amber-200">{label} →</button>)}
+              </div>}
+            </div>)}
           </div>
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-4">
             <h3 className="font-display text-2xl">Travel</h3>
