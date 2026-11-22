@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {newGlobalPower,restoreGlobalPower,nationalAction,publicStrategyStatement,FOREIGN_LEADERS} from "./world-order-global-power";
+import {newGlobalPower,restoreGlobalPower,nationalAction,publicStrategyStatement,FOREIGN_LEADERS,canMessageOfficial} from "./world-order-global-power";
 const ctx={president:true,influence:70,cash:250000,day:60};
 describe("World Order confidential ambition and international power",()=>{
  it("keeps conquest ambition private until player explicitly declares it",()=>{
@@ -14,6 +14,13 @@ describe("World Order confidential ambition and international power",()=>{
  it("includes distinct heads of state",()=>{
   expect(Object.keys(FOREIGN_LEADERS).length).toBeGreaterThanOrEqual(6);
   expect(new Set(Object.values(FOREIGN_LEADERS).map(x=>x.name)).size).toBe(Object.keys(FOREIGN_LEADERS).length);
+ });
+ it("does not give presidents unsolicited direct contact before diplomacy",()=>{
+   const secret=newGlobalPower();
+   expect(canMessageOfficial(secret,"PresidentReed")).toBe(false);
+   expect(canMessageOfficial(secret,"Taylor")).toBe(true);
+   const opened=nationalAction(secret,{type:"diplomacy",country:"United States",mode:"contact"},ctx)!;
+   expect(canMessageOfficial(opened.state,"PresidentReed")).toBe(true);
  });
  it("offers real diplomacy with evolving trust, but treaties require established relationships",()=>{
   const first=newGlobalPower();
