@@ -180,7 +180,7 @@ function WorldOrder() {
   }
   function publish() {
     const body = draft.trim();
-    if (!body || body.length > 1200) return;
+    if (!body || body.length > 1200 || save.chapter === "rescue") return;
     mutate(s => {
       const next = advance(s, "Your public post sparks new conversations across the world.", "public_post");
       const reaction = body.toLowerCase().includes("cuba")
@@ -192,7 +192,7 @@ function WorldOrder() {
   }
   async function sendDm() {
     const body = dm.trim();
-    if (!body || body.length > 800 || replying || !ready) return;
+    if (!body || body.length > 800 || replying || !ready || save.chapter === "rescue") return;
     const contact = selectedContact;
     const playerMessage: Chat = { id: Date.now() + Math.random(), from: "player", day: save.day, body: `To ${contact}: ${body}` };
     const current: Save = { ...save, chat: [...save.chat, playerMessage] };
@@ -216,6 +216,7 @@ function WorldOrder() {
     } finally { setReplying(false); }
   }
   function nextDay() {
+    if (save.chapter === "rescue") return;
     mutate(s => advance({ ...s, influence: s.influence + (s.route === "undecided" ? 0 : 1) }, "Another day passes. Reporters, officials, and citizens continue shaping events.", "pass_day"));
   }
   const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "Your next move";
@@ -260,9 +261,10 @@ function WorldOrder() {
         {tab === "feed" && <section className="space-y-3">
           <div className="rounded-2xl border border-slate-700 bg-[#172236] p-4">
             <div className="mb-3 flex items-center gap-3">{avatar("You", true)}<div><p className="text-sm font-bold">Your story</p><p className="text-xs text-slate-400">Public post · +1 game day</p></div></div>
-            <textarea id="wo-post" aria-label="Your social post" maxLength={1200} rows={2} value={draft} onChange={e => setDraft(e.target.value)} placeholder="What's happening in your world?" className="w-full resize-y rounded-xl border border-slate-700 bg-[#0b1423] p-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-300 focus:outline-none"/>
-            <div className="mt-3 flex items-center justify-between"><span className="text-xs text-slate-500">{draft.length}/1200</span><button disabled={!draft.trim()} onClick={publish} className="rounded-full bg-amber-300 px-5 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-40">Publish · +1 day</button></div>
+            <textarea id="wo-post" aria-label="Your social post" disabled={save.chapter === "rescue"} maxLength={1200} rows={2} value={draft} onChange={e => setDraft(e.target.value)} placeholder="What's happening in your world?" className="w-full resize-y rounded-xl border border-slate-700 bg-[#0b1423] p-3 text-sm text-white placeholder:text-slate-500 focus:border-amber-300 focus:outline-none"/>
+            <div className="mt-3 flex items-center justify-between"><span className="text-xs text-slate-500">{draft.length}/1200</span><button disabled={!draft.trim() || save.chapter === "rescue"} onClick={publish} className="rounded-full bg-amber-300 px-5 py-2.5 text-xs font-bold text-slate-950 disabled:opacity-40">Publish · +1 day</button></div>
           </div>
+          {save.chapter === "rescue" && <p className="rounded-xl border border-amber-300/30 p-3 text-xs text-amber-200">Finish the concert scene to unlock public posting and move the world forward.</p>}
           {save.posts.map(p => <article key={p.id} className="rounded-2xl border border-slate-800 bg-[#172236] p-4">
             <div className="mb-3 flex items-center gap-3">{avatar(p.author)}<div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">{p.author}</p><p className="text-[11px] text-slate-400">{p.category} · Day {p.day}</p></div></div>
             <p className="whitespace-pre-wrap text-[14px] leading-6 text-slate-200">{p.body}</p>
@@ -277,7 +279,7 @@ function WorldOrder() {
             {replying && <p role="status" className="text-xs text-amber-300">{selectedContact} is typing…</p>}
             {replyError && <p role="alert" className="text-xs text-red-300">{replyError}</p>}
           </div>
-          <div className="flex gap-2 p-3"><input aria-label="Message" maxLength={800} value={dm} onChange={e => setDm(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void sendDm(); }} placeholder={"Message " + selectedContact} className="min-w-0 flex-1 rounded-full border border-slate-700 bg-[#0c1524] px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-amber-300 focus:outline-none"/><button onClick={() => void sendDm()} disabled={!dm.trim() || replying || (selectedContact === "Sabrina" && save.chapter === "rescue")} aria-label="Send message" className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-amber-300 text-slate-950 disabled:opacity-30"><Send size={18}/></button></div>
+          <div className="flex gap-2 p-3"><input aria-label="Message" disabled={save.chapter === "rescue"} maxLength={800} value={dm} onChange={e => setDm(e.target.value)} onKeyDown={e => { if (e.key === "Enter") void sendDm(); }} placeholder={"Message " + selectedContact} className="min-w-0 flex-1 rounded-full border border-slate-700 bg-[#0c1524] px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-amber-300 focus:outline-none"/><button onClick={() => void sendDm()} disabled={!dm.trim() || replying || save.chapter === "rescue"} aria-label="Send message" className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-amber-300 text-slate-950 disabled:opacity-30"><Send size={18}/></button></div>
         </section>}
         {tab === "activities" && <section className="overflow-hidden rounded-2xl border border-slate-700 bg-[#172236]">
           <div className="border-b border-slate-800 bg-gradient-to-r from-[#31425d] to-[#172236] p-5"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-amber-300">Interactive scene · {chapterTag}</p><h2 className="mt-2 font-display text-3xl">{beat?.headline ?? activity}</h2></div>
@@ -305,7 +307,7 @@ function WorldOrder() {
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="font-display text-2xl">World Director</h2><p className="mt-1 text-xs text-slate-400">Balanced by default. Background developments appear every two game days.</p><label htmlFor="world-director-mode" className="mt-4 block text-xs font-bold uppercase tracking-widest text-slate-400">Simulation pace</label><select id="world-director-mode" value={save.directorMode} onChange={e => mutate(s => ({ ...s, directorMode: e.target.value as DirectorMode }))} className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-3 text-sm text-slate-100"><option value="realistic">Realistic · Every 5 days</option><option value="balanced">Balanced · Every 2 days</option><option value="chaotic">Chaotic · Every day</option></select></div>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">World history <span className="ml-2 text-xs text-slate-400">({save.events.length})</span></summary><ol className="mt-4 space-y-3">{[...save.events].reverse().map((e,i) => <li key={i} className="border-l-2 border-amber-300/40 pl-3 text-sm leading-6 text-slate-300">{e}</li>)}</ol></details>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">Memory archive <span className="ml-2 text-xs text-slate-400">({save.memories.length})</span></summary><p className="mt-2 text-xs text-slate-400">Currently stored in this browser only.</p><ul className="mt-3 space-y-2">{save.memories.map(m => <li key={m.key} className="rounded-xl bg-[#0c1524] p-3 text-sm leading-relaxed text-slate-300"><span className="mb-1 block text-[11px] text-amber-300">{m.key} · {m.visibility}</span>{m.summary}</li>)}</ul></details>
-          <div className="flex flex-wrap items-start gap-2"><button onClick={nextDay} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950">Advance one day</button><details className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-400"><summary className="cursor-pointer">Save options</summary><p className="mt-3 max-w-xs">Progress saves in this browser, not to Tess's database. Clearing website data erases it.</p><button className="mt-3 inline-flex items-center gap-2 text-red-300" onClick={() => { if (window.confirm("Reset World Order only?")) { setSave(structuredClone(INITIAL)); setTab("feed"); } }}><RotateCcw size={13}/> Reset World Order</button></details></div>
+          <div className="flex flex-wrap items-start gap-2"><button onClick={nextDay} disabled={save.chapter === "rescue"} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">Advance one day</button><details className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-400"><summary className="cursor-pointer">Save options</summary><p className="mt-3 max-w-xs">Progress saves in this browser, not to Tess's database. Clearing website data erases it.</p><button className="mt-3 inline-flex items-center gap-2 text-red-300" onClick={() => { if (window.confirm("Reset World Order only?")) { setSave(structuredClone(INITIAL)); setTab("feed"); } }}><RotateCcw size={13}/> Reset World Order</button></details></div>
         </section>}
         <p className="mt-7 text-center text-[11px] leading-5 text-slate-500">FICTIONAL WORLD ORDER SIMULATION · PREVIEW BUILD · TESS DATA UNCHANGED</p>
       </div>
