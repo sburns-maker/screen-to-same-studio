@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction } from "@/lib/world-order.functions";
+import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState, type CampaignRoute } from "@/lib/world-order-campaign";
 import { socialReactionWave, appendMissingReactions, addCommentToPost, type SocialPost } from "@/lib/world-order-social";
 import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
 import { directorEvent, type DirectorMode } from "@/lib/world-order-director";
@@ -24,11 +25,12 @@ type Save = {
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
   directorMode: DirectorMode; directorEventIds: string[];
   rescuePhase: RescuePhase; rescueLog: RescueRecord[];
+  campaign: CampaignState;
 };
 const KEY = "world-order-v1";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [],
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(),
   posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "Sabrina Carpenter is onstage. The crowd is roaring and the lights are blazing. Something unsettling is unfolding near the barricade." }],
   chat: [],
   events: ["Day 1: You are attending Sabrina Carpenter's concert."],
@@ -83,7 +85,7 @@ function readSave(): Save {
           tone: (migrated.rescueLog as RescueRecord[] | undefined)?.[2]?.approach ?? "care",
         }))
       : legacyWall;
-    return { ...structuredClone(INITIAL), ...migrated, posts: upgradedPosts,
+    return { ...structuredClone(INITIAL), ...migrated, posts: upgradedPosts, campaign: normalizeCampaign(v.campaign),
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
@@ -199,10 +201,10 @@ function WorldOrder() {
   function chooseCuba(route: "reform" | "investment" | "diplomacy") {
     mutate(s => {
       if (s.route !== "undecided") return s;
-      const next = advance({ ...s, route, influence: s.influence + 20, cubaSupport: route === "reform" ? 18 : 10, completed: [...s.completed, "cuba-opening"] }, ENDINGS[route].event);
+      const next = advance({ ...s, route, influence: s.influence + 20, cubaSupport: route === "reform" ? 18 : 10, completed: [...s.completed, "cuba-opening"], campaign: initialCampaign() }, ENDINGS[route].event);
       return { ...next, posts: appendMissingReactions(next.posts, socialReactionWave("cuba", next.day, { route })), chat: [...next.chat, { id: Date.now(), from: "Elena", day: next.day, body: "The path you've chosen will have consequences. Cuba isn't a prize to be handed over—people here will decide whether to trust you." }] };
     });
-    setTab("world");
+    setTab("activities");
   }
   function publish() {
     const body = draft.trim();
@@ -259,17 +261,45 @@ function WorldOrder() {
       setReplyError(error instanceof Error ? error.message : "AI reply unavailable. Your message has been saved.");
     } finally { setReplying(false); }
   }
+  function completeCampaignDecision(choiceId: string) {
+    if (save.chapter !== "cuba" || save.route === "undecided") return;
+    mutate(s => {
+      if (s.route === "undecided" || s.chapter !== "cuba") return s;
+      const result = applyCampaignChoice(s.route, s.campaign, choiceId, s.day + 1);
+      if (!result) return s;
+      const next = advance({ ...s, campaign: result.state,
+        influence: Math.max(0, s.influence + result.choice.influence),
+        cubaSupport: result.state.support,
+        reputation: Math.max(0, Math.min(100, s.reputation + Math.sign(result.choice.support) * 2)),
+      }, result.choice.outcome);
+      const actorName: Record<string, string> = {
+        Elena: "Elena Valdés", Sofía: "Sofía Reyes", Lucía: "Lucía Herrera",
+        Rafael: "Rafael Morales", Mercer: "Daniel Mercer", Nora: "Nora Wells",
+      };
+      const lead = actorName[result.choice.actor] ?? result.choice.actor;
+      const reaction = newPost(lead, result.choice.outcome, next.day, "Politics");
+      return { ...next,
+        posts: [reaction, ...next.posts.filter(p => !(p.author === "WorldWire" && p.day === next.day && p.category === "Update"))].slice(0, 160),
+        memories: [...next.memories.filter(m => m.key !== "world:campaign-latest"), {
+          key: "world:campaign-latest", summary: result.choice.outcome, visibility: "shared" as const,
+        }],
+      };
+    });
+    setTab("activities");
+  }
   function nextDay() {
     if (save.chapter === "rescue") return;
-    mutate(s => advance({ ...s, influence: s.influence + (s.route === "undecided" ? 0 : 1) }, "Another day passes. Reporters, officials, and citizens continue shaping events.", "pass_day"));
+    mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
+    if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
-  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "Your next move";
+  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
+  const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
   const nav = [["feed", Newspaper, "Feed"], ["messages", MessageCircle, "DMs"], ["activities", Heart, "Story"], ["world", Globe2, "World"]] as const;
   const initials = (name: string) => name.split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join("").toUpperCase();
   const avatar = (name: string, highlighted = false) => <span className={"grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-extrabold " + (highlighted ? "bg-amber-300 text-slate-950" : "bg-[#34465f] text-slate-100")}>{initials(name)}</span>;
   const chapterTag = save.chapter === "rescue" ? "CHAPTER 01 · THE CONCERT" : save.chapter === "interview" ? "CHAPTER 02 · LIVE TELEVISION" : save.route === "undecided" ? "CHAPTER 03 · THE CUBA CRISIS" : "OPEN WORLD · YOUR LEGACY";
-  const title = save.chapter === "rescue" ? "One night changes everything." : save.chapter === "interview" ? "The whole world is watching." : save.route === "undecided" ? "A country at a crossroads." : "History remembers your decisions.";
+  const title = save.chapter === "rescue" ? "One night changes everything." : save.chapter === "interview" ? "The whole world is watching." : save.route === "undecided" ? "A country at a crossroads." : "Your power has consequences.";
   return (
     <main className="min-h-dvh bg-[#09111f] text-slate-100 selection:bg-amber-300/30">
       <div className="mx-auto max-w-3xl px-4 pb-20 pt-5 sm:px-6">
@@ -288,7 +318,7 @@ function WorldOrder() {
           <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-14 h-44 w-44 rounded-full bg-amber-300/10 blur-3xl"/>
           <p className="relative text-[10px] font-bold uppercase tracking-[.22em] text-amber-300">{chapterTag}</p>
           <h2 className="relative mt-2 max-w-sm font-display text-3xl leading-tight">{title}</h2>
-          <p className="relative mt-3 max-w-md text-sm leading-6 text-slate-300">{save.chapter === "rescue" ? "You're at Sabrina Carpenter's concert. You notice something security hasn't seen. The next move is yours." : save.chapter === "interview" ? "Your rescue went viral. Now a televised interview puts you in the political spotlight." : save.route === "undecided" ? "A crisis in Cuba opens unexpected doors. You'll have to earn influence." : "The opening is behind you. Your ambitions are only beginning."}</p>
+          <p className="relative mt-3 max-w-md text-sm leading-6 text-slate-300">{save.chapter === "rescue" ? "You're at Sabrina Carpenter's concert. You notice something security hasn't seen. The next move is yours." : save.chapter === "interview" ? "Your rescue went viral. Now a televised interview puts you in the political spotlight." : save.route === "undecided" ? "A crisis in Cuba opens unexpected doors. You'll have to earn influence." : "The next decision is waiting in Havana. Powerful people are watching."}</p>
           <button onClick={() => setTab("activities")} className="relative mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-amber-300 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-200">Continue story <span aria-hidden="true">→</span></button>
         </section>
         <div className="mb-4 grid grid-cols-3 gap-2">
@@ -352,11 +382,29 @@ function WorldOrder() {
             </>}
             {save.chapter === "interview" && <><p className="text-sm leading-7 text-slate-300">You're on national television alongside Sabrina. The host asks about the president's public response to the attack. Millions of people are watching.</p><div className="space-y-2">{([["question", "Ask a pointed question about accountability"],["joke", "Deliver a perfectly timed joke"],["facts", "Challenge the statement with specific facts"]] as const).map(([id,label]) => <button key={id} onClick={() => completeInterview(id)} className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-700 bg-[#0c1524] px-4 py-4 text-left text-sm hover:border-amber-300">{label}<span className="text-amber-300">→</span></button>)}</div></>}
             {save.chapter === "cuba" && save.route === "undecided" && <><p className="text-sm leading-7 text-slate-300">A constitutional crisis unfolds in Cuba. Reformers, investors, and diplomats are competing to shape the future. You have influence, but no guaranteed path to power.</p><div className="space-y-2">{(Object.entries(ENDINGS) as [keyof typeof ENDINGS, typeof ENDINGS.reform][]).map(([id,v]) => <button key={id} onClick={() => chooseCuba(id)} className="w-full rounded-xl border border-slate-700 bg-[#0c1524] px-4 py-4 text-left hover:border-amber-300"><strong className="text-sm text-amber-200">{v.title} →</strong><span className="mt-1 block text-xs leading-relaxed text-slate-400">{v.summary}</span></button>)}</div></>}
-            {save.chapter === "cuba" && save.route !== "undecided" && <><p className="text-sm leading-7 text-slate-300">{ENDINGS[save.route].event}</p><p className="text-xs text-slate-400">The opening is complete. Publish posts, speak with characters, or advance the world clock.</p><button onClick={nextDay} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950">Advance one day →</button></>}
+            {save.chapter === "cuba" && save.route !== "undecided" && campaignScene && <>
+              <div className="flex flex-wrap gap-2 text-[11px] text-slate-300">
+                <span className="rounded-full border border-amber-300/40 px-3 py-1.5 text-amber-200">Mission {save.campaign.stage + 1}</span>
+                <span className="rounded-full border border-slate-700 px-3 py-1.5">{campaignScene.location}</span>
+              </div>
+              {save.campaign.lastOutcome && <div className="rounded-xl border-l-2 border-amber-300 bg-[#0c1524] p-3"><p className="text-[11px] font-bold uppercase tracking-widest text-amber-300">Previously</p><p className="mt-1 text-sm leading-6 text-slate-300">{save.campaign.lastOutcome}</p></div>}
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-300">In the room · {campaignScene.character}</p>
+              <p className="text-sm leading-7 text-slate-200">{campaignScene.setup}</p>
+              <div className="rounded-xl bg-[#0c1524] p-3 text-sm text-slate-300"><strong className="text-amber-200">Your objective:</strong> {campaignScene.objective}</div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">How do you respond?</p>
+              <div className="space-y-2">{campaignScene.choices.map(choice => <button key={campaignScene.id + choice.id} onClick={() => completeCampaignDecision(choice.id)}
+                className="block w-full rounded-xl border border-slate-700 bg-[#0c1524] px-4 py-4 text-left hover:border-amber-300">
+                <span className="flex items-center justify-between gap-2 text-sm font-semibold text-slate-100"><span>{choice.title}</span><span className="text-amber-300">→</span></span>
+                <span className="mt-1 block text-xs leading-5 text-slate-400">{choice.detail}</span>
+              </button>)}</div>
+              <p className="text-[11px] text-slate-500">Each decision advances one day and changes public support, stability, relationships or influence. Nobody automatically hands you power.</p>
+            </>}
           </div>
         </section>}
         {tab === "world" && <section className="space-y-3">
-          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Influence: {save.influence}</p><p className="mt-2 text-[11px] text-slate-500">Worldwide conquest mechanics are not yet active in the prototype.</p></div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence}</p><p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
+            {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
+            <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="font-display text-2xl">World Director</h2><p className="mt-1 text-xs text-slate-400">Balanced by default. Background developments appear every two game days.</p><label htmlFor="world-director-mode" className="mt-4 block text-xs font-bold uppercase tracking-widest text-slate-400">Simulation pace</label><select id="world-director-mode" value={save.directorMode} onChange={e => mutate(s => ({ ...s, directorMode: e.target.value as DirectorMode }))} className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-3 text-sm text-slate-100"><option value="realistic">Realistic · Every 5 days</option><option value="balanced">Balanced · Every 2 days</option><option value="chaotic">Chaotic · Every day</option></select></div>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">World history <span className="ml-2 text-xs text-slate-400">({save.events.length})</span></summary><ol className="mt-4 space-y-3">{[...save.events].reverse().map((e,i) => <li key={i} className="border-l-2 border-amber-300/40 pl-3 text-sm leading-6 text-slate-300">{e}</li>)}</ol></details>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">Memory archive <span className="ml-2 text-xs text-slate-400">({save.memories.length})</span></summary><p className="mt-2 text-xs text-slate-400">Currently stored in this browser only.</p><ul className="mt-3 space-y-2">{save.memories.map(m => <li key={m.key} className="rounded-xl bg-[#0c1524] p-3 text-sm leading-relaxed text-slate-300"><span className="mb-1 block text-[11px] text-amber-300">{m.key} · {m.visibility}</span>{m.summary}</li>)}</ul></details>
