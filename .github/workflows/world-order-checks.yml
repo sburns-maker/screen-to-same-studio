@@ -1,0 +1,28 @@
+name: World Order preview checks
+on:
+  pull_request:
+    paths:
+      - 'src/routes/world-order.tsx'
+      - 'src/lib/world-order*'
+      - 'src/routes/_authenticated/home.tsx'
+      - '.github/workflows/world-order-checks.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Unit tests
+        run: npm test -- --run
+      - name: Production build
+        run: npm run build
