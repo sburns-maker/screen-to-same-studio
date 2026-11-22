@@ -34,6 +34,7 @@ type Save = {
   campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife; globalPower: GlobalPower; conquest: ConquestWorld;
 };
 const KEY = "world-order-v1";
+const REPLAY_BACKUP_KEY = "world-order-v1-last-replay-backup";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
   playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(), globalPower: newGlobalPower(), conquest: newConquestWorld(),
@@ -128,6 +129,7 @@ function WorldOrder() {
   const [regionFilter,setRegionFilter]=useState<WorldRegion | "All">("All");
   const [countryPage,setCountryPage]=useState(0);
   const [meetupFocus, setMeetupFocus] = useState<WorldContact | null>(null);
+  const [replayNotice,setReplayNotice]=useState("");
   useEffect(() => {
     const loaded = readSave();
     // Populate a modest inbox for existing high-follower worlds, without
@@ -497,6 +499,31 @@ function WorldOrder() {
     });
     setSocialNotice(preview.summary);
   }
+  function replayFromBeginning() {
+    if(!window.confirm("Start World Order again at Day 1? Your current world will be saved as a local backup in this browser."))return;
+    try {
+      // Keep the old game in a separate key so an accidental restart can be reversed.
+      localStorage.setItem(REPLAY_BACKUP_KEY,JSON.stringify(save));
+      setSave(structuredClone(INITIAL));
+      setSelectedContact("Sabrina");setSocialNotice("");setReplayNotice("New Day 1 world started. Your previous game was backed up in this browser.");
+      setTab("feed");
+    }catch {setReplayNotice("Couldn't save the backup. No progress was reset.");}
+  }
+  function restoreReplayBackup() {
+    const backup=localStorage.getItem(REPLAY_BACKUP_KEY);
+    if(!backup){setReplayNotice("No previous replay backup exists in this browser.");return;}
+    if(!window.confirm("Restore your previous World Order game? This replaces the current replay progress."))return;
+    try{
+      const data=JSON.parse(backup);
+      if(!data || typeof data.day!=="number" || !Array.isArray(data.posts) || !Array.isArray(data.chat))throw Error("Invalid backup");
+      // Migration runs through the existing readSave parser, just as on page load.
+      const current=localStorage.getItem(KEY);
+      localStorage.setItem(KEY,backup);
+      const restored=readSave();
+      if(current!==null)localStorage.setItem(KEY,current); else localStorage.removeItem(KEY);
+      setSave(restored);setTab("world");setReplayNotice("Your previous World Order game has been restored.");
+    }catch{setReplayNotice("Backup could not be restored. Your current world is unchanged.");}
+  }
   function nextDay() {
     if (save.chapter === "rescue") return;
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
@@ -834,7 +861,12 @@ function WorldOrder() {
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="font-display text-2xl">World Director</h2><p className="mt-1 text-xs text-slate-400">Balanced by default. Background developments appear every two game days.</p><label htmlFor="world-director-mode" className="mt-4 block text-xs font-bold uppercase tracking-widest text-slate-400">Simulation pace</label><select id="world-director-mode" value={save.directorMode} onChange={e => mutate(s => ({ ...s, directorMode: e.target.value as DirectorMode }))} className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-3 text-sm text-slate-100"><option value="realistic">Realistic · Every 5 days</option><option value="balanced">Balanced · Every 2 days</option><option value="chaotic">Chaotic · Every day</option></select></div>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">World history <span className="ml-2 text-xs text-slate-400">({save.events.length})</span></summary><ol className="mt-4 space-y-3">{[...save.events].reverse().map((e,i) => <li key={i} className="border-l-2 border-amber-300/40 pl-3 text-sm leading-6 text-slate-300">{e}</li>)}</ol></details>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">Memory archive <span className="ml-2 text-xs text-slate-400">({save.memories.length})</span></summary><p className="mt-2 text-xs text-slate-400">Currently stored in this browser only.</p><ul className="mt-3 space-y-2">{save.memories.map(m => <li key={m.key} className="rounded-xl bg-[#0c1524] p-3 text-sm leading-relaxed text-slate-300"><span className="mb-1 block text-[11px] text-amber-300">{m.key} · {m.visibility}</span>{m.summary}</li>)}</ul></details>
-          <div className="flex flex-wrap items-start gap-2"><button onClick={nextDay} disabled={save.chapter === "rescue"} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">Advance one day</button><details className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-400"><summary className="cursor-pointer">Save options</summary><p className="mt-3 max-w-xs">Progress saves in this browser, not to Tess's database. Clearing website data erases it.</p><button className="mt-3 inline-flex items-center gap-2 text-red-300" onClick={() => { if (window.confirm("Reset World Order only?")) { setSave(structuredClone(INITIAL)); setTab("feed"); } }}><RotateCcw size={13}/> Reset World Order</button></details></div>
+          <div className="flex flex-wrap items-start gap-2"><button onClick={nextDay} disabled={save.chapter === "rescue"} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">Advance one day</button><details className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-400"><summary className="cursor-pointer">Save options</summary><p className="mt-3 max-w-xs">Progress saves in this browser, not to Tess's database. Clearing website data erases it.</p><div className="mt-3 space-y-2">
+              <button className="flex items-center gap-2 rounded-full border border-amber-300/50 px-3 py-2 text-xs text-amber-200" onClick={replayFromBeginning}><RotateCcw size={13}/> Start fresh playthrough (backs up current world)</button>
+              <button className="block rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200" onClick={restoreReplayBackup}>Restore previous playthrough</button>
+              <p className="text-[11px] text-slate-500">The backup is stored in this same browser only. Clearing site data or switching devices can erase it.</p>
+              {replayNotice&&<p role="status" className="text-xs text-amber-200">{replayNotice}</p>}
+            </div></details></div>
         </section>}
         <p className="mt-7 text-center text-[11px] leading-5 text-slate-500">WORLD ORDER · ALTERNATE-HISTORY GAME · PREVIEW</p>
       </div>
