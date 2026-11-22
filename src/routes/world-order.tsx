@@ -538,6 +538,58 @@ function WorldOrder() {
             </>}
           </div>
         </section>}
+
+        {tab === "life" && <section className="space-y-4">
+          <div className="rounded-2xl border border-amber-300/30 bg-gradient-to-br from-[#30435b] to-[#172236] p-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-amber-300">Your life, your choices</p>
+            <h2 className="mt-2 font-display text-3xl">Make your own moves.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Travel, meet celebrities, buy businesses, organize parties, and pursue your own ambitions outside the campaign.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {([["Cash",save.openWorld.cash],["Asset value",ventureValue(save.openWorld)],["Daily income",ventureIncome(save.openWorld)]] as [string,number][]).map(([label,value])=>
+                <div key={label} className="rounded-xl bg-[#09111f] p-3"><p className="text-xs text-slate-400">{label}</p><p className="text-lg font-bold text-amber-200">{"$"}{value.toLocaleString()}</p></div>)}
+              <div className="rounded-xl bg-[#09111f] p-3"><p className="text-xs text-slate-400">Current city</p><p className="text-lg font-bold text-amber-200">{save.openWorld.city}</p></div>
+            </div>
+          </div>
+          {socialNotice && <p role="status" className="rounded-xl border border-amber-300/30 bg-[#1e2a3a] p-3 text-sm text-amber-200">{socialNotice}</p>}
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-4">
+            <h3 className="font-display text-2xl">Upcoming meetups</h3>
+            <p className="my-2 text-xs text-slate-400">Travel to the planned city and attend on or after the scheduled game day.</p>
+            {save.socialLife.visits.filter(v=>v.status==="planned").length===0 && <p className="rounded-xl bg-[#0c1524] p-3 text-sm">Nothing booked. Invite somebody from DMs!</p>}
+            {save.socialLife.visits.filter(v=>v.status==="planned").map(v=><div key={v.contact + v.day} className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#0c1524] p-3"><div><p className="text-sm font-semibold">{SOCIAL_CAST[v.contact].name}</p><p className="text-xs text-slate-400">{v.kind} · {v.city} · Day {v.day}</p></div><button onClick={()=>meetContact(v.contact)} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Attend</button></div>)}
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-4">
+            <h3 className="font-display text-2xl">Travel</h3>
+            <p className="my-2 text-xs text-slate-400">Tickets cost {"$"}2,500 · Traveling advances one day.</p>
+            <div className="grid grid-cols-2 gap-2">{CITIES.map(city=><button key={city} disabled={city===save.openWorld.city||save.chapter==="rescue"} onClick={()=>takeWorldAction({type:"travel",city})} className={"rounded-xl border px-3 py-3 text-sm font-semibold disabled:opacity-50 "+(city===save.openWorld.city?"border-amber-300 text-amber-200":"border-slate-700 bg-[#0c1524]")}>{city===save.openWorld.city?"📍 ":""}{city}</button>)}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-4">
+            <h3 className="font-display text-2xl">Businesses and property</h3>
+            <p className="my-2 text-xs text-slate-400">Own, operate, and expand assets that generate game-day income.</p>
+            <div className="space-y-3">{(Object.entries(VENTURES) as [keyof typeof VENTURES,typeof VENTURES.nightclub][]).map(([id,v])=>{
+              const owned=save.openWorld.ventures.find(o=>o.id===id);
+              return <div key={id} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
+                <p className="font-semibold text-amber-200">{v.name}</p><p className="mt-1 text-xs text-slate-300">{v.description}</p><p className="mt-1 text-xs text-slate-500">{v.city} · {owned?"Level "+owned.level:"Not owned"}</p>
+                {owned && <p className="mt-1 text-xs text-emerald-300">Income: {"$"}{(v.income*owned.level).toLocaleString()}/day</p>}
+                <div className="mt-3 flex flex-wrap gap-2">{!owned?
+                  <button disabled={save.chapter==="rescue"||save.openWorld.cash<v.cost} onClick={()=>takeWorldAction({type:"buy",venture:id})} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-semibold text-slate-950 disabled:opacity-40">Buy · {"$"}{v.cost.toLocaleString()}</button>:
+                  <><button disabled={owned.level>=5||save.openWorld.cash<v.upgrade*owned.level} onClick={()=>takeWorldAction({type:"upgrade",venture:id})} className="rounded-full border border-amber-300 px-4 py-2 text-xs text-amber-200 disabled:opacity-40">Upgrade · {"$"}{(v.upgrade*owned.level).toLocaleString()}</button>
+                  <button onClick={()=>takeWorldAction({type:"work",venture:id})} className="rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Manage</button></>}
+                </div>
+              </div>;
+            })}</div>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-4">
+            <h3 className="font-display text-2xl">Social and political moves</h3>
+            <div className="mt-3 grid grid-cols-2 gap-2">{([
+              [{type:"host",kind:"party"} as WorldAction,"Host party · $15k"],
+              [{type:"host",kind:"fundraiser"} as WorldAction,"Fundraiser · $8k"],
+              [{type:"host",kind:"townhall"} as WorldAction,"Public town hall · $4k"],
+              [{type:"negotiate",target:"local"} as WorldAction,"Meet locals"],
+              [{type:"negotiate",target:"international"} as WorldAction,"Diplomatic talks"],
+              [{type:"negotiate",target:"opposition"} as WorldAction,"Meet opposition"],
+            ] as [WorldAction,string][]).map(([action,label])=><button key={label} disabled={save.chapter==="rescue"} onClick={()=>takeWorldAction(action)} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-xs font-semibold disabled:opacity-40">{label}</button>)}</div>
+          </div>
+        </section>}
         {tab === "world" && <section className="space-y-3">
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
             <p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
