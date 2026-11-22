@@ -590,8 +590,8 @@ function WorldOrder() {
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
     if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
-  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? save.backstage?.status==="open" ? "With Sabrina · "+liveSceneLocation : "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const liveSceneLocation = save.backstage?.status==="open" ? deriveLiveSceneContinuity(save.backstage.turns).location : "backstage";
+  const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? save.backstage?.status==="open" ? "With Sabrina · "+liveSceneLocation : "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const empire = empireTotals(save.conquest);
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
