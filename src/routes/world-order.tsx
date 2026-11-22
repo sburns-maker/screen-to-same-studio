@@ -1,4 +1,4 @@
-import { createInterviewScene, restoreInterviewScene, addInterviewExchange, closeInterviewScene, type InterviewScene } from "@/lib/world-order-interview";
+import { createInterviewScene, restoreInterviewScene, appendInterviewExchange, interviewSuggestedReplies, closeInterviewScene, type InterviewScene } from "@/lib/world-order-interview";
 import { openBackstageScene, restoreBackstageScene, appendBackstageTurn, finishBackstageScene, deriveLiveSceneContinuity, type BackstageScene } from "@/lib/world-order-backstage";
 import { empireTotals, empireDailyIncome } from "@/lib/world-order-empire";
 import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
@@ -269,7 +269,7 @@ function WorldOrder() {
       const scene=save.interviewScene??createInterviewScene();
       const response=await narrateInterview({data:{action,history:scene.turns.slice(-24)}});
       mutate(s=>s.chapter!=="interview"||s.backstage?.status==="open"||s.completed.includes("interview")?s:{
-        ...s,interviewScene:addInterviewExchange(s.interviewScene??createInterviewScene(),action,response.reply,response.speaker),
+        ...s,interviewScene:appendInterviewExchange(s.interviewScene??createInterviewScene(),action,response.turns,response.suggestedReplies),
       });
       setInterviewDraft("");
     }catch(e){setInterviewError(e instanceof Error?e.message:"The interview could not continue.");}
@@ -730,19 +730,15 @@ function WorldOrder() {
               </div>
             </>}
             {save.chapter === "interview" && save.backstage?.status!=="open" && <>
-              <p className="text-sm leading-7 text-slate-300">You're on national television with Sabrina. The host asks about the president's response. Millions are watching. You decide what to say and when to finish.</p>
+              <p className="text-sm leading-7 text-slate-300">You're joining the live interview from Havana, with Sabrina appearing remotely from New York. The host and guests can address one another; you decide every word you say and when to finish.</p>
               <div className="space-y-3">{(save.interviewScene??createInterviewScene()).turns.map((turn,i)=><div key={i} className={"rounded-xl p-3 text-sm leading-7 "+(turn.speaker==="player"?"ml-4 bg-amber-300 text-slate-950":"mr-4 bg-[#0c1524] text-slate-200")}>
                 <p className={"mb-1 text-xs font-bold "+(turn.speaker==="player"?"text-slate-700":"text-amber-300")}>{turn.speaker==="player"?"You":turn.speaker==="host"?"The host":turn.speaker}</p>
                 <p className="whitespace-pre-wrap">{turn.text}</p></div>)}</div>
               <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Suggested replies</p>
-              <div className="space-y-2">{([
-                "Before we talk politics, I want to know how Sabrina is doing. That night was terrifying.",
-                "I have a question for the president: what are we doing to keep performers and fans safe?",
-                "The president's statement was longer than his list of solutions. I'd love to hear a real plan.",
-              ] as string[]).map((line,i)=><button key={i} onClick={()=>setInterviewDraft(line)} className="block w-full rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-left text-xs leading-5 text-slate-200 hover:border-amber-300">{line}</button>)}</div>
+              <div className="space-y-2">{interviewSuggestedReplies(save.interviewScene??createInterviewScene()).map((line,i)=><button key={i} onClick={()=>setInterviewDraft(line)} className="block w-full rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-left text-xs leading-5 text-slate-200 hover:border-amber-300">{line}</button>)}</div>
               <label htmlFor="interview-action" className="block text-xs font-bold uppercase tracking-widest text-amber-300">Or speak in your own words</label>
               <textarea id="interview-action" rows={4} maxLength={700} value={interviewDraft} onChange={e=>setInterviewDraft(e.target.value)} placeholder="I turn toward the cameras and say…" className="w-full resize-y rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-sm text-slate-100 placeholder:text-slate-500"/>
-              <button onClick={()=>void continueInterview()} disabled={!interviewDraft.trim()||interviewBusy} className="w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">{interviewBusy?"The host is responding…":"Say it · Continue live interview"}</button>
+              <button onClick={()=>void continueInterview()} disabled={!interviewDraft.trim()||interviewBusy} className="w-full rounded-xl bg-amber-300 px-4 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">{interviewBusy?"The guests are responding…":"Say it · Continue live interview"}</button>
               {interviewError&&<p role="alert" className="text-sm text-red-300">{interviewError}</p>}
               <div className="border-t border-slate-700 pt-4">
                 <button onClick={completeInterview} disabled={interviewBusy} className="rounded-full border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-200 disabled:opacity-40">End interview and continue the story →</button>
