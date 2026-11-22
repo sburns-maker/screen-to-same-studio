@@ -34,7 +34,40 @@ describe("World Order continuing Cuba campaign", () => {
     }
     expect(state.stage).toBe(10);
     expect(state.decisions).toHaveLength(10);
-    expect(currentCampaignScene("diplomacy", state).title).toContain("Round");
+    expect(currentCampaignScene("diplomacy", state).id).toBe("diplomacy-elections");
+  });
+  it("never repeats the opening town hall after stage four", () => {
+    for (const route of ["reform", "investment", "diplomacy"] as const) {
+      let state = initialCampaign();
+      const previous = new Set<string>();
+      for (let i = 0; i < 55; i++) {
+        const scene = currentCampaignScene(route, state);
+        expect(previous.has(scene.id), "duplicate scene " + scene.id + " at stage " + i).toBe(false);
+        previous.add(scene.id);
+        if (i >= 4) expect(scene.id).not.toBe(route + "-" +
+          (route === "reform" ? "townhall" : route === "investment" ? "workers" : "delegates"));
+        state = applyCampaignChoice(route, state, scene.choices[0]!.id, i + 3)!.state;
+      }
+      expect(previous.size).toBe(55);
+    }
+  });
+  it("moves a Day-12 saved campaign into a new situation without resetting history", () => {
+    const restored = normalizeCampaign({
+      stage: 12, support: 71, stability: 56, position: "candidate",
+      decisions: [{ scene: "reform-townhall", choice: "listen", day: 4, outcome: "Agreed to listen" }],
+      relations: { Rafael: 86 }, lastOutcome: "I am now an official presidential candidate.",
+    });
+    const scene = currentCampaignScene("reform", restored);
+    expect(scene.id).toBe("reform-hurricane");
+    expect(scene.setup).not.toContain("your first public forum");
+    expect(restored.position).toBe("candidate");
+    expect(restored.relations.Rafael).toBe(86);
+    expect(restored.decisions).toHaveLength(1);
+  });
+  it("crosses into economic and diplomatic pressures without replaying introductions", () => {
+    const scene = currentCampaignScene("reform", { ...initialCampaign(), stage: 20 });
+    expect(scene.id).toContain("reform:crossroads:");
+    expect(scene.id).not.toContain("townhall");
   });
   it("requires a public mandate and adequate support before granting office", () => {
     let state = initialCampaign();
