@@ -15,7 +15,7 @@ export type ForeignCountry=keyof typeof FOREIGN_LEADERS;
 export type DiplomaticMode="contact"|"summit"|"trade"|"treaty"|"pressure";
 export type DefenseMode="readiness"|"training"|"modernize"|"mobilize"|"standdown";
 export type GrandStrategy="private"|"disclosed";
-export type ForeignRelation={trust:number;trade:number;status:"neutral"|"dialogue"|"partner"|"tense";visits:number};
+export type ForeignRelation={trust:number;trade:number;status:"neutral"|"dialogue"|"partner"|"tense"|"crisis";visits:number};
 export type GlobalPower={
   strategy:GrandStrategy; defense:number; capacity:number; legitimacy:number;
   relations:Record<ForeignCountry,ForeignRelation>;
@@ -35,7 +35,7 @@ export function restoreGlobalPower(raw:unknown):GlobalPower{
  const entries=Object.fromEntries(countries.map(c=>{
    const v=r.relations?.[c];
    return [c,v?{trust:clamp(Number(v.trust)||0),trade:clamp(Number(v.trade)||0),
-     status:["neutral","dialogue","partner","tense"].includes(v.status)?v.status:"neutral",
+     status:["neutral","dialogue","partner","tense","crisis"].includes(v.status)?v.status:"neutral",
      visits:Number.isInteger(v.visits)&&v.visits>=0?Math.min(v.visits,1000):0}:base.relations[c]];
  })) as GlobalPower["relations"];
  return {strategy:r.strategy==="disclosed"?"disclosed":"private",
@@ -48,6 +48,7 @@ export function restoreGlobalPower(raw:unknown):GlobalPower{
 export type NationalAction =
  | {type:"diplomacy";country:ForeignCountry;mode:DiplomaticMode}
  | {type:"defense";mode:DefenseMode}
+ | {type:"military";country:ForeignCountry;mode:"show-force"|"intervene"|"deescalate"}
  | {type:"strategy";mode:GrandStrategy};
 export type NationalResult={state:GlobalPower;cashCost:number;influenceDelta:number;supportDelta:number;summary:string;source:string;publicEvent:boolean};
 export function nationalAction(power:GlobalPower,action:NationalAction,
@@ -62,6 +63,35 @@ export function nationalAction(power:GlobalPower,action:NationalAction,
      source:"National Address",publicEvent:true};
  }
  if(!context.president && context.influence<30)return null;
+ if(action.type==="military"){
+   // High-level political simulation only. No unit locations, operations,
+   // attack planning, weapon selection, or specific tactical details.
+   if(!context.president || !FOREIGN_LEADERS[action.country])return null;
+   const relation=power.relations[action.country];
+   const cost=action.mode==="intervene"?65000:action.mode==="show-force"?25000:7000;
+   if(context.cash<cost || (action.mode==="intervene" && (power.defense<55||power.capacity<40)))return null;
+   const escalates=action.mode!=="deescalate";
+   const response=action.mode==="show-force"
+     ? "Your government demonstrates its military preparedness. "+action.country+" condemns the escalation and regional diplomats call for restraint."
+     : action.mode==="intervene"
+     ? "An overseas military intervention is announced. "+action.country+" resists, civilians and neighboring states demand protection, and no territory changes hands automatically."
+     : "Your administration orders a de-escalation and invites mediators. The crisis moves toward negotiation, though trust remains damaged.";
+   const adjusted:ForeignRelation={
+     ...relation,trust:clamp(relation.trust+(escalates?-24:9)),
+     trade:clamp(relation.trade+(escalates?-12:3)),
+     status:escalates?"crisis":"dialogue",visits:relation.visits+1,
+   };
+   const next:GlobalPower={...power,
+     defense:clamp(power.defense+(action.mode==="show-force"?4:action.mode==="intervene"?-18:-5)),
+     capacity:clamp(power.capacity+(action.mode==="intervene"?-12:0)),
+     legitimacy:clamp(power.legitimacy+(escalates?-18:8)),
+     relations:{...power.relations,[action.country]:adjusted},
+     lastEvent:response,
+     completedActions:[...power.completedActions,context.day+":"+action.country+":military:"+action.mode].slice(-100),
+   };
+   return {state:next,cashCost:cost,influenceDelta:escalates?-4:2,
+     supportDelta:escalates?-8:3,summary:response,source:"International Crisis Desk",publicEvent:true};
+ }
  if(action.type==="defense"){
    const changes:Record<DefenseMode,{cost:number,readiness:number,capacity:number,legitimacy:number,message:string}> = {
      readiness:{cost:10000,readiness:10,capacity:0,legitimacy:1,message:"Civilian oversight approves a national defense readiness review."},
