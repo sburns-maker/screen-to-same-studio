@@ -749,12 +749,15 @@ function WorldOrder() {
                   ] as [CampaignMove,string][]).filter(([m])=>active.method==="military"?m!=="invest":m!=="defend").map(([move,label])=>
                     <button key={move} onClick={()=>chooseInternationalMove(active.id,move)} className="rounded-lg border border-slate-600 p-2 text-left text-xs text-slate-200 hover:border-amber-300">{label}</button>)}</div>
                 </div>:save.conquest.territory[country]==="independent"?
-                  <div className="mt-3 flex flex-wrap gap-2">{([
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-slate-400">{COUNTRY_RECORDS[country].region} · Resistance {COUNTRY_RECORDS[country].resistance}% · Diplomatic trust {save.globalPower.relations[country].trust}</p>
+                    {save.globalPower.relations[country].trust<40 && <button onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200">Open diplomatic channel · $2,500</button>}
+                    <div className="flex flex-wrap gap-2">{([
                     ["diplomacy","Diplomatic campaign"],["economic","Economic expansion"],["military","Military standoff"]
                   ] as [CampaignMethod,string][]).map(([method,label])=><button key={method}
                     disabled={save.campaign.position!=="president"|| (method==="diplomacy"&&save.globalPower.relations[country].trust<40) || (method==="military"&&save.globalPower.capacity<55)}
                     onClick={()=>startInternationalCampaign(country,method)}
-                    className="rounded-full border border-amber-300/40 px-3 py-2 text-xs text-amber-100 disabled:opacity-30">{label}</button>)}</div>:
+                    className="rounded-full border border-amber-300/40 px-3 py-2 text-xs text-amber-100 disabled:opacity-30">{label}</button>)}</div></div>:
                   <div className="mt-2 space-y-2">
                     <p className="text-xs text-emerald-300">{save.conquest.territory[country]==="controlled"?"Part of your international union.":"An earned agreement is in place."}</p>
                     {save.conquest.territory[country]!=="controlled"&&<button onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200">Negotiate direct control · $25k</button>}
