@@ -20,9 +20,9 @@ jobs:
           bun-version: 'latest'
       - name: Install dependencies from committed Bun lockfile
         run: bun install --frozen-lockfile
+      - name: Production build (generates TanStack route tree)
+        run: bun run build
       - name: Typecheck
         run: bunx tsc --noEmit
       - name: Unit tests
         run: bun run test
-      - name: Production build
-        run: bun run build
