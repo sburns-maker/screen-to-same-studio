@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { worldOrderReply } from "@/lib/world-order.functions";
+import { worldOrderReply, worldOrderRescueAction } from "@/lib/world-order.functions";
+import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
 import { directorEvent, type DirectorMode } from "@/lib/world-order-director";
 import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldMemory } from "@/lib/world-order-rules";
 import { ArrowLeft, CalendarDays, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Sparkles, Users } from "lucide-react";
@@ -21,16 +22,15 @@ type Save = {
   followers: number; reputation: number; influence: number; cubaSupport: number;
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
   directorMode: DirectorMode; directorEventIds: string[];
+  rescuePhase: RescuePhase; rescueLog: RescueRecord[];
 };
 const KEY = "world-order-v1";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], memories: [
-    { key: "world:concert-rescue", summary: "Day 1: The player saved fictionalized Sabrina Carpenter from an attempted assassination during a concert.", visibility: "shared" },
-  ],
-  posts: [{ id: 1, author: "WorldWire", category: "Breaking", day: 1, body: "FICTIONAL SCENARIO: An attempt on Sabrina Carpenter's life is stopped during a concert by an audience member. A dramatic video spreads across the world." }],
-  chat: [{ id: 1, from: "Sabrina", day: 1, body: "I still can't believe what happened tonight. Are you okay? I wanted to thank you personally." }],
-  events: ["Day 1: You intervene during a fictional concert attack and save Sabrina Carpenter."],
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [],
+  posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "FICTIONAL SCENARIO · Sabrina Carpenter's concert is underway. The crowd is roaring. Something unsettling is unfolding near the stage. What happens next is up to you." }],
+  chat: [],
+  events: ["Day 1: You are attending Sabrina Carpenter's fictional concert."],
 };
 const ENDINGS = {
   reform: {
@@ -55,7 +55,20 @@ function readSave(): Save {
     if (!raw) return structuredClone(INITIAL);
     const v = JSON.parse(raw);
     if (!v || typeof v.day !== "number" || !Array.isArray(v.posts) || !Array.isArray(v.chat) || !Array.isArray(v.events)) return structuredClone(INITIAL);
-    return { ...structuredClone(INITIAL), ...v,
+    // Legacy test saves said the rescue already happened before the player acted.
+    // Remove only that unearned opening canon when the player has not finished it.
+    const legacyOpening = v.rescuePhase === undefined && !v.completed?.includes("rescue") && v.chapter === "rescue";
+    const rescuedBefore = Array.isArray(v.completed) && v.completed.includes("rescue");
+    const migrated = legacyOpening ? {
+      ...v,
+      posts: v.posts.filter((p: Post) => p.id !== 1),
+      chat: v.chat.filter((m: Chat) => m.id !== 1),
+      events: v.events.filter((e: string) => !e.includes("You intervene during a fictional concert attack")),
+      memories: (v.memories ?? []).filter((m: Memory) => m.key !== "world:concert-rescue"),
+    } : v;
+    return { ...structuredClone(INITIAL), ...migrated,
+      rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
+      rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
       directorEventIds: Array.isArray(v.directorEventIds) ? v.directorEventIds : [],
       memories: Array.isArray(v.memories) ? v.memories : structuredClone(INITIAL.memories) };
@@ -67,6 +80,10 @@ function WorldOrder() {
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState("");
   const generateReply = useServerFn(worldOrderReply);
+  const narrateRescue = useServerFn(worldOrderRescueAction);
+  const [rescueDraft, setRescueDraft] = useState("");
+  const [sceneBusy, setSceneBusy] = useState(false);
+  const [sceneError, setSceneError] = useState("");
   const [tab, setTab] = useState<Tab>("feed");
   const [draft, setDraft] = useState("");
   const [dm, setDm] = useState("");
@@ -95,18 +112,50 @@ function WorldOrder() {
         ...(event ? [`Day ${day} · ${event.author}: ${event.summary}`] : [])].slice(-100),
     };
   }
-  function completeRescue(choice: "camera" | "sabrina" | "authorities") {
-    mutate(s => {
-      if (s.completed.includes("rescue")) return s;
-      const messages = {
-        camera: "You speak to the cameras and call for calm. The video draws huge attention.",
-        sabrina: "You focus on Sabrina's safety and refuse to turn the rescue into a spectacle.",
-        authorities: "You cooperate with investigators before addressing the press.",
-      };
-      const next = advance({ ...s, chapter: "interview", followers: choice === "camera" ? 3400000 : 1900000, reputation: choice === "sabrina" ? 78 : 67, influence: 12, completed: [...s.completed, "rescue"] }, messages[choice]);
-      return { ...next, chat: [...next.chat, { id: Date.now(), from: "Sabrina", body: choice === "sabrina" ? "You looked after me before you even thought about the cameras. That means a lot." : "It's been such a strange day. I'm glad we can talk through all of this.", day: next.day }] };
-    });
-    setTab("feed");
+  function commitRescueRecord(s: Save, record: RescueRecord): Save {
+    if (s.chapter !== "rescue" || s.rescuePhase >= 3 || record.phase !== s.rescuePhase) return s;
+    const log = [...s.rescueLog.filter(x => x.phase < record.phase), record];
+    if (record.phase < 2) return { ...s, rescueLog: log, rescuePhase: rescueAdvancePhase(record.phase),
+      events: [...s.events, "Day " + s.day + " · Concert: " + record.narrative].slice(-100) };
+    const outcome = rescueOutcome(log);
+    const finished = advance({
+      ...s, rescuePhase: 3, rescueLog: log, chapter: "interview",
+      followers: outcome.followers, reputation: outcome.reputation, influence: outcome.influence,
+      completed: [...s.completed, "rescue"],
+      memories: [...s.memories.filter(m => m.key !== "world:concert-rescue"), {
+        key: "world:concert-rescue", summary: outcome.summary.slice(0, 500), visibility: "shared" as const,
+      }],
+    }, "Sabrina survived the fictional concert attack. Your actions become a viral story.");
+    return { ...finished, posts: [newPost("WorldWire", outcome.summary, finished.day, "Breaking"), ...finished.posts],
+      chat: [...finished.chat, { id: Date.now() + Math.random(), from: "Sabrina", body: outcome.sabrinaMessage, day: finished.day }] };
+  }
+  function takeRescueChoice(choice: RescueChoice) {
+    const record = rescueChoice(save.rescuePhase, choice);
+    if (!record || sceneBusy) return;
+    const ending = record.phase === 2;
+    mutate(s => commitRescueRecord(s, record));
+    setSceneError("");
+    if (ending) setTab("feed");
+  }
+  async function takeFreeformRescueAction() {
+    const action = rescueDraft.trim();
+    const phase = save.rescuePhase;
+    if (!ready || sceneBusy || !action || action.length > 600 || phase >= 3) return;
+    setSceneBusy(true); setSceneError("");
+    try {
+      const result = await narrateRescue({ data: {
+        phase, action,
+        priorActions: save.rescueLog.slice(-2).map(a => ({ phase: a.phase, action: a.action, narrative: a.narrative })),
+      } });
+      // AI is narration only. The canonical game state progresses exactly one beat.
+      // Its proposed approach influences reputation, never authorizes a world-state change.
+      const record: RescueRecord = { phase, action, narrative: result.narration, approach: result.approach };
+      mutate(s => commitRescueRecord(s, record));
+      setRescueDraft("");
+      if (phase === 2) setTab("feed");
+    } catch (error) {
+      setSceneError(error instanceof Error ? error.message : "The narrator could not continue. Retry or choose an action.");
+    } finally { setSceneBusy(false); }
   }
   function completeInterview(choice: "question" | "joke" | "facts") {
     mutate(s => {
