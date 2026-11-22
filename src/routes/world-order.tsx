@@ -1,8 +1,9 @@
+import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
-import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
+import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, consolidateControl, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
 import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, canMessageOfficial, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
 import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
@@ -122,6 +123,9 @@ function WorldOrder() {
   const [selectedContact, setSelectedContact] = useState<WorldContact>("Sabrina");
   const [contactSearch, setContactSearch] = useState("");
   const [socialNotice, setSocialNotice] = useState("");
+  const [countrySearch,setCountrySearch]=useState("");
+  const [regionFilter,setRegionFilter]=useState<WorldRegion | "All">("All");
+  const [countryPage,setCountryPage]=useState(0);
   const [meetupFocus, setMeetupFocus] = useState<WorldContact | null>(null);
   useEffect(() => {
     const loaded = readSave();
@@ -474,6 +478,24 @@ function WorldOrder() {
     });
     setSocialNotice(trial.summary);
   }
+  function integrateCountry(country:ForeignCountry) {
+    const preview=consolidateControl(save.conquest,country,save.day+1,{
+      president:save.campaign.position==="president",cash:save.openWorld.cash,legitimacy:save.globalPower.legitimacy,
+    });
+    if(!preview){setSocialNotice("Control requires a completed campaign, adequate legitimacy and funds, and time for integration.");return;}
+    mutate(s=>{
+      const actual=consolidateControl(s.conquest,country,s.day+1,{
+        president:s.campaign.position==="president",cash:s.openWorld.cash,legitimacy:s.globalPower.legitimacy,
+      });
+      if(!actual)return s;
+      const next=advance(s,actual.summary);
+      return {...next,conquest:actual.state,
+        openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-actual.cost)},
+        influence:next.influence+actual.influenceDelta,
+        posts:[newPost("Global Affairs",actual.summary,next.day,"International"),...next.posts].slice(0,160)};
+    });
+    setSocialNotice(preview.summary);
+  }
   function nextDay() {
     if (save.chapter === "rescue") return;
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
@@ -691,19 +713,31 @@ function WorldOrder() {
             {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
             <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
-            <h2 className="font-display text-2xl">Global campaigns</h2>
+            <h2 className="font-display text-2xl">Global campaigns · {COUNTRY_NAMES.length} countries</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">Start a multi-day international campaign. Your opponents respond, political resistance changes, and treaties or alliances require sustained negotiations. No instant conquest.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Global tension</p><p className="text-xl font-bold text-amber-300">{save.conquest.worldTension}%</p></div>
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">International prestige</p><p className="text-xl font-bold text-amber-300">{save.conquest.prestige}</p></div>
             </div>
-            <div className="mt-4 space-y-3">{(Object.keys(FOREIGN_LEADERS) as ForeignCountry[]).map(country=>{
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Under your control</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>save.conquest.territory[c]==="controlled").length}</p></div>
+              <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Allies and protectorates</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>["partner","protectorate"].includes(save.conquest.territory[c])).length}</p></div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input aria-label="Search countries" value={countrySearch} onChange={e=>{setCountrySearch(e.target.value);setCountryPage(0);}} placeholder="Search 82 countries…" className="min-w-0 rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white"/>
+              <select aria-label="Filter by region" value={regionFilter} onChange={e=>{setRegionFilter(e.target.value as WorldRegion | "All");setCountryPage(0);}} className="rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white">
+                <option value="All">All regions</option>
+                {COUNTRY_REGIONS.map(r=><option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 space-y-3">{COUNTRY_NAMES.filter(c=>(regionFilter==="All"||COUNTRY_RECORDS[c].region===regionFilter)&&c.toLowerCase().includes(countrySearch.trim().toLowerCase()))
+              .slice(countryPage*12,countryPage*12+12).map(country=>{
               const active=activeCampaign(save.conquest,country);
               const last=[...save.conquest.campaigns].reverse().find(c=>c.country===country);
               return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{FOREIGN_LEADERS[country].name}</p></div>
-                  <span className="text-xs text-slate-300">{save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
+                  <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{FOREIGN_LEADERS[country as keyof typeof FOREIGN_LEADERS]?.name??COUNTRY_RECORDS[country].region+" · Government"}</p></div>
+                  <span className="text-xs text-slate-300">{save.conquest.territory[country]==="controlled"?"Under your control":save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
                 </div>
                 {active?<div className="mt-3 space-y-2">
                   <p className="text-xs text-slate-300">{active.method} · Stage {active.stage+1} · Progress {active.progress}% · Resistance {active.resistance}%</p>
@@ -721,9 +755,17 @@ function WorldOrder() {
                     disabled={save.campaign.position!=="president"|| (method==="diplomacy"&&save.globalPower.relations[country].trust<40) || (method==="military"&&save.globalPower.capacity<55)}
                     onClick={()=>startInternationalCampaign(country,method)}
                     className="rounded-full border border-amber-300/40 px-3 py-2 text-xs text-amber-100 disabled:opacity-30">{label}</button>)}</div>:
-                  <p className="mt-2 text-xs text-emerald-300">Your governments now cooperate under a voluntary agreement. Political sovereignty remains with the partner country.</p>}
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-emerald-300">{save.conquest.territory[country]==="controlled"?"Part of your international union.":"An earned agreement is in place."}</p>
+                    {save.conquest.territory[country]!=="controlled"&&<button onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200">Negotiate direct control · $25k</button>}
+                  </div>}
               </div>;
             })}</div>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <button disabled={countryPage===0} onClick={()=>setCountryPage(p=>Math.max(0,p-1))} className="rounded-full border border-slate-700 px-4 py-2 text-xs disabled:opacity-30">Previous</button>
+              <span className="text-xs text-slate-400">Page {countryPage+1} of {Math.max(1,Math.ceil(COUNTRY_NAMES.filter(c=>(regionFilter==="All"||COUNTRY_RECORDS[c].region===regionFilter)&&c.toLowerCase().includes(countrySearch.trim().toLowerCase())).length/12))}</span>
+              <button disabled={(countryPage+1)*12>=COUNTRY_NAMES.filter(c=>(regionFilter==="All"||COUNTRY_RECORDS[c].region===regionFilter)&&c.toLowerCase().includes(countrySearch.trim().toLowerCase())).length} onClick={()=>setCountryPage(p=>p+1)} className="rounded-full border border-slate-700 px-4 py-2 text-xs disabled:opacity-30">Next</button>
+            </div>
             <p className="mt-3 text-xs text-slate-400">You need the Cuban presidency to launch state-level campaigns. The world continues to react even when plans fail.</p>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
