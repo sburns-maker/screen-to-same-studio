@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
+import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, publicStrategyStatement, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
 import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState } from "@/lib/world-order-campaign";
@@ -27,12 +28,12 @@ type Save = {
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
   directorMode: DirectorMode; directorEventIds: string[];
   rescuePhase: RescuePhase; rescueLog: RescueRecord[];
-  campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife;
+  campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife; globalPower: GlobalPower;
 };
 const KEY = "world-order-v1";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(),
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(), globalPower: newGlobalPower(),
   posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "Sabrina Carpenter is onstage. The crowd is roaring and the lights are blazing. Something unsettling is unfolding near the barricade." }],
   chat: [],
   events: ["Day 1: You are attending Sabrina Carpenter's concert."],
@@ -90,7 +91,7 @@ function readSave(): Save {
     const cleanPosts = upgradedPosts.filter(p =>
       !(p.author === "WorldWire" && p.category === "Update" &&
         (p.body.startsWith("Another day passes.") || p.body.startsWith("Time passes. Unresolved decisions"))));
-    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign), openWorld: restoreOpenWorld(v.openWorld), socialLife: restoreSocialLife(v.socialLife),
+    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign), openWorld: restoreOpenWorld(v.openWorld), socialLife: restoreSocialLife(v.socialLife), globalPower: restoreGlobalPower(v.globalPower),
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
@@ -400,6 +401,31 @@ function WorldOrder() {
     });
     setSocialNotice(result.headline);
   }
+  function takeNationalAction(action: NationalAction) {
+    const preview = nationalAction(save.globalPower, action, {
+      president: save.campaign.position === "president", influence:save.influence,
+      cash:save.openWorld.cash, day:save.day+1,
+    });
+    if (!preview || save.chapter !== "cuba") {
+      setSocialNotice("This action isn't available yet. Check political standing, diplomatic trust or cash.");
+      return;
+    }
+    mutate(s => {
+      const result = nationalAction(s.globalPower,action,{
+        president:s.campaign.position==="president",influence:s.influence,cash:s.openWorld.cash,day:s.day+1,
+      });
+      if(!result)return s;
+      const next=advance(s,result.summary);
+      return {
+        ...next,globalPower:result.state,
+        openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-result.cashCost)},
+        influence:next.influence+result.influenceDelta,
+        cubaSupport:Math.max(0,Math.min(100,next.cubaSupport+result.supportDelta)),
+        posts:result.publicEvent?[newPost(result.source,result.summary,next.day,"International"),...next.posts].slice(0,160):next.posts,
+      };
+    });
+    setSocialNotice(preview.summary);setTab("world");
+  }
   function nextDay() {
     if (save.chapter === "rescue") return;
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
@@ -615,6 +641,36 @@ function WorldOrder() {
             <p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
             {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
             <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
+            <h2 className="font-display text-2xl">International power</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Build relations with other governments, strengthen Cuba's defensive capabilities, and turn influence into actual international negotiations.</p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              {([["Defense readiness",save.globalPower.defense],["Military capacity",save.globalPower.capacity],["Legitimacy",save.globalPower.legitimacy]] as [string,number][]).map(([name,n])=><div key={name} className="rounded-xl bg-[#0c1524] p-3"><p className="text-lg font-bold text-amber-200">{n}%</p><p className="mt-1 text-[10px] leading-4 text-slate-400">{name}</p></div>)}
+            </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-amber-300">Your strategic ambition</p>
+            <p className="mt-1 text-xs text-slate-300">{save.globalPower.strategy==="private"?"Private. No one knows you have ambitions beyond your public political work.":"Public. You have announced a wider international ambition and foreign leaders can respond."}</p>
+            <button onClick={()=>takeNationalAction({type:"strategy",mode:save.globalPower.strategy==="private"?"disclosed":"private"})} className="mt-3 rounded-full border border-amber-300/70 px-4 py-2 text-xs text-amber-200">{save.globalPower.strategy==="private"?"Reveal ambition publicly":"Withdraw public declaration"}</button>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-amber-300">Diplomatic relationships</p>
+            <div className="mt-2 space-y-3">{(Object.entries(FOREIGN_LEADERS) as [ForeignCountry,typeof FOREIGN_LEADERS[ForeignCountry]][]).map(([country,leader])=>{
+              const rel=save.globalPower.relations[country];
+              return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
+                <div className="flex justify-between gap-2"><div><p className="text-sm font-semibold">{country}</p><p className="text-xs text-slate-400">{leader.name} · {rel.status}</p></div><p className="text-xs text-amber-200">Trust {rel.trust}</p></div>
+                <div className="mt-3 flex flex-wrap gap-2">{([
+                  ["contact","Open channel"],["summit","Hold summit"],["trade","Trade talks"],["treaty","Cooperation treaty"],["pressure","Apply pressure"],
+                ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"diplomacy",country,mode})}
+                  disabled={save.chapter!=="cuba"||(save.campaign.position!=="president"&&save.influence<30)||(mode==="treaty"&&rel.trust<55)}
+                  className="rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">{label}</button>)}</div>
+              </div>;
+            })}</div>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-amber-300">Defense ministry</p>
+            <p className="mt-1 text-xs text-slate-400">Strategic posture, training and defensive readiness; no tactical operational targeting.</p>
+            <div className="mt-3 flex flex-wrap gap-2">{([
+              ["readiness","Readiness review"],["training","Train forces"],["modernize","Modernize"],["mobilize","Raise alert"],["standdown","Stand down"],
+            ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"defense",mode})}
+              disabled={save.chapter!=="cuba"||(save.campaign.position!=="president"&&save.influence<30)}
+              className="rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">{label}</button>)}</div>
+            {save.globalPower.lastEvent && <p className="mt-3 rounded-xl bg-[#0c1524] p-3 text-sm text-slate-300">{save.globalPower.lastEvent}</p>}
+          </div>
           {campaignScene && <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
             <h2 className="font-display text-2xl">People & alliances</h2>
             <p className="mt-1 text-xs text-slate-400">Characters respond to your decisions. Trust starts neutral and changes with the story.</p>
