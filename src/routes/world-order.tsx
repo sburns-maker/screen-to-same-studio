@@ -6,7 +6,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction, worldOrderBackstageReply, worldOrderInterviewReply, worldOrderInterviewGuestReply } from "@/lib/world-order.functions";
-import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, consolidateControl, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
+import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, consolidateControl, governOccupation, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
 import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, canMessageOfficial, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
 import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
@@ -574,6 +574,19 @@ function WorldOrder() {
     });
     setSocialNotice(trial.summary);
   }
+  function handleOccupation(country:ForeignCountry,action:"services"|"autonomy"|"security"){
+    const preview=governOccupation(save.conquest,country,save.day+1,action,{cash:save.openWorld.cash});
+    if(!preview){setSocialNotice("Occupation action unavailable. Check cash and game-day progression.");return;}
+    mutate(s=>{
+      const result=governOccupation(s.conquest,country,s.day+1,action,{cash:s.openWorld.cash});
+      if(!result)return s;
+      const next=advance(s,result.summary);
+      return {...next,conquest:result.state,openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-result.cost)},
+        cubaSupport:Math.max(0,Math.min(100,next.cubaSupport+result.supportDelta)),
+        posts:[newPost("Global Affairs",result.summary,next.day,"International"),...next.posts].slice(0,160)};
+    });
+    setSocialNotice(preview.summary);
+  }
   function integrateCountry(country:ForeignCountry) {
     const preview=consolidateControl(save.conquest,country,save.day+1,{
       president:save.campaign.position==="president",cash:save.openWorld.cash,legitimacy:save.globalPower.legitimacy,
@@ -873,7 +886,7 @@ function WorldOrder() {
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence+empire.influence} · Power: {save.influence+save.globalPower.capacity+empire.power}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
             <p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
             {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
-            <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
+            <p className="mt-3 text-[11px] text-slate-500">National governance and international expansion are evolving; occupations and uprisings now have persistent consequences.</p></div>
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
             <h2 className="font-display text-2xl">Global campaigns · {COUNTRY_NAMES.length} countries</h2>
             <div className="mt-3 rounded-xl border border-amber-300/30 bg-[#0c1524] p-4">
@@ -886,7 +899,7 @@ function WorldOrder() {
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-400">Controlled countries contribute the most. Partners and protectorates contribute less. Income is paid automatically when each game day advances.</p>
             </div>
-            <p className="mt-2 text-sm leading-6 text-slate-300">Start a multi-day international campaign. Your opponents respond, political resistance changes, and treaties or alliances require sustained negotiations. No instant conquest.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Build influence through diplomacy, trade, armed conflict, or covertly funded uprisings. Military victories create contested occupations that require governing and consolidation; opponents react over multiple days.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Global tension</p><p className="text-xl font-bold text-amber-300">{save.conquest.worldTension}%</p></div>
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">International prestige</p><p className="text-xl font-bold text-amber-300">{save.conquest.prestige}</p></div>
@@ -908,36 +921,39 @@ function WorldOrder() {
               const active=activeCampaign(save.conquest,country);
               const last=[...save.conquest.campaigns].reverse().find(c=>c.country===country);
               const lastWon=[...save.conquest.campaigns].reverse().find(c=>c.country===country&&c.status==="won");
-              const canIntegrate=save.campaign.position==="president"&&save.openWorld.cash>=25000&&save.globalPower.legitimacy>=45&&!!lastWon&&save.day+1>lastWon.lastDecisionDay+1;
-              const integrateReason=save.openWorld.cash<25000?"Need $25,000 cash (available: $"+save.openWorld.cash.toLocaleString()+").":save.globalPower.legitimacy<45?"Need at least 45 legitimacy (current: "+save.globalPower.legitimacy+").":lastWon&&save.day+1<=lastWon.lastDecisionDay+1?"Wait one more game day after the agreement.":save.campaign.position!=="president"?"Presidential authority is required.":"Complete an international campaign first.";
+              const canIntegrate=save.campaign.position==="president"&&save.openWorld.cash>=25000&&save.globalPower.legitimacy>=45&&!!lastWon&&(save.conquest.territory[country]!=="occupied"||lastWon.resistance<=40)&&save.day+1>lastWon.lastDecisionDay+1;
+              const integrateReason=save.openWorld.cash<25000?"Need $25,000 cash (available: $"+save.openWorld.cash.toLocaleString()+").":save.globalPower.legitimacy<45?"Need at least 45 legitimacy (current: "+save.globalPower.legitimacy+").":lastWon&&save.conquest.territory[country]==="occupied"&&lastWon.resistance>40?"Reduce occupation resistance to 40% or less first (current: "+lastWon.resistance+"%).":lastWon&&save.day+1<=lastWon.lastDecisionDay+1?"Wait one more game day after the agreement.":save.campaign.position!=="president"?"Presidential authority is required.":"Complete an international campaign first.";
               return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{(FOREIGN_LEADERS as Partial<Record<ForeignCountry,{name:string}>>)[country]?.name??COUNTRY_RECORDS[country].region+" · Government"}</p></div>
-                  <span className="text-xs text-slate-300">{save.conquest.territory[country]==="controlled"?"Under your control":save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
+                  <span className="text-xs text-slate-300">{save.conquest.territory[country]==="controlled"?"Under your control":save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":save.conquest.territory[country]==="occupied"?"Occupied territory":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
                 </div>
                 {active?<div className="mt-3 space-y-2">
                   <p className="text-xs text-slate-300">{active.method} · Stage {active.stage+1} · Momentum {active.progress}% · Resistance {active.resistance}%</p>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-700"><div className="h-full rounded-full bg-amber-300" style={{width:active.progress+"%"}}/></div>
-                   {active.progress===100 && <p className="mt-2 text-xs text-amber-200">Maximum momentum reached. This is not yet a victory: {active.method==="military"?"a negotiated compromise, resistance of 35% or less, and global tension below 65 are needed for a settlement.":"political resistance must fall to 60% or less for a ratified agreement."} Your campaign will not automatically expire while momentum is maxed.</p>}
+                   {active.progress===100 && <p className="mt-2 text-xs text-amber-200">Maximum momentum reached. This is not yet a victory: {active.method==="military"?"a surprise offensive, six stages, 90% momentum, resistance 55% or less, and defense 65+ can establish occupation; alternatively, compromise needs resistance 35% or less and tension below 65.":active.method==="uprising"?"two funding actions, six stages, and resistance 45% or less are required for the uprising coalition to prevail.":"political resistance must fall to 60% or less for a ratified agreement."} Your campaign will not automatically expire while momentum is maxed.</p>}
                   {active.log.length>0&&<p className="rounded-lg bg-[#19283b] p-2 text-xs leading-5 text-slate-300">{active.log[active.log.length-1]?.text}</p>}
                   <div className="grid grid-cols-2 gap-2">{([
                     ["negotiate","Negotiations"],["invest","Invest"],["persuade","Win public support"],["pressure","Apply pressure"],
-                    ["defend","Strategic defense"],["compromise","Offer compromise"],["withdraw","Withdraw"],
-                  ] as [CampaignMove,string][]).filter(([m])=>active.method==="military"?m!=="invest":m!=="defend").map(([move,label])=>
+                    ["defend","Strategic defense"],["surprise","Surprise offensive · $28k"],["fund","Finance uprising · $16k"],["compromise","Offer compromise"],["withdraw","Withdraw"],
+                  ] as [CampaignMove,string][]).filter(([m])=>active.method==="military"?m!=="invest"&&m!=="fund"&&(m!=="surprise"||!active.surpriseUsed):active.method==="uprising"?m!=="defend"&&m!=="invest"&&m!=="surprise":m!=="defend"&&m!=="surprise"&&m!=="fund").map(([move,label])=>
                     <button key={move} onClick={()=>chooseInternationalMove(active.id,move)} className="rounded-lg border border-slate-600 p-2 text-left text-xs text-slate-200 hover:border-amber-300">{label}</button>)}</div>
                 </div>:save.conquest.territory[country]==="independent"?
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-slate-400">{COUNTRY_RECORDS[country].region} · Resistance {COUNTRY_RECORDS[country].resistance}% · Diplomatic trust {save.globalPower.relations[country].trust}</p>
                     {save.globalPower.relations[country].trust<40 && <div className="space-y-1"><button disabled={save.openWorld.cash<2500} onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Open diplomatic channel · $2,500</button>{save.openWorld.cash<2500&&<p className="text-xs text-amber-200">Need $2,500 cash. Available: $ {save.openWorld.cash.toLocaleString()}. Earn income by advancing game days or expanding your businesses.</p>}</div>}
                     <div className="flex flex-wrap gap-2">{([
-                    ["diplomacy","Diplomatic campaign"],["economic","Economic expansion"],["military","Military standoff"]
+                    ["diplomacy","Diplomatic campaign"],["economic","Economic expansion"],["military","Open military campaign"],["uprising","Finance an uprising"]
                   ] as [CampaignMethod,string][]).map(([method,label])=><button key={method}
-                    disabled={save.campaign.position!=="president"|| (method==="diplomacy"&&save.globalPower.relations[country].trust<40) || (method==="military"&&save.globalPower.capacity<55)}
+                    disabled={save.campaign.position!=="president"|| (method==="diplomacy"&&save.globalPower.relations[country].trust<40) || (method==="military"&&save.globalPower.capacity+empireTotals(save.conquest).militaryStrength<55) || (method==="uprising"&&save.influence+empireTotals(save.conquest).influence+Math.floor(empireTotals(save.conquest).power/2)<60)}
                     onClick={()=>startInternationalCampaign(country,method)}
                     className="rounded-full border border-amber-300/40 px-3 py-2 text-xs text-amber-100 disabled:opacity-30">{label}</button>)}</div></div>:
                   <div className="mt-2 space-y-2">
-                    <p className="text-xs text-emerald-300">{save.conquest.territory[country]==="controlled"?"Part of your international union.":"An earned agreement is in place."}</p>
-                    {save.conquest.territory[country]!=="controlled"&&<div className="space-y-2"><button disabled={!canIntegrate} onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Negotiate direct control · $25k</button>{!canIntegrate&&<p className="text-xs text-amber-200">{integrateReason}</p>}</div>}
+                    <p className="text-xs text-emerald-300">{save.conquest.territory[country]==="controlled"?"Part of your international union.":save.conquest.territory[country]==="occupied"?"Occupied: rebuild services, grant civilian autonomy, or strengthen security before integration.":"An earned agreement is in place."}</p>
+                    {save.conquest.territory[country]==="occupied"&&<div className="grid grid-cols-2 gap-2">{([
+                       ["services","Rebuild services · $18k"],["autonomy","Grant local autonomy · $7k"],["security","Strengthen security · $12k"]
+                     ] as ["services"|"autonomy"|"security",string][]).map(([action,label])=><button key={action} disabled={save.openWorld.cash<(action==="services"?18000:action==="autonomy"?7000:12000)} onClick={()=>handleOccupation(country,action)} className="rounded-lg border border-slate-600 p-2 text-xs text-slate-200 disabled:opacity-30">{label}</button>)}</div>}
+                     {save.conquest.territory[country]!=="controlled"&&<div className="space-y-2"><button disabled={!canIntegrate} onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Negotiate direct control · $25k</button>{!canIntegrate&&<p className="text-xs text-amber-200">{integrateReason}</p>}</div>}
                   </div>}
               </div>;
             })}</div>
