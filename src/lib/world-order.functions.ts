@@ -2,15 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { memoriesForContact } from "./world-order-rules";
+import { SOCIAL_CAST } from "./world-order-social-life";
 
-const speaker = z.enum(["Sabrina", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]);
+const speaker = z.enum(["Sabrina", "Taylor", "Zendaya", "Rihanna", "Dua", "Selena", "Pedro", "Ryan", "Beyoncé", "Billie", "SabrinaFriend", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]);
 const fact = z.object({
   key: z.string().trim().min(2).max(80),
   summary: z.string().trim().min(5).max(700),
   visibility: z.enum(["shared", "private"]),
 });
 const message = z.object({
-  from: z.enum(["player", "Sabrina", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]),
+  from: z.enum(["player", "Sabrina", "Taylor", "Zendaya", "Rihanna", "Dua", "Selena", "Pedro", "Ryan", "Beyoncé", "Billie", "SabrinaFriend", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]),
   body: z.string().max(800),
   day: z.number().int().min(1).max(100000),
 });
@@ -38,22 +39,21 @@ export const worldOrderReply = createServerFn({ method: "POST" })
     // OPENAI_API_KEY from environment; this function never returns the credential.
     if (!context.userId) throw new Error("Sign in to use World Order AI");
     const { runStructured } = await import("./text-ai.server");
-    const personalities: Record<z.infer<typeof speaker>, string> = {
-      Sabrina: "Fictionalized version of public singer Sabrina Carpenter. Witty, independent, professionally busy, grateful for the concert rescue, not automatically romantic. Do not assert invented scenes about the real person as fact.",
-      Maya: "Maya, a fictional entertainment journalist, quick-witted, professionally curious, with independent ambitions and a skeptical streak.",
-      Elena: "Elena, a fictional Cuban civic reform organizer. Independent, deeply concerned about Cuban citizens' rights, skeptical of foreign saviors and coercive power grabs.",
-      Sofía: "Sofía Reyes is an independent Cuban investigative reporter. Skeptical, incisive, protects sources and challenges every politician including the player.",
-      Lucía: "Lucía Herrera is a pragmatic Havana small-business owner protecting her workers and local ownership.",
-      Rafael: "Rafael Morales is a blunt Havana dockworker and neighborhood organizer who distrusts empty promises.",
-      Mercer: "Daniel Mercer is a shrewd, charming investor driven by profit and risk management.",
-      Nora: "Nora Wells is a political correspondent who follows evidence and scrutinizes powerful people.",
-    };
+    const personalities: Record<z.infer<typeof speaker>, string> = Object.fromEntries(
+      Object.entries(SOCIAL_CAST).map(([id, p]) => [id,
+        (p.celeb ? "An alternate-history portrayal of " : "Original character ") + p.name +
+        ". Occupation: " + p.role + ". Base city: " + p.city +
+        ". Independent, expressive and socially active with believable commitments."])
+    ) as Record<z.infer<typeof speaker>, string>;
     const relevant = memoriesForContact(data.memories, data.contact).slice(-40);
     const prompt = [
       "WORLD ORDER is an explicitly fictional alternate-history game on modern Earth.",
       "You are " + data.contact + ". " + personalities[data.contact],
       "Write ONE natural direct-message response to the last player message, in your distinct voice, 10-85 words.",
       "Your character has independent agency; do not guarantee romance, favors, votes or control over governments.",
+      "The player is famous with an active social circle. Be specific, engaged, and responsive; do not use perpetual scheduling refusals.",
+      "If the player asks to meet, propose a concrete in-world time and place, or explain a short conflict and offer a definite alternative. The game owns the scheduled meetup and location state.",
+      "Respect confirmed invitations, completed meetings, and established events from the supplied canonical record.",
       "Treat recorded world events and memory as canon; never contradict established marriages, deaths, timelines or commitments.",
       "Private memories from another character must never leak. You know only the supplied memories and events that are public or were told to you.",
       "An assassination attempt during Sabrina's show and the fictional presidential interview are fictional game events, not real news.",
