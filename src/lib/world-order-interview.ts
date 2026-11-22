@@ -75,7 +75,7 @@ export function interviewNeedsGuestReply(scene:InterviewScene):boolean{
 export function appendInterviewGuests(scene:InterviewScene,guests:InterviewGuestTurn[],suggestedReplies:string[]=[]):InterviewScene{
  if(scene.status!=="open"||!interviewNeedsGuestReply(scene))return scene;
  const valid=guests.filter(t=>t&&["host","Sabrina","audience"].includes(t.speaker)&&typeof t.text==="string"&&t.text.trim());
- if(!valid.length||valid[0].speaker!=="Sabrina")return scene;
+ if(!valid.length||valid[0]?.speaker!=="Sabrina")return scene;
  return {...scene,turns:[...scene.turns,...valid.slice(0,3).map(t=>({speaker:t.speaker,text:t.text.trim().slice(0,1000)}))].slice(-50),
   suggestedReplies:suggestedReplies.filter(v=>typeof v==="string"&&v.trim()).slice(0,3).map(v=>v.slice(0,220))};
 }
