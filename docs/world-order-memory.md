@@ -1,3 +1,11 @@
+## Private strategy and international power — 2026-11-22
+- Player's ambition to conquer or control the wider world is a **private intention**, not common knowledge. Taylor, Sabrina, the press, government officials and ordinary NPCs must NOT know or imply they know unless told by the player or an actual public event makes it known.
+- World Order's private strategy defaults to `private`, including migrated existing worlds. A deliberate public declaration is required to reveal it; any actual private disclosure to an NPC belongs only in that character's knowledge, not a global news feed.
+- Six alternate-history political leaders have been introduced as NPCs: presidents/prime ministers representing the United States, United Kingdom, Canada, Brazil, France and Mexico. These are explicitly invented officials, not depictions of current real leaders or real conversations.
+- The World screen now supports diplomatic openings, summits, trade negotiations, provisional treaties, strategic defense readiness and training, military alert postures, high-level intervention decisions and de-escalation. Reputation, resources, trust and institutional costs govern consequences. **A military decision does not automatically conquer a country**; operational military tactics and real-target details are out of scope.
+- Diplomatic trust and national readiness are persistent per-save state, including old-world migration. The expansion is an initial international power simulation, not yet full playable world conquest, negotiations, wars and territorial administration.
+- Development is isolated in `feature/world-order-private-ambition-global-power-20261122` based on the already-merged `main`, not the earlier PR #247/#248.
+
 # World Order — persistent design memory
 
 Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes World Order only. Do not modify Tess or AI Town canon.
