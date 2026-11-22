@@ -1,3 +1,4 @@
+import { availableCampaignEpisodes, campaignEpisode } from "./world-order-campaign-episodes";
 /**
  * World Order's persistent post-opening campaign.
  * This is a small deterministic story engine, not a substitute for a future
@@ -93,36 +94,90 @@ const routes: Record<CampaignRoute, CampaignScene[]> = {
 };
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
 
-/** Repeatable campaign arcs keep events happening beyond the opening.
- * After every three stages, a fresh political pressure cycle begins.
+/**
+ * Each campaign stage selects a fresh encounter. Milestones still appear at
+ * stages 3, 7, 11, ... but the three introductory scenes are never replayed.
+ * The first 12 new episodes are specific to the chosen route; then the world
+ * opens into the other two political/economic/diplomatic tracks.
  */
 export function currentCampaignScene(route: CampaignRoute, campaign: CampaignState): CampaignScene {
-  const cycle = Math.max(0, Math.floor(campaign.stage / 4));
-  if (campaign.stage % 4 === 3) {
+  const stage = campaign.stage;
+  if (stage % 4 === 3) {
+    const milestone = Math.floor(stage / 4);
+    const currentPosition = campaign.position;
     return {
-      id: "leadership-mandate:" + cycle, title: cycle === 0 ? "The question of power" : "A new mandate", location: "Havana · Public assembly",
+      id: "leadership-mandate:" + milestone,
+      title: currentPosition === "president" ? "A vote of confidence" :
+        currentPosition === "candidate" ? "The national ballot" :
+        currentPosition === "delegate" ? "A presidential nomination" : "A seat at the table",
+      location: "Havana · Public assembly",
       character: "Elena Valdés",
-      objective: campaign.position === "president" ? "Preserve legitimacy and build coalitions" : "Seek a legitimate mandate—or keep building local support",
-      setup: campaign.position === "president"
-        ? "Your government faces a new public confidence debate. Elena warns that victory at the ballot box doesn't end dissent or relieve you of responsibility."
-        : "A public assembly has convened. Elena faces you directly: 'You have allies now, but do you have the trust of the people to lead? And what happens if they say no?' Representatives of competing factions demand an answer.",
+      objective: currentPosition === "president" ? "Maintain a public mandate" : "Seek a legitimate mandate—or earn more support",
+      setup: currentPosition === "president" ?
+        "An opposition coalition calls for a confidence review of your administration. Elena reminds you that power is conditional: your critics are citizens too." :
+        currentPosition === "candidate" ?
+        "Candidates prepare for a national contest. Independent observers insist that a fair vote matters more than your popularity on television. Your opponents are campaigning hard." :
+        currentPosition === "delegate" ?
+        "The transition assembly is choosing its official nominees. Elena says your coalition has grown, but other candidates have formidable supporters and independent agendas." :
+        "An assembly opens debate over new civic leadership. Elena asks whether your support extends beyond viral fame and whether you will accept a decision that goes against you.",
       choices: [
-        option("mandate", campaign.position === "president" ? "Submit to a public confidence review" : "Seek a public mandate for greater leadership", "Your accumulated public support and stability determine the outcome.", 1, 3, -2, "Elena", 3, "You submit your ambitions to a public process."),
-        option("coalition", "Build a wider coalition first", "Delay your rise to power to earn legitimacy.", 9, 4, 8, "Elena", 12, "You invite rival organizations into a new coalition. They agree to talks with oversight."),
-        option("pressure", "Demand immediate recognition", "A controversial push that could polarize the country.", -8, 9, -13, "Elena", -15, "You demand recognition. Supporters cheer, but your rivals organize against you."),
+        option("mandate", currentPosition === "president" ? "Submit to a public confidence review" : "Seek a public mandate", "Public support and stability determine what happens.", 1, 3, -2, "Elena", 3, "You present your case to the public."),
+        option("coalition", "Negotiate a broader coalition first", "Strengthen your position with legitimate partners.", 9, 4, 8, "Elena", 12, "Your coalition invites rival groups into structured talks."),
+        option("pressure", "Demand immediate recognition", "Risk resistance and declining public trust.", -8, 9, -13, "Elena", -15, "A contentious demand for recognition divides the assembly."),
       ],
     };
   }
-  const base = routes[route][campaign.stage % 4]!;
-  if (cycle === 0) return base;
-  const variation = cycle % 2 === 0
-    ? "News of your previous decisions has shifted alliances. New organizations want a say."
-    : "Your growing influence has attracted new critics and competing interests. People remember the last negotiation.";
+  if (stage < 3) return routes[route][stage]!;
+  // Route-specific episode 0 begins at stage 4. Every fourth stage is a
+  // political milestone, so those are skipped in the episode index.
+  const idx = stage - 4 - Math.floor((stage - 4) / 4);
+  const routeCount = availableCampaignEpisodes(route);
+  if (idx < routeCount) return campaignEpisode(route, idx)!;
+  // Crossing into a different branch of the same world introduces new issues
+  // without erasing the player's chosen initial approach.
+  const otherRoutes = (["reform", "investment", "diplomacy"] as const).filter(r => r !== route);
+  const crossed = idx - routeCount;
+  if (crossed < routeCount * 2) {
+    const source = otherRoutes[Math.floor(crossed / routeCount)]!;
+    const episode = campaignEpisode(source, crossed % routeCount)!;
+    return {
+      ...episode,
+      id: route + ":crossroads:" + episode.id,
+      objective: episode.objective + " as part of your wider " + route + " strategy",
+    };
+  }
+  // Past the finite authored arcs, evolve tensions from the actual state and
+  // prior decisions. No original scene text or mission ID is repeated.
+  const cycle = idx - routeCount * 3;
+  const subjects = [
+    ["The provincial council's challenge", "Camagüey", "Rafael Morales", "Public service promises are under review"],
+    ["A cabinet resignation", "Havana", "Elena Valdés", "An ally has quit the coalition and demands reform"],
+    ["The new trading coalition", "Cienfuegos", "Lucía Herrera", "Business groups dispute new contract terms"],
+    ["A confidential recording", "Santiago de Cuba", "Sofía Reyes", "Journalists publish contested meeting notes"],
+    ["An international summit", "Kingston", "Nora Wells", "A regional alliance seeks guarantees about your leadership"],
+    ["The opposition's petition", "Santa Clara", "Elena Valdés", "A rival coalition demands a public hearing"],
+    ["The community hospital dispute", "Matanzas", "Rafael Morales", "Health staff protest an unfulfilled commitment"],
+    ["A major investor withdraws", "Mariel", "Daniel Mercer", "Project sponsors challenge your investment terms"],
+  ] as const;
+  const item = subjects[cycle % subjects.length]!;
+  const pressure = campaign.support < 35 ? "Public confidence is low." :
+    campaign.stability < 35 ? "Institutions are under severe strain." :
+    campaign.position === "president" ? "Your administration now carries responsibility for every promise." :
+    "Your increasing influence is drawing new allies and opponents.";
+  const recent = campaign.decisions.slice(-2).map(d => d.outcome).join(" ");
   return {
-    ...base, id: base.id + ":cycle-" + cycle,
-    title: base.title + " · Round " + (cycle + 1),
-    setup: base.setup + " " + variation,
-    objective: base.objective + " while answering for your record",
+    id: route + ":evolving:" + stage,
+    title: item[0] + " · Day " + stage,
+    location: item[1] + " · Council chamber",
+    character: item[2],
+    objective: item[3],
+    setup: item[3] + ". " + pressure + " After the latest decisions—" + (recent || "several disputed proposals") +
+      "—community representatives have brought new demands before you. Different factions disagree about how to proceed.",
+    choices: [
+      option("hear", "Hear the opposing proposals in public", "Seek accountability and compromise.", 8, 3, 5, "Elena", 9, "The factions agree to another documented session with independent oversight."),
+      option("resolve", "Offer a specific, conditional agreement", "Move ahead while accepting scrutiny.", 5, 8, 2, "Lucía", 7, "A provisional agreement is put in writing while opponents prepare amendments."),
+      option("impose", "Push your preferred solution through", "Gain short-term control at political cost.", -10, 10, -10, "Rafael", -12, "The proposal advances over objections and sparks further political resistance."),
+    ],
   };
 }
 export function applyCampaignChoice(route: CampaignRoute, state: CampaignState, id: string, day: number) {
