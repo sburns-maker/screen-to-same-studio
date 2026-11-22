@@ -9,6 +9,7 @@ describe("World Order confidential ambition and international power",()=>{
   expect(restoreGlobalPower(undefined).strategy).toBe("private");
   const declared=nationalAction(secret,{type:"strategy",mode:"disclosed"},ctx)!;
   expect(publicStrategyStatement(declared.state)).toContain("publicly stated");
+  expect(nationalAction(declared.state,{type:"strategy",mode:"private"},ctx)).toBeNull();
   expect(secret.strategy).toBe("private");
  });
  it("includes distinct heads of state",()=>{
