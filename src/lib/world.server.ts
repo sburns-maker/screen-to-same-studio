@@ -262,6 +262,22 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
     // While paused, each run may make exactly one probe call; a successful
     // probe lifts the pause, a failed one keeps it (background-jobs rules).
     const aiBudget = aiPause.paused ? 1 : MAX_AI_CALLS_PER_RUN;
+    // This user-scoped pause applies only to Tess/AI Town; World Order has
+    // its own player-driven game clock and does not use this scheduled worker.
+    const pausedUsers = new Map<string, boolean>();
+    async function tessPaused(userId: string): Promise<boolean> {
+      if (pausedUsers.has(userId)) return pausedUsers.get(userId)!;
+      const { data, error } = await admin.from("user_profile").select("value")
+        .eq("user_id", userId).eq("key", "tess_background_paused").maybeSingle();
+      // Fail closed when pause state cannot be read; never generate extra AI.
+      if (error) {
+        report.errors.push("Tess background pause preference unavailable");
+        return true;
+      }
+      const paused = data?.value === "true";
+      pausedUsers.set(userId, paused);
+      return paused;
+    }
 
     // GET-only mature-photo recovery, independent of dialogue AI budget.
     try { (await import("./spicy-jobs.server")).startSpicyPhotoRecovery(admin); }
@@ -278,7 +294,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
     if (photoJobError) report.errors.push("Photo recovery queue unavailable");
     for (const job of photoJobs ?? []) {
       const detail = job.detail as { conversationId?: string; userId?: string };
-      if (!detail.conversationId || !detail.userId) continue;
+      if (!detail.conversationId || !detail.userId || await tessPaused(detail.userId)) continue;
       try {
         const { recoverPhotoDelivery } = await import("./photo-delivery.server");
         await recoverPhotoDelivery(admin, detail.conversationId, detail.userId);
@@ -304,6 +320,7 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
 
     let pushAttempts = 0;
     for (const msg of due ?? []) {
+      if (await tessPaused(msg.user_id)) continue;
       const conv = msg.conversation as {
         muted?: boolean;
         last_read_at?: string | null;
@@ -388,6 +405,8 @@ export async function runWorldTickWithAdmin(admin: Admin, now = new Date()): Pro
 
     let probeAttempted = false;
     for (const [userId, convs] of users) {
+      // Pause before finance, pregnancy, social updates, AI and phone offers.
+      if (await tessPaused(userId)) continue;
       // Advance all character pregnancies even when no conversation is opened.
       // No AI, no public pregnancy disclosure, and no outcome rerolls.
       if (process.env["ENABLE_PREGNANCY_LIFECYCLE"] === "true") try {
