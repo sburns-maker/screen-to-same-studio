@@ -47,7 +47,8 @@ const clamp=(n:number)=>Math.max(0,Math.min(100,n));
 export function incomingSocialWave(day:number,followers:number,chapter:"rescue"|"interview"|"cuba",already:readonly string[]):IncomingDM[]{
  if(day<2||followers<50000||chapter==="rescue")return [];
  // Two or three incoming contacts per day, spread over the cast. No background AI calls.
- const candidates=chapter==="interview"?SOCIAL_CONTACTS.slice(0,12):SOCIAL_CONTACTS;
+ const ordinaryContacts=SOCIAL_CONTACTS.filter(c=>!c.startsWith("President")&&!c.startsWith("PrimeMinister"));
+ const candidates=chapter==="interview"?ordinaryContacts.slice(0,12):ordinaryContacts;
  const count=followers>=1_000_000?3:2;
  const out:IncomingDM[]=[];
  for(let offset=0;offset<count;offset++){
