@@ -912,8 +912,9 @@ function WorldOrder() {
                   <span className="text-xs text-slate-300">{save.conquest.territory[country]==="controlled"?"Under your control":save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
                 </div>
                 {active?<div className="mt-3 space-y-2">
-                  <p className="text-xs text-slate-300">{active.method} · Stage {active.stage+1} · Progress {active.progress}% · Resistance {active.resistance}%</p>
+                  <p className="text-xs text-slate-300">{active.method} · Stage {active.stage+1} · Momentum {active.progress}% · Resistance {active.resistance}%</p>
                   <div className="h-2 overflow-hidden rounded-full bg-slate-700"><div className="h-full rounded-full bg-amber-300" style={{width:active.progress+"%"}}/></div>
+                   {active.progress===100 && <p className="mt-2 text-xs text-amber-200">Maximum momentum reached. This is not yet a victory: {active.method==="military"?"a negotiated compromise, resistance of 35% or less, and global tension below 65 are needed for a settlement.":"political resistance must fall to 60% or less for a ratified agreement."} Your campaign will not automatically expire while momentum is maxed.</p>}
                   {active.log.length>0&&<p className="rounded-lg bg-[#19283b] p-2 text-xs leading-5 text-slate-300">{active.log[active.log.length-1]?.text}</p>}
                   <div className="grid grid-cols-2 gap-2">{([
                     ["negotiate","Negotiations"],["invest","Invest"],["persuade","Win public support"],["pressure","Apply pressure"],

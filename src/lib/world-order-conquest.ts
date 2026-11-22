@@ -122,7 +122,7 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
    status="won";control="protectorate";prestige+=4;
    narrative+=" Following a costly crisis, negotiators approve a temporary supervised security arrangement. "+
     existing.country+" becomes a disputed protectorate in this alternate-history game; resistance and international oversight remain.";
- }else if(status==="active" && stage>=12){
+ }else if(status==="active" && stage>=12 && newProgress<100){
    status="lost";narrative+=" The prolonged initiative collapses amid domestic resistance and mounting costs.";
  }
  const updated:WorldCampaign={...existing,stage,progress:newProgress,resistance:newResistance,status,
