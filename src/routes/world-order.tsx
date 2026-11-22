@@ -6,7 +6,7 @@ import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCa
 import { socialReactionWave, appendMissingReactions, addCommentToPost, type SocialPost } from "@/lib/world-order-social";
 import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
 import { directorEvent, type DirectorMode } from "@/lib/world-order-director";
-import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldMemory } from "@/lib/world-order-rules";
+import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldContact, type WorldMemory } from "@/lib/world-order-rules";
 import { ArrowLeft, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Repeat2 } from "lucide-react";
 
 export const Route = createFileRoute("/world-order")({
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/world-order")({
 type Chapter = "rescue" | "interview" | "cuba";
 type Tab = "feed" | "messages" | "activities" | "world";
 type Post = SocialPost;
-type Chat = { id: number; from: "player" | "Sabrina" | "Maya" | "Elena"; body: string; day: number };
+type Chat = { id: number; from: "player" | WorldContact; body: string; day: number };
 type Memory = WorldMemory;
 type Save = {
   day: number; chapter: Chapter; route: "undecided" | "reform" | "investment" | "diplomacy";
@@ -108,7 +108,7 @@ function WorldOrder() {
   const [expandedComments, setExpandedComments] = useState<number[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [dm, setDm] = useState("");
-  const [selectedContact, setSelectedContact] = useState<"Sabrina" | "Maya" | "Elena">("Sabrina");
+  const [selectedContact, setSelectedContact] = useState<WorldContact>("Sabrina");
   useEffect(() => { setSave(readSave()); setReady(true); }, []);
   useEffect(() => { if (ready) localStorage.setItem(KEY, JSON.stringify(save)); }, [save, ready]);
   function mutate(transform: (s: Save) => Save) { setSave(prev => transform(prev)); }
@@ -250,7 +250,7 @@ function WorldOrder() {
         worldEvents: current.events.slice(-30).map(e => e.slice(0, 400)),
         memories: memoriesForContact(current.memories, contact),
         recentMessages: current.chat.filter(m => m.from === contact || (m.from === "player" && m.body.startsWith(`To ${contact}:`))).slice(-30).map(m => ({
-          from: m.from, day: m.day, body: m.body.replace(/^To (Sabrina|Maya|Elena): /, "").slice(0, 800),
+          from: m.from, day: m.day, body: m.body.replace(/^To [^:]+: /, "").slice(0, 800),
         })),
       }});
       setSave(previous => {
@@ -278,8 +278,15 @@ function WorldOrder() {
       };
       const lead = actorName[result.choice.actor] ?? result.choice.actor;
       const reaction = newPost(lead, result.choice.outcome, next.day, "Politics");
+      const privateReply = {
+        id: Date.now() + Math.random(), from: result.choice.actor as WorldContact, day: next.day,
+        body: result.choice.trust >= 0
+          ? "I saw how you handled that meeting. We have more to discuss—and I'll be watching what happens next."
+          : "I strongly disagree with that decision. If you want my trust, you'll need to explain yourself.",
+      };
       return { ...next,
         posts: [reaction, ...next.posts.filter(p => !(p.author === "WorldWire" && p.day === next.day && p.category === "Update"))].slice(0, 160),
+        chat: [...next.chat, privateReply],
         memories: [...next.memories.filter(m => m.key !== "world:campaign-latest"), {
           key: "world:campaign-latest", summary: result.choice.outcome, visibility: "shared" as const,
         }],
@@ -355,9 +362,9 @@ function WorldOrder() {
         </section>}
         {tab === "messages" && <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#172236]">
           <div className="border-b border-slate-800 px-4 py-4"><h2 className="font-display text-2xl">Private messages</h2><p className="mt-1 text-xs text-slate-400">Conversations do not advance time</p></div>
-          <div className="flex gap-2 overflow-x-auto p-3">{(["Sabrina", "Maya", "Elena"] as const).map(c => <button key={c} onClick={() => setSelectedContact(c)} className={"shrink-0 rounded-full border px-4 py-2 text-sm " + (selectedContact === c ? "border-amber-300 bg-amber-300 font-semibold text-slate-950" : "border-slate-700 text-slate-300")}>{c}</button>)}</div>
+          <div className="flex gap-2 overflow-x-auto p-3">{(["Sabrina", "Maya", "Elena", ...(save.chapter === "cuba" ? ["Sofía", "Lucía", "Rafael", "Mercer", "Nora"] as const : [])] as WorldContact[]).map(c => <button key={c} onClick={() => setSelectedContact(c)} className={"shrink-0 rounded-full border px-4 py-2 text-sm " + (selectedContact === c ? "border-amber-300 bg-amber-300 font-semibold text-slate-950" : "border-slate-700 text-slate-300")}>{c}</button>)}</div>
           <div className="flex min-h-48 flex-col gap-3 border-y border-slate-800 bg-[#0c1524] p-4">
-            {save.chat.filter(m => m.from === selectedContact || (m.from === "player" && m.body.startsWith("To " + selectedContact + ":"))).map(m => <div key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed " + (m.from === "player" ? "ml-auto rounded-br-sm bg-amber-300 text-slate-950" : "mr-auto rounded-bl-sm bg-[#34445e] text-slate-100")}><span className="mb-1 block text-[10px] font-bold opacity-60">{m.from === "player" ? "You" : m.from} · Day {m.day}</span>{m.body.replace(/^To (Sabrina|Maya|Elena): /, "")}</div>)}
+            {save.chat.filter(m => m.from === selectedContact || (m.from === "player" && m.body.startsWith("To " + selectedContact + ":"))).map(m => <div key={m.id} className={"max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed " + (m.from === "player" ? "ml-auto rounded-br-sm bg-amber-300 text-slate-950" : "mr-auto rounded-bl-sm bg-[#34445e] text-slate-100")}><span className="mb-1 block text-[10px] font-bold opacity-60">{m.from === "player" ? "You" : m.from} · Day {m.day}</span>{m.body.replace(/^To [^:]+: /, "")}</div>)}
             {!save.chat.some(m => m.from === selectedContact || m.body.startsWith("To " + selectedContact + ":")) && <p className="my-auto text-center text-xs text-slate-500">{selectedContact === "Sabrina" && save.chapter === "rescue" ? "Sabrina hasn't met you yet. Your story begins at the concert." : "No conversation yet. Say hello."}</p>}
             {replying && <p role="status" className="text-xs text-amber-300">{selectedContact} is typing…</p>}
             {replyError && <p role="alert" className="text-xs text-red-300">{replyError}</p>}
@@ -388,7 +395,15 @@ function WorldOrder() {
                 <span className="rounded-full border border-slate-700 px-3 py-1.5">{campaignScene.location}</span>
               </div>
               {save.campaign.lastOutcome && <div className="rounded-xl border-l-2 border-amber-300 bg-[#0c1524] p-3"><p className="text-[11px] font-bold uppercase tracking-widest text-amber-300">Previously</p><p className="mt-1 text-sm leading-6 text-slate-300">{save.campaign.lastOutcome}</p></div>}
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-300">In the room · {campaignScene.character}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-300">In the room · {campaignScene.character}</p>
+                <button onClick={() => { setSelectedContact(
+                  campaignScene.character.startsWith("Rafael") ? "Rafael" :
+                  campaignScene.character.startsWith("Sofía") ? "Sofía" :
+                  campaignScene.character.startsWith("Lucía") ? "Lucía" :
+                  campaignScene.character.startsWith("Daniel") ? "Mercer" : "Elena"
+                ); setTab("messages"); }} className="rounded-full border border-amber-300/50 px-3 py-2 text-xs text-amber-200">Message →</button>
+              </div>
               <p className="text-sm leading-7 text-slate-200">{campaignScene.setup}</p>
               <div className="rounded-xl bg-[#0c1524] p-3 text-sm text-slate-300"><strong className="text-amber-200">Your objective:</strong> {campaignScene.objective}</div>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400">How do you respond?</p>
