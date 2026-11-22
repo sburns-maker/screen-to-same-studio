@@ -1,3 +1,11 @@
+## Multi-stage global expansion
+- The first draft of global power had diplomatic and defense buttons but no enduring strategy campaign. `src/lib/world-order-conquest.ts` adds persistent nation-to-nation campaign objects with stages, resistance, progress, global tension, decisions, public reactions and outcome states.
+- World → Global campaigns displays each target country, current stage, progress, resistance, history, and actions. Available approaches include diplomatic union, economic expansion, and strategic military confrontation; one decision consumes one game day and changes canonical country state.
+- Diplomacy and economics can earn voluntary partner status after sustained progress and declining resistance. Military confrontation incurs higher international tension and support costs; disputed protectorate status requires a long, successful crisis followed by a mediated political settlement. Neither route allows a one-click takeover.
+- This is high-level, invented political simulation: no operational targeting or military tactics. Rival countries remain autonomous characters and may oppose the player.
+- Saved games receive an independent conquest state without overwriting already established private ambitions, friends, romances, country progression, or local assets.
+- The system currently has six simulated countries with limited automated reactions. A full 150–200-character world with autonomous state agents, richer wars, occupation governance, domestic rebellion, and multi-country coalition systems remains future work.
+
 ## Private strategy and international power — 2026-11-22
 - Player's ambition to conquer or control the wider world is a **private intention**, not common knowledge. Taylor, Sabrina, the press, government officials and ordinary NPCs must NOT know or imply they know unless told by the player or an actual public event makes it known.
 - World Order's private strategy defaults to `private`, including migrated existing worlds. A deliberate public declaration is required to reveal it; any actual private disclosure to an NPC belongs only in that character's knowledge, not a global news feed.
