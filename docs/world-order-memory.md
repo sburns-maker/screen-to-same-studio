@@ -1,10 +1,10 @@
 # World Order — persistent design memory
 
-Updated 2026-11-21. This file describes World Order only. Do not modify Tess or AI Town canon.
+Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes World Order only. Do not modify Tess or AI Town canon.
 
 ## Vision
 - Modern Earth recognizable geography, institutions and celebrities; fictional alternate history, with clear fiction disclosure for made-up incidents, statements, encounters and political events.
-- Opening: player saves fictionalized Sabrina Carpenter from an assassination attempt at a public concert; during a televised interview alongside her, player publicly embarrasses the sitting US president. These two beats are guaranteed, consequences and relationships vary.
+- Opening: the player is physically present at a fictionalized Sabrina Carpenter concert when danger begins, acts through three scene beats (notice threat, protect people, handle aftermath), and the rescue becomes canon only after the player actually completes the scene. A freeform AI narrator supplements deterministic actions; consequences and reputation vary. Later, a televised interview alongside Sabrina involves the fictional president and choices that influence public reaction.
 - Cuban constitutional/economic crisis follows; gaining power is never guaranteed. Branch into local democratic reform, investment, diplomacy or other later paths. Political legitimacy must involve local people and institutions.
 - One world encompasses fame, career, businesses, family, romance, media, politics, national leadership and global affairs. No tedious national accounting.
 - Posts and activities each advance one fictional day. DMs do not. Optional time skips can be added.
@@ -49,7 +49,9 @@ Updated 2026-11-21. This file describes World Order only. Do not modify Tess or 
 - Maintain user-controlled export, rewind/checkpoint and correction tools, with private data isolation by authenticated user and world.
 
 ## Existing code / interim prototype
-- `src/routes/world-order.tsx`: prototype story, posts, DMs, choices, day clock, browser-local save and memories; accessible from AI Town home on the branch.
+- `src/routes/world-order.tsx`: cinematic dark/mobile interface, interactive three-beat concert rescue with predefined or freeform AI actions, subsequent story, feed, DMs, day clock, browser-local save and memories; accessible from AI Town home on the branch.
+- `src/lib/world-order-rescue.ts`: pure scene state machine; rescue is not presumed before player action, and game day advances only on completion of the three beats.
+- `src/lib/world-order.functions.ts`: also hosts authenticated AI narration for freeform rescue actions; AI narrates but cannot silently override canonical state.
 - `src/lib/world-order.functions.ts`: authenticated server function using existing `runStructured` OpenAI provider with `OPENAI_API_KEY` in server environment only. The app does not contain or reveal that key.
 - `src/lib/world-order-cast.ts`: initial NPC catalog and future office role slots.
 - Current prototype memories are stored in browser localStorage, not production DB, and are not cross-device. AI-generated memory summaries are provisional, limited, and cannot rewrite known anchors.
