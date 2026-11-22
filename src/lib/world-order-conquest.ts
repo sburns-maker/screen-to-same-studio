@@ -11,7 +11,7 @@ export type TerritoryStatus="independent"|"partner"|"protectorate"|"occupied"|"c
 export type WorldCampaign={
  id:string; country:ForeignCountry; method:CampaignMethod; status:CampaignStatus;
  stage:number; progress:number; resistance:number; internationalConcern:number;
- startedDay:number; lastDecisionDay:number; surpriseUsed?:boolean; uprisingSupport?:number; log:{day:number;choice:string;text:string}[];
+ startedDay:number; lastDecisionDay:number; surpriseUsed?:boolean; uprisingSupport?:number; occupationSteps?:number; log:{day:number;choice:string;text:string}[];
 };
 export type ConquestWorld={
  campaigns:WorldCampaign[]; territory:Record<string,TerritoryStatus>;
@@ -170,7 +170,7 @@ export function consolidateControl(world:ConquestWorld,country:ForeignCountry,da
  if(!context.president||context.cash<25000||context.legitimacy<45||!completed||
   (current!=="partner"&&current!=="protectorate"&&current!=="occupied")||
   day<=completed.lastDecisionDay+1)return null;
- if(current==="occupied"&&completed.resistance>40)return null;
+ if(current==="occupied"&&(completed.resistance>40||(completed.occupationSteps||0)<2))return null;
  const summary=current==="occupied"
    ?country+" passes from disputed military occupation into direct administration after a costly consolidation process. Resistance, reconstruction, and international criticism remain."
    :country+" enters your international union following a negotiated integration agreement. It becomes a governed territory in this alternate-history simulation; local opposition and autonomy questions remain.";
@@ -197,7 +197,7 @@ export function governOccupation(world:ConquestWorld,country:ForeignCountry,day:
   :action==="autonomy"
   ?country+" gains a civilian autonomy charter and independent local oversight, reducing occupation resistance."
   :country+" tightens emergency security under occupation. Some unrest subsides, but civic resistance and international criticism rise.";
- const updated={...won,resistance:clamp(won.resistance+delta),lastDecisionDay:day,
+ const updated={...won,resistance:clamp(won.resistance+delta),occupationSteps:(won.occupationSteps||0)+1,lastDecisionDay:day,
   log:[...won.log,{day,choice:action,text:narrative}].slice(-40)};
  const next={...world,campaigns:world.campaigns.map(c=>c.id===won.id?updated:c),
   worldTension:clamp(world.worldTension+tension),lastHeadline:narrative};
