@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AndroidConnectRouteImport } from './routes/android-connect'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as WorldOrderRouteImport } from './routes/world-order'
 import { Route as AuthenticatedCallsRouteImport } from './routes/_authenticated/calls'
 import { Route as AuthenticatedExperiencesRouteImport } from './routes/_authenticated/experiences'
 import { Route as AuthenticatedExploreRouteImport } from './routes/_authenticated/explore'
@@ -57,6 +58,11 @@ const AndroidConnectRoute = AndroidConnectRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorldOrderRoute = WorldOrderRouteImport.update({
+  id: '/world-order',
+  path: '/world-order',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedCallsRoute = AuthenticatedCallsRouteImport.update({
@@ -203,6 +209,7 @@ const ApiPublicJobsWorldTickRoute = ApiPublicJobsWorldTickRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/world-order': typeof WorldOrderRoute
   '/': typeof IndexRoute
   '/android-connect': typeof AndroidConnectRoute
   '/auth': typeof AuthRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRoutesByTo {
+  '/world-order': typeof WorldOrderRoute
   '/': typeof IndexRoute
   '/android-connect': typeof AndroidConnectRoute
   '/auth': typeof AuthRoute
@@ -265,6 +273,7 @@ export interface FileRoutesByTo {
   '/api/public/jobs/world-tick': typeof ApiPublicJobsWorldTickRoute
 }
 export interface FileRoutesById {
+  '/world-order': typeof WorldOrderRoute
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
@@ -300,6 +309,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/world-order'
     | '/'
     | '/android-connect'
     | '/auth'
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/api/public/jobs/world-tick'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/world-order'
     | '/'
     | '/android-connect'
     | '/auth'
@@ -361,6 +372,7 @@ export interface FileRouteTypes {
     | '/api/public/push-worker'
     | '/api/public/jobs/world-tick'
   id:
+    | '/world-order'
     | '__root__'
     | '/'
     | '/_authenticated'
@@ -395,6 +407,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  WorldOrderRoute: typeof WorldOrderRoute
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AndroidConnectRoute: typeof AndroidConnectRoute
@@ -405,6 +418,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/world-order': {
+      id: '/world-order'
+      path: '/world-order'
+      fullPath: '/world-order'
+      preLoaderRoute: typeof WorldOrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -681,6 +701,7 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
+  WorldOrderRoute: WorldOrderRoute,
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AndroidConnectRoute: AndroidConnectRoute,
