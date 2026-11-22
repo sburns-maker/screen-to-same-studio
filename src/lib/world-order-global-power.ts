@@ -55,7 +55,8 @@ export function nationalAction(power:GlobalPower,action:NationalAction,
  context:{president:boolean;influence:number;cash:number;day:number}):NationalResult|null{
  if(context.day<1 || !Number.isSafeInteger(context.day))return null;
  if(action.type==="strategy"){
-   if(power.strategy===action.mode)return null;
+   // Once revealed publicly, the goal cannot be made secret again.
+   if(power.strategy==="disclosed" || action.mode!=="disclosed")return null;
    const next={...power,strategy:action.mode};
    return {state:next,cashCost:0,influenceDelta:0,supportDelta:0,
      summary:action.mode==="disclosed"?"You publicly announce your ambitions to reshape international leadership. Other countries react with caution.":
