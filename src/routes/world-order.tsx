@@ -199,13 +199,31 @@ function WorldOrder() {
     const body = draft.trim();
     if (!body || body.length > 1200 || save.chapter === "rescue") return;
     mutate(s => {
-      const next = advance(s, "Your public post sparks new conversations across the world.", "public_post");
-      const reaction = body.toLowerCase().includes("cuba")
-        ? "Cuban commentators debate your latest statement. Some welcome your interest, while others demand concrete commitments."
-        : "Fans and skeptics alike weigh in on your latest update.";
-      return { ...next, followers: s.followers + 12000, posts: [newPost(s.playerName, body, next.day), newPost("The Public Square", reaction, next.day), ...next.posts] };
+      const next = advance(s, "Your public post is circulating across the network.", "public_post");
+      const aboutCuba = /cuba|havana|reform|government|politic/i.test(body);
+      const reaction = aboutCuba
+        ? "There are competing views about your latest statement. Residents, organizers, and journalists want specifics."
+        : "Some people are cheering your latest post. Others wonder what you will do with all this attention.";
+      const playerPost: Post = { ...newPost(s.playerName, body, next.day), likes: 12000, reposts: 1800,
+        comments: [
+          { id: Date.now() + 1, author: "Jules Moreno", body: "Okay, now I am curious where this goes.", likes: 128 },
+          { id: Date.now() + 2, author: "Ravi Mehta", body: "I am going to need more than a viral statement.", likes: 97 },
+        ] };
+      return { ...next, followers: s.followers + 12000,
+        posts: [playerPost, newPost(aboutCuba ? "Sofía Reyes" : "Carmen Lee", reaction, next.day, "Reaction"), ...next.posts].slice(0, 160) };
     });
     setDraft(""); setTab("feed");
+  }
+  function likePost(id: number) {
+    mutate(s => ({ ...s, posts: s.posts.map(p => p.id === id ? {
+      ...p, liked: !p.liked, likes: Math.max(0, (p.likes ?? 0) + (p.liked ? -1 : 1)),
+    } : p) }));
+  }
+  function commentOnPost(postId: number) {
+    const body = (commentDrafts[postId] ?? "").trim();
+    if (!body || body.length > 350) return;
+    mutate(s => ({ ...s, posts: addCommentToPost(s.posts, postId, s.playerName, body, s.day) }));
+    setCommentDrafts(previous => ({ ...previous, [postId]: "" }));
   }
   async function sendDm() {
     const body = dm.trim();
