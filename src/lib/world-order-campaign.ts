@@ -12,9 +12,10 @@ export type CampaignDecision = { scene: string; choice: string; day: number; out
 export type CampaignState = {
   stage: number; support: number; stability: number; relations: Partial<Record<CampaignActor, number>>;
   decisions: CampaignDecision[]; lastOutcome: string;
+  position: "outsider" | "delegate" | "candidate" | "president";
 };
 export function initialCampaign(): CampaignState {
-  return { stage: 0, support: 15, stability: 44, relations: {}, decisions: [], lastOutcome: "" };
+  return { stage: 0, support: 15, stability: 44, relations: {}, decisions: [], lastOutcome: "", position: "outsider" };
 }
 const option = (id: string, title: string, detail: string, support: number, influence: number, stability: number, actor: CampaignActor, trust: number, outcome: string): CampaignChoice =>
   ({ id, title, detail, support, influence, stability, actor, trust, outcome });
@@ -96,8 +97,23 @@ const clamp = (n: number) => Math.max(0, Math.min(100, n));
  * After every three stages, a fresh political pressure cycle begins.
  */
 export function currentCampaignScene(route: CampaignRoute, campaign: CampaignState): CampaignScene {
-  const cycle = Math.max(0, Math.floor(campaign.stage / 3));
-  const base = routes[route][campaign.stage % 3]!;
+  const cycle = Math.max(0, Math.floor(campaign.stage / 4));
+  if (campaign.stage % 4 === 3) {
+    return {
+      id: "leadership-mandate:" + cycle, title: cycle === 0 ? "The question of power" : "A new mandate", location: "Havana · Public assembly",
+      character: "Elena Valdés",
+      objective: campaign.position === "president" ? "Preserve legitimacy and build coalitions" : "Seek a legitimate mandate—or keep building local support",
+      setup: campaign.position === "president"
+        ? "Your government faces a new public confidence debate. Elena warns that victory at the ballot box doesn't end dissent or relieve you of responsibility."
+        : "A public assembly has convened. Elena faces you directly: 'You have allies now, but do you have the trust of the people to lead? And what happens if they say no?' Representatives of competing factions demand an answer.",
+      choices: [
+        option("mandate", campaign.position === "president" ? "Submit to a public confidence review" : "Seek a public mandate for greater leadership", "Your accumulated public support and stability determine the outcome.", 1, 3, -2, "Elena", 3, "You submit your ambitions to a public process."),
+        option("coalition", "Build a wider coalition first", "Delay your rise to power to earn legitimacy.", 9, 4, 8, "Elena", 12, "You invite rival organizations into a new coalition. They agree to talks with oversight."),
+        option("pressure", "Demand immediate recognition", "A controversial push that could polarize the country.", -8, 9, -13, "Elena", -15, "You demand recognition. Supporters cheer, but your rivals organize against you."),
+      ],
+    };
+  }
+  const base = routes[route][campaign.stage % 4]!;
   if (cycle === 0) return base;
   const variation = cycle % 2 === 0
     ? "News of your previous decisions has shifted alliances. New organizations want a say."
@@ -116,15 +132,31 @@ export function applyCampaignChoice(route: CampaignRoute, state: CampaignState, 
   const relations = { ...state.relations };
   // Relations start neutral (50) and can rise or fall with decisions.
   relations[choice.actor] = clamp((state.relations[choice.actor] ?? 50) + choice.trust);
+  const support = clamp(state.support + choice.support);
+  const stability = clamp(state.stability + choice.stability);
+  let position = state.position;
+  let outcome = choice.outcome;
+  if (scene.id.startsWith("leadership-mandate:") && choice.id === "mandate") {
+    const newStage = state.stage + 1;
+    const threshold = position === "outsider" ? 38 : position === "delegate" ? 57 : 75;
+    const stabilityThreshold = position === "outsider" ? 35 : position === "delegate" ? 45 : 55;
+    if (position === "president") {
+      outcome = "You face a confidence review. The public debate continues, and rivals demand accountability.";
+    } else if (support >= threshold && stability >= stabilityThreshold &&
+      (position !== "candidate" || newStage >= 12)) {
+      position = position === "outsider" ? "delegate" : position === "delegate" ? "candidate" : "president";
+      const titles = { delegate: "a recognized transition delegate", candidate: "an officially nominated presidential candidate", president: "president following a contested public election", outsider: "an outsider" };
+      outcome = "The assembly's public process gives you a new mandate: " + titles[position] + ". Opposition groups remain active.";
+    } else {
+      outcome = "Your bid for a broader mandate falls short. Voters and delegates ask for stronger support, stability and a clearer plan. You can try again after rebuilding your coalition.";
+    }
+  }
   const next: CampaignState = {
-    stage: state.stage + 1,
-    support: clamp(state.support + choice.support),
-    stability: clamp(state.stability + choice.stability),
-    relations,
-    decisions: [...state.decisions, { scene: scene.id, choice: choice.id, day, outcome: choice.outcome }].slice(-100),
-    lastOutcome: choice.outcome,
+    stage: state.stage + 1, support, stability, position, relations,
+    decisions: [...state.decisions, { scene: scene.id, choice: choice.id, day, outcome }].slice(-100),
+    lastOutcome: outcome,
   };
-  return { scene, choice, state: next };
+  return { scene, choice: { ...choice, outcome }, state: next };
 }
 /** Restores older playtest worlds into the first playable campaign scene. */
 export function normalizeCampaign(raw: unknown): CampaignState {
@@ -138,5 +170,6 @@ export function normalizeCampaign(raw: unknown): CampaignState {
     relations: v.relations && typeof v.relations === "object" ? v.relations : {},
     decisions: Array.isArray(v.decisions) ? v.decisions.slice(-100) : [],
     lastOutcome: typeof v.lastOutcome === "string" ? v.lastOutcome : "",
+    position: ["outsider", "delegate", "candidate", "president"].includes(v.position ?? "") ? v.position! : "outsider",
   };
 }
