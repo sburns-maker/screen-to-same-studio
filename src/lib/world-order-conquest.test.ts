@@ -121,7 +121,7 @@ describe("World Order multi-stage world expansion",()=>{
   let won=world.campaigns.find(c=>c.id===id)!;
   expect(consolidateControl(world,"Guatemala",won.lastDecisionDay+2,{president:true,cash:999999,legitimacy:80})).toBeNull();
   let day=won.lastDecisionDay+1;
-  while(world.campaigns.find(c=>c.id===id)!.resistance>40){
+  while(world.campaigns.find(c=>c.id===id)!.resistance>40||(world.campaigns.find(c=>c.id===id)!.occupationSteps||0)<2){
     world=governOccupation(world,"Guatemala",day++,"autonomy",{cash:100000})!.state;
   }
   won=world.campaigns.find(c=>c.id===id)!;
