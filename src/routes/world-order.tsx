@@ -2,12 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
+import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
+import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife } from "@/lib/world-order-social-life";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState } from "@/lib/world-order-campaign";
 import { socialReactionWave, appendMissingReactions, addCommentToPost, type SocialPost } from "@/lib/world-order-social";
 import { RESCUE_BEATS, rescueChoice, rescueAdvancePhase, rescueOutcome, type RescueChoice, type RescuePhase, type RescueRecord } from "@/lib/world-order-rescue";
 import { directorEvent, type DirectorMode } from "@/lib/world-order-director";
 import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldContact, type WorldMemory } from "@/lib/world-order-rules";
-import { ArrowLeft, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Repeat2 } from "lucide-react";
+import { ArrowLeft, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Repeat2, UsersRound } from "lucide-react";
 
 export const Route = createFileRoute("/world-order")({
   head: () => ({ meta: [{ title: "World Order — The Accidental King" }, { name: "description", content: "A fictional modern-Earth political and social life simulation." }] }),
@@ -15,7 +17,7 @@ export const Route = createFileRoute("/world-order")({
 });
 
 type Chapter = "rescue" | "interview" | "cuba";
-type Tab = "feed" | "messages" | "activities" | "world";
+type Tab = "feed" | "messages" | "activities" | "world" | "life";
 type Post = SocialPost;
 type Chat = { id: number; from: "player" | WorldContact; body: string; day: number };
 type Memory = WorldMemory;
@@ -25,12 +27,12 @@ type Save = {
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
   directorMode: DirectorMode; directorEventIds: string[];
   rescuePhase: RescuePhase; rescueLog: RescueRecord[];
-  campaign: CampaignState;
+  campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife;
 };
 const KEY = "world-order-v1";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(),
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(),
   posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "Sabrina Carpenter is onstage. The crowd is roaring and the lights are blazing. Something unsettling is unfolding near the barricade." }],
   chat: [],
   events: ["Day 1: You are attending Sabrina Carpenter's concert."],
@@ -88,7 +90,7 @@ function readSave(): Save {
     const cleanPosts = upgradedPosts.filter(p =>
       !(p.author === "WorldWire" && p.category === "Update" &&
         (p.body.startsWith("Another day passes.") || p.body.startsWith("Time passes. Unresolved decisions"))));
-    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign),
+    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign), openWorld: restoreOpenWorld(v.openWorld), socialLife: restoreSocialLife(v.socialLife),
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
@@ -116,6 +118,8 @@ function WorldOrder() {
   const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const [dm, setDm] = useState("");
   const [selectedContact, setSelectedContact] = useState<WorldContact>("Sabrina");
+  const [contactSearch, setContactSearch] = useState("");
+  const [socialNotice, setSocialNotice] = useState("");
   useEffect(() => { setSave(readSave()); setReady(true); }, []);
   useEffect(() => { if (ready) localStorage.setItem(KEY, JSON.stringify(save)); }, [save, ready]);
   function mutate(transform: (s: Save) => Save) { setSave(prev => transform(prev)); }
@@ -126,12 +130,15 @@ function WorldOrder() {
       day, mode: s.directorMode, chapter: s.chapter, route: s.route,
       trigger, alreadyEmittedIds: s.directorEventIds,
     });
+    const dmWave = incomingSocialWave(day, s.followers, s.chapter, s.socialLife.incomingIds);
     const additions = [
       ...(trigger === "activity" && s.chapter !== "cuba" ? [newPost("WorldWire", headline, day, "Update")] : []),
       ...(event ? [newPost(event.author, event.summary, day, event.category)] : []),
     ];
     return {
       ...s, day,
+      chat: [...s.chat, ...dmWave.map((m, i) => ({ id: day * 100000 + i + 50, from: m.contact, body: m.body, day: m.day }))].slice(-500),
+      socialLife: { ...s.socialLife, incomingIds: [...s.socialLife.incomingIds, ...dmWave.map(m => m.id)].slice(-500) },
       influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
       cubaSupport: Math.max(0, s.cubaSupport + (event?.supportDelta ?? 0)),
       directorEventIds: event ? [...s.directorEventIds, event.id].slice(-120) : s.directorEventIds,
@@ -327,7 +334,7 @@ function WorldOrder() {
   const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
-  const nav = [["feed", Newspaper, "Feed"], ["messages", MessageCircle, "DMs"], ["activities", Heart, "Story"], ["world", Globe2, "World"]] as const;
+  const nav = [["feed", Newspaper, "Feed"], ["messages", MessageCircle, "DMs"], ["activities", Heart, "Story"], ["life", UsersRound, "Life"], ["world", Globe2, "World"]] as const;
   const initials = (name: string) => name.split(/\s+/).slice(0, 2).map(word => word.charAt(0)).join("").toUpperCase();
   const avatar = (name: string, highlighted = false) => <span className={"grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-extrabold " + (highlighted ? "bg-amber-300 text-slate-950" : "bg-[#34465f] text-slate-100")}>{initials(name)}</span>;
   const chapterTag = save.chapter === "rescue" ? "CHAPTER 01 · THE CONCERT" : save.chapter === "interview" ? "CHAPTER 02 · LIVE TELEVISION" : save.route === "undecided" ? "CHAPTER 03 · THE CUBA CRISIS" : "OPEN WORLD · YOUR LEGACY";
@@ -360,7 +367,7 @@ function WorldOrder() {
             { label: "Influence", value: String(save.influence) },
           ].map(item => <div key={item.label} className="rounded-2xl border border-slate-800 bg-[#172236] px-2 py-3 text-center"><p className="text-xl font-bold tabular-nums">{item.value}</p><p className="mt-1 text-[11px] text-slate-400">{item.label}</p></div>)}
         </div>
-        <nav aria-label="World Order navigation" className="mb-5 grid grid-cols-4 rounded-2xl border border-slate-800 bg-[#172236] p-1">
+        <nav aria-label="World Order navigation" className="mb-5 grid grid-cols-5 rounded-2xl border border-slate-800 bg-[#172236] p-1">
           {nav.map(([name, Icon, label]) => <button key={name} onClick={() => setTab(name)} aria-current={tab === name ? "page" : undefined}
             className={"flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-xs font-semibold transition " + (tab === name ? "bg-amber-300 text-slate-950" : "text-slate-400 hover:bg-slate-800")}><Icon size={19}/>{label}</button>)}
         </nav>
