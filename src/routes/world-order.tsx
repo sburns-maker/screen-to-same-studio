@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply } from "@/lib/world-order.functions";
+import { directorEvent, type DirectorMode } from "@/lib/world-order-director";
 import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldMemory } from "@/lib/world-order-rules";
 import { ArrowLeft, CalendarDays, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Sparkles, Users } from "lucide-react";
 
@@ -19,11 +20,12 @@ type Save = {
   day: number; chapter: Chapter; route: "undecided" | "reform" | "investment" | "diplomacy";
   followers: number; reputation: number; influence: number; cubaSupport: number;
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
+  directorMode: DirectorMode; directorEventIds: string[];
 };
 const KEY = "world-order-v1";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], memories: [
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], memories: [
     { key: "world:concert-rescue", summary: "Day 1: The player saved fictionalized Sabrina Carpenter from an attempted assassination during a concert.", visibility: "shared" },
   ],
   posts: [{ id: 1, author: "WorldWire", category: "Breaking", day: 1, body: "FICTIONAL SCENARIO: An attempt on Sabrina Carpenter's life is stopped during a concert by an audience member. A dramatic video spreads across the world." }],
@@ -53,7 +55,10 @@ function readSave(): Save {
     if (!raw) return structuredClone(INITIAL);
     const v = JSON.parse(raw);
     if (!v || typeof v.day !== "number" || !Array.isArray(v.posts) || !Array.isArray(v.chat) || !Array.isArray(v.events)) return structuredClone(INITIAL);
-    return { ...structuredClone(INITIAL), ...v, memories: Array.isArray(v.memories) ? v.memories : structuredClone(INITIAL.memories) };
+    return { ...structuredClone(INITIAL), ...v,
+      directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
+      directorEventIds: Array.isArray(v.directorEventIds) ? v.directorEventIds : [],
+      memories: Array.isArray(v.memories) ? v.memories : structuredClone(INITIAL.memories) };
   } catch { return structuredClone(INITIAL); }
 }
 function WorldOrder() {
@@ -70,14 +75,25 @@ function WorldOrder() {
   useEffect(() => { if (ready) localStorage.setItem(KEY, JSON.stringify(save)); }, [save, ready]);
   function mutate(transform: (s: Save) => Save) { setSave(prev => transform(prev)); }
   function newPost(author: string, body: string, day: number, category = "Social"): Post { return { id: Date.now() + Math.random(), author, body, day, category }; }
-  function advance(s: Save, headline: string): Save {
-    const day = nextGameDay(s.day, "activity");
-    const background = day % 3 === 0
-      ? newPost("WorldWire", "International observers are tracking political uncertainty in Cuba. Reform groups are calling for transparent negotiations.", day, "World")
-      : day % 3 === 1
-      ? newPost("CultureBeat", "The concert-rescue story continues to dominate social conversations. Media attention is shifting toward the person behind the viral video.", day, "Culture")
-      : newPost("The Public Square", "People are debating how celebrity influence should intersect with politics.", day, "Politics");
-    return { ...s, day, posts: [newPost("WorldWire", headline, day, "Update"), background, ...s.posts].slice(0, 100), events: [...s.events, `Day ${day}: ${headline}`].slice(-100) };
+  function advance(s: Save, headline: string, trigger: "activity" | "public_post" | "pass_day" = "activity"): Save {
+    const day = nextGameDay(s.day, trigger === "public_post" ? "post" : "activity");
+    const event = directorEvent({
+      day, mode: s.directorMode, chapter: s.chapter, route: s.route,
+      trigger, alreadyEmittedIds: s.directorEventIds,
+    });
+    const additions = [
+      newPost("WorldWire", headline, day, "Update"),
+      ...(event ? [newPost(event.author, event.summary, day, event.category)] : []),
+    ];
+    return {
+      ...s, day,
+      influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
+      cubaSupport: Math.max(0, s.cubaSupport + (event?.supportDelta ?? 0)),
+      directorEventIds: event ? [...s.directorEventIds, event.id].slice(-120) : s.directorEventIds,
+      posts: [...additions, ...s.posts].slice(0, 100),
+      events: [...s.events, `Day ${day}: ${headline}`,
+        ...(event ? [`Day ${day} · ${event.author}: ${event.summary}`] : [])].slice(-100),
+    };
   }
   function completeRescue(choice: "camera" | "sabrina" | "authorities") {
     mutate(s => {
@@ -117,7 +133,7 @@ function WorldOrder() {
     const body = draft.trim();
     if (!body || body.length > 1200) return;
     mutate(s => {
-      const next = advance(s, "Your public post sparks new conversations across the world.");
+      const next = advance(s, "Your public post sparks new conversations across the world.", "public_post");
       const reaction = body.toLowerCase().includes("cuba")
         ? "Cuban commentators debate your latest statement. Some welcome your interest, while others demand concrete commitments."
         : "Fans and skeptics alike weigh in on your latest update.";
@@ -151,7 +167,7 @@ function WorldOrder() {
     } finally { setReplying(false); }
   }
   function nextDay() {
-    mutate(s => advance({ ...s, influence: s.influence + (s.route === "undecided" ? 0 : 1) }, "Another day passes. Reporters, officials, and citizens continue shaping events."));
+    mutate(s => advance({ ...s, influence: s.influence + (s.route === "undecided" ? 0 : 1) }, "Another day passes. Reporters, officials, and citizens continue shaping events.", "pass_day"));
   }
   const activity = save.chapter === "rescue" ? "The aftermath of the concert rescue" : save.chapter === "interview" ? "The nationally televised interview" : save.route === "undecided" ? "A crossroads in Havana" : "Open-world activity";
   return (
@@ -191,6 +207,18 @@ function WorldOrder() {
       </section>}
       {tab === "world" && <section className="space-y-4">
         <div className="rounded-xl border p-4"><h2 className="mb-2 flex items-center gap-2 font-display text-2xl"><Landmark size={20}/> Your path</h2><p className="text-sm">{save.route === "undecided" ? "Your Cuba strategy is not yet decided. Finish the opening activities." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-muted-foreground">Cuban support: {save.cubaSupport} · Personal influence: {save.influence}</p></div>
+        <div className="rounded-xl border p-4">
+          <h2 className="mb-2 font-display text-2xl">World Director</h2>
+          <p className="mb-3 text-xs text-muted-foreground">Balanced mode creates one background event about every two game days. Events follow your current story and avoid rewriting established facts.</p>
+          <label htmlFor="world-director-mode" className="block text-sm font-medium">Simulation pace</label>
+          <select id="world-director-mode" value={save.directorMode} onChange={e => mutate(s => ({ ...s, directorMode: e.target.value as DirectorMode }))}
+            className="mt-2 w-full rounded-xl border bg-background p-3 text-sm">
+            <option value="realistic">Realistic · Every 5 days</option>
+            <option value="balanced">Balanced · Every 2 days</option>
+            <option value="chaotic">Chaotic · Every day</option>
+          </select>
+          <p className="mt-2 text-xs text-muted-foreground">Each background event is recorded once in world history. The AI is not called automatically for background news, limiting costs.</p>
+        </div>
         <div className="rounded-xl border p-4"><h2 className="mb-3 flex items-center gap-2 font-display text-2xl"><Users size={20}/> World history</h2><ol className="space-y-3">{[...save.events].reverse().map((e,i) => <li key={i} className="border-l-2 pl-3 text-sm">{e}</li>)}</ol></div>
         <div className="rounded-xl border p-4"><h2 className="mb-2 font-display text-2xl">Persistent memories</h2>
           <p className="mb-3 text-xs text-muted-foreground">Anchors from your world and conversations. Existing facts cannot be silently overwritten by AI replies.</p>
