@@ -41,6 +41,12 @@ function Home() {
   }
   return (
     <TownLayout title="Home" kicker="Your phone" error={q.error} loading={q.isLoading}>
+      <Link to="/world-order" className="mb-5 block rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <span className="text-xs font-semibold uppercase tracking-widest text-amber-700 dark:text-amber-300">New game mode · Prototype</span>
+        <strong className="mt-1 block font-display text-2xl">World Order: The Accidental King</strong>
+        <span className="mt-1 block text-sm text-muted-foreground">A fictional concert rescue, a viral political interview, and a branching future in Cuba. Separate save; AI replies coming later.</span>
+        <span className="mt-3 block text-sm font-semibold">Play World Order →</span>
+      </Link>
       <p className="mb-4 text-sm text-muted-foreground">What would you like to open?</p>
       <div className="mb-6 grid grid-cols-3 gap-3">
         {([{ to: "/inbox", label: "Messages", Icon: MessageCircle, color: "bg-emerald-600" }, { to: "/calls", label: "Phone", Icon: Phone, color: "bg-green-600" }, { to: "/people", label: "Contacts", Icon: Users, color: "bg-blue-600" }, { to: "/plans", label: "Calendar", Icon: CalendarDays, color: "bg-red-500" }, { to: "/explore", label: "Places", Icon: Compass, color: "bg-sky-600" }, { to: "/settings", label: "Settings", Icon: Settings2, color: "bg-slate-600" }] as const).map(({ to, label, Icon, color }) => <Link key={to} to={to} className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl bg-surface px-2 py-3 text-center text-sm font-medium shadow-sm ring-1 ring-border"><span className={`flex h-13 w-13 items-center justify-center rounded-2xl text-white ${color}`}><Icon className="h-7 w-7" aria-hidden="true" /></span>{label}</Link>)}
