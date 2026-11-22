@@ -1,8 +1,42 @@
+import {COUNTRY_NAMES,COUNTRY_REGIONS,COUNTRY_RECORDS} from "./world-order-countries";
 import {describe,it,expect} from "vitest";
-import {newConquestWorld,restoreConquestWorld,beginConquestCampaign,campaignMove,activeCampaign} from "./world-order-conquest";
+import {newConquestWorld,restoreConquestWorld,beginConquestCampaign,campaignMove,consolidateControl,activeCampaign} from "./world-order-conquest";
 const ready={president:true,influence:90,cash:1_000_000,trust:80,militaryCapacity:80};
 const moveCtx={cash:1_000_000,defense:80,trust:80,legitimacy:80};
 describe("World Order multi-stage world expansion",()=>{
+ it("supports at least 75 unique playable nations across major regions",()=>{
+  expect(COUNTRY_NAMES.length).toBeGreaterThanOrEqual(75);
+  expect(new Set(COUNTRY_NAMES).size).toBe(COUNTRY_NAMES.length);
+  expect(COUNTRY_REGIONS.length).toBeGreaterThanOrEqual(6);
+  const initial=newConquestWorld();
+  for(const name of COUNTRY_NAMES) {
+    expect(initial.territory[name]).toBe("independent");
+    expect(COUNTRY_RECORDS[name].resistance).toBeGreaterThan(0);
+  }
+  expect(Object.keys(initial.territory)).toHaveLength(COUNTRY_NAMES.length);
+ });
+ it("accepts a country beyond the initial featured six and retains its save",()=>{
+  const created=beginConquestCampaign(newConquestWorld(),"New Zealand","economic",51,ready)!;
+  expect(created.state.campaigns[0]?.country).toBe("New Zealand");
+  const restored=restoreConquestWorld(created.state);
+  expect(activeCampaign(restored,"New Zealand")?.method).toBe("economic");
+  expect(restored.territory["New Zealand"]).toBe("independent");
+ });
+ it("can turn an earned partner into a directly controlled nation only later",()=>{
+  let world=beginConquestCampaign(newConquestWorld(),"Ghana","diplomacy",10,ready)!.state;
+  const id=activeCampaign(world,"Ghana")!.id;
+  for(let day=11;day<23&&activeCampaign(world,"Ghana");day++){
+    world=campaignMove(world,id,"negotiate",day,moveCtx)!.state;
+  }
+  expect(world.territory["Ghana"]).toBe("partner");
+  const won=world.campaigns.find(c=>c.id===id)!;
+  expect(consolidateControl(world,"Ghana",won.lastDecisionDay+1,{president:true,cash:999999,legitimacy:70})).toBeNull();
+  expect(consolidateControl(world,"Ghana",won.lastDecisionDay+2,{president:false,cash:999999,legitimacy:70})).toBeNull();
+  const result=consolidateControl(world,"Ghana",won.lastDecisionDay+2,{president:true,cash:999999,legitimacy:70})!;
+  expect(result.state.territory["Ghana"]).toBe("controlled");
+  expect(restoreConquestWorld(result.state).territory["Ghana"]).toBe("controlled");
+  expect(consolidateControl(result.state,"Ghana",won.lastDecisionDay+3,{president:true,cash:999999,legitimacy:70})).toBeNull();
+ });
  it("starts all countries independent, and keeps older saves compatible",()=>{
   expect(newConquestWorld().territory["Canada"]).toBe("independent");
   expect(restoreConquestWorld(undefined)).toEqual(newConquestWorld());
