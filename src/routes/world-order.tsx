@@ -895,7 +895,7 @@ function WorldOrder() {
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Under your control</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>save.conquest.territory[c]==="controlled").length}</p></div>
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Allies and protectorates</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>["partner","protectorate"].includes(save.conquest.territory[c]??"")).length}</p></div>
             </div>
-            <p className="mt-3 text-xs text-amber-200">Available treasury: ${save.openWorld.cash.toLocaleString()} · Integration requires $25,000, legitimacy 45+, and a day after settlement.</p>
+            <p className="mt-3 text-xs text-amber-200">Available treasury: $ {save.openWorld.cash.toLocaleString()} · Integration requires $25,000, legitimacy 45+, and a day after settlement.</p>
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <input aria-label="Search countries" value={countrySearch} onChange={e=>{setCountrySearch(e.target.value);setCountryPage(0);}} placeholder="Search 82 countries…" className="min-w-0 rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white"/>
               <select aria-label="Filter by region" value={regionFilter} onChange={e=>{setRegionFilter(e.target.value as WorldRegion | "All");setCountryPage(0);}} className="rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white">
@@ -928,7 +928,7 @@ function WorldOrder() {
                 </div>:save.conquest.territory[country]==="independent"?
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-slate-400">{COUNTRY_RECORDS[country].region} · Resistance {COUNTRY_RECORDS[country].resistance}% · Diplomatic trust {save.globalPower.relations[country].trust}</p>
-                    {save.globalPower.relations[country].trust<40 && <div className="space-y-1"><button disabled={save.openWorld.cash<2500} onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Open diplomatic channel · $2,500</button>{save.openWorld.cash<2500&&<p className="text-xs text-amber-200">Need $2,500 cash. Available: ${save.openWorld.cash.toLocaleString()}. Earn income by advancing game days or expanding your businesses.</p>}</div>}
+                    {save.globalPower.relations[country].trust<40 && <div className="space-y-1"><button disabled={save.openWorld.cash<2500} onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200 disabled:cursor-not-allowed disabled:opacity-40">Open diplomatic channel · $2,500</button>{save.openWorld.cash<2500&&<p className="text-xs text-amber-200">Need $2,500 cash. Available: $ {save.openWorld.cash.toLocaleString()}. Earn income by advancing game days or expanding your businesses.</p>}</div>}
                     <div className="flex flex-wrap gap-2">{([
                     ["diplomacy","Diplomatic campaign"],["economic","Economic expansion"],["military","Military standoff"]
                   ] as [CampaignMethod,string][]).map(([method,label])=><button key={method}
