@@ -1,11 +1,11 @@
-import { createInterviewScene, restoreInterviewScene, appendInterviewExchange, interviewSuggestedReplies, closeInterviewScene, type InterviewScene } from "@/lib/world-order-interview";
+import { createInterviewScene, restoreInterviewScene, appendInterviewExchange, appendInterviewGuests, interviewNeedsGuestReply, interviewSuggestedReplies, closeInterviewScene, type InterviewScene } from "@/lib/world-order-interview";
 import { openBackstageScene, restoreBackstageScene, appendBackstageTurn, finishBackstageScene, deriveLiveSceneContinuity, type BackstageScene } from "@/lib/world-order-backstage";
 import { empireTotals, empireDailyIncome } from "@/lib/world-order-empire";
 import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction, worldOrderBackstageReply, worldOrderInterviewReply } from "@/lib/world-order.functions";
+import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction, worldOrderBackstageReply, worldOrderInterviewReply, worldOrderInterviewGuestReply } from "@/lib/world-order.functions";
 import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, consolidateControl, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
 import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, canMessageOfficial, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
@@ -116,6 +116,7 @@ function WorldOrder() {
   const narrateRescue = useServerFn(worldOrderRescueAction);
   const narrateBackstage = useServerFn(worldOrderBackstageReply);
   const narrateInterview = useServerFn(worldOrderInterviewReply);
+  const narrateInterviewGuest = useServerFn(worldOrderInterviewGuestReply);
   const narrateCampaign = useServerFn(worldOrderCampaignAction);
   const [campaignDraft, setCampaignDraft] = useState("");
   const [campaignBusy, setCampaignBusy] = useState(false);
@@ -129,6 +130,7 @@ function WorldOrder() {
   const [interviewDraft,setInterviewDraft] = useState("");
   const [interviewBusy,setInterviewBusy] = useState(false);
   const [interviewError,setInterviewError] = useState("");
+  const interviewGuestRequestKey = useRef("");
   const [tab, setTab] = useState<Tab>("feed");
   const [draft, setDraft] = useState("");
   const [expandedComments, setExpandedComments] = useState<number[]>([]);
@@ -156,6 +158,36 @@ function WorldOrder() {
     setReady(true);
   }, []);
   useEffect(() => { if (ready) localStorage.setItem(KEY, JSON.stringify(save)); }, [save, ready]);
+  // When the host addresses Sabrina, let her answer before Sean takes his next turn.
+  // The pending key prevents duplicate AI calls during React rerenders and saves.
+  useEffect(() => {
+    if (!ready || save.chapter !== "interview" || save.backstage?.status === "open" || save.completed.includes("interview") || interviewBusy) return;
+    const scene = save.interviewScene ?? createInterviewScene();
+    if (!interviewNeedsGuestReply(scene)) return;
+    const key = scene.turns.length + ":" + scene.turns.at(-1)?.text;
+    if (interviewGuestRequestKey.current === key) return;
+    interviewGuestRequestKey.current = key;
+    setInterviewBusy(true);
+    setInterviewError("");
+    void (async () => {
+      try {
+        const response = await narrateInterviewGuest({data:{history:scene.turns.slice(-24)}});
+        setSave(current => {
+          if (current.chapter !== "interview" || current.completed.includes("interview") || current.backstage?.status === "open") return current;
+          const latest = current.interviewScene ?? createInterviewScene();
+          if (!interviewNeedsGuestReply(latest) || latest.turns.length !== scene.turns.length || latest.turns.at(-1)?.text !== scene.turns.at(-1)?.text) return current;
+          return {...current, interviewScene:appendInterviewGuests(latest,[
+            {speaker:"Sabrina",text:response.sabrinaReply},
+            {speaker:"host",text:response.hostFollowUp},
+          ],response.suggestedReplies)};
+        });
+      } catch (error) {
+        setInterviewError(error instanceof Error ? error.message : "Sabrina could not respond. Refresh to retry.");
+      } finally {
+        setInterviewBusy(false);
+      }
+    })();
+  }, [ready, save.chapter, save.backstage?.status, save.completed, save.interviewScene, interviewBusy, narrateInterviewGuest]);
   function mutate(transform: (s: Save) => Save) { setSave(prev => transform(prev)); }
   function newPost(author: string, body: string, day: number, category = "Social"): Post { return { id: Date.now() + Math.random(), author, body, day, category }; }
   function advance(s: Save, headline: string, trigger: "activity" | "public_post" | "pass_day" = "activity"): Save {
@@ -734,6 +766,7 @@ function WorldOrder() {
               <div className="space-y-3">{(save.interviewScene??createInterviewScene()).turns.map((turn,i)=><div key={i} className={"rounded-xl p-3 text-sm leading-7 "+(turn.speaker==="player"?"ml-4 bg-amber-300 text-slate-950":"mr-4 bg-[#0c1524] text-slate-200")}>
                 <p className={"mb-1 text-xs font-bold "+(turn.speaker==="player"?"text-slate-700":"text-amber-300")}>{turn.speaker==="player"?"You":turn.speaker==="host"?"The host":turn.speaker}</p>
                 <p className="whitespace-pre-wrap">{turn.text}</p></div>)}</div>
+              {interviewBusy && <p className="text-xs text-amber-200">Interview guests are speaking…</p>}
               <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Suggested replies</p>
               <div className="space-y-2">{interviewSuggestedReplies(save.interviewScene??createInterviewScene()).map((line,i)=><button key={i} onClick={()=>setInterviewDraft(line)} className="block w-full rounded-xl border border-slate-700 bg-[#0c1524] p-3 text-left text-xs leading-5 text-slate-200 hover:border-amber-300">{line}</button>)}</div>
               <label htmlFor="interview-action" className="block text-xs font-bold uppercase tracking-widest text-amber-300">Or speak in your own words</label>
