@@ -60,7 +60,7 @@ export function directorEvent(args: {
   const routeEvent = chapter === "cuba" && route !== "undecided" && day % 4 === 0
     ? ROUTE_EVENTS[route]
     : null;
-  const selected = routeEvent ?? pool[(day + (trigger === "public_post" ? 1 : trigger === "activity" ? 2 : 0)) % pool.length];
+  const selected = routeEvent ?? pool[(day + (trigger === "public_post" ? 1 : trigger === "activity" ? 2 : 0)) % pool.length]!;
   // A director event does not silently alter high-impact canon such as election
   // results, foreign recognition, relationships, pregnancies, or territorial control.
   return { ...selected, day, id };
