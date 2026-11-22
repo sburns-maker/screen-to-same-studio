@@ -1,3 +1,4 @@
+import { empireTotals, empireDailyIncome } from "@/lib/world-order-empire";
 import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -155,7 +156,7 @@ function WorldOrder() {
     ];
     return {
       ...s, day,
-      openWorld: { ...s.openWorld, cash: s.openWorld.cash + ventureIncome(s.openWorld) },
+      openWorld: { ...s.openWorld, cash: s.openWorld.cash + ventureIncome(s.openWorld) + empireDailyIncome(s.conquest) },
       chat: [...s.chat, ...dmWave.map((m, i) => ({ id: Date.now() + i + Math.random(), from: m.contact, body: m.body, day: m.day }))].slice(-500),
       socialLife: { ...s.socialLife, incomingIds: [...s.socialLife.incomingIds, ...dmWave.map(m => m.id)].slice(-500) },
       influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
@@ -394,7 +395,7 @@ function WorldOrder() {
       if (!applied) return s;
       const next = advance(s, applied.headline);
       return {
-        ...next, openWorld: { ...applied.state, cash: applied.state.cash + ventureIncome(applied.state) },
+        ...next, openWorld: { ...applied.state, cash: applied.state.cash + ventureIncome(applied.state) + empireDailyIncome(s.conquest) },
         influence: Math.max(0, next.influence + applied.influenceChange),
         reputation: Math.max(0, Math.min(100, next.reputation + applied.reputationChange)),
         cubaSupport: Math.max(0, Math.min(100, next.cubaSupport + applied.supportChange)),
@@ -434,15 +435,15 @@ function WorldOrder() {
   }
   function startInternationalCampaign(country: ForeignCountry, method: CampaignMethod) {
     const result=beginConquestCampaign(save.conquest,country,method,save.day+1,{
-      president:save.campaign.position==="president", influence:save.influence,
+      president:save.campaign.position==="president", influence:save.influence+empireTotals(save.conquest).influence,
       cash:save.openWorld.cash,trust:save.globalPower.relations[country].trust,
-      militaryCapacity:save.globalPower.capacity,
+      militaryCapacity:save.globalPower.capacity+empireTotals(save.conquest).militaryStrength,
     });
     if(!result){setSocialNotice("You need to be Cuba's president, have enough funds, and meet the diplomatic or defense prerequisites.");return;}
     mutate(s=>{
       const actual=beginConquestCampaign(s.conquest,country,method,s.day+1,{
-        president:s.campaign.position==="president",influence:s.influence,cash:s.openWorld.cash,
-        trust:s.globalPower.relations[country].trust,militaryCapacity:s.globalPower.capacity,
+        president:s.campaign.position==="president",influence:s.influence+empireTotals(s.conquest).influence,cash:s.openWorld.cash,
+        trust:s.globalPower.relations[country].trust,militaryCapacity:s.globalPower.capacity+empireTotals(s.conquest).militaryStrength,
       });
       if(!actual)return s;
       const next=advance(s,actual.summary);
@@ -456,7 +457,7 @@ function WorldOrder() {
   }
   function chooseInternationalMove(id:string,move:CampaignMove) {
     const trial=campaignMove(save.conquest,id,move,save.day+1,{
-      cash:save.openWorld.cash,defense:save.globalPower.defense,
+      cash:save.openWorld.cash,defense:save.globalPower.defense+empireTotals(save.conquest).militaryStrength,
       trust:save.globalPower.relations[save.conquest.campaigns.find(c=>c.id===id)!.country].trust,
       legitimacy:save.globalPower.legitimacy,
     });
@@ -465,7 +466,7 @@ function WorldOrder() {
       const selected=s.conquest.campaigns.find(c=>c.id===id);
       if(!selected)return s;
       const outcome=campaignMove(s.conquest,id,move,s.day+1,{
-        cash:s.openWorld.cash,defense:s.globalPower.defense,
+        cash:s.openWorld.cash,defense:s.globalPower.defense+empireTotals(s.conquest).militaryStrength,
         trust:s.globalPower.relations[selected.country].trust,legitimacy:s.globalPower.legitimacy,
       });
       if(!outcome)return s;
@@ -502,6 +503,7 @@ function WorldOrder() {
     if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
   const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
+  const empire = empireTotals(save.conquest);
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
   const unreadTotal = SOCIAL_CONTACTS.reduce((sum,c)=>sum+unreadFrom(save.chat,save.socialLife.seenByContact,c),0);
@@ -708,12 +710,22 @@ function WorldOrder() {
           </div>
         </section>}
         {tab === "world" && <section className="space-y-3">
-          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence+empire.influence}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
             <p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
             {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
             <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
             <h2 className="font-display text-2xl">Global campaigns · {COUNTRY_NAMES.length} countries</h2>
+            <div className="mt-3 rounded-xl border border-amber-300/30 bg-[#0c1524] p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Your empire's contributions</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div><p className="text-[11px] text-slate-400">Income per day</p><p className="text-lg font-bold text-amber-200">${empire.incomePerDay.toLocaleString()}</p></div>
+                <div><p className="text-[11px] text-slate-400">Military reinforcements</p><p className="text-lg font-bold text-amber-200">+{empire.militaryStrength}</p></div>
+                <div><p className="text-[11px] text-slate-400">Influence gained</p><p className="text-lg font-bold text-amber-200">+{empire.influence}</p></div>
+                <div><p className="text-[11px] text-slate-400">Global power</p><p className="text-lg font-bold text-amber-200">+{empire.power}</p></div>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-slate-400">Controlled countries contribute the most. Partners and protectorates contribute less. Income is paid automatically when each game day advances.</p>
+            </div>
             <p className="mt-2 text-sm leading-6 text-slate-300">Start a multi-day international campaign. Your opponents respond, political resistance changes, and treaties or alliances require sustained negotiations. No instant conquest.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Global tension</p><p className="text-xl font-bold text-amber-300">{save.conquest.worldTension}%</p></div>
@@ -775,7 +787,7 @@ function WorldOrder() {
             <h2 className="font-display text-2xl">International power</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">Build relations with other governments, strengthen Cuba's defensive capabilities, and turn influence into actual international negotiations.</p>
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              {([["Defense readiness",save.globalPower.defense],["Military capacity",save.globalPower.capacity],["Legitimacy",save.globalPower.legitimacy]] as [string,number][]).map(([name,n])=><div key={name} className="rounded-xl bg-[#0c1524] p-3"><p className="text-lg font-bold text-amber-200">{n}%</p><p className="mt-1 text-[10px] leading-4 text-slate-400">{name}</p></div>)}
+              {([["Defense readiness",save.globalPower.defense],["Military capacity",save.globalPower.capacity+empire.militaryStrength],["Legitimacy",save.globalPower.legitimacy]] as [string,number][]).map(([name,n])=><div key={name} className="rounded-xl bg-[#0c1524] p-3"><p className="text-lg font-bold text-amber-200">{n}%</p><p className="mt-1 text-[10px] leading-4 text-slate-400">{name}</p></div>)}
             </div>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-amber-300">Your strategic ambition</p>
             <p className="mt-1 text-xs text-slate-300">{save.globalPower.strategy==="private"?"Private. No one knows you have ambitions beyond your public political work.":"Public. You have announced a wider international ambition and foreign leaders can respond."}</p>
