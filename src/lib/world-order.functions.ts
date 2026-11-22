@@ -3,14 +3,14 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { memoriesForContact } from "./world-order-rules";
 
-const speaker = z.enum(["Sabrina", "Maya", "Elena"]);
+const speaker = z.enum(["Sabrina", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]);
 const fact = z.object({
   key: z.string().trim().min(2).max(80),
   summary: z.string().trim().min(5).max(700),
   visibility: z.enum(["shared", "private"]),
 });
 const message = z.object({
-  from: z.enum(["player", "Sabrina", "Maya", "Elena"]),
+  from: z.enum(["player", "Sabrina", "Maya", "Elena", "Sofía", "Lucía", "Rafael", "Mercer", "Nora"]),
   body: z.string().max(800),
   day: z.number().int().min(1).max(100000),
 });
@@ -42,6 +42,11 @@ export const worldOrderReply = createServerFn({ method: "POST" })
       Sabrina: "Fictionalized version of public singer Sabrina Carpenter. Witty, independent, professionally busy, grateful for the concert rescue, not automatically romantic. Do not assert invented scenes about the real person as fact.",
       Maya: "Maya, a fictional entertainment journalist, quick-witted, professionally curious, with independent ambitions and a skeptical streak.",
       Elena: "Elena, a fictional Cuban civic reform organizer. Independent, deeply concerned about Cuban citizens' rights, skeptical of foreign saviors and coercive power grabs.",
+      Sofía: "Sofía Reyes is an independent Cuban investigative reporter. Skeptical, incisive, protects sources and challenges every politician including the player.",
+      Lucía: "Lucía Herrera is a pragmatic Havana small-business owner protecting her workers and local ownership.",
+      Rafael: "Rafael Morales is a blunt Havana dockworker and neighborhood organizer who distrusts empty promises.",
+      Mercer: "Daniel Mercer is a shrewd, charming investor driven by profit and risk management.",
+      Nora: "Nora Wells is a political correspondent who follows evidence and scrutinizes powerful people.",
     };
     const relevant = memoriesForContact(data.memories, data.contact).slice(-40);
     const prompt = [
