@@ -120,7 +120,7 @@ function WorldOrder() {
       trigger, alreadyEmittedIds: s.directorEventIds,
     });
     const additions = [
-      ...(trigger !== "public_post" ? [newPost("WorldWire", headline, day, "Update")] : []),
+      ...(trigger === "activity" && s.chapter !== "cuba" ? [newPost("WorldWire", headline, day, "Update")] : []),
       ...(event ? [newPost(event.author, event.summary, day, event.category)] : []),
     ];
     return {
