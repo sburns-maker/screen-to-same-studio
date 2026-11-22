@@ -12,7 +12,7 @@ export const RESCUE_BEATS: RescueBeat[] = [
     { id: "evacuate", label: "Help clear a safe path offstage", note: "Protect everyone around you" },
     { id: "guide", label: "Signal Sabrina and her security toward cover", note: "Direct the coordinated response" },
   ] },
-  { phase: 2, headline: "The world is watching", scene: "Security contains the fictional attack. Sabrina is safe, though the crowd is shaken. Cameras find you beside the stage. Reporters are already broadcasting. Your final choice will shape how people remember what happened.", choices: [
+  { phase: 2, headline: "The world is watching", scene: "Security contains the attack. Sabrina is safe, though the crowd is shaken. Cameras find you beside the stage. Reporters are already broadcasting. Your final choice will shape how people remember what happened.", choices: [
     { id: "stay", label: "Stay with Sabrina and check that she's okay", note: "Personal trust over publicity" },
     { id: "press", label: "Address the cameras and call for calm", note: "A public moment that spreads worldwide" },
     { id: "evidence", label: "Give investigators your account first", note: "Credibility through cooperation" },
@@ -47,7 +47,7 @@ export function rescueOutcome(records: RescueRecord[]) {
     followers: last === "leadership" ? 3_400_000 : last === "care" ? 1_900_000 : 2_350_000,
     reputation: last === "care" ? 78 : last === "evidence" ? 75 : 68,
     influence: records.filter(r => r.approach === "leadership").length * 4 + 12,
-    summary: "You helped protect Sabrina Carpenter during a fictional concert attack. " + records.map(r => r.narrative).join(" "),
+    summary: "You helped protect Sabrina Carpenter during the concert attack. " + records.map(r => r.narrative).join(" "),
     sabrinaMessage: last === "care" ? "You stayed with me when the cameras were everywhere. I won't forget that. Thank you." : "I saw what you did. I don't know how to thank you yet, but I'd really like to talk.",
   };
 }

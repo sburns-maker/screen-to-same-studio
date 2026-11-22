@@ -19,16 +19,16 @@ type Candidate = Omit<DirectorEvent, "id" | "day">;
 const EVENT_POOL: Record<DirectorChapter, Candidate[]> = {
   rescue: [
     { author: "CultureBeat", category: "Culture", summary: "Entertainment outlets continue discussing the concert rescue and the unusually fast rise of its unlikely hero.", influenceDelta: 0, supportDelta: 0 },
-    { author: "Maya Torres", category: "Culture", summary: "A fictional entertainment reporter asks witnesses what happened backstage and how the rescue has changed their lives.", influenceDelta: 0, supportDelta: 0 },
+    { author: "Maya Torres", category: "Culture", summary: "An entertainment reporter asks witnesses what happened backstage and how the rescue has changed their lives.", influenceDelta: 0, supportDelta: 0 },
     { author: "The Public Square", category: "Community", summary: "Local communities debate whether sudden viral fame translates into lasting influence.", influenceDelta: 0, supportDelta: 0 },
   ],
   interview: [
-    { author: "Nora Wells", category: "Politics", summary: "A fictional Washington reporter reviews reactions to the interview and requests a follow-up conversation.", influenceDelta: 1, supportDelta: 0 },
+    { author: "Nora Wells", category: "Politics", summary: "A Washington reporter reviews reactions to the interview and requests a follow-up conversation.", influenceDelta: 1, supportDelta: 0 },
     { author: "WorldWire", category: "World", summary: "Commentators discuss the growing visibility of a new public figure amid international uncertainty.", influenceDelta: 1, supportDelta: 0 },
     { author: "CultureBeat", category: "Culture", summary: "The entertainment press wonders what the concert hero will do with national attention.", influenceDelta: 0, supportDelta: 0 },
   ],
   cuba: [
-    { author: "Sofía Reyes", category: "World", summary: "In fictional Havana, local reporters ask how reform proposals would affect daily life and civil institutions.", influenceDelta: 0, supportDelta: 1 },
+    { author: "Sofía Reyes", category: "World", summary: "In Havana, local reporters ask how reform proposals would affect daily life and civil institutions.", influenceDelta: 0, supportDelta: 1 },
     { author: "WorldWire", category: "Politics", summary: "Regional governments seek assurances that any Cuban political transition will be peaceful and legitimate.", influenceDelta: 0, supportDelta: 0 },
     { author: "Lucía Herrera", category: "Business", summary: "Cuban entrepreneurs debate economic reforms, employee protections, and access to investment.", influenceDelta: 0, supportDelta: 1 },
     { author: "Rafael Morales", category: "Community", summary: "Residents in Havana organize a public discussion about stability, sovereignty, and accountability.", influenceDelta: 0, supportDelta: 1 },

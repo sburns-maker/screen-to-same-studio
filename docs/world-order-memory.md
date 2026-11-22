@@ -32,12 +32,49 @@ Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes Wor
 - There can be several possible end states: a united voluntary world federation, coercive global hegemony, fragmented sphere-of-influence system, failed conquest, or ongoing open-world play.
 - A late-game multi-country turn should remain affordable through deterministic strategic simulation plus focused AI narration for key characters and events.
 
+## Social network and immersion
+- The player should see multiple independent, contrasting social-media reactions after major events, not only WorldWire bulletins. Fan accounts, eyewitnesses, journalists, political skeptics, local organizers and businesspeople post distinct takes, with handles, simulated engagement, comment threads, likes, and replies.
+- The first release uses deterministic scripted reaction waves for rescue, televised interview and Cuba. Player-written posts generate limited context-sensitive feedback; deeper AI-generated character reactions remain future work.
+- The full three-beat rescue transcript lives in world history and character memory. The public feed uses concise breaking reports, social reactions, and comment threads, rather than a wall of AI narration.
+- Keep a single clear alternate-history disclosure in the game's UI chrome and in underlying AI prompts, **not** repetitive "fictional" qualifiers inside every news headline, scene description or dialogue. Real-world facts and fictional incidents must still be distinguishable to players by context.
+- Migrate existing browser saves in place: preserve story progress, DMs and learned canon, replace overly long rescue news posts with short headlines, and append missing reactions idempotently.
+
 ## World Director — Balanced (default)
 - The default mode is Balanced: at most one deterministic, contextual background event every **2 fictional days**. Realistic = every 5 days; Chaotic = daily.
 - Director reacts to rescue/interview/Cuba chapter and the player's chosen Cuba strategy, with plausible press, business, citizen and political developments.
 - Events are idempotent per game day and recorded in the saved event ledger and feed. They never create undocumented marriages, pregnancy, elections or conquests.
 - The initial Director does not make paid AI calls; character dialogue still uses the existing authenticated server AI endpoint.
 - These are initial prototype mechanics, not yet the eventual large-scale AI autonomous world simulation.
+
+## Campaign scene progression — no recycled intro events
+- The first version mistakenly used `campaign.stage % 4`, replaying Rafael's first town hall and the same press/assembly prompts every four game actions. Merely adding "new critics" to old dialog was not acceptable.
+- `src/lib/world-order-campaign-episodes.ts` now contains 36 authored, distinct encounters (12 each for reform, investment and diplomacy) with choices and durable effects. The three initial encounters are used only once per world.
+- The existing stage counter maps directly to a new authored encounter; stage 12 in the reform route now presents a coastal storm-response mission rather than Rafael's opening town hall. No save reset or loss of established political position is necessary.
+- After route-specific encounters, subsequent missions cross into economic, civic and diplomatic issues from other branches; later dynamic pressures are generated from campaign support, stability and recent decisions, with distinct IDs per stage.
+- Public-mandate milestones are interleaved, with different questions for outsiders, delegates, candidates and presidents. An elected president faces distinct governance crises rather than the same nomination scene.
+- A 55-decision regression walk on each route asserts no repeated mission IDs and migration tests confirm preservation of saved candidate standing and relationships.
+- The authored encounters and post-authored pressure engine are interim gameplay, not a claim that the future AI World Director autonomously generates wholly new events.
+
+## Active Cuba campaign gameplay (post-opening)
+- Selecting the reform, investment, or diplomacy route must begin a playable scene immediately. The game must never dead-end at a static summary and an "advance one day" button.
+- `src/lib/world-order-campaign.ts` provides three distinct initial interactive encounters per route plus recurring public-mandate milestones, with character dialogue, choices, concrete support/stability/influence/trust changes, recorded decisions and subsequent rounds.
+- Active characters include Elena Valdés, Sofía Reyes, Rafael Morales, Lucía Herrera, Daniel Mercer and Nora Wells, alongside Sabrina and Maya. These people should remain independently motivated and may disagree with the player.
+- `src/lib/world-order.functions.ts` supports freeform campaign dialogue: the AI narrates the player's own words, classifies the approach into permitted consequences, and never directly grants territory, treaties, elections or political office.
+- The current campaign UI surfaces the next mission in both Feed and Story, offers a direct link to DM key figures, and displays relationships on the World dashboard. Major political choices advance one day and appear in world history; ordinary DMs do not.
+- Existing browser saves at Days 4–7 and later must migrate seamlessly into the first available campaign mission, without erasing the rescue, DMs or political route.
+- Do not generate repetitive WorldWire filler for each day skip. Relevant character posts and missions drive story.
+- **Scope:** this is a stronger scripted/deterministic playable campaign loop with freeform AI narration, not yet a full autonomous long-term government/conquest simulator. Basic public-mandate milestones, candidate standing and an earned presidential outcome are now deterministic game states. Full election mechanics, military conquest, detailed government control, a truly autonomous world director, durable DB persistence and cross-world history remain engineering work.
+
+## Living social life and usable world assets — PR #248
+- At 4 million followers the player must receive a small but noticeable stream of spontaneous incoming DMs, not only AI replies to player-initiated messages. Initial simulation generates up to three bounded messages per new game day with no background AI calls, then uses the authenticated AI server when the player replies.
+- The cast includes **10 modeled celebrities** in an explicitly alternate-history setting (Sabrina Carpenter, Taylor Swift, Zendaya, Rihanna, Dua Lipa, Selena Gomez, Pedro Pascal, Ryan Reynolds, Beyoncé, Billie Eilish), plus a tour coordinator, reporters, organizers, investors, and local citizens. All famous-person statements and interactions are game fiction, not actual communications.
+- A celebrity must not endlessly say they are "too busy". For a meeting request, an AI character should respond specifically and propose a time/place or a definite alternative. The player can use the **Invite to meet** action to make an in-game appointment, travel to that city, and attend it once the game day arrives. Successful meetings create durable trust, story history and personal memories, without guaranteed romance or endorsement.
+- The new searchable DM inbox includes previews and unread markers. Direct chats do not advance time; incoming messages are scheduled on existing player-driven day transitions, not a Tess-style automatic 15/30-minute tick.
+- `src/lib/world-order-social-life.ts`: social roster, bounded incoming mail, per-contact read state and meetup engine. `src/lib/world-order-open-world.ts`: travel, real assets/ownership, upgrades, management income, hosting social events, and direct negotiations.
+- The Life screen contains an agenda for upcoming meetups, seven cities, six purchasable enterprises, and political/social event controls. Existing worlds migrate in place through `readSave` without wiping history; sandbox state is still browser-local.
+- Characters retain distinct private memory namespaces. Never reuse Tess's messages, character history, or worker for this game.
+- These are concrete playable systems with deterministic reactions and character AI-on-demand, **not** a claim of a fully autonomous 200-person AI world yet.
+- Development lives on `feature/world-order-open-world-actions-20261122`, draft PR #248 targeting `main`. Do not merge without CI and interactive smoke tests.
 
 ## Memory invariants
 - Persist a world-scoped canonical event ledger including day, actor, subjects, public/private scope, provenance, and idempotency key.
