@@ -736,7 +736,7 @@ function WorldOrder() {
               const last=[...save.conquest.campaigns].reverse().find(c=>c.country===country);
               return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{FOREIGN_LEADERS[country as keyof typeof FOREIGN_LEADERS]?.name??COUNTRY_RECORDS[country].region+" · Government"}</p></div>
+                  <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{(FOREIGN_LEADERS as Partial<Record<ForeignCountry,{name:string}>>)[country]?.name??COUNTRY_RECORDS[country].region+" · Government"}</p></div>
                   <span className="text-xs text-slate-300">{save.conquest.territory[country]==="controlled"?"Under your control":save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
                 </div>
                 {active?<div className="mt-3 space-y-2">
