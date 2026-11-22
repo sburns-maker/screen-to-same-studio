@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
-import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, publicStrategyStatement, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
+import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
 import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState } from "@/lib/world-order-campaign";
@@ -660,6 +660,11 @@ function WorldOrder() {
                 ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"diplomacy",country,mode})}
                   disabled={save.chapter!=="cuba"||(save.campaign.position!=="president"&&save.influence<30)||(mode==="treaty"&&rel.trust<55)}
                   className="rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">{label}</button>)}</div>
+                <div className="mt-2 flex flex-wrap gap-2">{([
+                  ["show-force","Show of force"],["intervene","Military intervention"],["deescalate","Seek de-escalation"],
+                ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"military",country,mode})}
+                  disabled={save.campaign.position!=="president"||(mode==="intervene"&&(save.globalPower.defense<55||save.globalPower.capacity<40))}
+                  className="rounded-full border border-rose-800/70 px-3 py-2 text-xs text-rose-200 disabled:opacity-30">{label}</button>)}</div>
               </div>;
             })}</div>
             <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-amber-300">Defense ministry</p>
