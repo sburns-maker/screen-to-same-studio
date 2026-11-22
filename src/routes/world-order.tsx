@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply } from "@/lib/world-order.functions";
+import { appendCharacterMemories, memoriesForContact, nextGameDay, type WorldMemory } from "@/lib/world-order-rules";
 import { ArrowLeft, CalendarDays, Globe2, Heart, Landmark, MessageCircle, Newspaper, RotateCcw, Send, Sparkles, Users } from "lucide-react";
 
 export const Route = createFileRoute("/world-order")({
@@ -13,7 +14,7 @@ type Chapter = "rescue" | "interview" | "cuba";
 type Tab = "feed" | "messages" | "activities" | "world";
 type Post = { id: number; author: string; body: string; day: number; category: string };
 type Chat = { id: number; from: "player" | "Sabrina" | "Maya" | "Elena"; body: string; day: number };
-type Memory = { key: string; summary: string; visibility: "shared" | "private" };
+type Memory = WorldMemory;
 type Save = {
   day: number; chapter: Chapter; route: "undecided" | "reform" | "investment" | "diplomacy";
   followers: number; reputation: number; influence: number; cubaSupport: number;
@@ -70,7 +71,7 @@ function WorldOrder() {
   function mutate(transform: (s: Save) => Save) { setSave(prev => transform(prev)); }
   function newPost(author: string, body: string, day: number, category = "Social"): Post { return { id: Date.now() + Math.random(), author, body, day, category }; }
   function advance(s: Save, headline: string): Save {
-    const day = s.day + 1;
+    const day = nextGameDay(s.day, "activity");
     const background = day % 3 === 0
       ? newPost("WorldWire", "International observers are tracking political uncertainty in Cuba. Reform groups are calling for transparent negotiations.", day, "World")
       : day % 3 === 1
@@ -136,18 +137,13 @@ function WorldOrder() {
         contact, day: current.day, chapter: current.chapter, route: current.route,
         reputation: current.reputation, influence: current.influence,
         worldEvents: current.events.slice(-30).map(e => e.slice(0, 400)),
-        memories: current.memories.filter(m => m.visibility === "shared" || m.key.startsWith(contact + ":")).slice(-60),
+        memories: memoriesForContact(current.memories, contact),
         recentMessages: current.chat.filter(m => m.from === contact || (m.from === "player" && m.body.startsWith(`To ${contact}:`))).slice(-30).map(m => ({
           from: m.from, day: m.day, body: m.body.replace(/^To (Sabrina|Maya|Elena): /, "").slice(0, 800),
         })),
       }});
       setSave(previous => {
-        const known = new Map(previous.memories.map(m => [m.key, m]));
-        // Established anchors cannot be silently rewritten by model output.
-        for (const m of answer.remembered) {
-          if (!known.has(m.key) && known.size < 60) known.set(m.key, m);
-        }
-        return { ...previous, memories: [...known.values()],
+        return { ...previous, memories: appendCharacterMemories(previous.memories, answer.remembered, contact),
           chat: [...previous.chat, { id: Date.now() + Math.random(), from: contact, day: previous.day, body: answer.reply }] };
       });
     } catch (error) {
