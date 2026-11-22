@@ -120,7 +120,18 @@ function WorldOrder() {
   const [selectedContact, setSelectedContact] = useState<WorldContact>("Sabrina");
   const [contactSearch, setContactSearch] = useState("");
   const [socialNotice, setSocialNotice] = useState("");
-  useEffect(() => { setSave(readSave()); setReady(true); }, []);
+  useEffect(() => {
+    const loaded = readSave();
+    // Populate a modest inbox for existing high-follower worlds, without
+    // changing game day or replaying the rescue. No AI calls happen here.
+    const incoming = incomingSocialWave(loaded.day, loaded.followers, loaded.chapter, loaded.socialLife.incomingIds);
+    setSave(incoming.length ? {
+      ...loaded,
+      socialLife: { ...loaded.socialLife, incomingIds: [...loaded.socialLife.incomingIds, ...incoming.map(m=>m.id)] },
+      chat: [...loaded.chat, ...incoming.map((m,i)=>({ id: Date.now()+i+Math.random(), from:m.contact, day:loaded.day, body:m.body }))],
+    } : loaded);
+    setReady(true);
+  }, []);
   useEffect(() => { if (ready) localStorage.setItem(KEY, JSON.stringify(save)); }, [save, ready]);
   function mutate(transform: (s: Save) => Save) { setSave(prev => transform(prev)); }
   function newPost(author: string, body: string, day: number, category = "Social"): Post { return { id: Date.now() + Math.random(), author, body, day, category }; }
@@ -137,6 +148,7 @@ function WorldOrder() {
     ];
     return {
       ...s, day,
+      openWorld: { ...s.openWorld, cash: s.openWorld.cash + ventureIncome(s.openWorld) },
       chat: [...s.chat, ...dmWave.map((m, i) => ({ id: Date.now() + i + Math.random(), from: m.contact, body: m.body, day: m.day }))].slice(-500),
       socialLife: { ...s.socialLife, incomingIds: [...s.socialLife.incomingIds, ...dmWave.map(m => m.id)].slice(-500) },
       influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
@@ -372,9 +384,8 @@ function WorldOrder() {
       const applied = applyOpenWorldAction(s.openWorld, action, s.day + 1);
       if (!applied) return s;
       const next = advance(s, applied.headline);
-      const earnings = ventureIncome(applied.state);
       return {
-        ...next, openWorld: { ...applied.state, cash: applied.state.cash + earnings },
+        ...next, openWorld: { ...applied.state, cash: applied.state.cash + ventureIncome(applied.state) },
         influence: Math.max(0, next.influence + applied.influenceChange),
         reputation: Math.max(0, Math.min(100, next.reputation + applied.reputationChange)),
         cubaSupport: Math.max(0, Math.min(100, next.cubaSupport + applied.supportChange)),
