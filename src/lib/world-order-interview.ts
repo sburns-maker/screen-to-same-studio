@@ -64,3 +64,18 @@ export function interviewSuggestedReplies(scene:InterviewScene):string[]{
    "There's another part of this story people haven't heard yet.",
  ];
 }
+
+/** A question to Sabrina should be answered by Sabrina, without consuming a player turn. */
+export function interviewNeedsGuestReply(scene:InterviewScene):boolean{
+ if(scene.status!=="open")return false;
+ const last=scene.turns.at(-1);
+ return Boolean(last?.speaker==="host" && /\bSabrina\b/i.test(last.text) && /\?|\b(how|what|why|would|could|do you)\b/i.test(last.text));
+}
+
+export function appendInterviewGuests(scene:InterviewScene,guests:InterviewGuestTurn[],suggestedReplies:string[]=[]):InterviewScene{
+ if(scene.status!=="open"||!interviewNeedsGuestReply(scene))return scene;
+ const valid=guests.filter(t=>t&&["host","Sabrina","audience"].includes(t.speaker)&&typeof t.text==="string"&&t.text.trim());
+ if(!valid.length||valid[0].speaker!=="Sabrina")return scene;
+ return {...scene,turns:[...scene.turns,...valid.slice(0,3).map(t=>({speaker:t.speaker,text:t.text.trim().slice(0,1000)}))].slice(-50),
+  suggestedReplies:suggestedReplies.filter(v=>typeof v==="string"&&v.trim()).slice(0,3).map(v=>v.slice(0,220))};
+}
