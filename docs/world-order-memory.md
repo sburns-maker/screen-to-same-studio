@@ -17,7 +17,8 @@ Updated 2026-11-21. This file describes World Order only. Do not modify Tess or 
 - Each active NPC should own a stable identity, preferences, goals, relationships, timeline, known facts, private memories, and independent schedule.
 - Characters learn facts by witnessing events, being told, public reporting, or uncertain rumors, not omniscience. Public media can distort true events.
 - Real-world officeholder names must be date-verified when starting a session rather than hardcoded.
-- Maintain bounded active AI cast to limit cost; a much larger dormant NPC directory can exist cheaply as structured data.
+- Limit each game world to **200 named NPCs** total (celebrities, leaders, reporters, randos, etc. share the same limit), while keeping roughly **16 active**, maximum **20 active**, at once. Dormant NPCs preserve their memories and relationships without automatic model calls. Country records, institutions, and anonymous background populations do not consume NPC slots.
+- `WORLD_ORDER_CAST_RULES` enforces these targets in code; persistent DB insertion guards must be added with the future world-scoped schema. These are design/runtime limits, not a claim that full cast creation is already available.
 
 ## Ultimate campaign objective: world domination
 - The player may eventually pursue control or dominance over the entire simulated world; Cuba is a possible first power base, not the final act. Completing an early Cuba arc must not end the campaign.
@@ -30,6 +31,13 @@ Updated 2026-11-21. This file describes World Order only. Do not modify Tess or 
 - Make national management accessible: summary dashboards for influence, stability, resources, military strength and diplomatic relationships, without granular national budgets.
 - There can be several possible end states: a united voluntary world federation, coercive global hegemony, fragmented sphere-of-influence system, failed conquest, or ongoing open-world play.
 - A late-game multi-country turn should remain affordable through deterministic strategic simulation plus focused AI narration for key characters and events.
+
+## World Director — Balanced (default)
+- The default mode is Balanced: at most one deterministic, contextual background event every **2 fictional days**. Realistic = every 5 days; Chaotic = daily.
+- Director reacts to rescue/interview/Cuba chapter and the player's chosen Cuba strategy, with plausible press, business, citizen and political developments.
+- Events are idempotent per game day and recorded in the saved event ledger and feed. They never create undocumented marriages, pregnancy, elections or conquests.
+- The initial Director does not make paid AI calls; character dialogue still uses the existing authenticated server AI endpoint.
+- These are initial prototype mechanics, not yet the eventual large-scale AI autonomous world simulation.
 
 ## Memory invariants
 - Persist a world-scoped canonical event ledger including day, actor, subjects, public/private scope, provenance, and idempotency key.
