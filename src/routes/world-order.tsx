@@ -69,11 +69,20 @@ function readSave(): Save {
     } : v;
     const alreadyReactions = (migrated.posts as Post[]).some(p => p.handle === "@julesatshows");
     // Existing test saves keep their choices and chat history while gaining the missing reaction wave.
+    const legacyWall = rescuedBefore ? (migrated.posts as Post[]).filter(p =>
+      !(p.author === "WorldWire" && p.day === 2 && (
+        p.body.startsWith("You helped protect Sabrina Carpenter during a fictional concert attack.") ||
+        p.body.startsWith("Sabrina survived the fictional concert attack.")))
+    ) : migrated.posts as Post[];
     const upgradedPosts = rescuedBefore && !alreadyReactions
-      ? appendMissingReactions(migrated.posts as Post[], socialReactionWave("rescue", 2, {
+      ? appendMissingReactions([
+          { id: -202, day: 2, author: "WorldWire", category: "Breaking",
+            body: "Sabrina Carpenter is safe after a concert emergency. Video of a bystander's intervention is spreading fast as reactions pour in." },
+          ...legacyWall,
+        ], socialReactionWave("rescue", 2, {
           tone: (migrated.rescueLog as RescueRecord[] | undefined)?.[2]?.approach ?? "care",
         }))
-      : migrated.posts;
+      : legacyWall;
     return { ...structuredClone(INITIAL), ...migrated, posts: upgradedPosts,
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
