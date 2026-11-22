@@ -437,14 +437,14 @@ function WorldOrder() {
   }
   function startInternationalCampaign(country: ForeignCountry, method: CampaignMethod) {
     const result=beginConquestCampaign(save.conquest,country,method,save.day+1,{
-      president:save.campaign.position==="president", influence:save.influence+empireTotals(save.conquest).influence,
+      president:save.campaign.position==="president", influence:save.influence+empireTotals(save.conquest).influence+Math.floor(empireTotals(save.conquest).power/2),
       cash:save.openWorld.cash,trust:save.globalPower.relations[country].trust,
       militaryCapacity:save.globalPower.capacity+empireTotals(save.conquest).militaryStrength,
     });
     if(!result){setSocialNotice("You need to be Cuba's president, have enough funds, and meet the diplomatic or defense prerequisites.");return;}
     mutate(s=>{
       const actual=beginConquestCampaign(s.conquest,country,method,s.day+1,{
-        president:s.campaign.position==="president",influence:s.influence+empireTotals(s.conquest).influence,cash:s.openWorld.cash,
+        president:s.campaign.position==="president",influence:s.influence+empireTotals(s.conquest).influence+Math.floor(empireTotals(s.conquest).power/2),cash:s.openWorld.cash,
         trust:s.globalPower.relations[country].trust,militaryCapacity:s.globalPower.capacity+empireTotals(s.conquest).militaryStrength,
       });
       if(!actual)return s;
@@ -737,7 +737,7 @@ function WorldOrder() {
           </div>
         </section>}
         {tab === "world" && <section className="space-y-3">
-          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence+empire.influence}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence+empire.influence} · Power: {save.influence+save.globalPower.capacity+empire.power}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
             <p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
             {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
             <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
