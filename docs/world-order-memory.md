@@ -1,3 +1,32 @@
+## Automatic empire contributions and replay
+- Every controlled country automatically grants income, military strength, influence and global power through `src/lib/world-order-empire.ts`. Cooperation partners and protectorates grant smaller bonuses; no duplicate yields when a country changes status. The fictional per-country rating is intentionally a game-balancing value rather than real-world combat power.
+- Income is paid once during each game-day advance. Military bonuses count toward strategic campaign eligibility and defense comparisons; empire influence and half the power score contribute to campaign leverage. The World screen shows empire dividends and combined power.
+- This is **derived state** calculated from `conquest.territory`; no duplicate ledger or per-country maintenance chores. Existing local saves migrate without losing character messages or geopolitical achievements.
+- The player can choose **Start fresh playthrough** in World → Save options. This saves the current world to a separate browser-local `world-order-v1-last-replay-backup` key, then restarts Day 1; **Restore previous playthrough** reloads it. Backup exists only in the same browser, and browser/site-data deletion can erase it. Replaying never affects Tess or Peer Center HQ.
+
+## Country scale — 82 playable nations
+- The game now offers **82 selectable countries beyond Cuba** in `src/lib/world-order-countries.ts` (83 nations including Cuba). This fulfills the player's requested scale of at least 75 controllable countries, without creating hundreds of AI actors.
+- Every listed country participates in diplomatic contact, multi-day diplomatic/economic/military campaigns, earned partner or protectorate outcomes, and a separate negotiated direct-control step after a successful campaign. Ownership is saved as `controlled` rather than just showing `owned`.
+- Use the World → Global campaigns search and region filters; show 12 country cards per page, with count of controlled countries and allies. The original six leader characters retain named identities, while other countries use generic fictional government representatives to minimize AI cost.
+- Save migrations populate new countries while retaining earlier campaign outcomes, player properties, relationships and private-strategy decisions. Keep ongoing costs low and mechanics manageable.
+- Do not silently expose the private world-conquest goal to other characters. Only direct interactions, public declarations or known in-world events can reveal it.
+
+## Multi-stage global expansion
+- The first draft of global power had diplomatic and defense buttons but no enduring strategy campaign. `src/lib/world-order-conquest.ts` adds persistent nation-to-nation campaign objects with stages, resistance, progress, global tension, decisions, public reactions and outcome states.
+- World → Global campaigns displays each target country, current stage, progress, resistance, history, and actions. Available approaches include diplomatic union, economic expansion, and strategic military confrontation; one decision consumes one game day and changes canonical country state.
+- Diplomacy and economics can earn voluntary partner status after sustained progress and declining resistance. Military confrontation incurs higher international tension and support costs; disputed protectorate status requires a long, successful crisis followed by a mediated political settlement. Neither route allows a one-click takeover.
+- This is high-level, invented political simulation: no operational targeting or military tactics. Rival countries remain autonomous characters and may oppose the player.
+- Saved games receive an independent conquest state without overwriting already established private ambitions, friends, romances, country progression, or local assets.
+- The system currently has six simulated countries with limited automated reactions. A full 150–200-character world with autonomous state agents, richer wars, occupation governance, domestic rebellion, and multi-country coalition systems remains future work.
+
+## Private strategy and international power — 2026-11-22
+- Player's ambition to conquer or control the wider world is a **private intention**, not common knowledge. Taylor, Sabrina, the press, government officials and ordinary NPCs must NOT know or imply they know unless told by the player or an actual public event makes it known.
+- World Order's private strategy defaults to `private`, including migrated existing worlds. A deliberate public declaration is required to reveal it; any actual private disclosure to an NPC belongs only in that character's knowledge, not a global news feed.
+- Six alternate-history political leaders have been introduced as NPCs: presidents/prime ministers representing the United States, United Kingdom, Canada, Brazil, France and Mexico. These are explicitly invented officials, not depictions of current real leaders or real conversations.
+- The World screen now supports diplomatic openings, summits, trade negotiations, provisional treaties, strategic defense readiness and training, military alert postures, high-level intervention decisions and de-escalation. Reputation, resources, trust and institutional costs govern consequences. **A military decision does not automatically conquer a country**; operational military tactics and real-target details are out of scope.
+- Diplomatic trust and national readiness are persistent per-save state, including old-world migration. The expansion is an initial international power simulation, not yet full playable world conquest, negotiations, wars and territorial administration.
+- Development is isolated in `feature/world-order-private-ambition-global-power-20261122` based on the already-merged `main`, not the earlier PR #247/#248.
+
 # World Order — persistent design memory
 
 Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes World Order only. Do not modify Tess or AI Town canon.

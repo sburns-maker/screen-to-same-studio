@@ -1,7 +1,11 @@
+import { empireTotals, empireDailyIncome } from "@/lib/world-order-empire";
+import { COUNTRY_NAMES, COUNTRY_RECORDS, COUNTRY_REGIONS, type WorldRegion } from "@/lib/world-order-countries";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
+import { newConquestWorld, restoreConquestWorld, beginConquestCampaign, campaignMove, consolidateControl, activeCampaign, type ConquestWorld, type CampaignMethod, type CampaignMove } from "@/lib/world-order-conquest";
+import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, canMessageOfficial, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
 import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState } from "@/lib/world-order-campaign";
@@ -27,12 +31,13 @@ type Save = {
   posts: Post[]; chat: Chat[]; events: string[]; playerName: string; completed: string[]; memories: Memory[];
   directorMode: DirectorMode; directorEventIds: string[];
   rescuePhase: RescuePhase; rescueLog: RescueRecord[];
-  campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife;
+  campaign: CampaignState; openWorld: OpenWorld; socialLife: SocialLife; globalPower: GlobalPower; conquest: ConquestWorld;
 };
 const KEY = "world-order-v1";
+const REPLAY_BACKUP_KEY = "world-order-v1-last-replay-backup";
 const INITIAL: Save = {
   day: 1, chapter: "rescue", route: "undecided", followers: 0, reputation: 50, influence: 0, cubaSupport: 0,
-  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(),
+  playerName: "You", completed: [], directorMode: "balanced", directorEventIds: [], rescuePhase: 0, rescueLog: [], memories: [], campaign: initialCampaign(), openWorld: createOpenWorld(), socialLife: createSocialLife(), globalPower: newGlobalPower(), conquest: newConquestWorld(),
   posts: [{ id: 1, author: "Backstage Live", category: "Live", day: 1, body: "Sabrina Carpenter is onstage. The crowd is roaring and the lights are blazing. Something unsettling is unfolding near the barricade." }],
   chat: [],
   events: ["Day 1: You are attending Sabrina Carpenter's concert."],
@@ -90,7 +95,7 @@ function readSave(): Save {
     const cleanPosts = upgradedPosts.filter(p =>
       !(p.author === "WorldWire" && p.category === "Update" &&
         (p.body.startsWith("Another day passes.") || p.body.startsWith("Time passes. Unresolved decisions"))));
-    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign), openWorld: restoreOpenWorld(v.openWorld), socialLife: restoreSocialLife(v.socialLife),
+    return { ...structuredClone(INITIAL), ...migrated, posts: cleanPosts, campaign: normalizeCampaign(v.campaign), openWorld: restoreOpenWorld(v.openWorld), socialLife: restoreSocialLife(v.socialLife), globalPower: restoreGlobalPower(v.globalPower), conquest: restoreConquestWorld(v.conquest),
       rescuePhase: rescuedBefore ? 3 : [0, 1, 2].includes(migrated.rescuePhase) ? migrated.rescuePhase : 0,
       rescueLog: Array.isArray(migrated.rescueLog) ? migrated.rescueLog : [],
       directorMode: ["realistic", "balanced", "chaotic"].includes(v.directorMode) ? v.directorMode : "balanced",
@@ -120,7 +125,11 @@ function WorldOrder() {
   const [selectedContact, setSelectedContact] = useState<WorldContact>("Sabrina");
   const [contactSearch, setContactSearch] = useState("");
   const [socialNotice, setSocialNotice] = useState("");
+  const [countrySearch,setCountrySearch]=useState("");
+  const [regionFilter,setRegionFilter]=useState<WorldRegion | "All">("All");
+  const [countryPage,setCountryPage]=useState(0);
   const [meetupFocus, setMeetupFocus] = useState<WorldContact | null>(null);
+  const [replayNotice,setReplayNotice]=useState("");
   useEffect(() => {
     const loaded = readSave();
     // Populate a modest inbox for existing high-follower worlds, without
@@ -149,7 +158,7 @@ function WorldOrder() {
     ];
     return {
       ...s, day,
-      openWorld: { ...s.openWorld, cash: s.openWorld.cash + ventureIncome(s.openWorld) },
+      openWorld: { ...s.openWorld, cash: s.openWorld.cash + ventureIncome(s.openWorld) + empireDailyIncome(s.conquest) },
       chat: [...s.chat, ...dmWave.map((m, i) => ({ id: Date.now() + i + Math.random(), from: m.contact, body: m.body, day: m.day }))].slice(-500),
       socialLife: { ...s.socialLife, incomingIds: [...s.socialLife.incomingIds, ...dmWave.map(m => m.id)].slice(-500) },
       influence: Math.max(0, s.influence + (event?.influenceDelta ?? 0)),
@@ -265,7 +274,7 @@ function WorldOrder() {
   }
   async function sendDm() {
     const body = dm.trim();
-    if (!body || body.length > 800 || replying || !ready || save.chapter === "rescue") return;
+    if (!body || body.length > 800 || replying || !ready || save.chapter === "rescue" || !canMessageOfficial(save.globalPower,selectedContact)) return;
     const contact = selectedContact;
     const playerMessage: Chat = { id: Date.now() + Math.random(), from: "player", day: save.day, body: `To ${contact}: ${body}` };
     const current: Save = { ...save, chat: [...save.chat, playerMessage] };
@@ -340,6 +349,7 @@ function WorldOrder() {
     } finally { setCampaignBusy(false); }
   }
   function openContact(contact: WorldContact) {
+    if(!canMessageOfficial(save.globalPower,contact)){setSocialNotice("Open a formal diplomatic channel in World → International power first.");setTab("world");return;}
     setSelectedContact(contact); setSocialNotice(""); setTab("messages");
     mutate(s => ({ ...s, socialLife: { ...s.socialLife, seenByContact: {
       ...s.socialLife.seenByContact,
@@ -347,7 +357,7 @@ function WorldOrder() {
     } } }));
   }
   function planMeetup(contact: WorldContact) {
-    if (save.chapter === "rescue") return;
+    if (save.chapter === "rescue" || !canMessageOfficial(save.globalPower,contact)) return;
     const result = arrangeMeetup(save.socialLife, contact, save.day, save.openWorld.city);
     setSocialNotice(result.message);
     if (!result.visit || save.socialLife.visits.some(v=>v.contact===contact&&v.status==="planned")) return;
@@ -387,7 +397,7 @@ function WorldOrder() {
       if (!applied) return s;
       const next = advance(s, applied.headline);
       return {
-        ...next, openWorld: { ...applied.state, cash: applied.state.cash + ventureIncome(applied.state) },
+        ...next, openWorld: { ...applied.state, cash: applied.state.cash + ventureIncome(applied.state) + empireDailyIncome(s.conquest) },
         influence: Math.max(0, next.influence + applied.influenceChange),
         reputation: Math.max(0, Math.min(100, next.reputation + applied.reputationChange)),
         cubaSupport: Math.max(0, Math.min(100, next.cubaSupport + applied.supportChange)),
@@ -400,12 +410,127 @@ function WorldOrder() {
     });
     setSocialNotice(result.headline);
   }
+  function takeNationalAction(action: NationalAction) {
+    const preview = nationalAction(save.globalPower, action, {
+      president: save.campaign.position === "president", influence:save.influence,
+      cash:save.openWorld.cash, day:save.day+1,
+    });
+    if (!preview || save.chapter !== "cuba") {
+      setSocialNotice("This action isn't available yet. Check political standing, diplomatic trust or cash.");
+      return;
+    }
+    mutate(s => {
+      const result = nationalAction(s.globalPower,action,{
+        president:s.campaign.position==="president",influence:s.influence,cash:s.openWorld.cash,day:s.day+1,
+      });
+      if(!result)return s;
+      const next=advance(s,result.summary);
+      return {
+        ...next,globalPower:result.state,
+        openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-result.cashCost)},
+        influence:next.influence+result.influenceDelta,
+        cubaSupport:Math.max(0,Math.min(100,next.cubaSupport+result.supportDelta)),
+        posts:result.publicEvent?[newPost(result.source,result.summary,next.day,"International"),...next.posts].slice(0,160):next.posts,
+      };
+    });
+    setSocialNotice(preview.summary);setTab("world");
+  }
+  function startInternationalCampaign(country: ForeignCountry, method: CampaignMethod) {
+    const result=beginConquestCampaign(save.conquest,country,method,save.day+1,{
+      president:save.campaign.position==="president", influence:save.influence+empireTotals(save.conquest).influence+Math.floor(empireTotals(save.conquest).power/2),
+      cash:save.openWorld.cash,trust:save.globalPower.relations[country].trust,
+      militaryCapacity:save.globalPower.capacity+empireTotals(save.conquest).militaryStrength,
+    });
+    if(!result){setSocialNotice("You need to be Cuba's president, have enough funds, and meet the diplomatic or defense prerequisites.");return;}
+    mutate(s=>{
+      const actual=beginConquestCampaign(s.conquest,country,method,s.day+1,{
+        president:s.campaign.position==="president",influence:s.influence+empireTotals(s.conquest).influence+Math.floor(empireTotals(s.conquest).power/2),cash:s.openWorld.cash,
+        trust:s.globalPower.relations[country].trust,militaryCapacity:s.globalPower.capacity+empireTotals(s.conquest).militaryStrength,
+      });
+      if(!actual)return s;
+      const next=advance(s,actual.summary);
+      return {...next,conquest:actual.state,
+        influence:Math.max(0,next.influence+actual.influenceDelta),
+        cubaSupport:Math.max(0,Math.min(100,next.cubaSupport+actual.supportDelta)),
+        openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-actual.cost)},
+        posts:[newPost("Global Affairs",actual.summary,next.day,"International"),...next.posts].slice(0,160)};
+    });
+    setSocialNotice(result.summary);
+  }
+  function chooseInternationalMove(id:string,move:CampaignMove) {
+    const trial=campaignMove(save.conquest,id,move,save.day+1,{
+      cash:save.openWorld.cash,defense:save.globalPower.defense+empireTotals(save.conquest).militaryStrength,
+      trust:save.globalPower.relations[save.conquest.campaigns.find(c=>c.id===id)!.country].trust,
+      legitimacy:save.globalPower.legitimacy,
+    });
+    if(!trial){setSocialNotice("You cannot take that step yet. Check available resources and campaign status.");return;}
+    mutate(s=>{
+      const selected=s.conquest.campaigns.find(c=>c.id===id);
+      if(!selected)return s;
+      const outcome=campaignMove(s.conquest,id,move,s.day+1,{
+        cash:s.openWorld.cash,defense:s.globalPower.defense+empireTotals(s.conquest).militaryStrength,
+        trust:s.globalPower.relations[selected.country].trust,legitimacy:s.globalPower.legitimacy,
+      });
+      if(!outcome)return s;
+      const next=advance(s,outcome.summary);
+      return {...next,conquest:outcome.state,
+        openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-outcome.cost)},
+        influence:Math.max(0,next.influence+outcome.influenceDelta),
+        cubaSupport:Math.max(0,Math.min(100,next.cubaSupport+outcome.supportDelta)),
+        posts:[newPost("Global Affairs",outcome.summary,next.day,"International"),...next.posts].slice(0,160)};
+    });
+    setSocialNotice(trial.summary);
+  }
+  function integrateCountry(country:ForeignCountry) {
+    const preview=consolidateControl(save.conquest,country,save.day+1,{
+      president:save.campaign.position==="president",cash:save.openWorld.cash,legitimacy:save.globalPower.legitimacy,
+    });
+    if(!preview){setSocialNotice("Control requires a completed campaign, adequate legitimacy and funds, and time for integration.");return;}
+    mutate(s=>{
+      const actual=consolidateControl(s.conquest,country,s.day+1,{
+        president:s.campaign.position==="president",cash:s.openWorld.cash,legitimacy:s.globalPower.legitimacy,
+      });
+      if(!actual)return s;
+      const next=advance(s,actual.summary);
+      return {...next,conquest:actual.state,
+        openWorld:{...next.openWorld,cash:Math.max(0,next.openWorld.cash-actual.cost)},
+        influence:next.influence+actual.influenceDelta,
+        posts:[newPost("Global Affairs",actual.summary,next.day,"International"),...next.posts].slice(0,160)};
+    });
+    setSocialNotice(preview.summary);
+  }
+  function replayFromBeginning() {
+    if(!window.confirm("Start World Order again at Day 1? Your current world will be saved as a local backup in this browser."))return;
+    try {
+      // Keep the old game in a separate key so an accidental restart can be reversed.
+      localStorage.setItem(REPLAY_BACKUP_KEY,JSON.stringify(save));
+      setSave(structuredClone(INITIAL));
+      setSelectedContact("Sabrina");setSocialNotice("");setReplayNotice("New Day 1 world started. Your previous game was backed up in this browser.");
+      setTab("feed");
+    }catch {setReplayNotice("Couldn't save the backup. No progress was reset.");}
+  }
+  function restoreReplayBackup() {
+    const backup=localStorage.getItem(REPLAY_BACKUP_KEY);
+    if(!backup){setReplayNotice("No previous replay backup exists in this browser.");return;}
+    if(!window.confirm("Restore your previous World Order game? This replaces the current replay progress."))return;
+    try{
+      const data=JSON.parse(backup);
+      if(!data || typeof data.day!=="number" || !Array.isArray(data.posts) || !Array.isArray(data.chat))throw Error("Invalid backup");
+      // Migration runs through the existing readSave parser, just as on page load.
+      const current=localStorage.getItem(KEY);
+      localStorage.setItem(KEY,backup);
+      const restored=readSave();
+      if(current!==null)localStorage.setItem(KEY,current); else localStorage.removeItem(KEY);
+      setSave(restored);setTab("world");setReplayNotice("Your previous World Order game has been restored.");
+    }catch{setReplayNotice("Backup could not be restored. Your current world is unchanged.");}
+  }
   function nextDay() {
     if (save.chapter === "rescue") return;
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
     if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
   const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
+  const empire = empireTotals(save.conquest);
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
   const beat = save.chapter === "rescue" ? RESCUE_BEATS[save.rescuePhase] : undefined;
   const unreadTotal = SOCIAL_CONTACTS.reduce((sum,c)=>sum+unreadFrom(save.chat,save.socialLife.seenByContact,c),0);
@@ -481,9 +606,10 @@ function WorldOrder() {
               {SOCIAL_CONTACTS.filter(c => SOCIAL_CAST[c].name.toLowerCase().includes(contactSearch.toLowerCase()) || SOCIAL_CAST[c].role.toLowerCase().includes(contactSearch.toLowerCase())).map(c => {
                 const last = [...save.chat].reverse().find(m=>m.from===c||m.body.startsWith("To "+c+":"));
                 const unread = unreadFrom(save.chat,save.socialLife.seenByContact,c);
+                const locked=!canMessageOfficial(save.globalPower,c);
                 return <button key={c} onClick={()=>openContact(c)} className={"flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left "+(selectedContact===c?"bg-amber-300 text-slate-950":"hover:bg-[#26364d]")}>
                   <span className={"grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold "+(selectedContact===c?"bg-slate-950 text-amber-300":"bg-slate-700 text-slate-100")}>{c[0]}</span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{SOCIAL_CAST[c].name}</span><span className={"block truncate text-[11px] "+(selectedContact===c?"text-slate-700":"text-slate-400")}>{last?.body.replace(/^To [^:]+: /,"")??SOCIAL_CAST[c].role}</span></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{SOCIAL_CAST[c].name}</span><span className={"block truncate text-[11px] "+(selectedContact===c?"text-slate-700":"text-slate-400")}>{locked?"Diplomatic channel required":last?.body.replace(/^To [^:]+: /,"")??SOCIAL_CAST[c].role}</span></span>
                   {unread>0&&<span className="rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">{unread}</span>}
                 </button>;
               })}
@@ -611,10 +737,114 @@ function WorldOrder() {
           </div>
         </section>}
         {tab === "world" && <section className="space-y-3">
-          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="flex items-center gap-2 font-display text-2xl"><Landmark className="text-amber-300" size={20}/> Political influence</h2><p className="mt-2 text-sm text-slate-300">{save.route === "undecided" ? "Your global ambitions have barely begun." : ENDINGS[save.route].title}</p><p className="mt-2 text-xs text-slate-400">Cuban support: {save.cubaSupport} · Stability: {save.campaign.stability} · Influence: {save.influence+empire.influence} · Power: {save.influence+save.globalPower.capacity+empire.power}</p>{campaignScene && <p className="mt-2 rounded-xl bg-[#0c1524] p-3 text-sm font-semibold text-amber-200">Political standing: {save.campaign.position === "outsider" ? "Independent outsider" : save.campaign.position === "delegate" ? "Transition delegate" : save.campaign.position === "candidate" ? "Presidential candidate" : "President of Cuba"}</p>}
             <p className="mt-2 text-xs text-amber-200">{campaignScene ? "Current objective: " + campaignScene.objective : "Complete the guided opening to unlock political missions."}</p>
             {campaignScene && <button onClick={() => setTab("activities")} className="mt-3 rounded-full bg-amber-300 px-4 py-2 text-xs font-bold text-slate-950">Continue mission →</button>}
             <p className="mt-3 text-[11px] text-slate-500">Nationwide and global conquest mechanics remain under development.</p></div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
+            <h2 className="font-display text-2xl">Global campaigns · {COUNTRY_NAMES.length} countries</h2>
+            <div className="mt-3 rounded-xl border border-amber-300/30 bg-[#0c1524] p-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Your empire's contributions</p>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div><p className="text-[11px] text-slate-400">Income per day</p><p className="text-lg font-bold text-amber-200">${empire.incomePerDay.toLocaleString()}</p></div>
+                <div><p className="text-[11px] text-slate-400">Military reinforcements</p><p className="text-lg font-bold text-amber-200">+{empire.militaryStrength}</p></div>
+                <div><p className="text-[11px] text-slate-400">Influence gained</p><p className="text-lg font-bold text-amber-200">+{empire.influence}</p></div>
+                <div><p className="text-[11px] text-slate-400">Global power</p><p className="text-lg font-bold text-amber-200">+{empire.power}</p></div>
+              </div>
+              <p className="mt-2 text-xs leading-5 text-slate-400">Controlled countries contribute the most. Partners and protectorates contribute less. Income is paid automatically when each game day advances.</p>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Start a multi-day international campaign. Your opponents respond, political resistance changes, and treaties or alliances require sustained negotiations. No instant conquest.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Global tension</p><p className="text-xl font-bold text-amber-300">{save.conquest.worldTension}%</p></div>
+              <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">International prestige</p><p className="text-xl font-bold text-amber-300">{save.conquest.prestige}</p></div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Under your control</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>save.conquest.territory[c]==="controlled").length}</p></div>
+              <div className="rounded-xl bg-[#0c1524] p-3"><p className="text-xs text-slate-400">Allies and protectorates</p><p className="text-xl font-bold text-amber-300">{COUNTRY_NAMES.filter(c=>["partner","protectorate"].includes(save.conquest.territory[c]??"")).length}</p></div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input aria-label="Search countries" value={countrySearch} onChange={e=>{setCountrySearch(e.target.value);setCountryPage(0);}} placeholder="Search 82 countries…" className="min-w-0 rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white"/>
+              <select aria-label="Filter by region" value={regionFilter} onChange={e=>{setRegionFilter(e.target.value as WorldRegion | "All");setCountryPage(0);}} className="rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-2 text-sm text-white">
+                <option value="All">All regions</option>
+                {COUNTRY_REGIONS.map(r=><option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 space-y-3">{COUNTRY_NAMES.filter(c=>(regionFilter==="All"||COUNTRY_RECORDS[c].region===regionFilter)&&c.toLowerCase().includes(countrySearch.trim().toLowerCase()))
+              .slice(countryPage*12,countryPage*12+12).map(country=>{
+              const active=activeCampaign(save.conquest,country);
+              const last=[...save.conquest.campaigns].reverse().find(c=>c.country===country);
+              return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div><p className="font-bold text-amber-200">{country}</p><p className="text-xs text-slate-400">{(FOREIGN_LEADERS as Partial<Record<ForeignCountry,{name:string}>>)[country]?.name??COUNTRY_RECORDS[country].region+" · Government"}</p></div>
+                  <span className="text-xs text-slate-300">{save.conquest.territory[country]==="controlled"?"Under your control":save.conquest.territory[country]==="partner"?"Cooperation partner":save.conquest.territory[country]==="protectorate"?"Protectorate":active?"Campaign active":last?"Last: "+last.status:"Independent"}</span>
+                </div>
+                {active?<div className="mt-3 space-y-2">
+                  <p className="text-xs text-slate-300">{active.method} · Stage {active.stage+1} · Progress {active.progress}% · Resistance {active.resistance}%</p>
+                  <div className="h-2 overflow-hidden rounded-full bg-slate-700"><div className="h-full rounded-full bg-amber-300" style={{width:active.progress+"%"}}/></div>
+                  {active.log.length>0&&<p className="rounded-lg bg-[#19283b] p-2 text-xs leading-5 text-slate-300">{active.log[active.log.length-1]?.text}</p>}
+                  <div className="grid grid-cols-2 gap-2">{([
+                    ["negotiate","Negotiations"],["invest","Invest"],["persuade","Win public support"],["pressure","Apply pressure"],
+                    ["defend","Strategic defense"],["compromise","Offer compromise"],["withdraw","Withdraw"],
+                  ] as [CampaignMove,string][]).filter(([m])=>active.method==="military"?m!=="invest":m!=="defend").map(([move,label])=>
+                    <button key={move} onClick={()=>chooseInternationalMove(active.id,move)} className="rounded-lg border border-slate-600 p-2 text-left text-xs text-slate-200 hover:border-amber-300">{label}</button>)}</div>
+                </div>:save.conquest.territory[country]==="independent"?
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-slate-400">{COUNTRY_RECORDS[country].region} · Resistance {COUNTRY_RECORDS[country].resistance}% · Diplomatic trust {save.globalPower.relations[country].trust}</p>
+                    {save.globalPower.relations[country].trust<40 && <button onClick={()=>takeNationalAction({type:"diplomacy",country,mode:"contact"})} className="rounded-full border border-amber-300/60 px-3 py-2 text-xs text-amber-200">Open diplomatic channel · $2,500</button>}
+                    <div className="flex flex-wrap gap-2">{([
+                    ["diplomacy","Diplomatic campaign"],["economic","Economic expansion"],["military","Military standoff"]
+                  ] as [CampaignMethod,string][]).map(([method,label])=><button key={method}
+                    disabled={save.campaign.position!=="president"|| (method==="diplomacy"&&save.globalPower.relations[country].trust<40) || (method==="military"&&save.globalPower.capacity<55)}
+                    onClick={()=>startInternationalCampaign(country,method)}
+                    className="rounded-full border border-amber-300/40 px-3 py-2 text-xs text-amber-100 disabled:opacity-30">{label}</button>)}</div></div>:
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-emerald-300">{save.conquest.territory[country]==="controlled"?"Part of your international union.":"An earned agreement is in place."}</p>
+                    {save.conquest.territory[country]!=="controlled"&&<button onClick={()=>integrateCountry(country)} className="rounded-full border border-amber-300/70 px-3 py-2 text-xs font-semibold text-amber-200">Negotiate direct control · $25k</button>}
+                  </div>}
+              </div>;
+            })}</div>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <button disabled={countryPage===0} onClick={()=>setCountryPage(p=>Math.max(0,p-1))} className="rounded-full border border-slate-700 px-4 py-2 text-xs disabled:opacity-30">Previous</button>
+              <span className="text-xs text-slate-400">Page {countryPage+1} of {Math.max(1,Math.ceil(COUNTRY_NAMES.filter(c=>(regionFilter==="All"||COUNTRY_RECORDS[c].region===regionFilter)&&c.toLowerCase().includes(countrySearch.trim().toLowerCase())).length/12))}</span>
+              <button disabled={(countryPage+1)*12>=COUNTRY_NAMES.filter(c=>(regionFilter==="All"||COUNTRY_RECORDS[c].region===regionFilter)&&c.toLowerCase().includes(countrySearch.trim().toLowerCase())).length} onClick={()=>setCountryPage(p=>p+1)} className="rounded-full border border-slate-700 px-4 py-2 text-xs disabled:opacity-30">Next</button>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">You need the Cuban presidency to launch state-level campaigns. The world continues to react even when plans fail.</p>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
+            <h2 className="font-display text-2xl">International power</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-300">Build relations with other governments, strengthen Cuba's defensive capabilities, and turn influence into actual international negotiations.</p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              {([["Defense readiness",save.globalPower.defense],["Military capacity",save.globalPower.capacity+empire.militaryStrength],["Legitimacy",save.globalPower.legitimacy]] as [string,number][]).map(([name,n])=><div key={name} className="rounded-xl bg-[#0c1524] p-3"><p className="text-lg font-bold text-amber-200">{n}%</p><p className="mt-1 text-[10px] leading-4 text-slate-400">{name}</p></div>)}
+            </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-amber-300">Your strategic ambition</p>
+            <p className="mt-1 text-xs text-slate-300">{save.globalPower.strategy==="private"?"Private. No one knows you have ambitions beyond your public political work.":"Public. You have announced a wider international ambition and foreign leaders can respond."}</p>
+            {save.globalPower.strategy==="private" ? <button onClick={()=>takeNationalAction({type:"strategy",mode:"disclosed"})} className="mt-3 rounded-full border border-amber-300/70 px-4 py-2 text-xs text-amber-200">Reveal ambition publicly (permanent)</button> : <p className="mt-2 text-xs text-amber-200">This public declaration is now part of the world’s history.</p>}
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-amber-300">Diplomatic relationships</p>
+            <div className="mt-2 space-y-3">{(Object.entries(FOREIGN_LEADERS) as [keyof typeof FOREIGN_LEADERS,(typeof FOREIGN_LEADERS)[keyof typeof FOREIGN_LEADERS]][]).map(([country,leader])=>{
+              const rel=save.globalPower.relations[country];
+              return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
+                <div className="flex justify-between gap-2"><div><p className="text-sm font-semibold">{country}</p><p className="text-xs text-slate-400">{leader.name} · {rel.status}</p></div><p className="text-xs text-amber-200">Trust {rel.trust}</p></div>
+                <div className="mt-3 flex flex-wrap gap-2">{([
+                  ["contact","Open channel"],["summit","Hold summit"],["trade","Trade talks"],["treaty","Cooperation treaty"],["pressure","Apply pressure"],
+                ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"diplomacy",country,mode})}
+                  disabled={save.chapter!=="cuba"||(save.campaign.position!=="president"&&save.influence<30)||(mode==="treaty"&&rel.trust<55)}
+                  className="rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">{label}</button>)}</div>
+                <div className="mt-2 flex flex-wrap gap-2">{([
+                  ["show-force","Show of force"],["intervene","Military intervention"],["deescalate","Seek de-escalation"],
+                ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"military",country,mode})}
+                  disabled={save.campaign.position!=="president"||(mode==="intervene"&&(save.globalPower.defense<55||save.globalPower.capacity<40))}
+                  className="rounded-full border border-rose-800/70 px-3 py-2 text-xs text-rose-200 disabled:opacity-30">{label}</button>)}</div>
+              </div>;
+            })}</div>
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-amber-300">Defense ministry</p>
+            <p className="mt-1 text-xs text-slate-400">Strategic posture, training and defensive readiness; no tactical operational targeting.</p>
+            <div className="mt-3 flex flex-wrap gap-2">{([
+              ["readiness","Readiness review"],["training","Train forces"],["modernize","Modernize"],["mobilize","Raise alert"],["standdown","Stand down"],
+            ] as const).map(([mode,label])=><button key={mode} onClick={()=>takeNationalAction({type:"defense",mode})}
+              disabled={save.chapter!=="cuba"||(save.campaign.position!=="president"&&save.influence<30)}
+              className="rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200 disabled:opacity-30">{label}</button>)}</div>
+            {save.globalPower.lastEvent && <p className="mt-3 rounded-xl bg-[#0c1524] p-3 text-sm text-slate-300">{save.globalPower.lastEvent}</p>}
+          </div>
           {campaignScene && <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5">
             <h2 className="font-display text-2xl">People & alliances</h2>
             <p className="mt-1 text-xs text-slate-400">Characters respond to your decisions. Trust starts neutral and changes with the story.</p>
@@ -631,7 +861,12 @@ function WorldOrder() {
           <div className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><h2 className="font-display text-2xl">World Director</h2><p className="mt-1 text-xs text-slate-400">Balanced by default. Background developments appear every two game days.</p><label htmlFor="world-director-mode" className="mt-4 block text-xs font-bold uppercase tracking-widest text-slate-400">Simulation pace</label><select id="world-director-mode" value={save.directorMode} onChange={e => mutate(s => ({ ...s, directorMode: e.target.value as DirectorMode }))} className="mt-2 w-full rounded-xl border border-slate-700 bg-[#0c1524] px-3 py-3 text-sm text-slate-100"><option value="realistic">Realistic · Every 5 days</option><option value="balanced">Balanced · Every 2 days</option><option value="chaotic">Chaotic · Every day</option></select></div>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">World history <span className="ml-2 text-xs text-slate-400">({save.events.length})</span></summary><ol className="mt-4 space-y-3">{[...save.events].reverse().map((e,i) => <li key={i} className="border-l-2 border-amber-300/40 pl-3 text-sm leading-6 text-slate-300">{e}</li>)}</ol></details>
           <details className="rounded-2xl border border-slate-800 bg-[#172236] p-5"><summary className="cursor-pointer font-display text-xl">Memory archive <span className="ml-2 text-xs text-slate-400">({save.memories.length})</span></summary><p className="mt-2 text-xs text-slate-400">Currently stored in this browser only.</p><ul className="mt-3 space-y-2">{save.memories.map(m => <li key={m.key} className="rounded-xl bg-[#0c1524] p-3 text-sm leading-relaxed text-slate-300"><span className="mb-1 block text-[11px] text-amber-300">{m.key} · {m.visibility}</span>{m.summary}</li>)}</ul></details>
-          <div className="flex flex-wrap items-start gap-2"><button onClick={nextDay} disabled={save.chapter === "rescue"} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">Advance one day</button><details className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-400"><summary className="cursor-pointer">Save options</summary><p className="mt-3 max-w-xs">Progress saves in this browser, not to Tess's database. Clearing website data erases it.</p><button className="mt-3 inline-flex items-center gap-2 text-red-300" onClick={() => { if (window.confirm("Reset World Order only?")) { setSave(structuredClone(INITIAL)); setTab("feed"); } }}><RotateCcw size={13}/> Reset World Order</button></details></div>
+          <div className="flex flex-wrap items-start gap-2"><button onClick={nextDay} disabled={save.chapter === "rescue"} className="rounded-full bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950 disabled:opacity-40">Advance one day</button><details className="rounded-xl border border-slate-700 px-4 py-3 text-xs text-slate-400"><summary className="cursor-pointer">Save options</summary><p className="mt-3 max-w-xs">Progress saves in this browser, not to Tess's database. Clearing website data erases it.</p><div className="mt-3 space-y-2">
+              <button className="flex items-center gap-2 rounded-full border border-amber-300/50 px-3 py-2 text-xs text-amber-200" onClick={replayFromBeginning}><RotateCcw size={13}/> Start fresh playthrough (backs up current world)</button>
+              <button className="block rounded-full border border-slate-600 px-3 py-2 text-xs text-slate-200" onClick={restoreReplayBackup}>Restore previous playthrough</button>
+              <p className="text-[11px] text-slate-500">The backup is stored in this same browser only. Clearing site data or switching devices can erase it.</p>
+              {replayNotice&&<p role="status" className="text-xs text-amber-200">{replayNotice}</p>}
+            </div></details></div>
         </section>}
         <p className="mt-7 text-center text-[11px] leading-5 text-slate-500">WORLD ORDER · ALTERNATE-HISTORY GAME · PREVIEW</p>
       </div>

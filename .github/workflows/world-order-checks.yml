@@ -25,4 +25,4 @@ jobs:
       - name: Typecheck
         run: bunx tsc --noEmit
       - name: Focused World Order unit tests
-        run: bunx vitest run src/lib/world-order-rules.test.ts src/lib/world-order-director.test.ts src/lib/world-order-cast.test.ts src/lib/world-order-rescue.test.ts src/lib/world-order-social.test.ts src/lib/world-order-campaign.test.ts src/lib/world-order-social-life.test.ts
+        run: bunx vitest run src/lib/world-order-rules.test.ts src/lib/world-order-director.test.ts src/lib/world-order-cast.test.ts src/lib/world-order-rescue.test.ts src/lib/world-order-social.test.ts src/lib/world-order-campaign.test.ts src/lib/world-order-social-life.test.ts src/lib/world-order-global-power.test.ts src/lib/world-order-conquest.test.ts src/lib/world-order-empire.test.ts
