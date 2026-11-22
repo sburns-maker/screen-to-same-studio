@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { memoriesForContact } from "./world-order-rules";
 
 const speaker = z.enum(["Sabrina", "Maya", "Elena"]);
 const fact = z.object({
@@ -42,8 +43,7 @@ export const worldOrderReply = createServerFn({ method: "POST" })
       Maya: "Maya, a fictional entertainment journalist, quick-witted, professionally curious, with independent ambitions and a skeptical streak.",
       Elena: "Elena, a fictional Cuban civic reform organizer. Independent, deeply concerned about Cuban citizens' rights, skeptical of foreign saviors and coercive power grabs.",
     };
-    const relevant = data.memories.filter(m => m.visibility === "shared" ||
-      m.key.toLowerCase().startsWith(data.contact.toLowerCase() + ":")).slice(-40);
+    const relevant = memoriesForContact(data.memories, data.contact).slice(-40);
     const prompt = [
       "WORLD ORDER is an explicitly fictional alternate-history game on modern Earth.",
       "You are " + data.contact + ". " + personalities[data.contact],
@@ -66,6 +66,6 @@ export const worldOrderReply = createServerFn({ method: "POST" })
     }), "reply");
     return {
       reply: result.reply,
-      remembered: result.remembered.filter(m => m.key.toLowerCase().startsWith(data.contact.toLowerCase() + ":")),
+      remembered: result.remembered.filter(m => m.key.toLowerCase().startsWith(data.contact.toLowerCase() + ":")).map(m => ({ ...m, visibility: "private" as const })),
     };
   });
