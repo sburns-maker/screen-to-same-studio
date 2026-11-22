@@ -81,7 +81,7 @@ export function applyOpenWorldAction(state:OpenWorld,action:WorldAction,day:numb
     headline="You arrive in "+action.city+". New business meetings and social connections are now available.";
   }else if(action.type==="buy"){
     const v=VENTURES[action.venture];
-    if(!v||next.ventures.some(x=>x.id===action.venture)||next.cash<v.cost)return null;
+    if(!v||next.ventures.some(x=>x.id===action.venture)||next.cash<v.cost||next.city!==v.city)return null;
     next.cash-=v.cost;next.ventures.push({id:action.venture,level:1});category="Business";who="Business Ledger";
     headline="You purchase "+v.name+". Ownership now appears in your portfolio, and you can fund expansion or manage operations.";
     influence+=4;support+=action.venture==="foundation"||action.venture==="housing"?5:0;
