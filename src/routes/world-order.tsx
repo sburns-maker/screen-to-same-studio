@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { worldOrderReply, worldOrderRescueAction, worldOrderCampaignAction } from "@/lib/world-order.functions";
-import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
+import { newGlobalPower, restoreGlobalPower, nationalAction, FOREIGN_LEADERS, canMessageOfficial, type GlobalPower, type NationalAction, type ForeignCountry } from "@/lib/world-order-global-power";
 import { applyOpenWorldAction, createOpenWorld, restoreOpenWorld, ventureIncome, ventureValue, CITIES, VENTURES, CONTACTS, type OpenWorld, type WorldAction, type City } from "@/lib/world-order-open-world";
 import { SOCIAL_CAST, SOCIAL_CONTACTS, createSocialLife, restoreSocialLife, incomingSocialWave, unreadFrom, arrangeMeetup, completeMeetup, type SocialLife, type MeetupApproach } from "@/lib/world-order-social-life";
 import { applyCampaignChoice, currentCampaignScene, initialCampaign, normalizeCampaign, type CampaignState } from "@/lib/world-order-campaign";
@@ -266,7 +266,7 @@ function WorldOrder() {
   }
   async function sendDm() {
     const body = dm.trim();
-    if (!body || body.length > 800 || replying || !ready || save.chapter === "rescue") return;
+    if (!body || body.length > 800 || replying || !ready || save.chapter === "rescue" || !canMessageOfficial(save.globalPower,selectedContact)) return;
     const contact = selectedContact;
     const playerMessage: Chat = { id: Date.now() + Math.random(), from: "player", day: save.day, body: `To ${contact}: ${body}` };
     const current: Save = { ...save, chat: [...save.chat, playerMessage] };
@@ -341,6 +341,7 @@ function WorldOrder() {
     } finally { setCampaignBusy(false); }
   }
   function openContact(contact: WorldContact) {
+    if(!canMessageOfficial(save.globalPower,contact)){setSocialNotice("Open a formal diplomatic channel in World → International power first.");setTab("world");return;}
     setSelectedContact(contact); setSocialNotice(""); setTab("messages");
     mutate(s => ({ ...s, socialLife: { ...s.socialLife, seenByContact: {
       ...s.socialLife.seenByContact,
@@ -348,7 +349,7 @@ function WorldOrder() {
     } } }));
   }
   function planMeetup(contact: WorldContact) {
-    if (save.chapter === "rescue") return;
+    if (save.chapter === "rescue" || !canMessageOfficial(save.globalPower,contact)) return;
     const result = arrangeMeetup(save.socialLife, contact, save.day, save.openWorld.city);
     setSocialNotice(result.message);
     if (!result.visit || save.socialLife.visits.some(v=>v.contact===contact&&v.status==="planned")) return;
@@ -507,9 +508,10 @@ function WorldOrder() {
               {SOCIAL_CONTACTS.filter(c => SOCIAL_CAST[c].name.toLowerCase().includes(contactSearch.toLowerCase()) || SOCIAL_CAST[c].role.toLowerCase().includes(contactSearch.toLowerCase())).map(c => {
                 const last = [...save.chat].reverse().find(m=>m.from===c||m.body.startsWith("To "+c+":"));
                 const unread = unreadFrom(save.chat,save.socialLife.seenByContact,c);
+                const locked=!canMessageOfficial(save.globalPower,c);
                 return <button key={c} onClick={()=>openContact(c)} className={"flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left "+(selectedContact===c?"bg-amber-300 text-slate-950":"hover:bg-[#26364d]")}>
                   <span className={"grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold "+(selectedContact===c?"bg-slate-950 text-amber-300":"bg-slate-700 text-slate-100")}>{c[0]}</span>
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{SOCIAL_CAST[c].name}</span><span className={"block truncate text-[11px] "+(selectedContact===c?"text-slate-700":"text-slate-400")}>{last?.body.replace(/^To [^:]+: /,"")??SOCIAL_CAST[c].role}</span></span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{SOCIAL_CAST[c].name}</span><span className={"block truncate text-[11px] "+(selectedContact===c?"text-slate-700":"text-slate-400")}>{locked?"Diplomatic channel required":last?.body.replace(/^To [^:]+: /,"")??SOCIAL_CAST[c].role}</span></span>
                   {unread>0&&<span className="rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">{unread}</span>}
                 </button>;
               })}
