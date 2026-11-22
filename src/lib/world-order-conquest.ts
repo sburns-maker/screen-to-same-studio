@@ -116,11 +116,14 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
    existing.method!=="military"){
    status="won"; control="partner";prestige+=12;
    narrative+=" After prolonged public negotiations, a voluntary cooperation union is ratified. "+existing.country+" retains its own democratic institutions.";
- }else if(status==="active" && stage>=5 && newProgress>=85 && newResistance<=48 &&
-   existing.method==="military"){
-   // Military campaigns never grant a sovereign country automatically.
-   status="lost";
-   narrative+=" International mediation ends the crisis without transferring control of "+existing.country+".";
+ }else if(status==="active" && stage>=8 && newProgress>=88 && newResistance<=35 &&
+   existing.method==="military" && move==="compromise" && world.worldTension<65){
+   // Winning a confrontation is not the same as controlling a country.
+   // A protectorate requires a later, negotiated political settlement and
+   // substantial reduction in resistance; no automatic military annexation.
+   status="won";control="protectorate";prestige+=4;
+   narrative+=" Following a costly crisis, negotiators approve a temporary supervised security arrangement. "+
+    existing.country+" becomes a disputed protectorate in this alternate-history game; resistance and international oversight remain.";
  }else if(status==="active" && stage>=12){
    status="lost";narrative+=" The prolonged initiative collapses amid domestic resistance and mounting costs.";
  }
@@ -129,7 +132,7 @@ export function campaignMove(world:ConquestWorld,id:string,move:CampaignMove,day
   log:[...existing.log,{day,choice:move,text:narrative}].slice(-40)};
  const headline=existing.country+" · "+narrative;
  const next={...world,campaigns:world.campaigns.map(c=>c.id===id?updated:c),
-  territory:control==="partner"?{...world.territory,[existing.country]:control}:world.territory,
+  territory:control!=="independent"?{...world.territory,[existing.country]:control}:world.territory,
   worldTension:clamp(world.worldTension+tension+(status==="lost"?-4:0)),
   prestige:clamp(world.prestige+prestige),lastHeadline:headline};
  return {state:next,summary:headline,cost:prices[move],influenceDelta:influence,supportDelta:support,
