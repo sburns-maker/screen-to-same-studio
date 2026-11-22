@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteAllData, resetRelationship, updateSettings } from "@/lib/tess.functions";
+import { setTessBackgroundPaused, tessBackgroundStatus } from "@/lib/tess-background.functions";
 import { pushStatus, quietHours, removePushSubscription, savePushSubscription, sendTestPush, updateQuietHours } from "@/lib/push.functions";
 import { VAPID_PUBLIC_KEY } from "@/lib/push-config";
 import { conversationsQuery } from "@/lib/tess-queries";
@@ -117,6 +118,7 @@ function SettingsPage() {
         <details className="mt-7 rounded-2xl border bg-surface p-3"><summary className="flex min-h-11 cursor-pointer items-center px-2 font-semibold">Simulation and world settings</summary>
         <div className="pt-2">
         <h3 className="mt-3 px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Simulation</h3>
+        <TessBackgroundPauseRow />
         <div className="mt-2 divide-y rounded-2xl bg-surface">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between gap-4 text-[15px]">
@@ -409,4 +411,33 @@ function Confirm({ title, body, action, onConfirm, children }: { title: string; 
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+/** Account-scoped; does not stop World Order or change existing messages. */
+function TessBackgroundPauseRow() {
+  const load = useServerFn(tessBackgroundStatus);
+  const change = useServerFn(setTessBackgroundPaused);
+  const status = useQuery({ queryKey: ["tess-background-paused"], queryFn: () => load() });
+  const [saving, setSaving] = useState(false);
+  async function toggle(paused: boolean) {
+    setSaving(true);
+    try {
+      const value = await change({ data: { paused } });
+      await status.refetch();
+      toast.success(value.paused ? "AI Town background updates paused" : "AI Town background updates resumed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not change background updates");
+    } finally { setSaving(false); }
+  }
+  return <div className="rounded-xl border p-4">
+    <div className="flex items-center justify-between gap-4">
+      <div><p className="text-[15px] font-semibold">Pause AI Town background updates</p>
+        <p className="mt-1 text-xs text-muted-foreground">Prevents Tess and the other AI Town contacts from starting background chats, calls, photos and simulated events while you are away. Existing messages are kept. World Order is unaffected.</p>
+      </div>
+      <Switch aria-label="Pause AI Town background updates" checked={status.data?.paused === true}
+        disabled={status.isLoading || saving || status.isError}
+        onCheckedChange={v => void toggle(v)} />
+    </div>
+    <p className="mt-2 text-xs text-muted-foreground">{status.isError ? "Could not load setting" : status.data?.paused ? "Paused for this account" : "Background updates enabled"}</p>
+  </div>;
 }
