@@ -781,7 +781,7 @@ function WorldOrder() {
             <p className="mt-1 text-xs text-slate-300">{save.globalPower.strategy==="private"?"Private. No one knows you have ambitions beyond your public political work.":"Public. You have announced a wider international ambition and foreign leaders can respond."}</p>
             {save.globalPower.strategy==="private" ? <button onClick={()=>takeNationalAction({type:"strategy",mode:"disclosed"})} className="mt-3 rounded-full border border-amber-300/70 px-4 py-2 text-xs text-amber-200">Reveal ambition publicly (permanent)</button> : <p className="mt-2 text-xs text-amber-200">This public declaration is now part of the world’s history.</p>}
             <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-amber-300">Diplomatic relationships</p>
-            <div className="mt-2 space-y-3">{(Object.entries(FOREIGN_LEADERS) as [ForeignCountry,typeof FOREIGN_LEADERS[ForeignCountry]][]).map(([country,leader])=>{
+            <div className="mt-2 space-y-3">{(Object.entries(FOREIGN_LEADERS) as [keyof typeof FOREIGN_LEADERS,(typeof FOREIGN_LEADERS)[keyof typeof FOREIGN_LEADERS]][]).map(([country,leader])=>{
               const rel=save.globalPower.relations[country];
               return <div key={country} className="rounded-xl border border-slate-700 bg-[#0c1524] p-3">
                 <div className="flex justify-between gap-2"><div><p className="text-sm font-semibold">{country}</p><p className="text-xs text-slate-400">{leader.name} · {rel.status}</p></div><p className="text-xs text-amber-200">Trust {rel.trust}</p></div>
