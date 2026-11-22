@@ -277,7 +277,7 @@ function WorldOrder() {
           <div className="min-w-0">
             <Link to="/" className="mb-2 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-slate-400"><ArrowLeft size={13}/> Back to AI Town</Link>
             <h1 className="font-display text-3xl leading-none tracking-tight text-amber-200 sm:text-4xl">WORLD ORDER</h1>
-            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[.2em] text-slate-400">The Accidental King · Fictional world</p>
+            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[.2em] text-slate-400">The Accidental King</p>
           </div>
           <div className="shrink-0 rounded-2xl border border-slate-700 bg-[#162137] px-4 py-2 text-center">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Game day</p>
