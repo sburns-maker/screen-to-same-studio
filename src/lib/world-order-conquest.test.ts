@@ -99,7 +99,7 @@ describe("World Order multi-stage world expansion",()=>{
    // Strong investment progress paired with political resistance deliberately prevents a deal.
    const current=world.campaigns.find(c=>c.id===id)!;
    world={...world,campaigns:world.campaigns.map(c=>c.id===id?{...c,resistance:85,progress:100}:c)};
-   const result=campaignMove(world,id,"pressure",day,moveCtx)!;
+   const result=campaignMove(world,id,"persuade",day,moveCtx)!;
    world=result.state;
    expect(result.state.campaigns.find(c=>c.id===id)!.progress).toBe(100);
   }
