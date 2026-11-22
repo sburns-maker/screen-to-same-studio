@@ -1,7 +1,7 @@
 export type BackstageTurn={ speaker:"player"|"Sabrina"|"security"|"staff"; text:string };
-export type BackstageScene={ status:"open"|"finished"; turns:BackstageTurn[] };
+export type BackstageScene={ status:"open"|"finished"; turns:BackstageTurn[]; continuity?:LiveSceneContinuity };
 export function openBackstageScene():BackstageScene {
- return {status:"open",turns:[{
+ return {status:"open",continuity:{location:"backstage",establishedFacts:["The initial concert attacker was detained. Sabrina survived the first rescue."]},turns:[{
   speaker:"Sabrina",
   text:"The dressing-room door closes behind you. Sabrina sits on the edge of the couch, still shaking. A security guard confirms the attacker has been detained. She looks up at you. \"You stayed. Are you okay? I don't even know your name.\"",
  }]};
@@ -11,7 +11,8 @@ export function restoreBackstageScene(value:unknown,rescued:boolean,interviewFin
   const scene=value as Partial<BackstageScene>;
   if(scene.status==="open"||scene.status==="finished"){
    const turns=Array.isArray(scene.turns)?scene.turns.filter(t=>t && ["player","Sabrina","security","staff"].includes(t.speaker) && typeof t.text==="string").slice(-40):[];
-   return {status:scene.status,turns:turns.length?turns:openBackstageScene().turns};
+   const known=scene.continuity && typeof scene.continuity==="object" && Array.isArray(scene.continuity.establishedFacts) && ["backstage","in vehicle","Havana streets / military checkpoint","military airfield"].includes(scene.continuity.location) ? scene.continuity : undefined;
+   return {status:scene.status,turns:turns.length?turns:openBackstageScene().turns,continuity:known??deriveLiveSceneContinuity(turns)};
   }
  }
  // Upgrade a fresh Day-2 save without resetting reactions or existing DMs.
@@ -19,7 +20,8 @@ export function restoreBackstageScene(value:unknown,rescued:boolean,interviewFin
 }
 export function appendBackstageTurn(scene:BackstageScene,speaker:BackstageTurn["speaker"],text:string):BackstageScene {
  if(scene.status!=="open"||!text.trim())return scene;
- return {...scene,turns:[...scene.turns,{speaker,text:text.trim().slice(0,900)}].slice(-40)};
+ const continuity=speaker==="player"?deriveLiveSceneContinuity([],text,scene.continuity??deriveLiveSceneContinuity(scene.turns)):scene.continuity;
+ return {...scene,turns:[...scene.turns,{speaker,text:text.trim().slice(0,900)}].slice(-40),continuity};
 }
 export function finishBackstageScene(scene:BackstageScene):BackstageScene {
  return {...scene,status:"finished"};
@@ -31,10 +33,10 @@ export function finishBackstageScene(scene:BackstageScene):BackstageScene {
  */
 export type LiveSceneLocation="backstage"|"in vehicle"|"Havana streets / military checkpoint"|"military airfield";
 export type LiveSceneContinuity={location:LiveSceneLocation; establishedFacts:string[]};
-export function deriveLiveSceneContinuity(turns:BackstageTurn[],nextAction:string=""):LiveSceneContinuity {
- let location:LiveSceneLocation="backstage";
- const facts=new Set<string>(["The initial concert attacker was detained. Sabrina survived the first rescue."]);
- const actions=[...turns.filter(t=>t.speaker==="player").map(t=>t.text),nextAction];
+export function deriveLiveSceneContinuity(turns:BackstageTurn[],nextAction:string="",baseline?:LiveSceneContinuity):LiveSceneContinuity {
+ let location:LiveSceneLocation=baseline?.location??"backstage";
+ const facts=new Set<string>(baseline?.establishedFacts??["The initial concert attacker was detained. Sabrina survived the first rescue."]);
+ const actions=baseline?[nextAction]:[...turns.filter(t=>t.speaker==="player").map(t=>t.text),nextAction];
  for(const action of actions){
   if(!action)continue;
   if(/\b(?:Havana|Cuba)\b/i.test(action))facts.add("The concert and subsequent events take place in Havana, Cuba.");
