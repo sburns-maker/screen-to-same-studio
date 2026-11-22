@@ -46,6 +46,16 @@ Updated 2026-11-21 (interactive rescue and UI overhaul). This file describes Wor
 - The initial Director does not make paid AI calls; character dialogue still uses the existing authenticated server AI endpoint.
 - These are initial prototype mechanics, not yet the eventual large-scale AI autonomous world simulation.
 
+## Active Cuba campaign gameplay (post-opening)
+- Selecting the reform, investment, or diplomacy route must begin a playable scene immediately. The game must never dead-end at a static summary and an "advance one day" button.
+- `src/lib/world-order-campaign.ts` provides three distinct initial interactive encounters per route, with character dialogue, choices, concrete support/stability/influence/trust changes, recorded decisions and subsequent rounds.
+- Active characters include Elena Valdés, Sofía Reyes, Rafael Morales, Lucía Herrera, Daniel Mercer and Nora Wells, alongside Sabrina and Maya. These people should remain independently motivated and may disagree with the player.
+- `src/lib/world-order.functions.ts` supports freeform campaign dialogue: the AI narrates the player's own words, classifies the approach into permitted consequences, and never directly grants territory, treaties, elections or political office.
+- The current campaign UI surfaces the next mission in both Feed and Story, offers a direct link to DM key figures, and displays relationships on the World dashboard. Major political choices advance one day and appear in world history; ordinary DMs do not.
+- Existing browser saves at Days 4–7 and later must migrate seamlessly into the first available campaign mission, without erasing the rescue, DMs or political route.
+- Do not generate repetitive WorldWire filler for each day skip. Relevant character posts and missions drive story.
+- **Scope:** this is a stronger scripted/deterministic playable campaign loop with freeform AI narration, not yet a full autonomous long-term government/conquest simulator. Leadership elections, actual country control, dynamic story director, durable DB persistence and cross-world history remain engineering work.
+
 ## Memory invariants
 - Persist a world-scoped canonical event ledger including day, actor, subjects, public/private scope, provenance, and idempotency key.
 - Important anchors (marriage, pregnancy, childbirth, election results, ownership, office appointments) are durable structured state, never inferred solely from AI text or overwritten silently.
