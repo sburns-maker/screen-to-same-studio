@@ -237,7 +237,7 @@ function WorldOrder() {
     if(!ready||!scene||scene.status!=="open"||!action||action.length>700||backstageBusy)return;
     setBackstageBusy(true);setBackstageError("");
     try {
-      const result=await narrateBackstage({data:{action,history:scene.turns.slice(-40)}});
+      const result=await narrateBackstage({data:{action,history:scene.turns.slice(-40),sceneContinuity:scene.continuity??deriveLiveSceneContinuity(scene.turns)}});
       mutate(s=>{
         if(s.backstage?.status!=="open")return s;
         const withPlayer=appendBackstageTurn(s.backstage,"player",action);
@@ -257,7 +257,7 @@ function WorldOrder() {
       return {...s,backstage:scene,
         memories:personal?[...s.memories.filter(m=>m.key!=="Sabrina:backstage-conversation"),
           {key:"Sabrina:backstage-conversation",summary:personal,visibility:"private" as const}].slice(-60):s.memories,
-        events:[...s.events,"Day "+s.day+": You and Sabrina completed a live scene; final location: "+deriveLiveSceneContinuity(scene.turns).location+"."].slice(-100),
+        events:[...s.events,"Day "+s.day+": You and Sabrina completed a live scene; final location: "+(scene.continuity??deriveLiveSceneContinuity(scene.turns)).location+"."].slice(-100),
       };
     });
   }
@@ -590,7 +590,7 @@ function WorldOrder() {
     mutate(s => advance(s, "Time passes. Unresolved decisions remain on the table.", "pass_day"));
     if (save.chapter === "cuba" && save.route !== "undecided") setTab("activities");
   }
-  const liveSceneLocation = save.backstage?.status==="open" ? deriveLiveSceneContinuity(save.backstage.turns).location : "backstage";
+  const liveSceneLocation = save.backstage?.status==="open" ? (save.backstage.continuity??deriveLiveSceneContinuity(save.backstage.turns)).location : "backstage";
   const activity = save.chapter === "rescue" ? "The concert" : save.chapter === "interview" ? save.backstage?.status==="open" ? "With Sabrina · "+liveSceneLocation : "The televised interview" : save.route === "undecided" ? "The Cuban crossroads" : "The next confrontation";
   const empire = empireTotals(save.conquest);
   const campaignScene = save.chapter === "cuba" && save.route !== "undecided" ? currentCampaignScene(save.route, save.campaign) : null;
